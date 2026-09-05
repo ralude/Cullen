@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.15: Perfil Jefe de cajas
 
 - **Sub-fase:** [9B.15 Perfil Jefe de cajas](./9b.15-perfil-supervisor.md)
-- **Estado del plan:** Listo después del primer corte de 9B.12; 9B.06 se integra después
+- **Estado del plan:** Bloqueado hasta volver a cerrar 9B.06 y completar 9B.12
 - **Base:** [ADR-0015](../../architecture/adr/0015-permisos-efectivos-en-la-sesion.md) y
   [plan 9B.12](./plan-9b.12-arqueos-y-autorizaciones.md)
 - **Disciplina:** Outside-in TDD (ADR-0007) y Ponytail `full`
@@ -56,4 +56,3 @@ sensibles autorizadas, sin duplicar pantallas ni reabrir turnos cerrados.
 - Asignación de cajas o estructura organizativa de supervisión.
 - Reapertura de turno, reversión de Z y fiscalidad real.
 - KPIs de gerencia y administración de identidad.
-

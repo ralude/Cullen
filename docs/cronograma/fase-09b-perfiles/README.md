@@ -25,17 +25,17 @@ Esta fase consume los permisos que la sesión declara y no administra identidad.
 ### Capacidades de negocio
 
 - [~~9B.03 Proveedores~~](./9b.03-proveedores.md)
-- [~~9B.04 Costo de compra y margen~~](./9b.04-costo-y-margen.md)
+- [9B.04 Costo de compra y margen](./9b.04-costo-y-margen.md) — **reabierta por auditoría**
 - [~~9B.05 Clientes e identificación fiscal~~](./9b.05-clientes.md) — snapshot opcional
-- [~~9B.06 Devoluciones y notas de crédito~~](./9b.06-devoluciones.md) — alcance mínimo fake
-- [~~9B.07 Conteos físicos~~](./9b.07-conteos-fisicos.md)
+- [9B.06 Devoluciones y notas de crédito](./9b.06-devoluciones.md) — **reabierta por prueba roja**
+- [9B.07 Conteos físicos](./9b.07-conteos-fisicos.md) — **reabierta por auditoría**
 - [9B.08 Transferencias de existencia](./9b.08-transferencias.md) — **diferida**
 - [9B.09 Usuarios, roles y permisos](./9b.09-usuarios-y-roles.md) — **retirada**, trasladada a
   [11.02](../fase-11-seguridad/11.02-roles-permisos.md)
-- [9B.10 Configuración operativa](./9b.10-configuracion-operativa.md) — lista, alcance recortado
-- [~~9B.11 Sucursales y dispositivos~~](./9b.11-sucursales-y-dispositivos.md)
-- [9B.12 Arqueos y autorizaciones](./9b.12-arqueos-y-autorizaciones.md) — sin reapertura
-- [9B.13 KPIs de gerencia](./9b.13-kpis-de-gerencia.md) — incremental
+- [9B.10 Configuración operativa](./9b.10-configuracion-operativa.md) — tras gate, alcance recortado
+- [9B.11 Sucursales y dispositivos](./9b.11-sucursales-y-dispositivos.md) — **reabierta por auditoría**
+- [9B.12 Arqueos y autorizaciones](./9b.12-arqueos-y-autorizaciones.md) — **bloqueada por decisiones**
+- [9B.13 KPIs de gerencia](./9b.13-kpis-de-gerencia.md) — **bloqueada por correcciones**
 
 ### Perfiles
 
@@ -43,8 +43,7 @@ Esta fase consume los permisos que la sesión declara y no administra identidad.
 - [9B.15 Perfil Jefe de cajas](./9b.15-perfil-supervisor.md) — composición incremental
 - [9B.16 Perfil Inventario](./9b.16-perfil-inventario.md) — sin transferencias
 - [9B.17 Perfil Administrador](./9b.17-perfil-administrador.md) — composición incremental
-- [9B.18 Perfil Gerencia](./9b.18-perfil-gerencia.md) — composición incremental con el margen
-  de 9B.04 ya disponible
+- [9B.18 Perfil Gerencia](./9b.18-perfil-gerencia.md) — después de corregir 9B.13
 
 ## Planes de ejecución
 
@@ -52,14 +51,18 @@ Todas las sub-fases activas tienen un plan. Los planes completados se conservan 
 de ejecución; los pendientes fijan línea base, fronteras, secuencia outside-in, criterios y
 fuera de alcance.
 
+El [plan correctivo de la auditoría del 2026-09-05](./plan-correcciones-auditoria-9b.md) es un
+gate bloqueante. Ninguna capacidad nueva ni perfil continúa hasta restaurar la suite y cerrar
+sus cortes en el orden documentado.
+
 - Fundación y capacidades completadas: [9B.00](./plan-9b.00-permisos-en-sesion.md),
   [9B.01](./plan-9b.01-reestructuracion-renderer.md),
   [9B.02](./plan-9b.02-datos-maestros-seleccionables.md),
-  [9B.03](./plan-9b.03-proveedores.md), [9B.04](./plan-9b.04-costo-y-margen.md),
-  [9B.05](./plan-9b.05-clientes.md), [9B.07](./plan-9b.07-conteos-fisicos.md) y
+  [9B.03](./plan-9b.03-proveedores.md) y [9B.05](./plan-9b.05-clientes.md).
+- Capacidades reabiertas por el gate correctivo: [9B.04](./plan-9b.04-costo-y-margen.md),
+  [9B.06](./plan-9b.06-devoluciones.md), [9B.07](./plan-9b.07-conteos-fisicos.md) y
   [9B.11](./plan-9b.11-sucursales-y-dispositivos.md).
-- Capacidades listas: [~~9B.06~~](./plan-9b.06-devoluciones.md),
-  [9B.10](./plan-9b.10-configuracion-operativa.md),
+- Capacidades listas después del gate: [9B.10](./plan-9b.10-configuracion-operativa.md),
   [9B.12](./plan-9b.12-arqueos-y-autorizaciones.md) y
   [9B.13](./plan-9b.13-kpis-de-gerencia.md).
 - Perfiles: [9B.14](./plan-9b.14-perfil-cajero.md),
@@ -83,11 +86,14 @@ genéricas. Mientras la Fase 8 esté suspendida, toda capacidad fiscal se rotula
 
 ## Orden de implementación
 
-1. Completar las capacidades listas: 9B.06, 9B.10 y 9B.12.
-2. Construir 9B.13 con ventas e inventario; el margen de 9B.04 ya está disponible.
-3. Ensamblar 9B.14–9B.18 según permisos y capacidades presentes. Una acción diferida se muestra
+1. Resolver las decisiones normativas y cerrar en orden los cortes 0–2 del plan correctivo:
+   suite, costo/recepciones y controles transversales.
+2. Volver a cerrar 9B.04, 9B.06, 9B.07 y 9B.11, y completar 9B.10 sobre el módulo `config`
+   existente, únicamente con sus pruebas verdes.
+3. Cerrar el corte 3 junto con 9B.12 y el corte 4 junto con 9B.13.
+4. Ensamblar 9B.14–9B.18 según permisos y capacidades presentes. Una acción diferida se muestra
    como no disponible y no se ofrece como capacidad vigente.
-4. Mantener 9B.08 diferida hasta que exista un caso de uso multi-almacén aprobado.
+5. Mantener 9B.08 diferida hasta que exista un caso de uso multi-almacén aprobado.
 
 ## Restricciones
 

@@ -36,6 +36,7 @@ const toPurchaseReceiptLineDto = (line: PurchaseReceiptLine): PurchaseReceiptLin
 
 export const toPurchaseReceiptDto = (receipt: PurchaseReceipt): PurchaseReceiptDto => ({
   id: receipt.id,
+  originNodeId: receipt.originNodeId,
   supplierId: receipt.supplierId,
   status: receipt.status,
   sourceDocument: {
@@ -107,8 +108,11 @@ export class StartPurchaseReceipt {
           if (!supplier) return err(new ApplicationError('SUPPLIER_NOT_FOUND', 'Supplier was not found.'));
 
           const lines: PurchaseReceiptLine[] = [];
+          const resolvedItems = new Map<string, StockItem>();
+          const plannedBatches = new Map<string, { id: string; lotNumber: string; expiresAt: Date | null }>();
           for (const lineInput of input.lines) {
-            let item: StockItem | null = await this.stockItemRepository.findByProductId(lineInput.productId);
+            let item: StockItem | null = resolvedItems.get(lineInput.productId)
+              ?? await this.stockItemRepository.findByProductId(lineInput.productId);
             if (item === null) {
               const product = await this.productRepository.findById(lineInput.productId);
               if (!product) return err(new ApplicationError('PRODUCT_NOT_FOUND', 'Product was not found in the catalog.'));
@@ -117,27 +121,31 @@ export class StartPurchaseReceipt {
                 unitCode: product.unitOfMeasure.code, quantityScale: product.unitOfMeasure.quantityScale,
                 tracksBatches: lineInput.lot !== undefined
               });
-              await this.stockItemRepository.save(item);
             }
+            resolvedItems.set(lineInput.productId, item);
             let batchId: string | null = null;
+            let batchLotNumber: string | null = null;
+            let batchExpiresAt: Date | null = null;
             if (item.tracksBatches) {
               if (!lineInput.lot) return err(new ApplicationError('STOCK_BATCH_REQUIRED', 'A lot is required for this receipt line.'));
               const lotNumber = lineInput.lot.lotNumber.trim().toUpperCase();
-              let batch = item.batches.find((candidate) => candidate.lotNumber === lotNumber) ?? null;
-              if (!batch) {
-                batch = item.registerBatch({
-                  id: this.batchIdGenerator.generate(), lotNumber,
-                  ...(lineInput.lot.expiresAt ? { expiresAt: lineInput.lot.expiresAt } : {})
-                });
-                await this.stockItemRepository.save(item);
-              }
+              const plannedKey = `${item.id}:${lotNumber}`;
+              const existing = item.batches.find((candidate) => candidate.lotNumber === lotNumber) ?? null;
+              const planned = plannedBatches.get(plannedKey);
+              const batch = existing ?? planned ?? {
+                id: this.batchIdGenerator.generate(), lotNumber,
+                expiresAt: lineInput.lot.expiresAt ? new Date(lineInput.lot.expiresAt) : null
+              };
+              plannedBatches.set(plannedKey, batch);
               batchId = batch.id;
+              batchLotNumber = batch.lotNumber;
+              batchExpiresAt = batch.expiresAt;
             } else if (lineInput.lot) {
               return err(new ApplicationError('STOCK_BATCH_NOT_ACCEPTED', 'This stock item does not accept a lot.'));
             }
 
             const purchaseUnitCost = Money.fromMinorUnits(lineInput.purchaseUnitCostMinorUnits, lineInput.purchaseCurrency);
-            const valuationCurrency = item.averageUnitCost?.currency ?? lineInput.purchaseCurrency;
+            const valuationCurrency = item.valuationCurrency ?? lineInput.purchaseCurrency;
             let valuationUnitCost = purchaseUnitCost;
             let exchangeRate: ExchangeRate | null = null;
             if (valuationCurrency !== lineInput.purchaseCurrency) {
@@ -160,7 +168,9 @@ export class StartPurchaseReceipt {
 
             lines.push({
               id: this.lineIdGenerator.generate(), productId: lineInput.productId, stockItemId: item.id,
+              unitCode: item.unitCode, tracksBatches: item.tracksBatches,
               quantity: Quantity.fromDecimal(lineInput.quantity, item.quantityScale), batchId,
+              batchLotNumber, batchExpiresAt,
               purchaseUnitCost, valuationUnitCost, exchangeRate
             });
           }
@@ -177,7 +187,8 @@ export class StartPurchaseReceipt {
               series: input.sourceDocument.series ?? null, controlNumber: input.sourceDocument.controlNumber ?? null,
               issuedAt: input.sourceDocument.issuedAt ?? null
             },
-            effectiveAt: input.effectiveAt, createdBy: context.actorId, createdAt: now,
+            effectiveAt: input.effectiveAt, createdBy: context.actorId,
+            originNodeId: context.originNodeId, createdAt: now,
             replacesReceiptId: input.replacesReceiptId ?? null, lines
           });
           await this.receiptRepository.save(receipt);
@@ -235,6 +246,9 @@ export class CompletePurchaseReceipt {
         execute: async () => {
           const receipt = await this.receiptRepository.findById(input.receiptId);
           if (!receipt) return err(new ApplicationError('PURCHASE_RECEIPT_NOT_FOUND', 'Purchase receipt was not found.'));
+          if (receipt.originNodeId !== context.originNodeId) {
+            return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Purchase receipt belongs to another node.'));
+          }
           const supplier = await this.supplierRepository.findById(receipt.supplierId);
           if (!supplier || supplier.status !== 'ACTIVE') {
             return err(new ApplicationError('SUPPLIER_NOT_ACTIVE', 'Supplier is not active for new receipts.'));
@@ -245,14 +259,36 @@ export class CompletePurchaseReceipt {
           if (duplicate && duplicate.id !== receipt.id) {
             return err(new ApplicationError('PURCHASE_RECEIPT_SOURCE_DUPLICATED', 'This source document was already received.'));
           }
+          if (receipt.sourceDocument.controlNumber !== null) {
+            const controlDuplicate = await this.receiptRepository.findCompletedByControlNumber(
+              receipt.supplierId, receipt.sourceDocument.controlNumber
+            );
+            if (controlDuplicate && controlDuplicate.id !== receipt.id) {
+              return err(new ApplicationError('PURCHASE_RECEIPT_SOURCE_DUPLICATED', 'This source document was already received.'));
+            }
+          }
 
           const before = toPurchaseReceiptDto(receipt);
           const items = new Map<string, StockItem>();
           const allEvents: DomainEventLike[] = [];
           for (const line of receipt.lines) {
-            const item = items.get(line.stockItemId) ?? await this.stockItemRepository.findById(line.stockItemId);
-            if (!item) return err(new ApplicationError('STOCK_ITEM_NOT_FOUND', 'Stock item was not found.'));
+            let item = items.get(line.stockItemId) ?? await this.stockItemRepository.findById(line.stockItemId);
+            if (!item) {
+              item = StockItem.create({
+                id: line.stockItemId, productId: line.productId, unitCode: line.unitCode,
+                quantityScale: line.quantity.scale, tracksBatches: line.tracksBatches
+              });
+            }
             items.set(line.stockItemId, item);
+            if (line.batchId !== null && !item.batches.some(({ id }) => id === line.batchId)) {
+              if (line.batchLotNumber === null) {
+                return err(new ApplicationError('STOCK_BATCH_NOT_FOUND', 'Receipt batch evidence is incomplete.'));
+              }
+              item.registerBatch({
+                id: line.batchId, lotNumber: line.batchLotNumber,
+                ...(line.batchExpiresAt === null ? {} : { expiresAt: line.batchExpiresAt })
+              });
+            }
             const beforeEventCount = item.domainEvents.length;
             item.registerMovement({
               id: this.movementIdGenerator.generate(), type: 'PURCHASE_RECEIPT', quantity: line.quantity,
@@ -324,6 +360,10 @@ export class ReversePurchaseReceipt {
         execute: async () => {
           const receipt = await this.receiptRepository.findById(input.receiptId);
           if (!receipt) return err(new ApplicationError('PURCHASE_RECEIPT_NOT_FOUND', 'Purchase receipt was not found.'));
+          if (receipt.originNodeId !== context.originNodeId) {
+            return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Purchase receipt belongs to another node.'));
+          }
+          receipt.assertCanReverse({ actorId: context.actorId, reason: input.reason, occurredAt: now });
           const before = toPurchaseReceiptDto(receipt);
           const items = new Map<string, StockItem>();
           const allEvents: DomainEventLike[] = [];
@@ -379,8 +419,14 @@ export class ReversePurchaseReceipt {
 }
 
 export class GetPurchaseReceipt {
-  constructor(private readonly repository: PurchaseReceiptRepository) {}
-  async execute(receiptId: string): Promise<Result<PurchaseReceiptDto, AppError>> {
+  constructor(
+    private readonly repository: PurchaseReceiptRepository,
+    private readonly authorization: AuthorizationService
+  ) {}
+  async execute(receiptId: string, context: ExecutionContext): Promise<Result<PurchaseReceiptDto, AppError>> {
+    if (!(await this.authorization.authorize(context, PURCHASE_RECEIPT_PERMISSIONS.READ))) {
+      return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to read purchase receipts.'));
+    }
     const receipt = await this.repository.findById(receiptId);
     return receipt ? ok(toPurchaseReceiptDto(receipt))
       : err(new ApplicationError('PURCHASE_RECEIPT_NOT_FOUND', 'Purchase receipt was not found.'));

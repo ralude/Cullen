@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.18: Perfil Gerencia
 
 - **Sub-fase:** [9B.18 Perfil Gerencia](./9b.18-perfil-gerencia.md)
-- **Estado del plan:** Listo después del primer corte de 9B.13
+- **Estado del plan:** Bloqueado hasta cerrar el corte correctivo de 9B.13
 - **Base:** [ADR-0013](../../architecture/adr/0013-reportes-operativos-de-lectura.md),
   [ADR-0015](../../architecture/adr/0015-permisos-efectivos-en-la-sesion.md) y
   [plan 9B.13](./plan-9b.13-kpis-de-gerencia.md)
@@ -10,14 +10,16 @@
 ## Resultado esperado
 
 Entregar una vista estrictamente de lectura con reportes y KPIs de ventas e inventario; costo
-y margen se incorporan al completar 9B.04. Ninguna acción de gerencia modifica agregados.
+y margen se incorporan después de corregir 9B.04 y 9B.13. Ninguna acción de gerencia modifica
+agregados.
 
 ## Línea base comprobada
 
 - La pantalla de reportes ya consulta cierres, auditoría y fiscalidad con permisos propios,
   límites y CSV local.
 - La navegación ya puede ocultar una pantalla cuando no existe ninguna lectura autorizada.
-- 9B.13 añadirá lecturas de ventas/inventario y, posteriormente, margen.
+- 9B.13 añadirá lecturas de ventas/inventario y corregirá el margen existente para netear
+  descuentos/devoluciones con período y cota SQL.
 - El renderer no dispone ni necesita una librería de dashboard para presentar números,
   períodos y listados.
 
@@ -38,7 +40,7 @@ y margen se incorporan al completar 9B.04. Ninguna acción de gerencia modifica 
 1. Componer reportes actuales y el primer corte de ventas/inventario de 9B.13.
 2. Probar acceso con cada permiso de lectura y ausencia total de comandos.
 3. Probar períodos vacíos, múltiples monedas, límite máximo y señal de resultado recortado.
-4. Integrar margen después de 9B.04 y devoluciones después de 9B.06 sin bloquear la vista base.
+4. Integrar margen y devoluciones solo después de volver a cerrar 9B.04, 9B.06 y 9B.13.
 5. Probar CSV desde los datos visibles, sin una segunda consulta.
 6. Verificar teclado, estados de carga/error y rótulo `SIMULACION` en información fiscal.
 7. Ejecutar verificaciones y actualizar cronograma.
@@ -58,4 +60,3 @@ y margen se incorporan al completar 9B.04. Ninguna acción de gerencia modifica 
 - Operación de caja, inventario, catálogo, devoluciones y configuración.
 - Metas, alertas, pronósticos y análisis ad hoc.
 - Consolidación multi-sucursal/nodo y optimización de Fases 10 y 12.
-

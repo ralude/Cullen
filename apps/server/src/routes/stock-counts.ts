@@ -108,8 +108,12 @@ export const registerStockCountRoutes = (
   app.get<{ Params: { stockCountId: string } }>(getStockCountContract.path, {
     schema: getStockCountContract.schema as FastifySchema
   }, async (request, reply) => {
-    if (!await requirePrincipal(request, reply, dependencies)) return;
-    const result = await dependencies.stockCounts.get.execute({ stockCountId: request.params.stockCountId });
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.stockCounts.get.execute(
+      { stockCountId: request.params.stockCountId },
+      createExecutionContext(request, principal, dependencies)
+    );
     return result.ok ? reply.send(stockCountResponse(result.value))
       : sendProblem(reply, request, result.error.code, result.error.message);
   });
@@ -117,8 +121,11 @@ export const registerStockCountRoutes = (
   app.get<{ Querystring: { status?: StockCountStatusResponse } }>(listStockCountsContract.path, {
     schema: listStockCountsContract.schema as FastifySchema
   }, async (request, reply) => {
-    if (!await requirePrincipal(request, reply, dependencies)) return;
-    const result = await dependencies.stockCounts.list.execute(request.query.status);
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.stockCounts.list.execute(
+      request.query.status, createExecutionContext(request, principal, dependencies)
+    );
     return result.ok
       ? reply.send(result.value.map(stockCountResponse))
       : sendProblem(reply, request, result.error.code, result.error.message);

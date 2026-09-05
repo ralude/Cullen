@@ -17,7 +17,9 @@ export class DrizzleStockCountRepository implements StockCountRepository {
   async save(count: StockCount): Promise<void> {
     requireTransaction(this.handle.sqlite);
     try {
-      const existing = this.handle.db.select({ version: stockCounts.version, status: stockCounts.status })
+      const existing = this.handle.db.select({
+        version: stockCounts.version, status: stockCounts.status, originNodeId: stockCounts.originNodeId
+      })
         .from(stockCounts).where(eq(stockCounts.id, count.id)).get();
       const values = {
         status: count.status,
@@ -31,11 +33,15 @@ export class DrizzleStockCountRepository implements StockCountRepository {
       };
       if (!existing) {
         this.handle.db.insert(stockCounts).values({
-          id: count.id, openedBy: count.openedBy, openedAt: count.openedAt, ...values
+          id: count.id, openedBy: count.openedBy, originNodeId: count.originNodeId,
+          openedAt: count.openedAt, ...values
         }).run();
       } else {
         if (existing.version !== count.version - 1) {
           throw new InfrastructureError('DATABASE_CONCURRENCY_CONFLICT', 'Stock count version is stale.');
+        }
+        if (existing.originNodeId !== count.originNodeId) {
+          throw new InfrastructureError('AGGREGATE_OWNER_MISMATCH', 'Stock count owner cannot change.');
         }
         const changed = this.handle.db.update(stockCounts).set(values).where(and(
           eq(stockCounts.id, count.id), eq(stockCounts.version, existing.version)
@@ -91,6 +97,15 @@ export class DrizzleStockCountRepository implements StockCountRepository {
     }
   }
 
+  async findOpen(): Promise<StockCount | null> {
+    try {
+      return this.restore(this.handle.db.select().from(stockCounts)
+        .where(eq(stockCounts.status, 'OPEN')).get());
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
   async findAll(status?: StockCountStatus): Promise<readonly StockCount[]> {
     try {
       const rows = status === undefined
@@ -104,6 +119,9 @@ export class DrizzleStockCountRepository implements StockCountRepository {
 
   private restore(row: typeof stockCounts.$inferSelect | undefined): StockCount | null {
     if (!row) return null;
+    if (row.originNodeId === null) {
+      throw new InfrastructureError('AGGREGATE_OWNER_UNRESOLVED', 'Stock count owner is unresolved.');
+    }
     const lineRows = this.handle.db.select().from(stockCountLines)
       .where(eq(stockCountLines.stockCountId, row.id)).all();
     const differenceRows = this.handle.db.select().from(stockCountDifferences)
@@ -114,7 +132,8 @@ export class DrizzleStockCountRepository implements StockCountRepository {
       countedScaled: difference.countedScaled, differenceScaled: difference.differenceScaled
     }));
     return StockCount.restore({
-      id: row.id, openedBy: row.openedBy, openedAt: row.openedAt, status: row.status as StockCountStatus,
+      id: row.id, openedBy: row.openedBy, originNodeId: row.originNodeId,
+      openedAt: row.openedAt, status: row.status as StockCountStatus,
       lines: lineRows.map((line) => StockCountLine.create({
         id: line.id, productId: line.productId, stockItemId: line.stockItemId,
         countedQuantity: Quantity.fromScaled(line.countedQuantityScaled, line.countedQuantityScale),

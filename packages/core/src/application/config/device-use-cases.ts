@@ -14,6 +14,7 @@ import { CONFIG_PERMISSIONS } from './permissions.js';
 export const toDeviceDto = (device: Device): DeviceDto => ({
   id: device.id,
   type: device.type,
+  originNodeId: device.originNodeId,
   identifier: device.identifier,
   terminalId: device.terminalId,
   branchId: device.branchId,
@@ -96,9 +97,12 @@ export class DeclareDevice extends DeviceCommand {
     return this.run('DeclareDevice', input, context, now, async () => {
       const device = Device.create({
         id: this.ids.generate(), type: input.type, identifier: input.identifier,
-        terminalId: input.terminalId, createdAt: now,
+        terminalId: input.terminalId, originNodeId: context.originNodeId, createdAt: now,
         ...(input.branchId ? { branchId: input.branchId } : {})
       });
+      if (await this.repository.findByIdentifier(device.identifier)) {
+        return err(new ApplicationError('DEVICE_IDENTIFIER_CONFLICT', 'Device identifier is already assigned.'));
+      }
       await this.repository.save(device);
       const dto = toDeviceDto(device);
       await audit(this.auditWriter, this.ids, context, 'DEVICE_DECLARED', device.id, null, dto, input.reason, now);
@@ -116,11 +120,18 @@ export class UpdateDevice extends DeviceCommand {
     return this.run('UpdateDevice', input, context, now, async () => {
       const loaded = await this.load(input.deviceId);
       if (!loaded.ok) return loaded;
+      if (loaded.value.originNodeId !== context.originNodeId) {
+        return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Device belongs to another node.'));
+      }
       const before = toDeviceDto(loaded.value);
       const changes: DeviceChanges = {};
       if (input.identifier !== undefined) changes.identifier = input.identifier;
       if (input.branchId !== undefined) changes.branchId = input.branchId;
       loaded.value.update(changes, now);
+      const duplicate = await this.repository.findByIdentifier(loaded.value.identifier);
+      if (duplicate && duplicate.id !== loaded.value.id) {
+        return err(new ApplicationError('DEVICE_IDENTIFIER_CONFLICT', 'Device identifier is already assigned.'));
+      }
       await this.repository.save(loaded.value);
       const dto = toDeviceDto(loaded.value);
       await audit(this.auditWriter, this.ids, context, 'DEVICE_UPDATED', loaded.value.id, before, dto, input.reason, now);
@@ -138,6 +149,9 @@ export class ChangeDeviceStatus extends DeviceCommand {
     return this.run('ChangeDeviceStatus', input, context, now, async () => {
       const loaded = await this.load(input.deviceId);
       if (!loaded.ok) return loaded;
+      if (loaded.value.originNodeId !== context.originNodeId) {
+        return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Device belongs to another node.'));
+      }
       const before = toDeviceDto(loaded.value);
       loaded.value.changeStatus(input.status, now);
       await this.repository.save(loaded.value);
@@ -149,10 +163,17 @@ export class ChangeDeviceStatus extends DeviceCommand {
 }
 
 export class ListDevices {
-  constructor(private readonly repository: DeviceRepository) {}
+  constructor(
+    private readonly repository: DeviceRepository,
+    private readonly authorization: AuthorizationService
+  ) {}
   async execute(
-    filter: { readonly terminalId?: string; readonly status?: DeviceStatus } = {}
+    filter: { readonly terminalId?: string; readonly status?: DeviceStatus },
+    context: ExecutionContext
   ): Promise<Result<readonly DeviceDto[], AppError>> {
+    if (!await this.authorization.authorize(context, CONFIG_PERMISSIONS.MANAGE_DEVICE)) {
+      return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to list devices.'));
+    }
     return ok((await this.repository.findAll(filter)).map(toDeviceDto));
   }
 }

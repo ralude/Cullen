@@ -5,7 +5,7 @@ describe('Branch', () => {
   it('normalizes the code, starts ACTIVE and updates its name with a new version', () => {
     const branch = Branch.create({
       id: 'branch-1', code: ' ccs-centro ', name: 'Sucursal Centro',
-      createdAt: new Date('2026-09-05T12:00:00Z')
+      originNodeId: 'node-1', createdAt: new Date('2026-09-05T12:00:00Z')
     });
 
     expect(branch.code).toBe('CCS-CENTRO');
@@ -21,11 +21,11 @@ describe('Branch', () => {
   it('rejects an invalid code and an empty update', () => {
     expect(() => Branch.create({
       id: 'branch-1', code: 'ccs centro!', name: 'Sucursal',
-      createdAt: new Date('2026-09-05T12:00:00Z')
+      originNodeId: 'node-1', createdAt: new Date('2026-09-05T12:00:00Z')
     })).toThrowError(expect.objectContaining({ code: 'BRANCH_CODE_INVALID' }));
 
     const branch = Branch.create({
-      id: 'branch-1', code: 'CCS', name: 'Sucursal', createdAt: new Date('2026-09-05T12:00:00Z')
+      id: 'branch-1', code: 'CCS', name: 'Sucursal', originNodeId: 'node-1', createdAt: new Date('2026-09-05T12:00:00Z')
     });
     expect(() => branch.update({}, new Date('2026-09-05T13:00:00Z')))
       .toThrowError(expect.objectContaining({ code: 'BRANCH_UPDATE_REQUIRED' }));
@@ -33,12 +33,13 @@ describe('Branch', () => {
 
   it('changes status without physical deletion and rehydrates its state', () => {
     const branch = Branch.create({
-      id: 'branch-1', code: 'CCS', name: 'Sucursal', createdAt: new Date('2026-09-05T12:00:00Z')
+      id: 'branch-1', code: 'CCS', name: 'Sucursal', originNodeId: 'node-1', createdAt: new Date('2026-09-05T12:00:00Z')
     });
     branch.changeStatus('INACTIVE', new Date('2026-09-05T13:00:00Z'));
 
     const restored = Branch.restore({
-      id: branch.id, code: branch.code, name: branch.name, status: branch.status,
+      id: branch.id, code: branch.code, name: branch.name, originNodeId: branch.originNodeId,
+      status: branch.status,
       createdAt: branch.createdAt, updatedAt: branch.updatedAt, version: branch.version
     });
 

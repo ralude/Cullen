@@ -47,7 +47,9 @@ describe('reports screen over simulated HTTP transport', () => {
       }]),
       '/api/v1/reports/fiscal-operations': () => json({ fiscalMode: 'SIMULATION', operations: [] }),
       '/api/v1/reports/margin': () => json([{
-        productId: 'product-1', currencyCode: 'USD', quantitySoldScaled: 4, quantityScale: 0,
+        productId: 'product-1', currencyCode: 'USD', quantitySoldScaled: 4,
+        quantityReturnedScaled: 0, quantityScale: 0, discountMinorUnits: 0,
+        returnRevenueMinorUnits: 0, returnCostMinorUnits: 0,
         revenueMinorUnits: 600, costMinorUnits: 400, marginMinorUnits: 200
       }])
     });

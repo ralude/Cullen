@@ -30,6 +30,11 @@ class FakePurchaseReceipts implements PurchaseReceiptRepository {
     receipt.status === 'COMPLETED' && receipt.supplierId === supplierId &&
     receipt.sourceDocument.type === type && (receipt.sourceDocument.series ?? '') === (series ?? '') &&
     receipt.sourceDocument.number.toUpperCase() === number.toUpperCase()) ?? null;
+  findCompletedByControlNumber = async (
+    supplierId: string, controlNumber: string
+  ): Promise<PurchaseReceipt | null> => [...this.values.values()].find((receipt) =>
+    receipt.status === 'COMPLETED' && receipt.supplierId === supplierId &&
+    receipt.sourceDocument.controlNumber?.toUpperCase() === controlNumber.toUpperCase()) ?? null;
 }
 
 const supplierFixture = (status: SupplierStatus = 'ACTIVE'): Supplier => Supplier.create({
@@ -132,6 +137,7 @@ describe('purchase receipt use cases', () => {
       lines: [{ productId: 'product-001', quantity: '10', purchaseUnitCostMinorUnits: 100, purchaseCurrency: 'USD' }]
     }, context);
     expect(draft).toMatchObject({ ok: true, value: { status: 'DRAFT', id: 'receipt-1' } });
+    expect(stockItems.values.size).toBe(0);
 
     const completed = await complete.execute({ receiptId: 'receipt-1', reason: 'Recepción confirmada' }, context);
     expect(completed).toMatchObject({ ok: true, value: { status: 'COMPLETED' } });
@@ -167,6 +173,30 @@ describe('purchase receipt use cases', () => {
       lines: [{ productId: 'product-001', quantity: '1', purchaseUnitCostMinorUnits: 100, purchaseCurrency: 'USD' }]
     }, context);
     expect(noAddress).toMatchObject({ ok: false, error: { code: 'PURCHASE_RECEIPT_FISCAL_ADDRESS_REQUIRED' } });
+  });
+
+  it('returns the stable duplicate-source error for a repeated control number', async () => {
+    const receipts = new FakePurchaseReceipts();
+    const suppliers = new FakeSuppliers();
+    const stockItems = new FakeStockItems();
+    const start = startService({ receipts, suppliers, stockItems });
+    const complete = new CompletePurchaseReceipt(
+      receipts, suppliers, stockItems, allow(PURCHASE_RECEIPT_PERMISSIONS.COMPLETE),
+      sequence('movement'), sequence('event'), sequence('audit'), clock, unitOfWork,
+      eventStore([]), auditWriter([])
+    );
+    for (const number of ['FAC-020', 'FAC-021']) {
+      await start.execute({
+        supplierId: 'supplier-001', reason: 'Compra',
+        sourceDocument: { type: 'INVOICE', number, controlNumber: '00-000123' },
+        effectiveAt: new Date('2026-09-04T09:00:00Z'),
+        lines: [{ productId: 'product-001', quantity: '1', purchaseUnitCostMinorUnits: 100, purchaseCurrency: 'USD' }]
+      }, context);
+    }
+
+    expect((await complete.execute({ receiptId: 'receipt-1', reason: 'Recepción' }, context)).ok).toBe(true);
+    expect(await complete.execute({ receiptId: 'receipt-2', reason: 'Recepción' }, context))
+      .toMatchObject({ ok: false, error: { code: 'PURCHASE_RECEIPT_SOURCE_DUPLICATED' } });
   });
 
   it('rejects completing a receipt once its supplier is no longer active', async () => {
@@ -290,6 +320,10 @@ describe('purchase receipt use cases', () => {
     const item = stockItems.values.get('stock-1');
     expect(item?.balance.scaledValue).toBe(0);
     expect(item?.movements.at(-1)).toMatchObject({ type: 'ADJUSTMENT_OUT', unitCost: { minorUnits: 100 } });
+    const movementCount = item?.movements.length;
+    const repeated = await reverse.execute({ receiptId: 'receipt-1', reason: 'Otro intento' }, context);
+    expect(repeated).toMatchObject({ ok: false, error: { code: 'PURCHASE_RECEIPT_INVALID_STATE' } });
+    expect(item?.movements).toHaveLength(movementCount ?? 0);
 
     const overSold = new FakePurchaseReceipts();
     const overSoldStock = new FakeStockItems();

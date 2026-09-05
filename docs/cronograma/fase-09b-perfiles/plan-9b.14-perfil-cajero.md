@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.14: Perfil Cajero
 
 - **Sub-fase:** [9B.14 Perfil Cajero](./9b.14-perfil-cajero.md)
-- **Estado del plan:** Listo para composición incremental
+- **Estado del plan:** Bloqueado por el plan correctivo previo a perfiles
 - **Base:** [ADR-0015](../../architecture/adr/0015-permisos-efectivos-en-la-sesion.md)
 - **Disciplina:** Outside-in para comportamiento; los componentes puramente presentacionales
   no requieren TDD (ADR-0007). Ponytail `full`.
@@ -65,4 +65,3 @@ supervisión.
 - Administración de roles, personalización de layout y preferencias por operador.
 - Supervisión de varias cajas, devoluciones y reportes gerenciales.
 - Hardware real de scanner, balanza, gaveta o impresora fiscal.
-

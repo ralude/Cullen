@@ -16,14 +16,20 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 7 | Driver fiscal fake | ~~Completada~~ |
 | 8 | Integracion serial | Suspendida por dependencia externa |
 | 9 | UI | ~~Completada~~ |
-| 9B | Perfiles operativos | En progreso (9 de 18 sub-fases activas completadas) |
+| 9B | Perfiles operativos | En corrección (5 de 18 sub-fases activas completadas) |
 | 10 | Sincronizacion | Pendiente |
 | 11 | Seguridad | Pendiente (corte minimo pre-UI adelantado) |
 | 12 | Optimizacion | Pendiente |
 
 **Fase actual:** Fase 9B - Perfiles operativos y capacidades faltantes
-**Trabajo actual:** capacidades de referencia de la Fase 9B, según [ADR-0021](../architecture/adr/0021-mvp-referencia-no-certificado.md).
-9B.11 - Sucursales y dispositivos quedó **completada** el 2026-09-04, con alcance recortado
+**Trabajo actual:** gate previo a continuar, según el
+[plan correctivo de la auditoría del 2026-09-05](./fase-09b-perfiles/plan-correcciones-auditoria-9b.md).
+La auditoría reabrió 9B.04, 9B.06, 9B.07 y 9B.11, bloqueó 9B.12/9B.13 por decisiones y
+correcciones pendientes, y confirmó que la prueba contractual de devolución está roja antes
+de alcanzar `POST /return`. El avance de capacidades y perfiles queda detenido hasta cerrar el
+gate con la suite completa verde.
+
+9B.11 - Sucursales y dispositivos se marcó **completada** el 2026-09-04, con alcance recortado
 (ver más abajo). 9B.07 - Conteos físicos quedó **completada** el 2026-09-04. 9B.03 -
 Proveedores quedó **completada** el 2026-09-04. Su
 [plan](./fase-09b-perfiles/plan-9b.03-proveedores.md) detectó que el snapshot de una recepción
@@ -63,18 +69,20 @@ El mismo 2026-09-04 se corrigió una excepción arquitectónica que el ADR-0012 
 `OperationalPolicyWriter` (activación de las políticas versionadas de IGTF y descuento
 máximo) vivía solo en `packages/drivers/db`, sin puerto en `core/application`. Se movió el
 puerto a `core/application/ports` y `SqliteOperationalPolicyWriter` pasó a implementarlo; sin
-cambio de comportamiento, `pnpm test` completo sigue en verde. Esto deja lista la base para
+cambio de comportamiento, `pnpm test` completo quedó verde en ese corte. Esto dejó lista la base para
 que 9B.10 publique sus casos de uso de administración fiscal sin nueva cirugía.
 
-La Fase 9B ya no tiene un gate legal global. 9B.04, 9B.05 y 9B.10 avanzan con los
-defaults de referencia de ADR-0016, ADR-0018, ADR-0017 y ADR-0021; 9B.12 avanza con lecturas,
-arqueos e historia y deja la reapertura fuera del MVP. 9B.08 queda diferida por ADR-0020.
-Los perfiles 9B.14-9B.18 se ensamblan de forma incremental según las capacidades disponibles.
+La Fase 9B no tiene un gate legal global, pero desde el 2026-09-05 sí tiene un gate técnico
+correctivo. 9B.04, 9B.05 y 9B.10 usan los defaults de referencia de ADR-0016, ADR-0018,
+ADR-0017 y ADR-0021; 9B.12 queda acotada a lecturas, arqueos e historia, sin reapertura, y espera
+las decisiones del corte 3. 9B.08 queda diferida por ADR-0020. Los perfiles 9B.14-9B.18 se
+ensamblan solo después de cerrar el gate, según las capacidades disponibles.
 Todas las sub-fases activas de 9B tienen ahora un plan de ejecución enlazado desde el índice de
 la fase. 9B.08 conserva su plan de diferimiento y 9B.09 queda excluida por haber sido retirada.
 
 La fundación de 9B (9B.00 permisos efectivos, 9B.01 renderer y 9B.02 datos maestros) y las
-sub-fases 9B.03, 9B.06, 9B.07 y 9B.11 se completaron el 2026-09-04. 9B.06 dejó la devolución
+sub-fases 9B.03, 9B.06, 9B.07 y 9B.11 se marcaron completadas el 2026-09-04. La auditoría del
+2026-09-05 reabrió 9B.06, 9B.07 y 9B.11, además de 9B.04. 9B.06 dejó la devolución
 total simulada con restauración de inventario, reintegro en el turno, nota recuperable y
 auditoría, sin declarar cumplimiento fiscal. La Fase 9 cerró sus sub-fases y
 la Fase 8 permanece suspendida: su validación de hardware y cumplimiento solo es requisito del
@@ -241,6 +249,15 @@ piloto o la producción. La Fase 10 conserva sus cuatro sub-fases y no ha inicia
   9B.04-9B.06 y 9B.13-9B.18 fijan línea base comprobada, decisiones de frontera, orden
   outside-in, criterios verificables y fuera de alcance. 9B.08 mantiene su plan de
   diferimiento y 9B.09 no recibe plan porque su alcance fue trasladado íntegramente a 11.02.
+- El 2026-09-05 una auditoría técnica abrió un
+  [plan correctivo bloqueante](./fase-09b-perfiles/plan-correcciones-auditoria-9b.md). Reprodujo
+  el fallo contractual que impedía ejecutar la devolución y reabrió 9B.04, 9B.06, 9B.07 y
+  9B.11 por costo persistente, moneda de valoración, autorización, idempotencia, concurrencia,
+  unicidad y ownership. También corrigió la línea base y los criterios de 9B.10, 9B.12 y
+  9B.13: el módulo `config` y `reports.margin.read` ya existen; la historia debe incluir
+  devoluciones; y el margen debe netear descuentos/devoluciones con período y cota SQL. No se
+  inicia otra capacidad hasta cerrar las decisiones normativas, las pruebas observables y la
+  suite completa.
 - El 2026-09-04 se agregó la sub-fase correctiva 9.08 tras una auditoría de
   `apps/desktop`. Corrige el defecto reportado en la venta (barcode aceptado y
   pantalla en blanco), cuya causa raíz es del renderer: `Intl.NumberFormat` con

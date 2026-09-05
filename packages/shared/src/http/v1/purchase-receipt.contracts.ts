@@ -45,6 +45,7 @@ export type PurchaseReceiptLineResponse = {
 
 export type PurchaseReceiptResponse = {
   readonly id: string;
+  readonly originNodeId: string;
   readonly supplierId: string;
   readonly status: 'DRAFT' | 'COMPLETED' | 'REVERSED';
   readonly sourceDocument: {
@@ -95,11 +96,11 @@ const lineResponseSchema = {
 const receiptResponseSchema = {
   type: 'object', additionalProperties: false,
   required: [
-    'id', 'supplierId', 'status', 'sourceDocument', 'effectiveAt', 'createdBy', 'createdAt',
+    'id', 'originNodeId', 'supplierId', 'status', 'sourceDocument', 'effectiveAt', 'createdBy', 'createdAt',
     'completedAt', 'reversedAt', 'reversedBy', 'reversalReason', 'lines', 'version'
   ],
   properties: {
-    id: { type: 'string' }, supplierId: { type: 'string' },
+    id: { type: 'string' }, originNodeId: { type: 'string' }, supplierId: { type: 'string' },
     status: { type: 'string', enum: ['DRAFT', 'COMPLETED', 'REVERSED'] },
     sourceDocument: {
       type: 'object', additionalProperties: false,
@@ -222,7 +223,7 @@ export const reversePurchaseReceiptContract = {
 } as const satisfies HttpContractV1;
 
 export const getPurchaseReceiptContract = {
-  method: 'GET', path: '/api/v1/purchase-receipts/:receiptId', permission: null, idempotency: 'NONE',
+  method: 'GET', path: '/api/v1/purchase-receipts/:receiptId', permission: 'purchase_receipt.read', idempotency: 'NONE',
   schema: {
     params: receiptParams,
     response: { 200: receiptResponseSchema, 401: problemDetailsSchema, 404: problemDetailsSchema }

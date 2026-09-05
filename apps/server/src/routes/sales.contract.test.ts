@@ -10,7 +10,7 @@ import {
   StockItem,
   UnitOfMeasure
 } from '@supermarket/core';
-import { Money, Quantity, TaxRate, type StartSaleRequest } from '@supermarket/shared';
+import { Money, Quantity, TaxRate, type SaleResponse, type StartSaleRequest } from '@supermarket/shared';
 import {
   DrizzleCashRegisterRepository,
   DrizzleCategoryRepository,
@@ -182,13 +182,15 @@ describe('sales HTTP contracts', () => {
       headers: { cookie, 'idempotency-key': 'return-sale-start' },
       payload: { currencyCode: 'USD', shiftId: 'shift-001' }
     });
+    expect(started.statusCode).toBe(201);
     const saleId = started.json<{ id: string }>().id;
     const itemResponse = await app.inject({
       method: 'POST', url: `/api/v1/sales/${saleId}/items`,
       headers: { cookie, 'idempotency-key': 'return-sale-item' },
       payload: { barcode: '759000000001', quantityScaled: 1, quantityScale: 0 }
     });
-    const item = itemResponse.json<{ id: string; productId: string; description: string; quantityScaled: number; quantityScale: number; grossMinorUnits: number; taxMinorUnits: number; totalMinorUnits: number }>();
+    expect(itemResponse.statusCode).toBe(200);
+    const item = itemResponse.json<SaleResponse>().items[0]!;
     const paid = await app.inject({
       method: 'POST', url: `/api/v1/sales/${saleId}/payments`,
       headers: { cookie, 'idempotency-key': 'return-sale-payment' },
@@ -204,7 +206,7 @@ describe('sales HTTP contracts', () => {
     const stock = StockItem.create({ id: 'stock-return', productId: item.productId, unitCode: 'UNIT', quantityScale: 0, tracksBatches: false });
     stock.registerMovement({ id: 'return-purchase', type: 'PURCHASE_RECEIPT', quantity: Quantity.fromScaled(1, 0), actorId: 'seed-user', reason: 'Fixture', referenceId: 'receipt-return', occurredAt: new Date('2026-09-01T08:00:00.000Z'), eventId: 'return-purchase-event', unitCost: Money.fromMinorUnits(500, 'USD') });
     stock.registerMovement({ id: 'return-sale-issue', type: 'SALE_ISSUE', quantity: Quantity.fromScaled(1, 0), actorId: 'seed-user', reason: 'Fixture', referenceId: `event:${item.id}`, occurredAt: new Date('2026-09-01T08:00:00.000Z'), eventId: 'return-sale-issue-event', unitCost: Money.fromMinorUnits(500, 'USD') });
-    const completedBody = completed.json<{ currencyCode: string; totalMinorUnits: number; payments: readonly [{ methodCode: string; amountMinorUnits: number }] }>();
+    const completedBody = completed.json<SaleResponse>();
     const invoice = FiscalDocument.create({
       id: 'invoice-return', idempotencyKey: 'invoice-return-key', requestFingerprint: 'invoice-return-fingerprint',
       terminalId: 'terminal-001', originNodeId: 'node-001', createdBy: 'seed-user', createdAt: new Date('2026-09-01T08:00:00.000Z'), eventId: 'invoice-return-pending',

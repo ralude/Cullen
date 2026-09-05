@@ -267,8 +267,8 @@ export const createSecurityRuntime = (
         reject: new application.RejectStockCount(
           stockCountRepository, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
         ),
-        get: new application.GetStockCount(stockCountRepository),
-        list: new application.ListStockCounts(stockCountRepository)
+        get: new application.GetStockCount(stockCountRepository, authorization),
+        list: new application.ListStockCounts(stockCountRepository, authorization)
       },
       config: {
         branches: {
@@ -281,8 +281,8 @@ export const createSecurityRuntime = (
           changeStatus: new application.ChangeBranchStatus(
             branchRepository, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
           ),
-          get: new application.GetBranch(branchRepository),
-          list: new application.ListBranches(branchRepository)
+          get: new application.GetBranch(branchRepository, authorization),
+          list: new application.ListBranches(branchRepository, authorization)
         },
         devices: {
           declare: new application.DeclareDevice(
@@ -294,15 +294,15 @@ export const createSecurityRuntime = (
           changeStatus: new application.ChangeDeviceStatus(
             deviceRepository, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
           ),
-          list: new application.ListDevices(deviceRepository)
+          list: new application.ListDevices(deviceRepository, authorization)
         }
       },
       suppliers: {
         create: new application.CreateSupplier(
           supplierRepository, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
         ),
-        get: new application.GetSupplier(supplierRepository),
-        list: new application.ListSuppliers(supplierRepository),
+        get: new application.GetSupplier(supplierRepository, authorization),
+        list: new application.ListSuppliers(supplierRepository, authorization),
         update: new application.UpdateSupplier(
           supplierRepository, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
         ),
@@ -327,7 +327,7 @@ export const createSecurityRuntime = (
           purchaseReceiptRepository, stockItemRepository, authorization,
           ids, ids, ids, clock, unitOfWork, eventStore, auditWriter, idempotencyStore
         ),
-        get: new application.GetPurchaseReceipt(purchaseReceiptRepository)
+        get: new application.GetPurchaseReceipt(purchaseReceiptRepository, authorization)
       },
       fiscalDocuments: {
         issue: new application.IssueFiscalDocument(

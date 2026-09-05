@@ -57,7 +57,9 @@ describe('reporting read models', () => {
       new GetCashClosureReport(repositories, authorization).execute({}, context),
       new GetAuditReport(repositories, authorization).execute({}, context),
       new GetFiscalOperationsReport(repositories, authorization).execute({}, context),
-      new GetMarginReport(repositories, authorization).execute({}, context)
+      new GetMarginReport(repositories, authorization).execute({
+        from: new Date('2026-09-01T00:00:00Z'), to: new Date('2026-09-02T00:00:00Z')
+      }, context)
     ]);
 
     expect(results.every((result) => !result.ok)).toBe(true);
@@ -95,7 +97,9 @@ describe('reporting read models', () => {
     await audit.execute({ limit: 1.5 }, context);
     await new GetCashClosureReport(repositories, authorization).execute({}, context);
     await new GetFiscalOperationsReport(repositories, authorization).execute({}, context);
-    await new GetMarginReport(repositories, authorization).execute({}, context);
+    await new GetMarginReport(repositories, authorization).execute({
+      from: new Date('2026-09-01T00:00:00Z'), to: new Date('2026-09-02T00:00:00Z')
+    }, context);
 
     expect(repositories.queries.map((query) => query.limit)).toEqual([
       REPORT_ROW_LIMIT.default, 50, REPORT_ROW_LIMIT.maximum,

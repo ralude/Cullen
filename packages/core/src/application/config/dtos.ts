@@ -3,6 +3,7 @@ import type { BranchStatus, DeviceStatus, DeviceType } from '../../domain/config
 export type BranchDto = {
   id: string;
   code: string;
+  originNodeId: string;
   name: string;
   status: BranchStatus;
   createdAt: string;
@@ -17,6 +18,7 @@ export type ChangeBranchStatusInput = { branchId: string; status: BranchStatus; 
 export type DeviceDto = {
   id: string;
   type: DeviceType;
+  originNodeId: string;
   identifier: string;
   terminalId: string;
   branchId: string | null;

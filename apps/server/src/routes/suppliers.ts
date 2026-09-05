@@ -51,8 +51,11 @@ export const registerSupplierRoutes = (
   app.get<{ Querystring: { status?: SupplierStatusResponse } }>(listSuppliersContract.path, {
     schema: listSuppliersContract.schema as FastifySchema
   }, async (request, reply) => {
-    if (!await requirePrincipal(request, reply, dependencies)) return;
-    const result = await dependencies.suppliers.list.execute(request.query.status);
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.suppliers.list.execute(
+      request.query.status, createExecutionContext(request, principal, dependencies)
+    );
     return result.ok
       ? reply.send(result.value)
       : sendProblem(reply, request, result.error.code, result.error.message);
@@ -61,8 +64,11 @@ export const registerSupplierRoutes = (
   app.get<{ Params: { supplierId: string } }>(getSupplierContract.path, {
     schema: getSupplierContract.schema as FastifySchema
   }, async (request, reply) => {
-    if (!await requirePrincipal(request, reply, dependencies)) return;
-    const result = await dependencies.suppliers.get.execute(request.params.supplierId);
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.suppliers.get.execute(
+      request.params.supplierId, createExecutionContext(request, principal, dependencies)
+    );
     return result.ok
       ? reply.send(result.value)
       : sendProblem(reply, request, result.error.code, result.error.message);

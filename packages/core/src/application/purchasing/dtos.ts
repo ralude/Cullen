@@ -108,6 +108,7 @@ export type PurchaseReceiptLineDto = {
 
 export type PurchaseReceiptDto = {
   id: string;
+  originNodeId: string;
   supplierId: string;
   status: string;
   sourceDocument: {
@@ -127,4 +128,3 @@ export type PurchaseReceiptDto = {
   lines: PurchaseReceiptLineDto[];
   version: number;
 };
-

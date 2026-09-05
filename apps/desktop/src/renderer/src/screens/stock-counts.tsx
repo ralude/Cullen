@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   approveStockCountContract,
   isPermissionGranted,
@@ -7,7 +7,7 @@ import {
   type StockCountResponse,
   type StockCountStatusResponse
 } from '@supermarket/shared';
-import { createIdempotencyKey } from '../api-client.js';
+import { createIdempotencyKey, formatScaledDecimal } from '../api-client.js';
 import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
 
 /** Contratos que convierten esta pantalla en trabajo real y no en una lectura. */
@@ -31,7 +31,7 @@ export const STOCK_COUNT_STATUS_LABELS: Record<StockCountStatusResponse, string>
   REJECTED: 'Rechazado'
 };
 
-const scaled = (value: number, scale: number): string => (value / (10 ** scale)).toString();
+const scaled = formatScaledDecimal;
 
 export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
   const [counts, setCounts] = useState<readonly StockCountResponse[]>([]);
@@ -46,6 +46,14 @@ export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const intentKeys = useRef(new Map<string, string>());
+  const intentKey = (intent: string): string => {
+    const existing = intentKeys.current.get(intent);
+    if (existing) return existing;
+    const created = createIdempotencyKey();
+    intentKeys.current.set(intent, created);
+    return created;
+  };
 
   const canPerform = isPermissionGranted('inventory.count.perform', permissionCodes);
   const canApprove = isPermissionGranted('inventory.count.approve', permissionCodes);
@@ -67,7 +75,7 @@ export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.
     setCloseReason(''); setDecisionReason('');
   };
 
-  const run = async (command: () => Promise<StockCountResponse>, message: string): Promise<void> => {
+  const run = async (command: () => Promise<StockCountResponse>, message: string): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
@@ -75,52 +83,62 @@ export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.
       select(count);
       setNotice(message);
       await load();
-    } catch (nextError) { setError(nextError); }
+      return true;
+    } catch (nextError) { setError(nextError); return false; }
     finally { setLoading(false); }
   };
 
   const open = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    await run(async () => {
-      const count = await api.openStockCount({ reason: openReason.trim() }, createIdempotencyKey());
+    const intent = `open:${openReason.trim()}`;
+    const succeeded = await run(async () => {
+      const count = await api.openStockCount({ reason: openReason.trim() }, intentKey(intent));
       setOpenReason('');
       return count;
     }, 'Conteo abierto.');
+    if (succeeded) intentKeys.current.delete(intent);
   };
 
   const recordLine = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (!selected) return;
-    await run(() => api.recordStockCountLine(selected.id, {
+    const intent = `line:${selected.id}:${productId.trim()}:${quantity.trim()}:${batchId.trim()}`;
+    const succeeded = await run(() => api.recordStockCountLine(selected.id, {
       productId: productId.trim(), quantity: quantity.trim(),
       ...(batchId.trim() ? { batchId: batchId.trim() } : {})
-    }, createIdempotencyKey()), 'Línea registrada.');
-    setProductId(''); setQuantity(''); setBatchId('');
+    }, intentKey(intent)), 'Línea registrada.');
+    if (succeeded) {
+      intentKeys.current.delete(intent);
+      setProductId(''); setQuantity(''); setBatchId('');
+    }
   };
 
   const close = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (!selected) return;
-    await run(
-      () => api.closeStockCount(selected.id, { reason: closeReason.trim() }, createIdempotencyKey()),
+    const intent = `close:${selected.id}:${closeReason.trim()}`;
+    if (await run(
+      () => api.closeStockCount(selected.id, { reason: closeReason.trim() }, intentKey(intent)),
       'Conteo cerrado. Revisa las diferencias antes de aprobar.'
-    );
+    )) intentKeys.current.delete(intent);
   };
 
   const approve = async (): Promise<void> => {
     if (!selected) return;
-    await run(
-      () => api.approveStockCount(selected.id, { reason: decisionReason.trim() }, createIdempotencyKey()),
+    const intent = `approve:${selected.id}:${decisionReason.trim()}`;
+    if (await run(
+      () => api.approveStockCount(selected.id, { reason: decisionReason.trim() }, intentKey(intent)),
       'Conteo aprobado; los ajustes ya quedaron registrados.'
-    );
+    )) intentKeys.current.delete(intent);
   };
 
   const reject = async (): Promise<void> => {
     if (!selected) return;
-    await run(
-      () => api.rejectStockCount(selected.id, { reason: decisionReason.trim() }, createIdempotencyKey()),
+    const intent = `reject:${selected.id}:${decisionReason.trim()}`;
+    if (await run(
+      () => api.rejectStockCount(selected.id, { reason: decisionReason.trim() }, intentKey(intent)),
       'Conteo rechazado; el inventario no cambió.'
-    );
+    )) intentKeys.current.delete(intent);
   };
 
   return (

@@ -35,6 +35,7 @@ export const toStockCountLineDto = (line: StockCountLine): StockCountLineDto => 
 
 export const toStockCountDto = (count: StockCount): StockCountDto => ({
   id: count.id,
+  originNodeId: count.originNodeId,
   status: count.status,
   openedBy: count.openedBy,
   openedAt: count.openedAt,

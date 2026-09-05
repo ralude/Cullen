@@ -12,6 +12,7 @@ export type StockItemProps = {
 };
 
 export type RestoredStockItemProps = StockItemProps & {
+  valuationCurrency: string | null;
   batches: Batch[];
   movements: StockMovement[];
 };
@@ -22,14 +23,19 @@ export class StockItem {
   private readonly currentBatches: Batch[] = [];
   private readonly currentMovements: StockMovement[] = [];
   private readonly events: StockMovementRegisteredEvent[] = [];
+  private currentValuationCurrency: string | null;
 
   private constructor(
     readonly id: string,
     readonly productId: string,
     readonly unitCode: string,
     readonly quantityScale: number,
-    readonly tracksBatches: boolean
-  ) {}
+    readonly tracksBatches: boolean,
+    valuationCurrency: string | null
+  ) {
+    if (valuationCurrency !== null) Money.zero(valuationCurrency);
+    this.currentValuationCurrency = valuationCurrency;
+  }
 
   static create(props: StockItemProps): StockItem {
     const id = StockItem.requireText(props.id, 'STOCK_ITEM_ID_REQUIRED', 'Stock item ID is required.');
@@ -48,17 +54,25 @@ export class StockItem {
         'Stock quantity scale must be an integer between 0 and 6.'
       );
     }
-    return new StockItem(id, productId, unitCode, props.quantityScale, props.tracksBatches);
+    return new StockItem(id, productId, unitCode, props.quantityScale, props.tracksBatches, null);
   }
 
   static restore(props: RestoredStockItemProps): StockItem {
-    const item = StockItem.create(props);
+    const created = StockItem.create(props);
+    const item = new StockItem(
+      created.id,
+      created.productId,
+      created.unitCode,
+      created.quantityScale,
+      created.tracksBatches,
+      props.valuationCurrency
+    );
     for (const batch of props.batches) item.registerBatch({
       id: batch.id,
       lotNumber: batch.lotNumber,
       ...(batch.expiresAt === null ? {} : { expiresAt: batch.expiresAt })
     });
-    for (const movement of props.movements) item.registerMovement({
+    for (const movement of props.movements) item.appendMovement({
       id: movement.id,
       type: movement.type,
       quantity: movement.quantity,
@@ -69,7 +83,7 @@ export class StockItem {
       occurredAt: movement.occurredAt,
       eventId: movement.eventId,
       unitCost: movement.unitCost
-    });
+    }, false);
     item.events.length = 0;
     return item;
   }
@@ -82,20 +96,35 @@ export class StockItem {
     return [...this.currentMovements];
   }
 
+  get valuationCurrency(): string | null {
+    return this.currentValuationCurrency;
+  }
+
   get inventoryValue(): Money | null {
-    if (this.currentMovements.length === 0 || this.currentMovements.some(({ unitCost }) => unitCost === null)) {
-      return null;
-    }
-    const currency = this.currentMovements[0]!.unitCost!.currency;
+    const currency = this.currentValuationCurrency;
+    if (currency === null) return null;
     let value = Money.zero(currency);
+    let balanceScaled = 0;
+    let known = true;
     for (const movement of this.currentMovements) {
-      if (movement.unitCost!.currency !== currency) {
+      if (movement.unitCost !== null && movement.unitCost.currency !== currency) {
         throw new DomainError('STOCK_COST_CURRENCY_MISMATCH', 'Valued stock movements must use one currency.');
       }
-      const movementValue = movement.unitCost!.multiplyByQuantity(movement.quantity);
-      value = movement.direction === 'IN' ? value.add(movementValue) : value.subtract(movementValue);
+      if (movement.unitCost === null) {
+        known = false;
+      } else if (known) {
+        const movementValue = movement.unitCost.multiplyByQuantity(movement.quantity);
+        value = movement.direction === 'IN' ? value.add(movementValue) : value.subtract(movementValue);
+      }
+      balanceScaled += movement.direction === 'IN'
+        ? movement.quantity.scaledValue
+        : -movement.quantity.scaledValue;
+      if (balanceScaled === 0) {
+        value = Money.zero(currency);
+        known = true;
+      }
     }
-    return value;
+    return known ? value : null;
   }
 
   get averageUnitCost(): Money | null {
@@ -130,6 +159,10 @@ export class StockItem {
   }
 
   registerMovement(props: StockMovementProps): StockMovement {
+    return this.appendMovement(props, true);
+  }
+
+  private appendMovement(props: StockMovementProps, inferOperationalCost: boolean): StockMovement {
     const existing = this.currentMovements.find((movement) => movement.id === props.id.trim());
     if (existing?.type === 'SALE_ISSUE' && props.type === 'SALE_ISSUE') {
       if (existing.matches(props)) return existing;
@@ -144,7 +177,28 @@ export class StockItem {
         'Stock movement event already exists.'
       );
     }
-    const movement = StockMovement.create(props);
+    let valuationCurrency = this.currentValuationCurrency;
+    const providedCost = props.unitCost ?? null;
+    if (providedCost !== null) {
+      const historicCurrencies = new Set(
+        this.currentMovements.flatMap(({ unitCost }) => unitCost === null ? [] : [unitCost.currency])
+      );
+      if (valuationCurrency === null && historicCurrencies.size > 1) {
+        throw new DomainError(
+          'STOCK_COST_CURRENCY_UNDETERMINED',
+          'Stock valuation currency cannot be derived from mixed historical costs.'
+        );
+      }
+      valuationCurrency ??= historicCurrencies.values().next().value ?? providedCost.currency;
+      if (providedCost.currency !== valuationCurrency) {
+        throw new DomainError('STOCK_COST_CURRENCY_MISMATCH', 'Valued stock movements must use one currency.');
+      }
+    }
+    const canInheritCost = props.type !== 'PURCHASE_RECEIPT';
+    const inferredCost = inferOperationalCost && providedCost === null && canInheritCost
+      ? this.averageUnitCost
+      : null;
+    const movement = StockMovement.create({ ...props, unitCost: providedCost ?? inferredCost });
     if (movement.quantity.scale !== this.quantityScale) {
       throw new DomainError(
         'STOCK_QUANTITY_SCALE_MISMATCH',
@@ -163,6 +217,7 @@ export class StockItem {
         );
       }
     }
+    this.currentValuationCurrency = valuationCurrency;
     this.currentMovements.push(movement);
     this.events.push({
       type: 'StockMovementRegistered',

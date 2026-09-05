@@ -1,26 +1,46 @@
 import {
   applySaleDiscountContract,
+  approveStockCountContract,
+  closeStockCountContract,
+  changeBranchStatusContract,
+  changeDeviceStatusContract,
   closeShiftContract,
   changeSupplierStatusContract,
   completePurchaseReceiptContract,
   correctSupplierTaxIdentityContract,
   createProductContract,
   createSupplierContract,
+  createBranchContract,
+  declareDeviceContract,
+  getBranchContract,
+  getPurchaseReceiptContract,
+  getStockCountContract,
+  getSupplierContract,
   getAuditReportContract,
   getCashClosureReportContract,
   getFiscalOperationsReportContract,
   getMarginReportContract,
   issueSimulatedFiscalDocumentContract,
+  listBranchesContract,
+  listDevicesContract,
+  listStockCountsContract,
+  listSuppliersContract,
+  openStockCountContract,
   openShiftContract,
   printSimulatedXReportContract,
   printSimulatedZReportContract,
   receivePurchaseContract,
+  recordStockCountLineContract,
+  rejectStockCountContract,
   reconcileSimulatedFiscalDocumentContract,
   registerCashMovementContract,
   registerStockAdjustmentContract,
   reversePurchaseReceiptContract,
+  returnSaleContract,
   startPurchaseReceiptContract,
   updateExchangeRateContract,
+  updateBranchContract,
+  updateDeviceContract,
   updatePriceContract,
   updateProductContract,
   updateSupplierContract,
@@ -78,6 +98,27 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
     );
   });
 
+  it('conteos', () => {
+    expectedPermission(openStockCountContract, application.INVENTORY_PERMISSIONS.PERFORM_COUNT);
+    expectedPermission(recordStockCountLineContract, application.INVENTORY_PERMISSIONS.PERFORM_COUNT);
+    expectedPermission(closeStockCountContract, application.INVENTORY_PERMISSIONS.PERFORM_COUNT);
+    expectedPermission(approveStockCountContract, application.INVENTORY_PERMISSIONS.APPROVE_COUNT);
+    expectedPermission(rejectStockCountContract, application.INVENTORY_PERMISSIONS.APPROVE_COUNT);
+    expectedPermission(getStockCountContract, application.INVENTORY_PERMISSIONS.READ_COUNT);
+    expectedPermission(listStockCountsContract, application.INVENTORY_PERMISSIONS.READ_COUNT);
+  });
+
+  it('configuracion', () => {
+    for (const contract of [createBranchContract, updateBranchContract, changeBranchStatusContract,
+      getBranchContract, listBranchesContract]) {
+      expectedPermission(contract, application.CONFIG_PERMISSIONS.MANAGE_BRANCH);
+    }
+    for (const contract of [declareDeviceContract, updateDeviceContract, changeDeviceStatusContract,
+      listDevicesContract]) {
+      expectedPermission(contract, application.CONFIG_PERMISSIONS.MANAGE_DEVICE);
+    }
+  });
+
   it('reportes', () => {
     expectedPermission(getCashClosureReportContract, application.REPORT_PERMISSIONS.READ_CASH);
     expectedPermission(getAuditReportContract, application.REPORT_PERMISSIONS.READ_AUDIT);
@@ -86,6 +127,8 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
   });
 
   it('proveedores', () => {
+    expectedPermission(getSupplierContract, application.SUPPLIER_PERMISSIONS.READ);
+    expectedPermission(listSuppliersContract, application.SUPPLIER_PERMISSIONS.READ);
     expectedPermission(createSupplierContract, application.SUPPLIER_PERMISSIONS.CREATE);
     expectedPermission(updateSupplierContract, application.SUPPLIER_PERMISSIONS.UPDATE);
     expectedPermission(changeSupplierStatusContract, application.SUPPLIER_PERMISSIONS.UPDATE);
@@ -96,6 +139,7 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
   });
 
   it('recepciones de compra', () => {
+    expectedPermission(getPurchaseReceiptContract, application.PURCHASE_RECEIPT_PERMISSIONS.READ);
     expectedPermission(startPurchaseReceiptContract, application.PURCHASE_RECEIPT_PERMISSIONS.START);
     expectedPermission(completePurchaseReceiptContract, application.PURCHASE_RECEIPT_PERMISSIONS.COMPLETE);
     expectedPermission(reversePurchaseReceiptContract, application.PURCHASE_RECEIPT_PERMISSIONS.REVERSE);
@@ -104,5 +148,6 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
   it('venta', () => {
     expectedPermission(applySaleDiscountContract, application.SALE_PERMISSIONS.APPLY_DISCOUNT);
     expectedPermission(voidSaleContract, application.SALE_PERMISSIONS.VOID);
+    expectedPermission(returnSaleContract, application.SALE_PERMISSIONS.RETURN);
   });
 });

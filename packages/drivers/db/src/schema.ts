@@ -368,7 +368,8 @@ export const stockItems = sqliteTable('stock_items', {
   productId: text('product_id').notNull().unique(),
   unitCode: text('unit_code').notNull(),
   quantityScale: integer('quantity_scale').notNull(),
-  tracksBatches: integer('tracks_batches', { mode: 'boolean' }).notNull()
+  tracksBatches: integer('tracks_batches', { mode: 'boolean' }).notNull(),
+  valuationCurrencyCode: text('valuation_currency_code')
 });
 
 export const stockBatches = sqliteTable('stock_batches', {
@@ -398,6 +399,7 @@ export const stockMovements = sqliteTable('stock_movements', {
 
 export const stockCounts = sqliteTable('stock_counts', {
   id: text('id').primaryKey(),
+  originNodeId: text('origin_node_id'),
   status: text('status').notNull(),
   openedBy: text('opened_by').notNull(),
   openedAt: integer('opened_at', { mode: 'timestamp_ms' }).notNull(),
@@ -433,6 +435,7 @@ export const stockCountDifferences = sqliteTable('stock_count_differences', {
 
 export const branches = sqliteTable('branches', {
   id: text('id').primaryKey(),
+  originNodeId: text('origin_node_id'),
   code: text('code').notNull().unique(),
   name: text('name').notNull(),
   status: text('status').notNull(),
@@ -443,6 +446,7 @@ export const branches = sqliteTable('branches', {
 
 export const devices = sqliteTable('devices', {
   id: text('id').primaryKey(),
+  originNodeId: text('origin_node_id'),
   type: text('type').notNull(),
   identifier: text('identifier').notNull(),
   terminalId: text('terminal_id').notNull(),
@@ -566,6 +570,7 @@ export const fiscalReportTransitions = sqliteTable('fiscal_report_transitions', 
 
 export const purchaseReceipts = sqliteTable('purchase_receipts', {
   id: text('id').primaryKey(),
+  originNodeId: text('origin_node_id'),
   supplierId: text('supplier_id').notNull().references(() => suppliers.id),
   supplierLegalName: text('supplier_legal_name').notNull(),
   supplierTradeName: text('supplier_trade_name'),
@@ -596,10 +601,14 @@ export const purchaseReceiptLines = sqliteTable('purchase_receipt_lines', {
   id: text('id').primaryKey(),
   receiptId: text('receipt_id').notNull().references(() => purchaseReceipts.id),
   productId: text('product_id').notNull(),
-  stockItemId: text('stock_item_id').notNull().references(() => stockItems.id),
+  stockItemId: text('stock_item_id').notNull(),
+  unitCode: text('unit_code').notNull(),
+  tracksBatches: integer('tracks_batches', { mode: 'boolean' }).notNull(),
   quantityScaled: integer('quantity_scaled').notNull(),
   quantityScale: integer('quantity_scale').notNull(),
-  batchId: text('batch_id').references(() => stockBatches.id),
+  batchId: text('batch_id'),
+  batchLotNumber: text('batch_lot_number'),
+  batchExpiresAt: integer('batch_expires_at', { mode: 'timestamp_ms' }),
   purchaseUnitCostMinorUnits: integer('purchase_unit_cost_minor_units').notNull(),
   purchaseCurrencyCode: text('purchase_currency_code').notNull(),
   valuationUnitCostMinorUnits: integer('valuation_unit_cost_minor_units').notNull(),

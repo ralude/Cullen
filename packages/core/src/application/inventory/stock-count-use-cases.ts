@@ -51,8 +51,15 @@ export class OpenStockCount {
         unitOfWork: this.unitOfWork,
         ...(this.idempotencyStore ? { idempotencyStore: this.idempotencyStore } : {}),
         execute: async () => {
+          if (await this.repository.findOpen()) {
+            return err(new ApplicationError(
+              'STOCK_COUNT_ALREADY_OPEN',
+              'Another stock count is already open on this node.'
+            ));
+          }
           const count = StockCount.open({
-            id: this.countIdGenerator.generate(), openedBy: context.actorId, openedAt: occurredAt
+            id: this.countIdGenerator.generate(), openedBy: context.actorId,
+            originNodeId: context.originNodeId, openedAt: occurredAt
           });
           await this.repository.save(count);
           const dto = toStockCountDto(count);
@@ -111,6 +118,9 @@ export class RecordStockCountLine {
         execute: async () => {
           const count = await this.repository.findById(input.stockCountId);
           if (!count) return err(new ApplicationError('STOCK_COUNT_NOT_FOUND', 'Stock count was not found.'));
+          if (count.originNodeId !== context.originNodeId) {
+            return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Stock count belongs to another node.'));
+          }
           const item = await this.stockItemRepository.findByProductId(input.productId);
           if (!item) return err(new ApplicationError('STOCK_ITEM_NOT_FOUND', 'Stock item was not found.'));
           if (item.tracksBatches && !input.batchId) {
@@ -179,6 +189,9 @@ export class CloseStockCount {
         execute: async () => {
           const count = await this.repository.findById(input.stockCountId);
           if (!count) return err(new ApplicationError('STOCK_COUNT_NOT_FOUND', 'Stock count was not found.'));
+          if (count.originNodeId !== context.originNodeId) {
+            return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Stock count belongs to another node.'));
+          }
           const differences: StockCountDifference[] = [];
           for (const line of count.lines) {
             const item = await this.stockItemRepository.findById(line.stockItemId);
@@ -252,6 +265,9 @@ export class ApproveStockCount {
         execute: async () => {
           const count = await this.repository.findById(input.stockCountId);
           if (!count) return err(new ApplicationError('STOCK_COUNT_NOT_FOUND', 'Stock count was not found.'));
+          if (count.originNodeId !== context.originNodeId) {
+            return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Stock count belongs to another node.'));
+          }
           const differences = count.approve(context.actorId, occurredAt);
           let adjustmentsCreated = 0;
           for (const difference of differences) {
@@ -329,6 +345,9 @@ export class RejectStockCount {
         execute: async () => {
           const count = await this.repository.findById(input.stockCountId);
           if (!count) return err(new ApplicationError('STOCK_COUNT_NOT_FOUND', 'Stock count was not found.'));
+          if (count.originNodeId !== context.originNodeId) {
+            return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Stock count belongs to another node.'));
+          }
           count.reject(context.actorId, input.reason, occurredAt);
           await this.repository.save(count);
           const dto = toStockCountDto(count);
@@ -354,9 +373,15 @@ export class RejectStockCount {
 }
 
 export class GetStockCount {
-  constructor(private readonly repository: StockCountRepository) {}
+  constructor(
+    private readonly repository: StockCountRepository,
+    private readonly authorization: AuthorizationService
+  ) {}
 
-  async execute(input: GetStockCountInput): Promise<Result<StockCountDto, AppError>> {
+  async execute(input: GetStockCountInput, context: ExecutionContext): Promise<Result<StockCountDto, AppError>> {
+    if (!(await this.authorization.authorize(context, INVENTORY_PERMISSIONS.READ_COUNT))) {
+      return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to read stock counts.'));
+    }
     const count = await this.repository.findById(input.stockCountId);
     return count
       ? ok(toStockCountDto(count))
@@ -365,9 +390,15 @@ export class GetStockCount {
 }
 
 export class ListStockCounts {
-  constructor(private readonly repository: StockCountRepository) {}
+  constructor(
+    private readonly repository: StockCountRepository,
+    private readonly authorization: AuthorizationService
+  ) {}
 
-  async execute(status?: StockCountStatus): Promise<Result<readonly StockCountDto[], AppError>> {
+  async execute(status: StockCountStatus | undefined, context: ExecutionContext): Promise<Result<readonly StockCountDto[], AppError>> {
+    if (!(await this.authorization.authorize(context, INVENTORY_PERMISSIONS.READ_COUNT))) {
+      return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to list stock counts.'));
+    }
     return ok((await this.repository.findAll(status)).map(toStockCountDto));
   }
 }

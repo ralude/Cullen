@@ -110,4 +110,20 @@ describe('Shift', () => {
       amount: Money.fromMinorUnits(2_501, 'USD')
     })).toThrowError('Sale payment identifier conflicts with another movement.');
   });
+
+  it('keeps a negative expected balance when the current shift refunds an earlier sale', () => {
+    const shift = Shift.open({
+      id: 'shift-refund', cashRegister: cashRegister(), openingFunds: [],
+      openedBy: 'user-001', openedAt: new Date('2026-08-16T08:00:00.000Z'), eventId: 'open-event'
+    });
+    shift.registerMovement({
+      id: 'refund-001', type: 'SALE_REFUND', method: usdCash,
+      amount: Money.fromMinorUnits(2_500, 'USD'), reason: 'Return from previous shift',
+      registeredBy: 'user-002', terminalId: 'terminal-001', originNodeId: 'node-001',
+      occurredAt: new Date('2026-08-16T09:00:00.000Z'), eventId: 'refund-event',
+      reference: { sourceId: 'return-001', sourceEventId: 'return-event' }
+    });
+
+    expect(shift.balanceFor('CASH_USD', 'USD')).toEqual(Money.fromMinorUnits(-2_500, 'USD'));
+  });
 });

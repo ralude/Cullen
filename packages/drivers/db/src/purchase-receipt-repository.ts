@@ -14,7 +14,9 @@ export class DrizzlePurchaseReceiptRepository implements PurchaseReceiptReposito
   async save(receipt: PurchaseReceipt): Promise<void> {
     requireTransaction(this.handle.sqlite);
     try {
-      const existing = this.handle.db.select({ version: purchaseReceipts.version })
+      const existing = this.handle.db.select({
+        version: purchaseReceipts.version, originNodeId: purchaseReceipts.originNodeId
+      })
         .from(purchaseReceipts).where(eq(purchaseReceipts.id, receipt.id)).get();
       const mutable = {
         status: receipt.status,
@@ -27,6 +29,7 @@ export class DrizzlePurchaseReceiptRepository implements PurchaseReceiptReposito
       if (!existing) {
         this.handle.db.insert(purchaseReceipts).values({
           id: receipt.id,
+          originNodeId: receipt.originNodeId,
           supplierId: receipt.supplierId,
           supplierLegalName: receipt.supplierSnapshot.legalName,
           supplierTradeName: receipt.supplierSnapshot.tradeName,
@@ -53,9 +56,13 @@ export class DrizzlePurchaseReceiptRepository implements PurchaseReceiptReposito
             receiptId: receipt.id,
             productId: line.productId,
             stockItemId: line.stockItemId,
+            unitCode: line.unitCode,
+            tracksBatches: line.tracksBatches,
             quantityScaled: line.quantity.scaledValue,
             quantityScale: line.quantity.scale,
             batchId: line.batchId,
+            batchLotNumber: line.batchLotNumber,
+            batchExpiresAt: line.batchExpiresAt,
             purchaseUnitCostMinorUnits: line.purchaseUnitCost.minorUnits,
             purchaseCurrencyCode: line.purchaseUnitCost.currency,
             valuationUnitCostMinorUnits: line.valuationUnitCost.minorUnits,
@@ -77,6 +84,9 @@ export class DrizzlePurchaseReceiptRepository implements PurchaseReceiptReposito
         throw new InfrastructureError(
           'DATABASE_CONCURRENCY_CONFLICT', 'Purchase receipt version is stale.'
         );
+      }
+      if (existing.originNodeId !== receipt.originNodeId) {
+        throw new InfrastructureError('AGGREGATE_OWNER_MISMATCH', 'Purchase receipt owner cannot change.');
       }
       const changed = this.handle.db.update(purchaseReceipts).set(mutable).where(and(
         eq(purchaseReceipts.id, receipt.id), eq(purchaseReceipts.version, existing.version)
@@ -123,8 +133,28 @@ export class DrizzlePurchaseReceiptRepository implements PurchaseReceiptReposito
     }
   }
 
+  async findCompletedByControlNumber(
+    supplierId: string,
+    controlNumber: string
+  ): Promise<PurchaseReceipt | null> {
+    try {
+      const candidates = this.handle.db.select().from(purchaseReceipts).where(and(
+        eq(purchaseReceipts.supplierId, supplierId),
+        eq(purchaseReceipts.status, 'COMPLETED')
+      )).all();
+      const normalizedControlNumber = controlNumber.toUpperCase();
+      return this.restore(candidates.find((row) =>
+        row.sourceControlNumber?.toUpperCase() === normalizedControlNumber));
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
   private restore(row: typeof purchaseReceipts.$inferSelect | undefined): PurchaseReceipt | null {
     if (!row) return null;
+    if (row.originNodeId === null) {
+      throw new InfrastructureError('AGGREGATE_OWNER_UNRESOLVED', 'Purchase receipt owner is unresolved.');
+    }
     const lineRows = this.handle.db.select().from(purchaseReceiptLines)
       .where(eq(purchaseReceiptLines.receiptId, row.id)).all();
     const sourceDocument: PurchaseSourceDocument = {
@@ -138,8 +168,12 @@ export class DrizzlePurchaseReceiptRepository implements PurchaseReceiptReposito
       id: line.id,
       productId: line.productId,
       stockItemId: line.stockItemId,
+      unitCode: line.unitCode,
+      tracksBatches: line.tracksBatches,
       quantity: Quantity.fromScaled(line.quantityScaled, line.quantityScale),
       batchId: line.batchId,
+      batchLotNumber: line.batchLotNumber,
+      batchExpiresAt: line.batchExpiresAt,
       purchaseUnitCost: Money.fromMinorUnits(line.purchaseUnitCostMinorUnits, line.purchaseCurrencyCode),
       valuationUnitCost: Money.fromMinorUnits(line.valuationUnitCostMinorUnits, line.valuationCurrencyCode),
       exchangeRate: line.exchangeRateId === null
@@ -180,6 +214,7 @@ export class DrizzlePurchaseReceiptRepository implements PurchaseReceiptReposito
       sourceDocument,
       effectiveAt: row.effectiveAt,
       createdBy: row.createdBy,
+      originNodeId: row.originNodeId,
       createdAt: row.createdAt,
       replacesReceiptId: row.replacesReceiptId,
       lines,

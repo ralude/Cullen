@@ -20,8 +20,12 @@ export type PurchaseReceiptLine = {
   readonly id: string;
   readonly productId: string;
   readonly stockItemId: string;
+  readonly unitCode: string;
+  readonly tracksBatches: boolean;
   readonly quantity: Quantity;
   readonly batchId: string | null;
+  readonly batchLotNumber: string | null;
+  readonly batchExpiresAt: Date | null;
   readonly purchaseUnitCost: Money;
   readonly valuationUnitCost: Money;
   readonly exchangeRate: ExchangeRate | null;
@@ -42,6 +46,7 @@ export type StartPurchaseReceiptProps = {
   readonly sourceDocument: PurchaseSourceDocument;
   readonly effectiveAt: Date;
   readonly createdBy: string;
+  readonly originNodeId: string;
   readonly createdAt: Date;
   readonly replacesReceiptId: string | null;
   readonly lines: readonly PurchaseReceiptLine[];
@@ -82,6 +87,7 @@ export class PurchaseReceipt {
     readonly sourceDocument: PurchaseSourceDocument,
     readonly effectiveAt: Date,
     readonly createdBy: string,
+    readonly originNodeId: string,
     readonly createdAt: Date,
     readonly replacesReceiptId: string | null,
     readonly lines: readonly PurchaseReceiptLine[]
@@ -109,7 +115,11 @@ export class PurchaseReceipt {
         throw new DomainError('PURCHASE_RECEIPT_LINE_INVALID', 'Purchase receipt quantity and costs are invalid.');
       }
       return { ...line, id, productId: required(line.productId, 'PURCHASE_RECEIPT_PRODUCT_REQUIRED'),
-        stockItemId: required(line.stockItemId, 'PURCHASE_RECEIPT_STOCK_ITEM_REQUIRED'), batchId: optional(line.batchId) };
+        stockItemId: required(line.stockItemId, 'PURCHASE_RECEIPT_STOCK_ITEM_REQUIRED'),
+        unitCode: required(line.unitCode, 'PURCHASE_RECEIPT_UNIT_REQUIRED'),
+        batchId: optional(line.batchId), batchLotNumber: optional(line.batchLotNumber),
+        batchExpiresAt: line.batchExpiresAt === null ? null
+          : validDate(line.batchExpiresAt, 'PURCHASE_RECEIPT_BATCH_EXPIRY_INVALID') };
     });
     const sourceDocument = {
       type: props.sourceDocument.type,
@@ -121,6 +131,7 @@ export class PurchaseReceipt {
       required(props.supplierId, 'PURCHASE_RECEIPT_SUPPLIER_REQUIRED'), snapshot, sourceDocument,
       validDate(props.effectiveAt, 'PURCHASE_RECEIPT_EFFECTIVE_DATE_INVALID'),
       required(props.createdBy, 'PURCHASE_RECEIPT_ACTOR_REQUIRED'),
+      required(props.originNodeId, 'PURCHASE_RECEIPT_ORIGIN_NODE_REQUIRED'),
       validDate(props.createdAt, 'PURCHASE_RECEIPT_CREATED_AT_INVALID'), optional(props.replacesReceiptId), lines);
   }
 
@@ -154,7 +165,7 @@ export class PurchaseReceipt {
   }
 
   reverse(props: { actorId: string; reason: string; occurredAt: Date; eventId: string }): void {
-    if (this.currentStatus !== 'COMPLETED') throw new DomainError('PURCHASE_RECEIPT_INVALID_STATE', 'Only a completed receipt can be reversed.');
+    this.assertCanReverse(props);
     this.currentStatus = 'REVERSED'; this.currentVersion += 1;
     this.currentReversalReason = required(props.reason, 'PURCHASE_RECEIPT_REVERSAL_REASON_REQUIRED');
     this.currentReversedBy = required(props.actorId, 'PURCHASE_RECEIPT_ACTOR_REQUIRED');
@@ -162,5 +173,14 @@ export class PurchaseReceipt {
     this.events.push({ type: 'PurchaseReceiptReversed', eventId: required(props.eventId, 'PURCHASE_RECEIPT_EVENT_ID_REQUIRED'),
       aggregateId: this.id, aggregateType: 'PurchaseReceipt', aggregateVersion: this.currentVersion,
       occurredAt: this.currentReversedAt, payload: { originalReceiptId: this.id, reason: this.currentReversalReason } });
+  }
+
+  assertCanReverse(props: { actorId: string; reason: string; occurredAt: Date }): void {
+    if (this.currentStatus !== 'COMPLETED') {
+      throw new DomainError('PURCHASE_RECEIPT_INVALID_STATE', 'Only a completed receipt can be reversed.');
+    }
+    required(props.reason, 'PURCHASE_RECEIPT_REVERSAL_REASON_REQUIRED');
+    required(props.actorId, 'PURCHASE_RECEIPT_ACTOR_REQUIRED');
+    validDate(props.occurredAt, 'PURCHASE_RECEIPT_TIMESTAMP_INVALID');
   }
 }

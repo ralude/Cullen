@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   changeBranchStatusContract,
   changeDeviceStatusContract,
@@ -45,12 +45,22 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
   const [branchCode, setBranchCode] = useState('');
   const [branchName, setBranchName] = useState('');
   const [branchReason, setBranchReason] = useState('');
+  const [branchStatusReason, setBranchStatusReason] = useState('');
 
   const [deviceType, setDeviceType] = useState<DeviceTypeResponse>('BARCODE_SCANNER');
   const [deviceIdentifier, setDeviceIdentifier] = useState('');
   const [deviceTerminalId, setDeviceTerminalId] = useState('');
   const [deviceBranchId, setDeviceBranchId] = useState('');
   const [deviceReason, setDeviceReason] = useState('');
+  const [deviceStatusReason, setDeviceStatusReason] = useState('');
+  const intentKeys = useRef(new Map<string, string>());
+  const intentKey = (intent: string): string => {
+    const existing = intentKeys.current.get(intent);
+    if (existing) return existing;
+    const created = createIdempotencyKey();
+    intentKeys.current.set(intent, created);
+    return created;
+  };
 
   const canManageBranches = isPermissionGranted(createBranchContract.permission, permissionCodes);
   const canManageDevices = isPermissionGranted(declareDeviceContract.permission, permissionCodes);
@@ -70,11 +80,13 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
 
   const createBranch = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    const intent = `branch:create:${branchCode.trim()}:${branchName.trim()}:${branchReason.trim()}`;
     setLoading(true); setError(null);
     try {
       await api.createBranch({
         code: branchCode.trim(), name: branchName.trim(), reason: branchReason.trim()
-      }, createIdempotencyKey());
+      }, intentKey(intent));
+      intentKeys.current.delete(intent);
       setBranchCode(''); setBranchName(''); setBranchReason('');
       setNotice('Sucursal registrada.');
       await load();
@@ -84,11 +96,14 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
 
   const toggleBranchStatus = async (branch: BranchResponse): Promise<void> => {
     const next = branch.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const intent = `branch:status:${branch.id}:${next}:${branchStatusReason.trim()}`;
     setLoading(true); setError(null);
     try {
       await api.changeBranchStatus(branch.id, {
-        status: next, reason: next === 'ACTIVE' ? 'Reactivación' : 'Cierre temporal'
-      }, createIdempotencyKey());
+        status: next, reason: branchStatusReason.trim()
+      }, intentKey(intent));
+      intentKeys.current.delete(intent);
+      setBranchStatusReason('');
       setNotice('Estado de la sucursal actualizado.');
       await load();
     } catch (nextError) { setError(nextError); }
@@ -97,12 +112,14 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
 
   const declareDevice = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    const intent = `device:declare:${deviceType}:${deviceIdentifier.trim()}:${deviceTerminalId.trim()}:${deviceBranchId}:${deviceReason.trim()}`;
     setLoading(true); setError(null);
     try {
       await api.declareDevice({
         type: deviceType, identifier: deviceIdentifier.trim(), terminalId: deviceTerminalId.trim(),
         ...(deviceBranchId ? { branchId: deviceBranchId } : {}), reason: deviceReason.trim()
-      }, createIdempotencyKey());
+      }, intentKey(intent));
+      intentKeys.current.delete(intent);
       setDeviceIdentifier(''); setDeviceTerminalId(''); setDeviceBranchId(''); setDeviceReason('');
       setNotice('Dispositivo declarado. La declaración no habilita ninguna capacidad real.');
       await load();
@@ -112,11 +129,14 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
 
   const toggleDeviceStatus = async (device: DeviceResponse): Promise<void> => {
     const next = device.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const intent = `device:status:${device.id}:${next}:${deviceStatusReason.trim()}`;
     setLoading(true); setError(null);
     try {
       await api.changeDeviceStatus(device.id, {
-        status: next, reason: next === 'ACTIVE' ? 'Reactivación' : 'Baja temporal'
-      }, createIdempotencyKey());
+        status: next, reason: deviceStatusReason.trim()
+      }, intentKey(intent));
+      intentKeys.current.delete(intent);
+      setDeviceStatusReason('');
       setNotice('Estado del dispositivo actualizado.');
       await load();
     } catch (nextError) { setError(nextError); }
@@ -146,6 +166,12 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
             </ActionButton>
           </form>
         )}
+        {canManageBranches && branches.length > 0 && (
+          <label>Motivo del cambio de estado
+            <input value={branchStatusReason}
+              onChange={(event) => setBranchStatusReason(event.target.value)} required />
+          </label>
+        )}
         {branches.length === 0 ? <EmptyState>No hay sucursales registradas.</EmptyState> : (
           <div className="table-wrap">
             <table>
@@ -157,7 +183,8 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
                     <td>{BRANCH_STATUS_LABELS[branch.status]}</td>
                     <td>
                       {canManageBranches && (
-                        <button type="button" onClick={() => void toggleBranchStatus(branch)}>
+                        <button type="button" onClick={() => void toggleBranchStatus(branch)}
+                          disabled={loading || branchStatusReason.trim().length === 0}>
                           {branch.status === 'ACTIVE' ? 'Desactivar' : 'Reactivar'}
                         </button>
                       )}
@@ -200,6 +227,12 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
             </ActionButton>
           </form>
         )}
+        {canManageDevices && devices.length > 0 && (
+          <label>Motivo del cambio de estado
+            <input value={deviceStatusReason}
+              onChange={(event) => setDeviceStatusReason(event.target.value)} required />
+          </label>
+        )}
         {devices.length === 0 ? <EmptyState>No hay dispositivos declarados.</EmptyState> : (
           <div className="table-wrap">
             <table>
@@ -213,7 +246,8 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
                     <td>{DEVICE_STATUS_LABELS[device.status]}</td>
                     <td>
                       {canManageDevices && (
-                        <button type="button" onClick={() => void toggleDeviceStatus(device)}>
+                        <button type="button" onClick={() => void toggleDeviceStatus(device)}
+                          disabled={loading || deviceStatusReason.trim().length === 0}>
                           {device.status === 'ACTIVE' ? 'Dar de baja' : 'Reactivar'}
                         </button>
                       )}

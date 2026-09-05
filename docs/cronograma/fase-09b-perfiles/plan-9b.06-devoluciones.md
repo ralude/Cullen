@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.06: Devolución total y nota de crédito simulada
 
 - **Sub-fase:** [9B.06 Devoluciones y notas de crédito](./9b.06-devoluciones.md)
-- **Estado del plan:** Ejecutado (implementación de referencia no certificada)
+- **Estado del plan:** Reabierto por prueba contractual roja
 - **Decisiones:** [ADR-0017](../../architecture/adr/0017-politica-de-devolucion.md),
   [ADR-0016](../../architecture/adr/0016-metodo-de-costeo-y-margen.md) y
   [ADR-0021](../../architecture/adr/0021-mvp-referencia-no-certificado.md)
@@ -64,6 +64,18 @@ la procesa y emitir una `CREDIT_NOTE` recuperable mediante `FiscalPrinterFake`.
 - [x] ~~La nota fake queda visible como `SIMULACION` y sus fallos son recuperables sin duplicar.~~
 - [x] ~~Los escenarios de fallo reflejan garantía, retry, recuperación, observabilidad y pruebas.~~
 - [x] ~~`pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.~~
+
+## Corrección obligatoria antes de volver a cerrar
+
+- [ ] Corregir el fixture para leer la línea desde la venta devuelta por `POST /items`.
+- [ ] Comprobar cada respuesta preparatoria antes de consumir su payload.
+- [ ] Demostrar que el endpoint de devolución se ejecuta, retorna nota `ISSUED` y reproduce la
+  misma evidencia con la misma clave de idempotencia.
+- [ ] Ejecutar la suite completa verde; la evidencia anterior de este criterio queda
+  invalidada por el fallo reproducido el 2026-09-05.
+
+Estas tareas son el corte 0 del
+[plan correctivo de 9B](./plan-correcciones-auditoria-9b.md).
 
 ## Fuera de alcance
 

@@ -14,6 +14,7 @@ import { CONFIG_PERMISSIONS } from './permissions.js';
 export const toBranchDto = (branch: Branch): BranchDto => ({
   id: branch.id,
   code: branch.code,
+  originNodeId: branch.originNodeId,
   name: branch.name,
   status: branch.status,
   createdAt: branch.createdAt.toISOString(),
@@ -88,7 +89,8 @@ export class CreateBranch extends BranchCommand {
     const now = this.clock.now();
     return this.run('CreateBranch', input, context, now, async () => {
       const branch = Branch.create({
-        id: this.ids.generate(), code: input.code, name: input.name, createdAt: now
+        id: this.ids.generate(), code: input.code, name: input.name,
+        originNodeId: context.originNodeId, createdAt: now
       });
       if (await this.repository.findByCode(branch.code)) {
         return err(new ApplicationError('BRANCH_CODE_CONFLICT', 'Branch code is already assigned.'));
@@ -110,6 +112,9 @@ export class UpdateBranch extends BranchCommand {
     return this.run('UpdateBranch', input, context, now, async () => {
       const loaded = await this.load(input.branchId);
       if (!loaded.ok) return loaded;
+      if (loaded.value.originNodeId !== context.originNodeId) {
+        return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Branch belongs to another node.'));
+      }
       const before = toBranchDto(loaded.value);
       const changes: BranchChanges = {};
       if (input.name !== undefined) changes.name = input.name;
@@ -131,6 +136,9 @@ export class ChangeBranchStatus extends BranchCommand {
     return this.run('ChangeBranchStatus', input, context, now, async () => {
       const loaded = await this.load(input.branchId);
       if (!loaded.ok) return loaded;
+      if (loaded.value.originNodeId !== context.originNodeId) {
+        return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Branch belongs to another node.'));
+      }
       const before = toBranchDto(loaded.value);
       loaded.value.changeStatus(input.status, now);
       await this.repository.save(loaded.value);
@@ -142,16 +150,28 @@ export class ChangeBranchStatus extends BranchCommand {
 }
 
 export class GetBranch {
-  constructor(private readonly repository: BranchRepository) {}
-  async execute(branchId: string): Promise<Result<BranchDto, AppError>> {
+  constructor(
+    private readonly repository: BranchRepository,
+    private readonly authorization: AuthorizationService
+  ) {}
+  async execute(branchId: string, context: ExecutionContext): Promise<Result<BranchDto, AppError>> {
+    if (!await this.authorization.authorize(context, CONFIG_PERMISSIONS.MANAGE_BRANCH)) {
+      return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to read branches.'));
+    }
     const branch = await this.repository.findById(branchId);
     return branch ? ok(toBranchDto(branch)) : err(new ApplicationError('BRANCH_NOT_FOUND', 'Branch was not found.'));
   }
 }
 
 export class ListBranches {
-  constructor(private readonly repository: BranchRepository) {}
-  async execute(status?: BranchStatus): Promise<Result<readonly BranchDto[], AppError>> {
+  constructor(
+    private readonly repository: BranchRepository,
+    private readonly authorization: AuthorizationService
+  ) {}
+  async execute(status: BranchStatus | undefined, context: ExecutionContext): Promise<Result<readonly BranchDto[], AppError>> {
+    if (!await this.authorization.authorize(context, CONFIG_PERMISSIONS.MANAGE_BRANCH)) {
+      return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to list branches.'));
+    }
     return ok((await this.repository.findAll(status)).map(toBranchDto));
   }
 }

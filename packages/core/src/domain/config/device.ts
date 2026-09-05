@@ -18,6 +18,7 @@ export type DeviceProps = {
   type: DeviceType;
   identifier: string;
   terminalId: string;
+  originNodeId: string;
   branchId?: string;
   status?: DeviceStatus;
   createdAt: Date;
@@ -63,6 +64,7 @@ export class Device {
     readonly id: string,
     readonly type: DeviceType,
     readonly terminalId: string,
+    readonly originNodeId: string,
     readonly createdAt: Date,
     identifier: string,
     branchId: string | null,
@@ -88,11 +90,14 @@ export class Device {
     const terminalId = requireText(
       props.terminalId, 'DEVICE_TERMINAL_REQUIRED', 'Device terminal is required.'
     );
+    const originNodeId = requireText(
+      props.originNodeId, 'DEVICE_ORIGIN_NODE_REQUIRED', 'Device origin node is required.'
+    );
     const branchId = props.branchId === undefined
       ? null
       : requireText(props.branchId, 'DEVICE_BRANCH_REQUIRED', 'Device branch is required.');
     return new Device(
-      id, props.type, terminalId, new Date(props.createdAt), identifier, branchId,
+      id, props.type, terminalId, originNodeId, new Date(props.createdAt), identifier, branchId,
       validStatus(props.status ?? 'ACTIVE'), new Date(props.createdAt), 1
     );
   }

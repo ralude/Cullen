@@ -7,7 +7,7 @@ import { DrizzleStockCountRepository } from './stock-count-repository.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const opened = (id = 'count-1'): StockCount => StockCount.open({
-  id, openedBy: 'user-001', openedAt: new Date('2026-09-05T10:00:00.000Z')
+  id, openedBy: 'user-001', originNodeId: 'node-1', openedAt: new Date('2026-09-05T10:00:00.000Z')
 });
 
 describe('DrizzleStockCountRepository', () => {

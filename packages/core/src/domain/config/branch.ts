@@ -14,6 +14,7 @@ export type BranchProps = {
   id: string;
   code: string;
   name: string;
+  originNodeId: string;
   status?: BranchStatus;
   createdAt: Date;
 };
@@ -49,6 +50,7 @@ export class Branch {
   private constructor(
     readonly id: string,
     readonly code: string,
+    readonly originNodeId: string,
     readonly createdAt: Date,
     name: string,
     status: BranchStatus,
@@ -68,8 +70,9 @@ export class Branch {
       throw new DomainError('BRANCH_CODE_INVALID', 'Branch code is invalid.');
     }
     const name = requireText(props.name, 'BRANCH_NAME_REQUIRED', 'Branch name is required.');
+    const originNodeId = requireText(props.originNodeId, 'BRANCH_ORIGIN_NODE_REQUIRED', 'Branch origin node is required.');
     return new Branch(
-      id, code, new Date(props.createdAt), name, validStatus(props.status ?? 'ACTIVE'),
+      id, code, originNodeId, new Date(props.createdAt), name, validStatus(props.status ?? 'ACTIVE'),
       new Date(props.createdAt), 1
     );
   }

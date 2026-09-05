@@ -182,4 +182,34 @@ describe('Drizzle repositories', () => {
     ).run()).toThrowError('stock movements are append-only');
     handle.close();
   });
+
+  it('persists the stock valuation currency after the balance returns to zero', async () => {
+    const handle = openDatabase(':memory:');
+    applyMigrations(handle.sqlite);
+    const unitOfWork = new SqliteUnitOfWork(handle.sqlite);
+    const repository = new DrizzleStockItemRepository(handle);
+    const item = StockItem.create({
+      id: 'stock-valued', productId: 'product-valued', unitCode: 'UNIT',
+      quantityScale: 0, tracksBatches: false
+    });
+    item.registerMovement({
+      id: 'valued-in', eventId: 'valued-in-event', type: 'PURCHASE_RECEIPT',
+      quantity: Quantity.fromScaled(2, 0), actorId: 'user-001', reason: 'Purchase',
+      referenceId: 'receipt-valued', occurredAt: date('2026-09-05T10:00:00Z'),
+      unitCost: Money.fromMinorUnits(150, 'USD')
+    });
+    item.registerMovement({
+      id: 'valued-out', eventId: 'valued-out-event', type: 'SALE_ISSUE',
+      quantity: Quantity.fromScaled(2, 0), actorId: 'user-001', reason: 'Sale',
+      referenceId: 'sale-valued', occurredAt: date('2026-09-05T11:00:00Z')
+    });
+
+    await unitOfWork.execute(() => repository.save(item));
+
+    const restored = await repository.findById(item.id);
+    expect(restored?.valuationCurrency).toBe('USD');
+    expect(restored?.inventoryValue).toEqual(Money.zero('USD'));
+    expect(restored?.movements[1]?.unitCost).toEqual(Money.fromMinorUnits(150, 'USD'));
+    handle.close();
+  });
 });

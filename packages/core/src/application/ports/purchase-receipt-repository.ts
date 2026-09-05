@@ -9,4 +9,8 @@ export interface PurchaseReceiptRepository {
     series: string | null,
     number: string
   ): Promise<PurchaseReceipt | null>;
+  findCompletedByControlNumber(
+    supplierId: string,
+    controlNumber: string
+  ): Promise<PurchaseReceipt | null>;
 }

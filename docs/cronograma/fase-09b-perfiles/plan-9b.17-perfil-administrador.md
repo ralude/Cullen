@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.17: Perfil Administrador
 
 - **Sub-fase:** [9B.17 Perfil Administrador](./9b.17-perfil-administrador.md)
-- **Estado del plan:** Listo para composición incremental
+- **Estado del plan:** Bloqueado hasta completar 9B.10 y volver a cerrar 9B.11
 - **Base:** 9B.10, 9B.11, ADR-0013 y
   [ADR-0021](../../architecture/adr/0021-mvp-referencia-no-certificado.md)
 - **Disciplina:** Outside-in TDD (ADR-0007) y Ponytail `full`
@@ -60,4 +60,3 @@ de una integración fiscal real.
 - Usuarios, roles, PIN, revocación de sesiones y cifrado de secretos de Fase 11.
 - Configuración o prueba de hardware real de Fase 8.
 - Distribución de maestros y autoridad multi-nodo de Fase 10.
-

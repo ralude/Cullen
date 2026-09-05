@@ -141,20 +141,64 @@ describe('reporting read repositories', () => {
       insert into sale_items (id, sale_id, product_id, description, price_minor_units, currency_code,
         tax_rate_basis_points, unit_code, unit_scale, quantity_scaled, quantity_scale)
       values ('sale-item-1', 'sale-1', 'product-1', 'Producto uno', 150, 'USD', 1600, 'UND', 0, 4, 0);
+      insert into sale_discounts (id, sale_id, item_id, percentage_basis_points, amount_minor_units,
+        currency_code, reason, applied_by, applied_at)
+      values ('discount-1', 'sale-1', 'sale-item-1', 667, 40, 'USD', 'Promoción', 'user-1',
+        ${at('2026-09-02T09:59:00.000Z')});
     `);
 
     const repository = new DrizzleMarginReportRepository(handle);
-    const entries = await repository.findMargins({ limit: 100 });
+    const period = {
+      from: new Date('2026-09-01T00:00:00.000Z'),
+      to: new Date('2026-09-03T00:00:00.000Z'), limit: 100
+    };
+    const entries = await repository.findMargins(period);
 
     expect(entries).toEqual([{
       productId: 'product-1', currencyCode: 'USD',
-      quantitySoldScaled: 4, quantityScale: 0,
-      revenueMinorUnits: 600, costMinorUnits: 400, marginMinorUnits: 200
+      quantitySoldScaled: 4, quantityReturnedScaled: 0, quantityScale: 0,
+      discountMinorUnits: 40, returnRevenueMinorUnits: 0, returnCostMinorUnits: 0,
+      revenueMinorUnits: 560, costMinorUnits: 400, marginMinorUnits: 160
     }]);
 
     expect(await repository.findMargins({
-      limit: 100, from: new Date('2026-09-03T00:00:00.000Z')
+      limit: 100, from: new Date('2026-09-03T00:00:00.000Z'),
+      to: new Date('2026-09-04T00:00:00.000Z')
     })).toEqual([]);
-    expect(await repository.findMargins({ limit: 100, currencyCode: 'EUR' })).toEqual([]);
+    expect(await repository.findMargins({ ...period, currencyCode: 'EUR' })).toEqual([]);
+
+    handle.sqlite.exec(`
+      insert into cash_registers (id, name, terminal_id, origin_node_id, is_active)
+      values ('register-1', 'Caja 1', 'terminal-001', 'node-001', 1);
+      insert into shifts (id, cash_register_id, terminal_id, origin_node_id, opened_by, opened_at,
+        status, version) values ('shift-return', 'register-1', 'terminal-001', 'node-001', 'user-1',
+        ${at('2026-09-02T00:00:00.000Z')}, 'OPEN', 1);
+      insert into fiscal_documents (id, reference_id, document_type, currency_code, total_minor_units,
+        idempotency_key, request_fingerprint, terminal_id, origin_node_id, created_by, created_at,
+        status, version, attempts, fiscal_number, last_error_code, last_dispatch_state,
+        last_command_effect, last_fiscal_commit, last_print_delivery, last_failure_retryable)
+      values
+        ('invoice-return', 'sale-1', 'INVOICE', 'USD', 560, 'invoice-key', 'invoice-fingerprint',
+          'terminal-001', 'node-001', 'user-1', ${at('2026-09-02T10:00:00.000Z')}, 'ISSUED', 1, 1,
+          'A-1', null, 'RESULT_RECEIVED', 'APPLIED', 'COMMITTED', 'COMPLETE', 0),
+        ('credit-return', 'return-1', 'CREDIT_NOTE', 'USD', 560, 'credit-key', 'credit-fingerprint',
+          'terminal-001', 'node-001', 'user-1', ${at('2026-09-02T11:00:00.000Z')}, 'ISSUED', 1, 1,
+          'NC-1', null, 'RESULT_RECEIVED', 'APPLIED', 'COMMITTED', 'COMPLETE', 0);
+      insert into sale_returns (id, sale_id, original_document_id, credit_note_id, shift_id,
+        refund_minor_units, currency_code, payment_method_code, reason, actor_id, terminal_id,
+        origin_node_id, occurred_at)
+      values ('return-1', 'sale-1', 'invoice-return', 'credit-return', 'shift-return', 560, 'USD',
+        'CASH_USD', 'Devolución total', 'user-1', 'terminal-001', 'node-001',
+        ${at('2026-09-02T11:00:00.000Z')});
+      insert into sale_return_lines (id, sale_return_id, sale_item_id, product_id, stock_item_id,
+        batch_id, quantity_scaled, quantity_scale, unit_cost_minor_units, cost_currency_code)
+      values ('return-line-1', 'return-1', 'sale-item-1', 'product-1', 'stock-1', null, 4, 0, 100, 'USD');
+    `);
+    expect(await repository.findMargins(period)).toEqual([{
+      productId: 'product-1', currencyCode: 'USD',
+      quantitySoldScaled: 4, quantityReturnedScaled: 4, quantityScale: 0,
+      discountMinorUnits: 40, returnRevenueMinorUnits: 560, returnCostMinorUnits: 400,
+      revenueMinorUnits: 0, costMinorUnits: 0, marginMinorUnits: 0
+    }]);
   });
 });

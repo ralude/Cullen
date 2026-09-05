@@ -26,12 +26,14 @@ const draftReceipt = (id: string, exchangeRate: ExchangeRate | null = null): Pur
     taxIdentity: { country: 'VE', type: 'RIF', value: 'J-12345678-9', normalizedValue: 'J123456789' },
     fiscalAddress: { countryCode: 'VE', addressLine: 'Caracas' }
   },
-  sourceDocument: { type: 'INVOICE', number: 'FAC-001', series: 'A', controlNumber: null, issuedAt: null },
-  effectiveAt: new Date('2026-09-04T10:00:00Z'), createdBy: 'user-1', createdAt: new Date('2026-09-04T10:00:00Z'),
+  sourceDocument: { type: 'INVOICE', number: 'FAC-001', series: 'A', controlNumber: '00-000001', issuedAt: null },
+  effectiveAt: new Date('2026-09-04T10:00:00Z'), createdBy: 'user-1', originNodeId: 'node-1',
+  createdAt: new Date('2026-09-04T10:00:00Z'),
   replacesReceiptId: null,
   lines: [{
     id: 'line-1', productId: 'product-1', stockItemId: 'stock-1',
-    quantity: Quantity.fromScaled(10, 0), batchId: null,
+    unitCode: 'UND', tracksBatches: false,
+    quantity: Quantity.fromScaled(10, 0), batchId: null, batchLotNumber: null, batchExpiresAt: null,
     purchaseUnitCost: Money.fromMinorUnits(100, exchangeRate ? 'EUR' : 'USD'),
     valuationUnitCost: Money.fromMinorUnits(exchangeRate ? 110 : 100, 'USD'),
     exchangeRate
@@ -66,6 +68,8 @@ describe('DrizzlePurchaseReceiptRepository', () => {
     expect(await repository.findCompletedBySource('supplier-1', 'INVOICE', 'a', 'fac-001'))
       .toMatchObject({ id: 'receipt-1' });
     expect(await repository.findCompletedBySource('supplier-1', 'INVOICE', 'B', 'FAC-001')).toBeNull();
+    expect(await repository.findCompletedByControlNumber('supplier-1', '00-000001'))
+      .toMatchObject({ id: 'receipt-1' });
     handle.close();
   });
 

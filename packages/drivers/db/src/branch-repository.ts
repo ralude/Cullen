@@ -11,19 +11,23 @@ export class DrizzleBranchRepository implements BranchRepository {
   async save(branch: Branch): Promise<void> {
     requireTransaction(this.handle.sqlite);
     try {
-      const existing = this.handle.db.select({ version: branches.version })
+      const existing = this.handle.db.select({ version: branches.version, originNodeId: branches.originNodeId })
         .from(branches).where(eq(branches.id, branch.id)).get();
       const values = {
         name: branch.name, status: branch.status, updatedAt: branch.updatedAt, version: branch.version
       };
       if (!existing) {
         this.handle.db.insert(branches).values({
-          id: branch.id, code: branch.code, createdAt: branch.createdAt, ...values
+          id: branch.id, code: branch.code, originNodeId: branch.originNodeId,
+          createdAt: branch.createdAt, ...values
         }).run();
         return;
       }
       if (existing.version !== branch.version - 1) {
         throw new InfrastructureError('DATABASE_CONCURRENCY_CONFLICT', 'Branch version is stale.');
+      }
+      if (existing.originNodeId !== branch.originNodeId) {
+        throw new InfrastructureError('AGGREGATE_OWNER_MISMATCH', 'Branch owner cannot change.');
       }
       const changed = this.handle.db.update(branches).set(values).where(and(
         eq(branches.id, branch.id), eq(branches.version, existing.version)
@@ -64,8 +68,12 @@ export class DrizzleBranchRepository implements BranchRepository {
   }
 
   private restore(row: typeof branches.$inferSelect | undefined): Branch | null {
+    if (row && row.originNodeId === null) {
+      throw new InfrastructureError('AGGREGATE_OWNER_UNRESOLVED', 'Branch owner is unresolved.');
+    }
     return row ? Branch.restore({
       id: row.id, code: row.code, name: row.name, status: row.status as BranchStatus,
+      originNodeId: row.originNodeId!,
       createdAt: row.createdAt, updatedAt: row.updatedAt, version: row.version
     }) : null;
   }

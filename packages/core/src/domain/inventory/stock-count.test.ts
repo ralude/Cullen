@@ -5,7 +5,7 @@ import { StockCount, StockCountLine, type StockCountDifference } from './stock-c
 const openedAt = new Date('2026-09-05T10:00:00.000Z');
 
 const opened = (): StockCount => StockCount.open({
-  id: 'count-001', openedBy: 'user-001', openedAt
+  id: 'count-001', openedBy: 'user-001', originNodeId: 'node-1', openedAt
 });
 
 describe('StockCount', () => {
@@ -135,7 +135,7 @@ describe('StockCount', () => {
 
   it('rehydrates a restored count with its lines, differences and terminal state', () => {
     const restored = StockCount.restore({
-      id: 'count-002', openedBy: 'user-001', openedAt,
+      id: 'count-002', openedBy: 'user-001', originNodeId: 'node-1', openedAt,
       status: 'APPROVED',
       lines: [StockCountLine.create({
         id: 'line-001', productId: 'product-001', stockItemId: 'stock-001',

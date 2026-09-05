@@ -1,8 +1,8 @@
 # Plan de ejecución 9B.16: Perfil Inventario
 
 - **Sub-fase:** [9B.16 Perfil Inventario](./9b.16-perfil-inventario.md)
-- **Estado del plan:** Listo para composición incremental
-- **Base:** 9B.03 y 9B.07 completadas; 9B.04 se integra al estar disponible; 9B.08 permanece
+- **Estado del plan:** Bloqueado hasta volver a cerrar 9B.04 y 9B.07
+- **Base:** 9B.03 completada; 9B.04 y 9B.07 están reabiertas; 9B.08 permanece
   diferida por [ADR-0020](../../architecture/adr/0020-modelo-de-almacenes-y-transferencias.md)
 - **Disciplina:** Outside-in TDD (ADR-0007) y Ponytail `full`
 
@@ -15,7 +15,7 @@ del nodo y sin acceso a caja o venta.
 ## Línea base comprobada
 
 - Ya existen recepción, ajuste y kardex por producto; proveedores y conteos físicos están
-  implementados de extremo a extremo.
+  implementados, pero costo, autorización y concurrencia tienen correcciones pendientes.
 - La pantalla actual exige buscar primero un producto para ver su kardex; no existe una lectura
   operativa paginada de existencias como punto de entrada.
 - `StockItem` ya contiene lotes, vencimientos y movimientos append-only.

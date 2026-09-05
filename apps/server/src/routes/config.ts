@@ -51,16 +51,22 @@ export const registerConfigRoutes = (
   app.get<{ Querystring: { status?: BranchStatusResponse } }>(listBranchesContract.path, {
     schema: listBranchesContract.schema as FastifySchema
   }, async (request, reply) => {
-    if (!await requirePrincipal(request, reply, dependencies)) return;
-    const result = await dependencies.config.branches.list.execute(request.query.status);
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.config.branches.list.execute(
+      request.query.status, createExecutionContext(request, principal, dependencies)
+    );
     return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
   });
 
   app.get<{ Params: { branchId: string } }>(getBranchContract.path, {
     schema: getBranchContract.schema as FastifySchema
   }, async (request, reply) => {
-    if (!await requirePrincipal(request, reply, dependencies)) return;
-    const result = await dependencies.config.branches.get.execute(request.params.branchId);
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.config.branches.get.execute(
+      request.params.branchId, createExecutionContext(request, principal, dependencies)
+    );
     return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
   });
 
@@ -102,11 +108,12 @@ export const registerConfigRoutes = (
   app.get<{ Querystring: { terminalId?: string; status?: DeviceStatusResponse } }>(listDevicesContract.path, {
     schema: listDevicesContract.schema as FastifySchema
   }, async (request, reply) => {
-    if (!await requirePrincipal(request, reply, dependencies)) return;
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
     const result = await dependencies.config.devices.list.execute({
       ...(request.query.terminalId ? { terminalId: request.query.terminalId } : {}),
       ...(request.query.status ? { status: request.query.status } : {})
-    });
+    }, createExecutionContext(request, principal, dependencies));
     return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
   });
 

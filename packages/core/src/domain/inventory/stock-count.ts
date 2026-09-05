@@ -36,12 +36,14 @@ export type StockCountDifference = {
 export type StockCountProps = {
   id: string;
   openedBy: string;
+  originNodeId: string;
   openedAt: Date;
 };
 
 export type RestoredStockCountProps = {
   id: string;
   openedBy: string;
+  originNodeId: string;
   openedAt: Date;
   status: StockCountStatus;
   lines: readonly StockCountLine[];
@@ -115,6 +117,7 @@ export class StockCount {
   private constructor(
     readonly id: string,
     readonly openedBy: string,
+    readonly originNodeId: string,
     readonly openedAt: Date,
     status: StockCountStatus,
     version: number
@@ -126,11 +129,16 @@ export class StockCount {
   static open(props: StockCountProps): StockCount {
     const id = requireText(props.id, 'STOCK_COUNT_ID_REQUIRED', 'Stock count ID is required.');
     const openedBy = requireText(props.openedBy, 'STOCK_COUNT_ACTOR_REQUIRED', 'Stock count actor is required.');
-    return new StockCount(id, openedBy, new Date(props.openedAt), 'OPEN', 1);
+    const originNodeId = requireText(
+      props.originNodeId, 'STOCK_COUNT_ORIGIN_NODE_REQUIRED', 'Stock count origin node is required.'
+    );
+    return new StockCount(id, openedBy, originNodeId, new Date(props.openedAt), 'OPEN', 1);
   }
 
   static restore(props: RestoredStockCountProps): StockCount {
-    const count = new StockCount(props.id, props.openedBy, props.openedAt, props.status, props.version);
+    const count = new StockCount(
+      props.id, props.openedBy, props.originNodeId, props.openedAt, props.status, props.version
+    );
     for (const line of props.lines) count.currentLines.set(lineKey(line.stockItemId, line.batchId), line);
     count.currentDifferences = props.differences === null ? null : [...props.differences];
     count.currentClosedAt = props.closedAt;

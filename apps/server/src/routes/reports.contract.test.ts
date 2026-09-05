@@ -31,7 +31,7 @@ describe('reporting HTTP contracts', () => {
     '/api/v1/reports/cash-closures',
     '/api/v1/reports/audit',
     '/api/v1/reports/fiscal-operations',
-    '/api/v1/reports/margin'
+    '/api/v1/reports/margin?from=2025-08-01T00%3A00%3A00.000Z&to=2025-09-01T00%3A00%3A00.000Z'
   ];
 
   it('projects cash closures and audit entries from SQLite for an authorized reader', async () => {
@@ -132,10 +132,16 @@ describe('reporting HTTP contracts', () => {
       values ('sale-item-1', 'sale-1', 'product-1', 'Producto uno', 150, 'USD', 1600, 'UND', 0, 4, 0);
     `);
 
-    const response = await app.inject({ method: 'GET', url: '/api/v1/reports/margin', headers: { cookie } });
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/reports/margin?from=2025-08-01T00%3A00%3A00.000Z&to=2025-09-01T00%3A00%3A00.000Z',
+      headers: { cookie }
+    });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual([{
-      productId: 'product-1', currencyCode: 'USD', quantitySoldScaled: 4, quantityScale: 0,
+      productId: 'product-1', currencyCode: 'USD', quantitySoldScaled: 4,
+      quantityReturnedScaled: 0, quantityScale: 0, discountMinorUnits: 0,
+      returnRevenueMinorUnits: 0, returnCostMinorUnits: 0,
       revenueMinorUnits: 600, costMinorUnits: 400, marginMinorUnits: 200
     }]);
   });

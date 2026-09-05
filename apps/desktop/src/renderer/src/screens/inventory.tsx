@@ -8,7 +8,7 @@ import {
   type KardexDto,
   type SupplierResponse
 } from '@supermarket/shared';
-import { createIdempotencyKey } from '../api-client.js';
+import { createIdempotencyKey, formatScaledDecimal } from '../api-client.js';
 import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
 
 export const filterSuppliers = (
@@ -180,7 +180,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
             <div className="panel-heading">
               <div><p className="eyebrow">Saldo actual</p><h3>{kardex.productId}</h3></div>
               <strong className="total-figure">
-                {kardex.currentBalanceScaled / (10 ** kardex.quantityScale)}
+                {formatScaledDecimal(kardex.currentBalanceScaled, kardex.quantityScale)}
               </strong>
             </div>
             {kardex.batches.length > 0 && (
@@ -205,7 +205,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
                   <tr key={movement.id}>
                     <td>{new Date(movement.occurredAt).toLocaleString('es-VE')}</td>
                     <td>{movement.type}</td><td>{movement.direction}</td>
-                    <td>{movement.quantityScaled / (10 ** movement.quantityScale)}</td>
+                    <td>{formatScaledDecimal(movement.quantityScaled, movement.quantityScale)}</td>
                     <td>{movement.reason}</td>
                   </tr>
                 ))}</tbody>

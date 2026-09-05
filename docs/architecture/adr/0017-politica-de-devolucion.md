@@ -26,6 +26,11 @@ nota de crédito real para avanzar.
    merma o inspección se dejan fuera del primer corte y no se simulan con ajustes sueltos.
 6. La nota se emite mediante `FiscalPrinterFake`, con `SIMULACION` visible y sin declarar
    emisión legal o compatibilidad de hardware.
+7. Un reintegro puede dejar negativo el saldo esperado del método en el turno que lo procesa
+   cuando ese turno no cobró fondos suficientes antes de devolverlos. El valor negativo se
+   conserva como evidencia real de salida de caja; no se trunca a cero ni se carga al turno
+   histórico. En el arqueo, un declarado no negativo se compara contra ese esperado y la
+   diferencia explica los fondos que debieron aportarse para pagar el reintegro.
 
 ## Extensiones diferidas
 
@@ -40,6 +45,7 @@ el proveedor que correspondan.
 - Caja, inventario, ledger, outbox y estado fiscal se confirman juntos o no se confirman.
 - Toda acción sensible deja actor, terminal, nodo, UTC y motivo.
 - Un fallo de impresión simulada conserva un estado recuperable e idempotente.
+- El saldo esperado puede ser negativo por reintegros y debe mostrarse con su signo.
 
 ## Consecuencias
 

@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.13: KPIs de gerencia
 
 - **Sub-fase:** [9B.13 KPIs de gerencia](./9b.13-kpis-de-gerencia.md)
-- **Estado del plan:** Listo para implementación incremental
+- **Estado del plan:** Bloqueado por los cortes 0, 1 y 4 del plan correctivo
 - **Decisiones:** [ADR-0013](../../architecture/adr/0013-reportes-operativos-de-lectura.md),
   [ADR-0016](../../architecture/adr/0016-metodo-de-costeo-y-margen.md) y
   [ADR-0021](../../architecture/adr/0021-mvp-referencia-no-certificado.md)
@@ -9,17 +9,21 @@
 
 ## Resultado esperado
 
-Publicar un resumen acotado de ventas completadas e inventario del nodo. Al concluir 9B.04,
-añadir costo de ventas y margen. Cada cifra declara período, moneda y alcance; React no
-recalcula reglas de negocio.
+Publicar un resumen acotado de ventas completadas e inventario del nodo, con ingreso neto,
+devoluciones, costo de ventas y margen fiables. Cada cifra declara período, moneda y alcance;
+React no recalcula reglas de negocio.
 
 ## Línea base comprobada
 
 - Los reportes actuales cubren cierres, auditoría y fiscalidad con permisos, límites 100/500 y
   exportación CSV local.
-- No existen `reports.sales.read`, `reports.inventory.read` ni `reports.margin.read`.
-- Venta, stock, movimientos y lotes ya son relacionales; el margen no es fiable hasta que
-  9B.04 persista costos de salida.
+- No existen `reports.sales.read` ni `reports.inventory.read`; `reports.margin.read`, su caso de
+  uso y su adaptador SQLite sí existen.
+- 9B.04 persiste costos de salida y 9B.06 persiste devoluciones, pero ambas se reabrieron: un
+  ajuste sin costo puede inutilizar la valoración y la prueba contractual de devolución muere
+  antes de invocar `POST /return`.
+- El margen actual usa ingreso bruto sin descuentos ni devoluciones, suma cantidades solo en
+  filas con costo y materializa filas sin `LIMIT` SQL antes de recortarlas en memoria.
 - No hay librería de gráficos ni hace falta añadirla para entregar las lecturas.
 
 ## Contrato mínimo de indicadores
@@ -29,11 +33,11 @@ recalcula reglas de negocio.
   `VOIDED` no cuentan.
 - **Inventario:** existencia actual por producto/lote, productos sin existencia y lotes
   vencidos o próximos a vencer según una fecha de corte explícita.
-- **Margen, después de 9B.04:** ingreso neto, costo de ventas y margen absoluto por moneda. No
-  se publica porcentaje cuando el denominador es cero.
-- **Devoluciones, después de 9B.06:** se muestran por separado con cantidad e importe y permiten
-  derivar venta neta; revierten costo usando sus snapshots. Hasta entonces la respuesta declara
-  que no las incorpora.
+- **Margen:** ingreso neto después de descuentos y devoluciones, costo de ventas neto de las
+  reposiciones y margen absoluto por moneda. No se publica porcentaje cuando el denominador es
+  cero.
+- **Devoluciones:** se muestran por separado con cantidad e importe, permiten derivar venta
+  neta y revierten costo usando sus snapshots. La venta original permanece inmutable.
 
 No se denomina “rotación” a ninguna cifra en este corte: su fórmula, ventana y denominador no
 están especificados. Agregarla exige criterios de aceptación propios, no bloquea estos KPIs.
@@ -44,27 +48,38 @@ están especificados. Agregarla exige criterios de aceptación propios, no bloqu
   motor genérico de reportes.
 - Ventas exige `reports.sales.read`, inventario `reports.inventory.read` y margen
   `reports.margin.read`; se autoriza antes de consultar.
-- Toda consulta recibe período/corte y límite recortado en aplicación. El adaptador puede
-  agregar en SQL, pero la semántica y la separación de monedas pertenecen a aplicación.
+- Toda consulta de KPIs recibe `from` y `to` UTC explícitos, además de límite recortado en
+  aplicación. El adaptador agrega y limita en SQL; no materializa tablas completas. La
+  semántica y la separación de monedas pertenecen a aplicación. Esta exigencia aplica a los
+  KPIs de 9B.13; no cambia los filtros opcionales de los tres reportes originales de ADR-0013.
+- `currencyCode` se normaliza a mayúsculas en la frontera o se rechaza con error estable.
 - La exportación reutiliza el CSV visible de ADR-0013: no vuelve a consultar ni agrega datos.
 
 ## Secuencia outside-in
 
 1. Probar cada permiso y demostrar que `FORBIDDEN` no ejecuta el repositorio.
-2. Probar ventas con período vacío, límites, estados excluidos y dos monedas separadas.
+2. Probar rechazo de período ausente/inválido, límites, estados excluidos y dos monedas
+   separadas.
 3. Probar inventario actual con lotes, vencimientos y corte UTC.
 4. Publicar contratos, adaptadores SQLite, rutas y tarjetas/listados mínimos.
-5. Después de 9B.04, probar costo y margen con snapshots históricos y denominador cero.
-6. Después de 9B.06, probar el efecto de una devolución sin reescribir la venta original.
-7. Probar exportación desde la proyección visible y neutralización CSV ya existente.
-8. Ejecutar verificaciones y actualizar el cronograma en cada entrega incremental.
+5. Cerrar A1/A2 de 9B.04 y probar costo estable tras saldo cero, merma, ajuste y conteo.
+6. Probar ingreso neto con descuentos y devoluciones, reverso de costo por snapshot y venta
+   original inmutable.
+7. Probar que cantidad vendida proviene de líneas de venta aunque falte costo y que nunca suma
+   escalas incompatibles.
+8. Probar que la consulta agregada lleva cota SQL y que moneda minúscula se normaliza o rechaza.
+9. Probar exportación desde la proyección visible y neutralización CSV ya existente.
+10. Ejecutar verificaciones y actualizar el cronograma en cada entrega incremental.
 
 ## Criterios de aceptación
 
 - [ ] Ventas e inventario funcionan independientemente de 9B.04.
 - [ ] Cada lectura autoriza en aplicación y siempre consulta con cota.
-- [ ] Monedas y períodos son explícitos; no hay conversiones implícitas.
-- [ ] Margen solo aparece con costo histórico implementado y autorizado.
+- [ ] Monedas y períodos son explícitos y válidos; no hay conversiones implícitas ni filtros
+  sensibles a casing.
+- [ ] Margen usa ingreso neto de descuentos/devoluciones y costo histórico estable, autorizado
+  y reversible mediante snapshots.
+- [ ] `quantitySoldScaled` no depende de la disponibilidad de costo y no mezcla escalas.
 - [ ] El renderer presenta los valores recibidos y reutiliza la exportación existente.
 - [ ] No se añade dependencia de visualización ni abstracción genérica de BI.
 - [ ] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.

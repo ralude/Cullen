@@ -141,7 +141,7 @@ export const createSupplierContract = {
 } as const satisfies HttpContractV1;
 
 export const listSuppliersContract = {
-  method: 'GET', path: '/api/v1/suppliers', permission: null, idempotency: 'NONE',
+  method: 'GET', path: '/api/v1/suppliers', permission: 'supplier.read', idempotency: 'NONE',
   schema: {
     querystring: {
       type: 'object', additionalProperties: false,
@@ -155,7 +155,7 @@ export const listSuppliersContract = {
 } as const satisfies HttpContractV1;
 
 export const getSupplierContract = {
-  method: 'GET', path: '/api/v1/suppliers/:supplierId', permission: null, idempotency: 'NONE',
+  method: 'GET', path: '/api/v1/suppliers/:supplierId', permission: 'supplier.read', idempotency: 'NONE',
   schema: {
     params: supplierParams,
     response: { 200: supplierResponseSchema, 401: problemDetailsSchema, 404: problemDetailsSchema }

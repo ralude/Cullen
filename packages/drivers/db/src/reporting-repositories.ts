@@ -14,7 +14,6 @@ import type {
   MarginReportRepository,
   ResolvedReportQuery
 } from '@supermarket/core';
-import { Money, Quantity } from '@supermarket/shared';
 import { and, desc, eq, gte, lte, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseHandle } from './connection.js';
 import {
@@ -22,12 +21,8 @@ import {
   cashMovements,
   fiscalDocuments,
   fiscalReports,
-  saleItems,
-  sales,
   shiftClosingBalances,
-  shifts,
-  stockItems,
-  stockMovements
+  shifts
 } from './schema.js';
 
 const EVIDENCE_AXES = [
@@ -179,96 +174,146 @@ export class DrizzleFiscalOperationsReportRepository implements FiscalOperations
   }
 }
 
-type MarginAggregate = {
-  productId: string;
-  currencyCode: string;
-  quantityScaled: number;
-  quantityScale: number;
-  revenue: Money | null;
-  cost: Money | null;
-};
-
 /**
- * Margen agregado por producto, moneda y período (ADR-0016). El costo se
- * toma de las salidas de venta (`SALE_ISSUE`) con costo congelado; el
- * ingreso, de las líneas de venta completadas. No se convierte moneda: un
- * producto vendido en más de una moneda produce una fila por moneda y solo
- * se resta cuando ambos lados coinciden en esa moneda.
+ * Margen neto agregado y acotado en SQLite. Las escalas forman parte de la
+ * clave para no sumar cantidades incompatibles; descuentos y devoluciones
+ * conservan columnas separadas para que la respuesta explique el neto.
  */
 export class DrizzleMarginReportRepository implements MarginReportRepository {
   constructor(private readonly handle: DatabaseHandle) {}
 
   async findMargins(query: ResolvedReportQuery<MarginReportInput>): Promise<readonly MarginReportEntryDto[]> {
-    const costRows = this.handle.db.select({
-      productId: stockItems.productId,
-      quantityScaled: stockMovements.quantityScaled,
-      quantityScale: stockMovements.quantityScale,
-      unitCostMinorUnits: stockMovements.unitCostMinorUnits,
-      costCurrencyCode: stockMovements.costCurrencyCode
-    }).from(stockMovements).innerJoin(stockItems, eq(stockMovements.stockItemId, stockItems.id))
-      .where(every([
-        eq(stockMovements.type, 'SALE_ISSUE'),
-        query.from === undefined ? undefined : gte(stockMovements.occurredAt, query.from),
-        query.to === undefined ? undefined : lte(stockMovements.occurredAt, query.to)
-      ])).all();
+    type Row = Omit<MarginReportEntryDto, 'marginMinorUnits'>;
+    const rows = this.handle.sqlite.prepare(`
+      with
+      sale_base as (
+        select item.product_id, item.currency_code, item.quantity_scale,
+          item.quantity_scaled,
+          cast(case item.quantity_scale
+            when 0 then item.price_minor_units * item.quantity_scaled
+            when 1 then (item.price_minor_units * item.quantity_scaled + 5) / 10
+            when 2 then (item.price_minor_units * item.quantity_scaled + 50) / 100
+            when 3 then (item.price_minor_units * item.quantity_scaled + 500) / 1000
+            when 4 then (item.price_minor_units * item.quantity_scaled + 5000) / 10000
+            when 5 then (item.price_minor_units * item.quantity_scaled + 50000) / 100000
+            when 6 then (item.price_minor_units * item.quantity_scaled + 500000) / 1000000
+          end as integer) as gross_minor_units,
+          coalesce((select sum(discount.amount_minor_units) from sale_discounts discount
+            where discount.item_id = item.id), 0) as discount_minor_units
+        from sale_items item
+        join sales sale on sale.id = item.sale_id
+        where sale.status = 'COMPLETED' and sale.completed_at between @from and @to
+      ),
+      sale_group as (
+        select product_id, currency_code, quantity_scale,
+          sum(quantity_scaled) as quantity_sold_scaled,
+          sum(discount_minor_units) as discount_minor_units,
+          sum(gross_minor_units - discount_minor_units) as sale_revenue_minor_units
+        from sale_base group by product_id, currency_code, quantity_scale
+      ),
+      cost_group as (
+        select item.product_id,
+          coalesce(movement.cost_currency_code, item.valuation_currency_code) as currency_code,
+          movement.quantity_scale,
+          case when sum(case when movement.unit_cost_minor_units is null then 1 else 0 end) = 0
+            then sum(cast(case movement.quantity_scale
+              when 0 then movement.unit_cost_minor_units * movement.quantity_scaled
+              when 1 then (movement.unit_cost_minor_units * movement.quantity_scaled + 5) / 10
+              when 2 then (movement.unit_cost_minor_units * movement.quantity_scaled + 50) / 100
+              when 3 then (movement.unit_cost_minor_units * movement.quantity_scaled + 500) / 1000
+              when 4 then (movement.unit_cost_minor_units * movement.quantity_scaled + 5000) / 10000
+              when 5 then (movement.unit_cost_minor_units * movement.quantity_scaled + 50000) / 100000
+              when 6 then (movement.unit_cost_minor_units * movement.quantity_scaled + 500000) / 1000000
+            end as integer)) else null end as sale_cost_minor_units
+        from stock_movements movement
+        join stock_items item on item.id = movement.stock_item_id
+        where movement.type = 'SALE_ISSUE' and movement.occurred_at between @from and @to
+          and coalesce(movement.cost_currency_code, item.valuation_currency_code) is not null
+        group by item.product_id, coalesce(movement.cost_currency_code, item.valuation_currency_code),
+          movement.quantity_scale
+      ),
+      return_item as (
+        select line.sale_item_id, line.product_id, line.quantity_scale,
+          sum(line.quantity_scaled) as quantity_scaled
+        from sale_return_lines line
+        join sale_returns returned on returned.id = line.sale_return_id
+        where returned.occurred_at between @from and @to
+        group by line.sale_item_id, line.product_id, line.quantity_scale
+      ),
+      return_group as (
+        select returned_item.product_id, original.currency_code, returned_item.quantity_scale,
+          sum(returned_item.quantity_scaled) as quantity_returned_scaled,
+          sum(cast(case returned_item.quantity_scale
+            when 0 then original.price_minor_units * returned_item.quantity_scaled
+            when 1 then (original.price_minor_units * returned_item.quantity_scaled + 5) / 10
+            when 2 then (original.price_minor_units * returned_item.quantity_scaled + 50) / 100
+            when 3 then (original.price_minor_units * returned_item.quantity_scaled + 500) / 1000
+            when 4 then (original.price_minor_units * returned_item.quantity_scaled + 5000) / 10000
+            when 5 then (original.price_minor_units * returned_item.quantity_scaled + 50000) / 100000
+            when 6 then (original.price_minor_units * returned_item.quantity_scaled + 500000) / 1000000
+          end as integer) - coalesce((select sum(discount.amount_minor_units)
+            from sale_discounts discount where discount.item_id = original.id), 0))
+            as return_revenue_minor_units
+        from return_item returned_item
+        join sale_items original on original.id = returned_item.sale_item_id
+        group by returned_item.product_id, original.currency_code, returned_item.quantity_scale
+      ),
+      return_cost_group as (
+        select line.product_id, line.cost_currency_code as currency_code, line.quantity_scale,
+          case when sum(case when line.unit_cost_minor_units is null then 1 else 0 end) = 0
+            then sum(cast(case line.quantity_scale
+              when 0 then line.unit_cost_minor_units * line.quantity_scaled
+              when 1 then (line.unit_cost_minor_units * line.quantity_scaled + 5) / 10
+              when 2 then (line.unit_cost_minor_units * line.quantity_scaled + 50) / 100
+              when 3 then (line.unit_cost_minor_units * line.quantity_scaled + 500) / 1000
+              when 4 then (line.unit_cost_minor_units * line.quantity_scaled + 5000) / 10000
+              when 5 then (line.unit_cost_minor_units * line.quantity_scaled + 50000) / 100000
+              when 6 then (line.unit_cost_minor_units * line.quantity_scaled + 500000) / 1000000
+            end as integer)) else null end as return_cost_minor_units
+        from sale_return_lines line
+        join sale_returns returned on returned.id = line.sale_return_id
+        where returned.occurred_at between @from and @to and line.cost_currency_code is not null
+        group by line.product_id, line.cost_currency_code, line.quantity_scale
+      ),
+      report_keys as (
+        select product_id, currency_code, quantity_scale from sale_group union
+        select product_id, currency_code, quantity_scale from cost_group union
+        select product_id, currency_code, quantity_scale from return_group union
+        select product_id, currency_code, quantity_scale from return_cost_group
+      )
+      select keys.product_id as productId, keys.currency_code as currencyCode,
+        coalesce(sale.quantity_sold_scaled, 0) as quantitySoldScaled,
+        coalesce(returned.quantity_returned_scaled, 0) as quantityReturnedScaled,
+        keys.quantity_scale as quantityScale,
+        coalesce(sale.discount_minor_units, 0) as discountMinorUnits,
+        coalesce(returned.return_revenue_minor_units, 0) as returnRevenueMinorUnits,
+        coalesce(return_cost.return_cost_minor_units, 0) as returnCostMinorUnits,
+        case when sale.product_id is null and returned.product_id is null then null
+          else coalesce(sale.sale_revenue_minor_units, 0) - coalesce(returned.return_revenue_minor_units, 0)
+          end as revenueMinorUnits,
+        case when cost.product_id is null and return_cost.product_id is null then null
+          when cost.product_id is not null and cost.sale_cost_minor_units is null then null
+          when return_cost.product_id is not null and return_cost.return_cost_minor_units is null then null
+          else coalesce(cost.sale_cost_minor_units, 0) - coalesce(return_cost.return_cost_minor_units, 0)
+          end as costMinorUnits
+      from report_keys keys
+      left join sale_group sale using (product_id, currency_code, quantity_scale)
+      left join cost_group cost using (product_id, currency_code, quantity_scale)
+      left join return_group returned using (product_id, currency_code, quantity_scale)
+      left join return_cost_group return_cost using (product_id, currency_code, quantity_scale)
+      where @currency is null or keys.currency_code = @currency
+      order by keys.product_id, keys.currency_code, keys.quantity_scale
+      limit @limit
+    `).all({
+      from: query.from.getTime(), to: query.to.getTime(),
+      currency: query.currencyCode ?? null, limit: query.limit
+    }) as Row[];
 
-    const revenueRows = this.handle.db.select({
-      productId: saleItems.productId,
-      priceMinorUnits: saleItems.priceMinorUnits,
-      currencyCode: saleItems.currencyCode,
-      quantityScaled: saleItems.quantityScaled,
-      quantityScale: saleItems.quantityScale
-    }).from(saleItems).innerJoin(sales, eq(saleItems.saleId, sales.id))
-      .where(every([
-        eq(sales.status, 'COMPLETED'),
-        query.from === undefined ? undefined : gte(sales.completedAt, query.from.getTime()),
-        query.to === undefined ? undefined : lte(sales.completedAt, query.to.getTime())
-      ])).all();
-
-    const aggregates = new Map<string, MarginAggregate>();
-    const keyOf = (productId: string, currencyCode: string): string => `${productId}:${currencyCode}`;
-
-    for (const row of costRows) {
-      if (row.unitCostMinorUnits === null || row.costCurrencyCode === null) continue;
-      const key = keyOf(row.productId, row.costCurrencyCode);
-      const entry = aggregates.get(key) ?? {
-        productId: row.productId, currencyCode: row.costCurrencyCode,
-        quantityScaled: 0, quantityScale: row.quantityScale, revenue: null, cost: null
-      };
-      const lineCost = Money.fromMinorUnits(row.unitCostMinorUnits, row.costCurrencyCode)
-        .multiplyByQuantity(Quantity.fromScaled(row.quantityScaled, row.quantityScale));
-      entry.cost = (entry.cost ?? Money.zero(row.costCurrencyCode)).add(lineCost);
-      entry.quantityScaled += row.quantityScaled;
-      aggregates.set(key, entry);
-    }
-    for (const row of revenueRows) {
-      const key = keyOf(row.productId, row.currencyCode);
-      const entry = aggregates.get(key) ?? {
-        productId: row.productId, currencyCode: row.currencyCode,
-        quantityScaled: 0, quantityScale: row.quantityScale, revenue: null, cost: null
-      };
-      const lineRevenue = Money.fromMinorUnits(row.priceMinorUnits, row.currencyCode)
-        .multiplyByQuantity(Quantity.fromScaled(row.quantityScaled, row.quantityScale));
-      entry.revenue = (entry.revenue ?? Money.zero(row.currencyCode)).add(lineRevenue);
-      aggregates.set(key, entry);
-    }
-
-    const entries: MarginReportEntryDto[] = [...aggregates.values()]
-      .filter((entry) => query.currencyCode === undefined || entry.currencyCode === query.currencyCode)
-      .map((entry) => ({
-        productId: entry.productId,
-        currencyCode: entry.currencyCode,
-        quantitySoldScaled: entry.quantityScaled,
-        quantityScale: entry.quantityScale,
-        revenueMinorUnits: entry.revenue?.minorUnits ?? null,
-        costMinorUnits: entry.cost?.minorUnits ?? null,
-        marginMinorUnits: entry.revenue !== null && entry.cost !== null
-          ? entry.revenue.subtract(entry.cost).minorUnits
-          : null
-      }))
-      .sort((left, right) => left.productId.localeCompare(right.productId)
-        || left.currencyCode.localeCompare(right.currencyCode));
-
-    return entries.slice(0, query.limit);
+    return rows.map((row) => ({
+      ...row,
+      marginMinorUnits: row.revenueMinorUnits !== null && row.costMinorUnits !== null
+        ? row.revenueMinorUnits - row.costMinorUnits
+        : null
+    }));
   }
 }

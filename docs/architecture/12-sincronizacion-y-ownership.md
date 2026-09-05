@@ -17,7 +17,14 @@ Esta topología conserva la regla single-writer: cada archivo SQLite tiene un ú
 | tasas de cambio | nodo coordinador tras confirmación humana | usar última tasa vigente local | conservar fuente, vigencia y versión; no aplicar sugerencias automáticamente |
 | usuarios, roles y permisos | nodo coordinador de tienda | usar concesiones cacheadas según política de expiración | permisos con códigos estables y roles configurables; revocaciones se aplican al sincronizar; la política definitiva se cierra antes del piloto |
 | inventario (`StockItem`) | ledger autoritativo del nodo coordinador | vender contra una proyección local | movimientos append-only y saldo derivado; una desconexión no garantiza stock global; registrar discrepancia si el movimiento no puede aplicarse |
+| `PurchaseReceipt` y `StockCount` | nodo donde se crean | completar el documento localmente | el nodo de origen es inmutable y otro nodo rechaza comandos de escritura |
+| `Branch` | nodo coordinador de tienda; en standalone, el nodo local cumple ese rol | editar en el coordinador | distribuir versiones ordenadas; otro nodo solo consume la referencia |
+| `Device` | nodo que declara el dispositivo | administrar el inventario local del equipo | `terminalId` es asignación operativa; `originNodeId` conserva la autoridad de escritura |
 | reportes | proyecciones de lectura | consultar último estado sincronizado | reconstruir la proyección desde eventos idempotentes |
+
+Las filas anteriores a esta decisión recuperan `originNodeId` únicamente desde su entrada de
+auditoría de creación. Si esa evidencia no existe, el ownership queda sin resolver y cualquier
+mutación se rechaza hasta una corrección administrativa explícita; la migración no inventa un nodo.
 
 ## Política inicial de inventario offline
 

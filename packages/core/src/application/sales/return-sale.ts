@@ -270,10 +270,10 @@ export class ReturnSale {
 
     await persistBusinessChange(
       async () => {
+        await this.fiscalDocumentRepository.save(creditNote);
         await this.saleReturnRepository.save(saleReturn);
         for (const item of changedItems.values()) await this.stockItemRepository.save(item);
         await this.shiftRepository.save(shift);
-        await this.fiscalDocumentRepository.save(creditNote);
       },
       [
         ...saleReturn.domainEvents,

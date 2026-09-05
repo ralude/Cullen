@@ -7,6 +7,7 @@ export type DeviceTypeResponse = 'FISCAL_PRINTER' | 'BARCODE_SCANNER' | 'SCALE' 
 export type BranchResponse = {
   readonly id: string;
   readonly code: string;
+  readonly originNodeId: string;
   readonly name: string;
   readonly status: BranchStatusResponse;
   readonly createdAt: string;
@@ -21,6 +22,7 @@ export type ChangeBranchStatusRequest = { readonly status: BranchStatusResponse;
 export type DeviceResponse = {
   readonly id: string;
   readonly type: DeviceTypeResponse;
+  readonly originNodeId: string;
   readonly identifier: string;
   readonly terminalId: string;
   readonly branchId: string | null;
@@ -60,9 +62,9 @@ const deviceParams = {
 
 const branchResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['id', 'code', 'name', 'status', 'createdAt', 'updatedAt', 'version'],
+  required: ['id', 'code', 'originNodeId', 'name', 'status', 'createdAt', 'updatedAt', 'version'],
   properties: {
-    id, code: { type: 'string' }, name: { type: 'string' },
+    id, code: { type: 'string' }, originNodeId: id, name: { type: 'string' },
     status: { type: 'string', enum: ['ACTIVE', 'INACTIVE'] },
     createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' },
     version: { type: 'integer', minimum: 1 }
@@ -95,7 +97,7 @@ export const createBranchContract = {
 } as const satisfies HttpContractV1;
 
 export const listBranchesContract = {
-  method: 'GET', path: '/api/v1/config/branches', permission: null, idempotency: 'NONE',
+  method: 'GET', path: '/api/v1/config/branches', permission: 'config.branch.manage', idempotency: 'NONE',
   schema: {
     querystring: {
       type: 'object', additionalProperties: false,
@@ -107,7 +109,7 @@ export const listBranchesContract = {
 } as const satisfies HttpContractV1;
 
 export const getBranchContract = {
-  method: 'GET', path: '/api/v1/config/branches/:branchId', permission: null, idempotency: 'NONE',
+  method: 'GET', path: '/api/v1/config/branches/:branchId', permission: 'config.branch.manage', idempotency: 'NONE',
   schema: {
     params: branchParams,
     response: { 200: branchResponseSchema, 401: problemDetailsSchema, 404: problemDetailsSchema }
@@ -153,9 +155,9 @@ export const changeBranchStatusContract = {
 
 const deviceResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['id', 'type', 'identifier', 'terminalId', 'branchId', 'status', 'createdAt', 'updatedAt', 'version'],
+  required: ['id', 'type', 'originNodeId', 'identifier', 'terminalId', 'branchId', 'status', 'createdAt', 'updatedAt', 'version'],
   properties: {
-    id, type: { type: 'string', enum: ['FISCAL_PRINTER', 'BARCODE_SCANNER', 'SCALE', 'CASH_DRAWER'] },
+    id, originNodeId: id, type: { type: 'string', enum: ['FISCAL_PRINTER', 'BARCODE_SCANNER', 'SCALE', 'CASH_DRAWER'] },
     identifier: { type: 'string' }, terminalId: { type: 'string' },
     branchId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
     status: { type: 'string', enum: ['ACTIVE', 'INACTIVE'] },
@@ -192,7 +194,7 @@ export const declareDeviceContract = {
 } as const satisfies HttpContractV1;
 
 export const listDevicesContract = {
-  method: 'GET', path: '/api/v1/config/devices', permission: null, idempotency: 'NONE',
+  method: 'GET', path: '/api/v1/config/devices', permission: 'config.device.manage', idempotency: 'NONE',
   schema: {
     querystring: {
       type: 'object', additionalProperties: false,

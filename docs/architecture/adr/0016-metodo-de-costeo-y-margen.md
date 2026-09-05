@@ -20,6 +20,17 @@ esperar una auditoría contable externa para implementar el contrato.
    operación futura necesita otra política, añade una estrategia reemplazable y sus pruebas.
 4. Persistir el costo de la recepción como evidencia inmutable y calcular el margen en
    aplicación, nunca en el renderer.
+5. Persistir en `StockItem` la moneda de valoración desde el primer movimiento con costo.
+   La moneda no cambia cuando el saldo llega a cero. Un costo en otra moneda se rechaza; la
+   conversión, cuando aplique, debe ocurrir antes de registrar el movimiento y conservar su
+   snapshot explícito.
+6. Un movimiento operativo sin costo nuevo (`SALE_ISSUE`, merma o ajuste) toma el promedio
+   vigente cuando el saldo tiene valoración conocida. Si no existe un promedio conocido, el
+   movimiento conserva costo nulo y la valoración permanece indeterminada hasta que el saldo
+   vuelva a cero. Una entrada valorada posterior a ese punto inicia un cálculo recuperable.
+7. La migración desde historia previa solo fija la moneda cuando todos los movimientos con
+   costo de un artículo usan un único código. Una historia con monedas distintas conserva
+   moneda nula y requiere corrección explícita; no se inventa una conversión.
 
 ## Alternativas diferidas
 
@@ -32,6 +43,8 @@ criterios de salida y un ADR que cambie explícitamente el default.
 - Dinero en unidades menores enteras más código de moneda; nunca `float`.
 - Cada conversión usa una tasa explícita, fuente y vigencia.
 - Una recepción completada conserva costos, moneda y snapshots.
+- La moneda de valoración de un artículo es estable, incluso con saldo cero.
+- La ausencia histórica de costo se representa con `null`; no equivale a costo cero.
 - Una corrección crea movimientos compensatorios; no edita historia.
 - La valoración es transaccional, auditable e idempotente.
 

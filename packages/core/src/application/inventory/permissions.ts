@@ -3,5 +3,6 @@ export const INVENTORY_PERMISSIONS = {
   REGISTER_WASTE: 'inventory.waste.register',
   REGISTER_ADJUSTMENT: 'inventory.adjust',
   PERFORM_COUNT: 'inventory.count.perform',
-  APPROVE_COUNT: 'inventory.count.approve'
+  APPROVE_COUNT: 'inventory.count.approve',
+  READ_COUNT: 'inventory.count.read'
 } as const;

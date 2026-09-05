@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Money, Quantity } from '@supermarket/shared';
 import { StockItem } from './stock-item.js';
+import { StockMovement } from './stock-movement.js';
 
 const timestamp = new Date('2026-08-17T10:00:00.000Z');
 
@@ -48,6 +49,63 @@ describe('StockItem', () => {
       unitCost: item.averageUnitCost! });
     expect(item.inventoryValue?.minorUnits).toBe(2_400);
     expect(item.averageUnitCost?.minorUnits).toBe(150);
+  });
+
+  it('keeps valuation through costless operational movements by snapshotting the current average', () => {
+    const item = stockItem();
+    item.registerMovement({
+      ...movement('PURCHASE_RECEIPT', 10),
+      unitCost: Money.fromMinorUnits(125, 'USD')
+    });
+
+    const waste = item.registerMovement(movement('WASTE', 2));
+    const adjustment = item.registerMovement(movement('ADJUSTMENT_IN', 1));
+
+    expect(waste.unitCost).toEqual(Money.fromMinorUnits(125, 'USD'));
+    expect(adjustment.unitCost).toEqual(Money.fromMinorUnits(125, 'USD'));
+    expect(item.inventoryValue).toEqual(Money.fromMinorUnits(1_125, 'USD'));
+    expect(item.valuationCurrency).toBe('USD');
+  });
+
+  it('keeps the valuation currency at zero balance and rejects a different currency', () => {
+    const item = stockItem();
+    item.registerMovement({
+      ...movement('PURCHASE_RECEIPT', 2),
+      unitCost: Money.fromMinorUnits(100, 'USD')
+    });
+    item.registerMovement(movement('SALE_ISSUE', 2));
+
+    expect(item.balance.isZero()).toBe(true);
+    expect(item.inventoryValue).toEqual(Money.zero('USD'));
+    expect(item.averageUnitCost).toBeNull();
+    expect(item.valuationCurrency).toBe('USD');
+    expect(() => item.registerMovement({
+      ...movement('PURCHASE_RECEIPT', 1, { id: 'other-currency', eventId: 'other-currency-event' }),
+      unitCost: Money.fromMinorUnits(100, 'VES')
+    })).toThrowError(expect.objectContaining({ code: 'STOCK_COST_CURRENCY_MISMATCH' }));
+  });
+
+  it('recovers valuation after unknown-cost history is fully exhausted', () => {
+    const legacy = StockItem.restore({
+      id: 'legacy-stock', productId: 'legacy-product', unitCode: 'UNIT',
+      quantityScale: 0, tracksBatches: false, valuationCurrency: 'USD', batches: [],
+      movements: [
+        StockMovement.create(movement('PURCHASE_RECEIPT', 2, {
+          id: 'legacy-in', eventId: 'legacy-in-event'
+        })),
+        StockMovement.create(movement('SALE_ISSUE', 2, {
+          id: 'legacy-out', eventId: 'legacy-out-event'
+        }))
+      ]
+    });
+
+    expect(legacy.inventoryValue).toEqual(Money.zero('USD'));
+    legacy.registerMovement({
+      ...movement('PURCHASE_RECEIPT', 3, { id: 'new-cost', eventId: 'new-cost-event' }),
+      unitCost: Money.fromMinorUnits(200, 'USD')
+    });
+    expect(legacy.inventoryValue).toEqual(Money.fromMinorUnits(600, 'USD'));
+    expect(legacy.averageUnitCost).toEqual(Money.fromMinorUnits(200, 'USD'));
   });
   it('starts at zero and increases stock only through a purchase movement', () => {
     const item = stockItem();

@@ -54,8 +54,13 @@ describe('database migrations', () => {
       expect.objectContaining({ version: 17, name: 'stock_counts' }),
       expect.objectContaining({ version: 18, name: 'branches_and_devices' }),
       expect.objectContaining({ version: 19, name: 'purchase_receipts_and_cost' }),
-      expect.objectContaining({ version: 20, name: 'sale_recipient' })
-      , expect.objectContaining({ version: 21, name: 'sale_returns' })
+      expect.objectContaining({ version: 20, name: 'sale_recipient' }),
+      expect.objectContaining({ version: 21, name: 'sale_returns' }),
+      expect.objectContaining({ version: 22, name: 'stock_valuation_currency' }),
+      expect.objectContaining({ version: 23, name: 'purchase_receipt_draft_evidence' }),
+      expect.objectContaining({ version: 24, name: 'device_identifier_unique' }),
+      expect.objectContaining({ version: 25, name: 'single_open_stock_count' }),
+      expect.objectContaining({ version: 26, name: 'aggregate_origin_node' })
     ]);
 
     const tables = handle.sqlite.prepare(
@@ -614,7 +619,7 @@ describe('database migrations', () => {
       );
     `);
 
-    expect(applyMigrations(handle.sqlite)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]);
+    expect(applyMigrations(handle.sqlite)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]);
     expect(handle.sqlite.prepare(`
       select last_dispatch_state as dispatchState,
         last_command_effect as commandEffect,
@@ -945,7 +950,7 @@ describe('database migrations', () => {
         1, 'COMPLETED', 2, 0);
     `);
 
-    expect(applyMigrations(handle.sqlite)).toEqual([20, 21]);
+    expect(applyMigrations(handle.sqlite)).toEqual([20, 21, 22, 23, 24, 25, 26]);
 
     expect(handle.sqlite.prepare(`
       select recipient_country as country, recipient_normalized_value as identification
@@ -967,5 +972,43 @@ describe('database migrations', () => {
     expect(handle.sqlite.prepare(`
       select recipient_normalized_value as identification from sales where id = 'legacy-sale'
     `).get()).toEqual({ identification: 'J123456789' });
+  });
+
+  it('backfills stock valuation currency only from unambiguous cost history', () => {
+    const handle = openDatabase(':memory:');
+    handles.push(handle);
+    applyMigrations(handle.sqlite, migrations.filter(({ version }) => version <= 21));
+    handle.sqlite.exec(`
+      insert into stock_items (id, product_id, unit_code, quantity_scale, tracks_batches)
+      values
+        ('stock-usd', 'product-usd', 'UNIT', 0, 0),
+        ('stock-mixed', 'product-mixed', 'UNIT', 0, 0),
+        ('stock-unknown', 'product-unknown', 'UNIT', 0, 0);
+      insert into stock_movements (
+        id, stock_item_id, event_id, aggregate_version, type, direction,
+        quantity_scaled, quantity_scale, batch_id, actor_id, reason, reference_id,
+        occurred_at, unit_cost_minor_units, cost_currency_code
+      ) values
+        ('usd-1', 'stock-usd', 'usd-event-1', 1, 'PURCHASE_RECEIPT', 'IN',
+          1, 0, null, 'user-1', 'Purchase', 'receipt-1', 1, 100, 'USD'),
+        ('usd-2', 'stock-usd', 'usd-event-2', 2, 'ADJUSTMENT_IN', 'IN',
+          1, 0, null, 'user-1', 'Adjustment', 'adjustment-1', 2, 110, 'USD'),
+        ('mixed-1', 'stock-mixed', 'mixed-event-1', 1, 'PURCHASE_RECEIPT', 'IN',
+          1, 0, null, 'user-1', 'Purchase', 'receipt-2', 1, 100, 'USD'),
+        ('mixed-2', 'stock-mixed', 'mixed-event-2', 2, 'PURCHASE_RECEIPT', 'IN',
+          1, 0, null, 'user-1', 'Purchase', 'receipt-3', 2, 100, 'VES');
+    `);
+
+    expect(applyMigrations(handle.sqlite, migrations.filter(({ version }) => version <= 22))).toEqual([22]);
+    expect(handle.sqlite.prepare(`
+      select id, valuation_currency_code as currency from stock_items order by id
+    `).all()).toEqual([
+      { id: 'stock-mixed', currency: null },
+      { id: 'stock-unknown', currency: null },
+      { id: 'stock-usd', currency: 'USD' }
+    ]);
+    expect(() => handle.sqlite.prepare(`
+      update stock_items set valuation_currency_code = 'VES' where id = 'stock-usd'
+    `).run()).toThrowError('stock item configuration is immutable');
   });
 });

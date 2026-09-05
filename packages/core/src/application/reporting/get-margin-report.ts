@@ -18,6 +18,9 @@ export class GetMarginReport {
     if (!await this.authorization.authorize(context, REPORT_PERMISSIONS.READ_MARGIN)) {
       return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to read margin reports.'));
     }
+    if (Number.isNaN(input.from.getTime()) || Number.isNaN(input.to.getTime()) || input.from > input.to) {
+      return err(new ApplicationError('REPORT_PERIOD_INVALID', 'Report period must be a valid ordered UTC range.'));
+    }
     return ok(await this.repository.findMargins({ ...input, limit: resolveRowLimit(input.limit) }));
   }
 }

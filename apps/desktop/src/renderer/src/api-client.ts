@@ -213,7 +213,15 @@ export const parseScaledDecimal = (value: string): { readonly value: number; rea
 
 /** Formatea un entero escalado como texto decimal sin perder precisión. */
 export const formatScaledDecimal = (value: number, scale: number): string =>
-  (value / (10 ** scale)).toFixed(scale);
+  (() => {
+    if (!Number.isSafeInteger(value) || !Number.isInteger(scale) || scale < 0) {
+      throw new Error('SCALED_DECIMAL_INVALID');
+    }
+    const sign = value < 0 ? '-' : '';
+    const digits = Math.abs(value).toString().padStart(scale + 1, '0');
+    if (scale === 0) return sign + digits;
+    return `${sign}${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
+  })();
 
 const path = (template: string, ...parts: string[]): string =>
   parts.reduce((value, part) => value.replace(/:[A-Za-z]+/, encodeURIComponent(part)), template);

@@ -23,6 +23,7 @@ export type StockCountDifferenceResponse = {
 
 export type StockCountResponse = {
   readonly id: string;
+  readonly originNodeId: string;
   readonly status: StockCountStatusResponse;
   readonly openedBy: string;
   readonly openedAt: string;
@@ -87,11 +88,11 @@ const differenceSchema = {
 const stockCountResponseSchema = {
   type: 'object', additionalProperties: false,
   required: [
-    'id', 'status', 'openedBy', 'openedAt', 'lines', 'differences',
+    'id', 'originNodeId', 'status', 'openedBy', 'openedAt', 'lines', 'differences',
     'closedAt', 'approvedBy', 'approvedAt', 'rejectedBy', 'rejectedAt', 'rejectionReason', 'version'
   ],
   properties: {
-    id, status: { type: 'string', enum: ['OPEN', 'COUNTED', 'APPROVED', 'REJECTED'] },
+    id, originNodeId: id, status: { type: 'string', enum: ['OPEN', 'COUNTED', 'APPROVED', 'REJECTED'] },
     openedBy: id, openedAt: { type: 'string', format: 'date-time' },
     lines: { type: 'array', items: lineSchema },
     differences: { anyOf: [{ type: 'array', items: differenceSchema }, { type: 'null' }] },
@@ -173,7 +174,7 @@ export const rejectStockCountContract = {
 } as const satisfies HttpContractV1;
 
 export const getStockCountContract = {
-  method: 'GET', path: '/api/v1/inventory/counts/:stockCountId', permission: null, idempotency: 'NONE',
+  method: 'GET', path: '/api/v1/inventory/counts/:stockCountId', permission: 'inventory.count.read', idempotency: 'NONE',
   schema: {
     params: stockCountParams,
     response: { 200: stockCountResponseSchema, 401: problemDetailsSchema, 404: problemDetailsSchema }
@@ -182,7 +183,7 @@ export const getStockCountContract = {
 } as const satisfies HttpContractV1;
 
 export const listStockCountsContract = {
-  method: 'GET', path: '/api/v1/inventory/counts', permission: null, idempotency: 'NONE',
+  method: 'GET', path: '/api/v1/inventory/counts', permission: 'inventory.count.read', idempotency: 'NONE',
   schema: {
     querystring: {
       type: 'object', additionalProperties: false,

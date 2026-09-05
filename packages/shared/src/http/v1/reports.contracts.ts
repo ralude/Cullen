@@ -34,7 +34,11 @@ export type MarginReportResponse = {
   readonly productId: string;
   readonly currencyCode: string;
   readonly quantitySoldScaled: number;
+  readonly quantityReturnedScaled: number;
   readonly quantityScale: number;
+  readonly discountMinorUnits: number;
+  readonly returnRevenueMinorUnits: number;
+  readonly returnCostMinorUnits: number;
   readonly revenueMinorUnits: number | null;
   readonly costMinorUnits: number | null;
   readonly marginMinorUnits: number | null;
@@ -147,12 +151,16 @@ export const getAuditReportContract = {
 const marginSchema = {
   type: 'object', additionalProperties: false,
   required: [
-    'productId', 'currencyCode', 'quantitySoldScaled', 'quantityScale',
+    'productId', 'currencyCode', 'quantitySoldScaled', 'quantityReturnedScaled', 'quantityScale',
+    'discountMinorUnits', 'returnRevenueMinorUnits', 'returnCostMinorUnits',
     'revenueMinorUnits', 'costMinorUnits', 'marginMinorUnits'
   ],
   properties: {
     productId: id, currencyCode: { type: 'string' },
-    quantitySoldScaled: { type: 'integer' }, quantityScale: { type: 'integer', minimum: 0 },
+    quantitySoldScaled: { type: 'integer' }, quantityReturnedScaled: { type: 'integer' },
+    quantityScale: { type: 'integer', minimum: 0 },
+    discountMinorUnits: { type: 'integer' }, returnRevenueMinorUnits: { type: 'integer' },
+    returnCostMinorUnits: { type: 'integer' },
     revenueMinorUnits: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
     costMinorUnits: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
     marginMinorUnits: { anyOf: [{ type: 'integer' }, { type: 'null' }] }
@@ -164,8 +172,8 @@ export const getMarginReportContract = {
   permission: 'reports.margin.read', idempotency: 'NONE',
   schema: {
     querystring: {
-      type: 'object', additionalProperties: false,
-      properties: { ...period, currencyCode: { type: 'string', pattern: '^[A-Za-z]{3}$' } }
+      type: 'object', additionalProperties: false, required: ['from', 'to'],
+      properties: { ...period, currencyCode: { type: 'string', pattern: '^[A-Z]{3}$' } }
     },
     response: { 200: { type: 'array', items: marginSchema }, ...readResponses }
   },

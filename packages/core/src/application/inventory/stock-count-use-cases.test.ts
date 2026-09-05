@@ -47,6 +47,7 @@ class FakeStockCountRepository implements StockCountRepository {
   stored: StockCount | null = null;
   async save(count: StockCount): Promise<void> { this.stored = count; this.saves += 1; }
   async findById(id: string): Promise<StockCount | null> { return this.stored?.id === id ? this.stored : null; }
+  async findOpen(): Promise<StockCount | null> { return this.stored?.status === 'OPEN' ? this.stored : null; }
   async findAll(status?: StockCountStatus): Promise<readonly StockCount[]> {
     return this.stored && (status === undefined || this.stored.status === status) ? [this.stored] : [];
   }
@@ -89,7 +90,8 @@ const allow = (permission: string) => ({
 });
 
 const openedCount = (): StockCount => StockCount.open({
-  id: 'count-001', openedBy: 'user-001', openedAt: new Date('2026-09-05T10:00:00.000Z')
+  id: 'count-001', openedBy: 'user-001', originNodeId: 'node-001',
+  openedAt: new Date('2026-09-05T10:00:00.000Z')
 });
 
 describe('stock count application', () => {
@@ -106,6 +108,9 @@ describe('stock count application', () => {
     expect(result).toMatchObject({ ok: true, value: { status: 'OPEN', id: 'count-1' } });
     expect(repository.saves).toBe(1);
     expect(recorded.audit).toMatchObject([{ action: 'STOCK_COUNT_OPENED', reason: 'Conteo mensual de víveres' }]);
+    expect(await useCase.execute({ reason: 'Conteo solapado' }, context))
+      .toMatchObject({ ok: false, error: { code: 'STOCK_COUNT_ALREADY_OPEN' } });
+    expect(repository.saves).toBe(1);
   });
 
   it('denies opening a count without the permission and creates no evidence', async () => {

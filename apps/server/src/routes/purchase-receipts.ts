@@ -90,8 +90,11 @@ export const registerPurchaseReceiptRoutes = (
   app.get<{ Params: { receiptId: string } }>(getPurchaseReceiptContract.path, {
     schema: getPurchaseReceiptContract.schema as FastifySchema
   }, async (request, reply) => {
-    if (!await requirePrincipal(request, reply, dependencies)) return;
-    const result = await dependencies.purchaseReceipts.get.execute(request.params.receiptId);
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.purchaseReceipts.get.execute(
+      request.params.receiptId, createExecutionContext(request, principal, dependencies)
+    );
     return result.ok
       ? reply.send(result.value)
       : sendProblem(reply, request, result.error.code, result.error.message);

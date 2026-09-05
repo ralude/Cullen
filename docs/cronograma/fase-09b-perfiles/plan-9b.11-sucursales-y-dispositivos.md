@@ -1,9 +1,7 @@
 # Plan de ejecución 9B.11: Sucursales y dispositivos
 
 - **Sub-fase:** [9B.11 Sucursales y dispositivos](./9b.11-sucursales-y-dispositivos.md)
-- **Estado del plan:** Cumplido el 2026-09-04 con alcance recortado; la decisión 1 (relación
-  nodo↔sucursal) sigue sin resolver y se documentó como límite explícito, no como elección
-  silenciosa
+- **Estado del plan:** Reabierto por auditoría del 2026-09-05; conserva el alcance recortado
 - **Prerrequisito:** [9B.10 Configuración operativa](./9b.10-configuracion-operativa.md),
   cuyos patrones de administración se reutilizan
 - **Disciplina de implementación:** Outside-in TDD (ADR-0007) y Ponytail `full`
@@ -114,6 +112,20 @@ borrado físico mediante trigger, igual que `suppliers`.
   de sincronización.
 - [x] Cada cambio deja auditoría con actor, momento y motivo.
 - [x] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+
+## Corrección obligatoria antes de volver a cerrar
+
+- [ ] Autorizar `GetBranch`, `ListBranches` y `ListDevices` en aplicación; una denegación no
+  toca el repositorio.
+- [ ] Definir la unicidad de dispositivos en dominio/aplicación y respaldarla con una
+  restricción SQLite coherente y migración forward-only.
+- [ ] Pedir al operador el motivo de cambios de estado y conservarlo en auditoría.
+- [ ] Mantener la misma clave de idempotencia durante reintentos de una intención de UI.
+- [ ] Incluir configuración en la matriz de permisos contractuales.
+- [ ] Resolver ownership de `Branch` y `Device` sin adelantar sincronización de Fase 10.
+
+Estas tareas alimentan primero la línea base de 9B.10 y pertenecen al
+[plan correctivo de 9B](./plan-correcciones-auditoria-9b.md).
 
 ## Fuera de alcance
 

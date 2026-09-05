@@ -90,14 +90,15 @@ export const registerReportRoutes = (
     }
   );
 
-  app.get<{ Querystring: PeriodQuery & { currencyCode?: string } }>(
+  app.get<{ Querystring: PeriodQuery & { from: string; to: string; currencyCode?: string } }>(
     getMarginReportContract.path,
     { schema: getMarginReportContract.schema as FastifySchema },
     async (request, reply) => {
       const principal = await requirePrincipal(request, reply, dependencies);
       if (!principal) return;
       const result = await reports.getMarginReport.execute({
-        ...period(request.query),
+        from: new Date(request.query.from), to: new Date(request.query.to),
+        ...(request.query.limit === undefined ? {} : { limit: request.query.limit }),
         ...(request.query.currencyCode ? { currencyCode: request.query.currencyCode } : {})
       }, createExecutionContext(request, principal, dependencies));
       return result.ok

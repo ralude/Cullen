@@ -32,6 +32,11 @@ import { branchesAndDevicesSql } from './migrations/0018-branches-and-devices.js
 import { purchaseReceiptsAndCostSql } from './migrations/0019-purchase-receipts-and-cost.js';
 import { saleRecipientSql } from './migrations/0020-sale-recipient.js';
 import { saleReturnsSql } from './migrations/0021-sale-returns.js';
+import { stockValuationCurrencySql } from './migrations/0022-stock-valuation-currency.js';
+import { purchaseReceiptDraftEvidenceSql } from './migrations/0023-purchase-receipt-draft-evidence.js';
+import { deviceIdentifierUniqueSql } from './migrations/0024-device-identifier-unique.js';
+import { singleOpenStockCountSql } from './migrations/0025-single-open-stock-count.js';
+import { aggregateOriginNodeSql } from './migrations/0026-aggregate-origin-node.js';
 
 export type Migration = {
   readonly version: number;
@@ -123,6 +128,26 @@ export const migrations: readonly Migration[] = [{
   version: 21,
   name: 'sale_returns',
   sql: saleReturnsSql
+}, {
+  version: 22,
+  name: 'stock_valuation_currency',
+  sql: stockValuationCurrencySql
+}, {
+  version: 23,
+  name: 'purchase_receipt_draft_evidence',
+  sql: purchaseReceiptDraftEvidenceSql
+}, {
+  version: 24,
+  name: 'device_identifier_unique',
+  sql: deviceIdentifierUniqueSql
+}, {
+  version: 25,
+  name: 'single_open_stock_count',
+  sql: singleOpenStockCountSql
+}, {
+  version: 26,
+  name: 'aggregate_origin_node',
+  sql: aggregateOriginNodeSql
 }];
 
 const checksum = (migration: Migration): string => createHash('sha256')

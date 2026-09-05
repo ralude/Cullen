@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.04: Costo de compra y margen
 
 - **Sub-fase:** [9B.04 Costo de compra y margen](./9b.04-costo-y-margen.md)
-- **Estado del plan:** Ejecutado
+- **Estado del plan:** Reabierto por auditoría del 2026-09-05
 - **Decisiones:** [ADR-0016](../../architecture/adr/0016-metodo-de-costeo-y-margen.md),
   [ADR-0019](../../architecture/adr/0019-proveedores-y-recepciones-de-compra.md) y
   [ADR-0021](../../architecture/adr/0021-mvp-referencia-no-certificado.md)
@@ -79,9 +79,28 @@ acotada, calculada fuera del renderer.
 - [x] No se modifica una migración aplicada; la nueva migración está probada sobre SQLite temporal.
 - [x] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
 
+## Corrección obligatoria antes de volver a cerrar
+
+Este corte se ejecuta como parte del
+[plan correctivo de 9B](./plan-correcciones-auditoria-9b.md). Los criterios anteriores
+conservan la evidencia de la entrega original, pero el criterio de costeo quedó invalidado.
+
+- [ ] Ampliar ADR-0016 con una moneda de valoración persistida que no desaparezca cuando el
+  saldo llegue a cero ni dependa de que toda la historia tenga costo.
+- [ ] Definir y probar el tratamiento de ajustes/conteos sin costo y de filas históricas
+  anteriores a la migración 0019, sin backfill inventado.
+- [ ] Probar que una recepción posterior no mezcla monedas y que `inventoryValue` sigue
+  disponible después de merma, ajuste y conteo cuando existe costo conocido.
+- [ ] Traducir la colisión por número de control al código estable
+  `PURCHASE_RECEIPT_SOURCE_DUPLICATED`.
+- [ ] Crear artículos y lotes durables al completar la recepción, no al guardar un borrador
+  que puede abandonarse.
+- [ ] Validar el estado del reverso antes de preparar movimientos compensatorios.
+- [ ] Registrar ownership de `PurchaseReceipt` antes de agregar la migración correctiva.
+- [ ] Restaurar `pnpm test`, `pnpm typecheck` y `pnpm lint` verdes.
+
 ## Fuera de alcance
 
 - FIFO, costo estándar, revalorización y contabilidad certificada.
 - Órdenes de compra, cuentas por pagar y devoluciones a proveedor.
 - Costeo consolidado multi-nodo, sincronización y optimización de consultas.
-

@@ -691,7 +691,9 @@ export class DrizzleStockItemRepository implements StockItemRepository {
       existing.productId !== item.productId ||
       existing.unitCode !== item.unitCode ||
       existing.quantityScale !== item.quantityScale ||
-      existing.tracksBatches !== item.tracksBatches
+      existing.tracksBatches !== item.tracksBatches ||
+      (existing.valuationCurrencyCode !== null &&
+        existing.valuationCurrencyCode !== item.valuationCurrency)
     )) {
       throw new InfrastructureError(
         'STOCK_ITEM_CONFIGURATION_MISMATCH',
@@ -704,8 +706,13 @@ export class DrizzleStockItemRepository implements StockItemRepository {
         productId: item.productId,
         unitCode: item.unitCode,
         quantityScale: item.quantityScale,
-        tracksBatches: item.tracksBatches
+        tracksBatches: item.tracksBatches,
+        valuationCurrencyCode: item.valuationCurrency
       }).run();
+    } else if (existing.valuationCurrencyCode === null && item.valuationCurrency !== null) {
+      this.handle.db.update(stockItems)
+        .set({ valuationCurrencyCode: item.valuationCurrency })
+        .where(eq(stockItems.id, item.id)).run();
     }
 
     const batchIds = new Set(this.handle.db.select({ id: stockBatches.id })
@@ -769,6 +776,7 @@ export class DrizzleStockItemRepository implements StockItemRepository {
       unitCode: row.unitCode,
       quantityScale: row.quantityScale,
       tracksBatches: row.tracksBatches,
+      valuationCurrency: row.valuationCurrencyCode,
       batches: batchRows.map((batch) => Batch.create({
         id: batch.id,
         lotNumber: batch.lotNumber,

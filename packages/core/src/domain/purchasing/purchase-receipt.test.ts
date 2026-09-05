@@ -11,11 +11,12 @@ const start = (): PurchaseReceipt => PurchaseReceipt.start({
   },
   sourceDocument: { type: 'INVOICE', number: 'FAC-001', series: null, controlNumber: null,
     issuedAt: new Date('2026-09-04T09:00:00.000Z') },
-  effectiveAt: new Date('2026-09-04T10:00:00.000Z'), createdBy: 'actor-001',
+  effectiveAt: new Date('2026-09-04T10:00:00.000Z'), createdBy: 'actor-001', originNodeId: 'node-1',
   createdAt: new Date('2026-09-04T10:00:00.000Z'), replacesReceiptId: null,
   lines: [{
     id: 'line-001', productId: 'product-001', stockItemId: 'stock-001',
-    quantity: Quantity.fromScaled(10, 0), batchId: null,
+    unitCode: 'UNIT', tracksBatches: false,
+    quantity: Quantity.fromScaled(10, 0), batchId: null, batchLotNumber: null, batchExpiresAt: null,
     purchaseUnitCost: Money.fromMinorUnits(100, 'USD'),
     valuationUnitCost: Money.fromMinorUnits(100, 'USD'), exchangeRate: null
   }]
@@ -50,10 +51,11 @@ describe('PurchaseReceipt', () => {
       },
       sourceDocument: { type: 'DELIVERY_NOTE', number: 'NE-001', series: null,
         controlNumber: null, issuedAt: null },
-      effectiveAt: new Date(), createdBy: 'actor-001', createdAt: new Date(),
+      effectiveAt: new Date(), createdBy: 'actor-001', originNodeId: 'node-1', createdAt: new Date(),
       replacesReceiptId: null,
       lines: [{ id: 'line-001', productId: 'product-001', stockItemId: 'stock-001',
-        quantity: Quantity.fromScaled(1, 0), batchId: null,
+        unitCode: 'UNIT', tracksBatches: false,
+        quantity: Quantity.fromScaled(1, 0), batchId: null, batchLotNumber: null, batchExpiresAt: null,
         purchaseUnitCost: Money.fromMinorUnits(100, 'USD'),
         valuationUnitCost: Money.fromMinorUnits(100, 'USD'), exchangeRate: null }]
     })).toThrowError(expect.objectContaining({ code: 'PURCHASE_RECEIPT_FISCAL_ADDRESS_REQUIRED' }));

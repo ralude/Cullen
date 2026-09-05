@@ -28,6 +28,9 @@ class MemoryDevices implements DeviceRepository {
   readonly values = new Map<string, Device>();
   save = async (device: Device): Promise<void> => { this.values.set(device.id, device); };
   findById = async (id: string): Promise<Device | null> => this.values.get(id) ?? null;
+  findByIdentifier = async (identifier: string): Promise<Device | null> =>
+    [...this.values.values()].find((device) =>
+      device.identifier.toUpperCase() === identifier.toUpperCase()) ?? null;
   findAll = async (
     filter: { readonly terminalId?: string; readonly status?: DeviceStatus } = {}
   ): Promise<readonly Device[]> => [...this.values.values()].filter((device) =>
@@ -81,14 +84,19 @@ describe('branch use cases', () => {
 
   it('changes status without physical deletion and reads by status', async () => {
     const repository = new MemoryBranches();
-    const branch = Branch.create({ id: 'branch-1', code: 'CCS', name: 'Sucursal', createdAt: clock.now() });
+    const branch = Branch.create({
+      id: 'branch-1', code: 'CCS', name: 'Sucursal', originNodeId: 'node-1', createdAt: clock.now()
+    });
     await repository.save(branch);
     const changeStatus = new ChangeBranchStatus(repository, allow(CONFIG_PERMISSIONS.MANAGE_BRANCH), ids, clock);
     const result = await changeStatus.execute({ branchId: 'branch-1', status: 'INACTIVE', reason: 'Cierre' }, context);
 
     expect(result).toMatchObject({ ok: true, value: { status: 'INACTIVE' } });
-    expect(await new ListBranches(repository).execute('ACTIVE')).toMatchObject({ ok: true, value: [] });
-    expect(await new GetBranch(repository).execute('branch-1')).toMatchObject({ ok: true, value: { status: 'INACTIVE' } });
+    const authorization = allow(CONFIG_PERMISSIONS.MANAGE_BRANCH);
+    expect(await new ListBranches(repository, authorization).execute('ACTIVE', context))
+      .toMatchObject({ ok: true, value: [] });
+    expect(await new GetBranch(repository, authorization).execute('branch-1', context))
+      .toMatchObject({ ok: true, value: { status: 'INACTIVE' } });
   });
 });
 
@@ -109,16 +117,20 @@ describe('device use cases', () => {
     expect(declared).toMatchObject({
       ok: true, value: { type: 'FISCAL_PRINTER', branchId: 'branch-1', status: 'ACTIVE' }
     });
+    expect(await declare.execute({
+      type: 'BARCODE_SCANNER', identifier: 'sn-0001', terminalId: 'terminal-002', reason: 'Alta'
+    }, context)).toMatchObject({ ok: false, error: { code: 'DEVICE_IDENTIFIER_CONFLICT' } });
   });
 
   it('updates identifier and clears the branch tag, then filters listings by station and status', async () => {
     const repository = new MemoryDevices();
     await repository.save(Device.create({
       id: 'device-1', type: 'BARCODE_SCANNER', identifier: 'SN-0001', terminalId: 'terminal-001',
-      branchId: 'branch-1', createdAt: clock.now()
+      originNodeId: 'node-1', branchId: 'branch-1', createdAt: clock.now()
     }));
     await repository.save(Device.create({
-      id: 'device-2', type: 'SCALE', identifier: 'SN-0002', terminalId: 'terminal-002', createdAt: clock.now()
+      id: 'device-2', type: 'SCALE', identifier: 'SN-0002', terminalId: 'terminal-002',
+      originNodeId: 'node-1', createdAt: clock.now()
     }));
 
     const update = new UpdateDevice(repository, allow(CONFIG_PERMISSIONS.MANAGE_DEVICE), ids, clock);
@@ -130,9 +142,12 @@ describe('device use cases', () => {
     const changeStatus = new ChangeDeviceStatus(repository, allow(CONFIG_PERMISSIONS.MANAGE_DEVICE), ids, clock);
     await changeStatus.execute({ deviceId: 'device-2', status: 'INACTIVE', reason: 'Baja' }, context);
 
-    const listedByStation = await new ListDevices(repository).execute({ terminalId: 'terminal-001' });
+    const authorization = allow(CONFIG_PERMISSIONS.MANAGE_DEVICE);
+    const listedByStation = await new ListDevices(repository, authorization)
+      .execute({ terminalId: 'terminal-001' }, context);
     expect(listedByStation).toMatchObject({ ok: true, value: [{ id: 'device-1' }] });
-    const activeOnly = await new ListDevices(repository).execute({ status: 'ACTIVE' });
+    const activeOnly = await new ListDevices(repository, authorization)
+      .execute({ status: 'ACTIVE' }, context);
     expect(activeOnly).toMatchObject({ ok: true, value: [{ id: 'device-1' }] });
   });
 });

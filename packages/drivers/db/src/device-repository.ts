@@ -11,7 +11,7 @@ export class DrizzleDeviceRepository implements DeviceRepository {
   async save(device: Device): Promise<void> {
     requireTransaction(this.handle.sqlite);
     try {
-      const existing = this.handle.db.select({ version: devices.version })
+      const existing = this.handle.db.select({ version: devices.version, originNodeId: devices.originNodeId })
         .from(devices).where(eq(devices.id, device.id)).get();
       const values = {
         identifier: device.identifier, branchId: device.branchId, status: device.status,
@@ -20,12 +20,16 @@ export class DrizzleDeviceRepository implements DeviceRepository {
       if (!existing) {
         this.handle.db.insert(devices).values({
           id: device.id, type: device.type, terminalId: device.terminalId,
+          originNodeId: device.originNodeId,
           createdAt: device.createdAt, ...values
         }).run();
         return;
       }
       if (existing.version !== device.version - 1) {
         throw new InfrastructureError('DATABASE_CONCURRENCY_CONFLICT', 'Device version is stale.');
+      }
+      if (existing.originNodeId !== device.originNodeId) {
+        throw new InfrastructureError('AGGREGATE_OWNER_MISMATCH', 'Device owner cannot change.');
       }
       const changed = this.handle.db.update(devices).set(values).where(and(
         eq(devices.id, device.id), eq(devices.version, existing.version)
@@ -41,6 +45,17 @@ export class DrizzleDeviceRepository implements DeviceRepository {
   async findById(deviceId: string): Promise<Device | null> {
     try {
       return this.restore(this.handle.db.select().from(devices).where(eq(devices.id, deviceId)).get());
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  async findByIdentifier(identifier: string): Promise<Device | null> {
+    try {
+      const normalized = identifier.trim().toUpperCase();
+      const row = this.handle.db.select().from(devices).all()
+        .find((candidate) => candidate.identifier.toUpperCase() === normalized);
+      return this.restore(row);
     } catch (error) {
       throw mapDatabaseError(error);
     }
@@ -64,8 +79,12 @@ export class DrizzleDeviceRepository implements DeviceRepository {
   }
 
   private restore(row: typeof devices.$inferSelect | undefined): Device | null {
+    if (row && row.originNodeId === null) {
+      throw new InfrastructureError('AGGREGATE_OWNER_UNRESOLVED', 'Device owner is unresolved.');
+    }
     return row ? Device.restore({
       id: row.id, type: row.type as DeviceType, identifier: row.identifier, terminalId: row.terminalId,
+      originNodeId: row.originNodeId!,
       branchId: row.branchId, status: row.status as DeviceStatus,
       createdAt: row.createdAt, updatedAt: row.updatedAt, version: row.version
     }) : null;

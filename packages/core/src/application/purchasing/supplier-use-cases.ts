@@ -191,8 +191,14 @@ export class CorrectSupplierTaxIdentity extends SupplierCommand {
 }
 
 export class GetSupplier {
-  constructor(private readonly repository: SupplierRepository) {}
-  async execute(supplierId: string): Promise<Result<SupplierDto, AppError>> {
+  constructor(
+    private readonly repository: SupplierRepository,
+    private readonly authorization: AuthorizationService
+  ) {}
+  async execute(supplierId: string, context: ExecutionContext): Promise<Result<SupplierDto, AppError>> {
+    if (!await this.authorization.authorize(context, SUPPLIER_PERMISSIONS.READ)) {
+      return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to read suppliers.'));
+    }
     const supplier = await this.repository.findById(supplierId);
     return supplier ? ok(toSupplierDto(supplier))
       : err(new ApplicationError('SUPPLIER_NOT_FOUND', 'Supplier was not found.'));
@@ -200,8 +206,14 @@ export class GetSupplier {
 }
 
 export class ListSuppliers {
-  constructor(private readonly repository: SupplierRepository) {}
-  async execute(status?: SupplierStatus): Promise<Result<readonly SupplierDto[], AppError>> {
+  constructor(
+    private readonly repository: SupplierRepository,
+    private readonly authorization: AuthorizationService
+  ) {}
+  async execute(status: SupplierStatus | undefined, context: ExecutionContext): Promise<Result<readonly SupplierDto[], AppError>> {
+    if (!await this.authorization.authorize(context, SUPPLIER_PERMISSIONS.READ)) {
+      return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to list suppliers.'));
+    }
     return ok((await this.repository.findAll(status)).map(toSupplierDto));
   }
 }

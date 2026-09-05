@@ -103,6 +103,7 @@ export type StockCountDifferenceDto = {
 
 export type StockCountDto = {
   id: string;
+  originNodeId: string;
   status: string;
   openedBy: string;
   openedAt: Date;

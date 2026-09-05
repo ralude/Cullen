@@ -70,15 +70,15 @@ export type FiscalOperationReportEntryDto = {
 };
 
 export type MarginReportInput = {
-  readonly from?: Date;
-  readonly to?: Date;
+  readonly from: Date;
+  readonly to: Date;
   readonly currencyCode?: string;
   readonly limit?: number;
 };
 
 /**
  * Margen agregado por producto, moneda y período. El ingreso proviene de las
- * líneas de venta completadas y el costo de las salidas de inventario
+ * líneas de venta completadas después de descuentos y devoluciones, y el costo neto de las salidas de inventario
  * congeladas en ese período (ADR-0016); no se mezclan monedas ni se aplica
  * una tasa actual a hechos históricos. Cuando el período no tiene ingreso o
  * costo valorado en esa moneda para el producto, ese lado queda en `null` y
@@ -89,7 +89,11 @@ export type MarginReportEntryDto = {
   readonly productId: string;
   readonly currencyCode: string;
   readonly quantitySoldScaled: number;
+  readonly quantityReturnedScaled: number;
   readonly quantityScale: number;
+  readonly discountMinorUnits: number;
+  readonly returnRevenueMinorUnits: number;
+  readonly returnCostMinorUnits: number;
   readonly revenueMinorUnits: number | null;
   readonly costMinorUnits: number | null;
   readonly marginMinorUnits: number | null;

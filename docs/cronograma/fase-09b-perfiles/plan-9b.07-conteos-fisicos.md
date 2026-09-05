@@ -1,8 +1,7 @@
 # Plan de ejecución 9B.07: Conteos físicos
 
 - **Sub-fase:** [9B.07 Conteos físicos](./9b.07-conteos-fisicos.md)
-- **Estado del plan:** Cumplido el 2026-09-04; las cuatro decisiones se resolvieron con el
-  criterio más conservador y quedaron documentadas en el corte de la sub-fase
+- **Estado del plan:** Reabierto por auditoría del 2026-09-05
 - **Prerrequisito:** [9B.03 Proveedores](./9b.03-proveedores.md), completada
 - **Disciplina de implementación:** Outside-in TDD (ADR-0007) y Ponytail `full`
 
@@ -142,6 +141,22 @@ Ninguna de estas se codifica con un valor por defecto.
 - [x] La cantidad contada se escala con la unidad del artículo y rechaza más
   decimales de los admitidos.
 - [x] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+
+## Corrección obligatoria antes de volver a cerrar
+
+- [ ] Resolver de forma normativa si pueden existir conteos `OPEN` solapados y cuál es el
+  alcance de exclusión; no copiar un default silencioso.
+- [ ] Probar dos conteos solapados y el cambio de saldo entre cierre y aprobación.
+- [ ] Conservar el costo vigente en los ajustes derivados según la corrección de 9B.04.
+- [ ] Autorizar `GetStockCount` y `ListStockCounts` en aplicación y probar que `FORBIDDEN` no
+  consulta el repositorio.
+- [ ] Mantener una clave de idempotencia por intención en la UI y cubrir estos contratos en la
+  matriz de permisos.
+- [ ] Formatear cantidades con la primitiva decimal compartida, sin división de punto flotante.
+- [ ] Registrar ownership de `StockCount` antes de su migración correctiva.
+
+El detalle y el orden viven en el
+[plan correctivo de 9B](./plan-correcciones-auditoria-9b.md).
 
 ## Fuera de alcance
 
