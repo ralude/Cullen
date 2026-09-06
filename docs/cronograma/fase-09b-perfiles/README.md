@@ -1,6 +1,6 @@
 # Fase 9B: Perfiles operativos y capacidades faltantes
 
-- **Estado:** En progreso
+- **Estado:** Perfiles completados 2026-09-05; 9B.08 diferida y 9B.09 trasladada a Fase 11
 - **Índice:** [Cronograma](../README.md)
 - **Replanificación:** [Inserción de Fase 9B antes de Fase 10](../replanificacion-fase-09b.md)
 - **Política de alcance:** [ADR-0021, MVP de referencia no certificado](../../architecture/adr/0021-mvp-referencia-no-certificado.md)
@@ -25,25 +25,25 @@ Esta fase consume los permisos que la sesión declara y no administra identidad.
 ### Capacidades de negocio
 
 - [~~9B.03 Proveedores~~](./9b.03-proveedores.md)
-- [9B.04 Costo de compra y margen](./9b.04-costo-y-margen.md) — **reabierta por auditoría**
+- [~~9B.04 Costo de compra y margen~~](./9b.04-costo-y-margen.md) — reabierta y **cerrada de nuevo 2026-09-05** (gate correctivo)
 - [~~9B.05 Clientes e identificación fiscal~~](./9b.05-clientes.md) — snapshot opcional
-- [9B.06 Devoluciones y notas de crédito](./9b.06-devoluciones.md) — **reabierta por prueba roja**
-- [9B.07 Conteos físicos](./9b.07-conteos-fisicos.md) — **reabierta por auditoría**
+- [~~9B.06 Devoluciones y notas de crédito~~](./9b.06-devoluciones.md) — reabierta y **cerrada de nuevo 2026-09-05**
+- [~~9B.07 Conteos físicos~~](./9b.07-conteos-fisicos.md) — reabierta y **cerrada de nuevo 2026-09-05**
 - [9B.08 Transferencias de existencia](./9b.08-transferencias.md) — **diferida**
 - [9B.09 Usuarios, roles y permisos](./9b.09-usuarios-y-roles.md) — **retirada**, trasladada a
   [11.02](../fase-11-seguridad/11.02-roles-permisos.md)
-- [9B.10 Configuración operativa](./9b.10-configuracion-operativa.md) — tras gate, alcance recortado
-- [9B.11 Sucursales y dispositivos](./9b.11-sucursales-y-dispositivos.md) — **reabierta por auditoría**
-- [9B.12 Arqueos y autorizaciones](./9b.12-arqueos-y-autorizaciones.md) — **bloqueada por decisiones**
-- [9B.13 KPIs de gerencia](./9b.13-kpis-de-gerencia.md) — **bloqueada por correcciones**
+- [~~9B.10 Configuración operativa~~](./9b.10-configuracion-operativa.md) — **completada 2026-09-05**, alcance recortado
+- [~~9B.11 Sucursales y dispositivos~~](./9b.11-sucursales-y-dispositivos.md) — reabierta y **cerrada de nuevo 2026-09-05** (alcance recortado)
+- [~~9B.12 Arqueos y autorizaciones~~](./9b.12-arqueos-y-autorizaciones.md) — **completada 2026-09-05**
+- [~~9B.13 KPIs de gerencia~~](./9b.13-kpis-de-gerencia.md) — **completada 2026-09-05**
 
 ### Perfiles
 
-- [9B.14 Perfil Cajero](./9b.14-perfil-cajero.md) — composición incremental
-- [9B.15 Perfil Jefe de cajas](./9b.15-perfil-supervisor.md) — composición incremental
-- [9B.16 Perfil Inventario](./9b.16-perfil-inventario.md) — sin transferencias
-- [9B.17 Perfil Administrador](./9b.17-perfil-administrador.md) — composición incremental
-- [9B.18 Perfil Gerencia](./9b.18-perfil-gerencia.md) — después de corregir 9B.13
+- [~~9B.14 Perfil Cajero~~](./9b.14-perfil-cajero.md) — **completada 2026-09-05**
+- [~~9B.15 Perfil Jefe de cajas~~](./9b.15-perfil-supervisor.md) — **completada 2026-09-05**
+- [~~9B.16 Perfil Inventario~~](./9b.16-perfil-inventario.md) — **completada 2026-09-05**, sin transferencias
+- [~~9B.17 Perfil Administrador~~](./9b.17-perfil-administrador.md) — **completada 2026-09-05**
+- [~~9B.18 Perfil Gerencia~~](./9b.18-perfil-gerencia.md) — **completada 2026-09-05**
 
 ## Planes de ejecución
 
@@ -62,7 +62,7 @@ sus cortes en el orden documentado.
 - Capacidades reabiertas por el gate correctivo: [9B.04](./plan-9b.04-costo-y-margen.md),
   [9B.06](./plan-9b.06-devoluciones.md), [9B.07](./plan-9b.07-conteos-fisicos.md) y
   [9B.11](./plan-9b.11-sucursales-y-dispositivos.md).
-- Capacidades listas después del gate: [9B.10](./plan-9b.10-configuracion-operativa.md),
+- Capacidades completadas después del gate: [9B.10](./plan-9b.10-configuracion-operativa.md),
   [9B.12](./plan-9b.12-arqueos-y-autorizaciones.md) y
   [9B.13](./plan-9b.13-kpis-de-gerencia.md).
 - Perfiles: [9B.14](./plan-9b.14-perfil-cajero.md),

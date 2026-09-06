@@ -15,6 +15,13 @@ Permitir operacion offline-first entre terminales autonomas y el nodo coordinado
 - [10.03 Servidor receptor](./10.03-servidor-receptor.md)
 - [10.04 Offline y reconexion](./10.04-offline-reconexion.md)
 
+## Planificación preparatoria
+
+El [plan de ejecución de 10.01](./plan-10.01-sync-queue.md), propuesto el 2026-09-05,
+parte del outbox existente e incluye línea base, decisiones previas, secuencia outside-in
+y criterios de recuperación. La implementación continúa pendiente hasta el cierre de 9B;
+al recibir ese cierre se revalidan productores, consumidores y migraciones del árbol final.
+
 ## Criterio de salida
 
 Una operacion local sobrevive cortes de red y sus eventos se entregan de forma idempotente.

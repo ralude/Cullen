@@ -5,7 +5,9 @@ import {
   DrizzleAuditReportRepository,
   DrizzleCashClosureReportRepository,
   DrizzleFiscalOperationsReportRepository,
-  DrizzleMarginReportRepository
+  DrizzleInventoryReportRepository,
+  DrizzleMarginReportRepository,
+  DrizzleSalesReportRepository
 } from './reporting-repositories.js';
 
 const at = (iso: string): number => new Date(iso).getTime();
@@ -200,5 +202,93 @@ describe('reporting read repositories', () => {
       discountMinorUnits: 40, returnRevenueMinorUnits: 560, returnCostMinorUnits: 400,
       revenueMinorUnits: 0, costMinorUnits: 0, marginMinorUnits: 0
     }]);
+  });
+
+  it('derives quantity sold without a frozen cost and keeps incompatible scales apart', async () => {
+    const handle = setup();
+    handle.sqlite.exec(`
+      insert into stock_items (id, product_id, unit_code, quantity_scale, tracks_batches)
+      values ('stock-2', 'product-2', 'KG', 3, 0);
+      insert into stock_movements (id, stock_item_id, event_id, aggregate_version, type, direction,
+        quantity_scaled, quantity_scale, actor_id, reason, reference_id, occurred_at,
+        unit_cost_minor_units, cost_currency_code)
+      values
+        ('m-uncosted', 'stock-2', 'e-uncosted', 1, 'SALE_ISSUE', 'OUT', 2000, 3, 'user-1', 'Venta', 'r-1',
+          ${at('2026-09-02T10:00:00.000Z')}, null, null);
+      insert into sales (id, shift_id, currency_code, terminal_id, origin_node_id, started_by, started_at,
+        status, version, financial_transaction_tax_minor_units, completed_at)
+      values ('sale-2', 'shift-2', 'USD', 'terminal-001', 'node-001', 'user-1', ${at('2026-09-02T09:55:00.000Z')},
+        'COMPLETED', 2, 0, ${at('2026-09-02T10:00:00.000Z')});
+      insert into sale_items (id, sale_id, product_id, description, price_minor_units, currency_code,
+        tax_rate_basis_points, unit_code, unit_scale, quantity_scaled, quantity_scale)
+      values
+        ('sale-item-2a', 'sale-2', 'product-2', 'A granel', 300, 'USD', 1600, 'KG', 3, 2000, 3),
+        ('sale-item-2b', 'sale-2', 'product-2', 'Por unidad', 300, 'USD', 1600, 'UND', 0, 3, 0);
+    `);
+
+    const period = {
+      from: new Date('2026-09-01T00:00:00.000Z'),
+      to: new Date('2026-09-03T00:00:00.000Z'), limit: 100
+    };
+    const entries = await new DrizzleMarginReportRepository(handle).findMargins(period);
+
+    // La venta a granel (escala 3, sin costo congelado) deriva la cantidad y deja el costo en null.
+    expect(entries).toContainEqual(expect.objectContaining({
+      productId: 'product-2', currencyCode: 'USD', quantityScale: 3,
+      quantitySoldScaled: 2000, revenueMinorUnits: 600, costMinorUnits: null, marginMinorUnits: null
+    }));
+    // La línea por unidad (escala 0) es una fila separada: no se suma a la de escala 3.
+    expect(entries).toContainEqual(expect.objectContaining({
+      productId: 'product-2', currencyCode: 'USD', quantityScale: 0, quantitySoldScaled: 3
+    }));
+  });
+
+  it('summarizes completed sales per currency and derives on-hand inventory from movements', async () => {
+    const handle = setup();
+    handle.sqlite.exec(`
+      insert into sales (id, shift_id, currency_code, terminal_id, origin_node_id, started_by, started_at,
+        status, version, financial_transaction_tax_minor_units, completed_at)
+      values
+        ('s-usd', 'shift-1', 'USD', 'terminal-001', 'node-001', 'user-1', ${at('2026-09-02T09:00:00.000Z')},
+          'COMPLETED', 3, 0, ${at('2026-09-02T10:00:00.000Z')}),
+        ('s-ves', 'shift-1', 'VES', 'terminal-001', 'node-001', 'user-1', ${at('2026-09-02T09:00:00.000Z')},
+          'COMPLETED', 3, 0, ${at('2026-09-02T10:00:00.000Z')}),
+        ('s-draft', 'shift-1', 'USD', 'terminal-001', 'node-001', 'user-1', ${at('2026-09-02T09:00:00.000Z')},
+          'DRAFT', 1, 0, null);
+      insert into sale_items (id, sale_id, product_id, description, price_minor_units, currency_code,
+        tax_rate_basis_points, unit_code, unit_scale, quantity_scaled, quantity_scale)
+      values
+        ('i-usd', 's-usd', 'product-1', 'USD', 200, 'USD', 1600, 'UND', 0, 3, 0),
+        ('i-ves', 's-ves', 'product-1', 'VES', 500, 'VES', 1600, 'UND', 0, 2, 0),
+        ('i-draft', 's-draft', 'product-1', 'Borrador', 200, 'USD', 1600, 'UND', 0, 9, 0);
+      insert into stock_items (id, product_id, unit_code, quantity_scale, tracks_batches)
+      values ('stock-a', 'product-a', 'UND', 0, 0);
+      insert into stock_movements (id, stock_item_id, event_id, aggregate_version, type, direction,
+        quantity_scaled, quantity_scale, actor_id, reason, reference_id, occurred_at)
+      values
+        ('mv-in', 'stock-a', 'ev-in', 1, 'PURCHASE_RECEIPT', 'IN', 10, 0, 'user-1', 'Compra', 'r1', ${at('2026-09-01T00:00:00.000Z')}),
+        ('mv-out', 'stock-a', 'ev-out', 2, 'SALE_ISSUE', 'OUT', 4, 0, 'user-1', 'Venta', 'r2', ${at('2026-09-02T00:00:00.000Z')}),
+        ('mv-late', 'stock-a', 'ev-late', 3, 'SALE_ISSUE', 'OUT', 1, 0, 'user-1', 'Venta', 'r3', ${at('2026-09-10T00:00:00.000Z')});
+    `);
+
+    const period = {
+      from: new Date('2026-09-01T00:00:00.000Z'),
+      to: new Date('2026-09-03T00:00:00.000Z'), limit: 100
+    };
+    const sales = await new DrizzleSalesReportRepository(handle).findSalesSummary(period);
+    expect(sales).toEqual([
+      { currencyCode: 'USD', quantityScale: 0, salesCount: 1, lineCount: 1, quantitySoldScaled: 3,
+        grossMinorUnits: 600, discountMinorUnits: 0, netMinorUnits: 600 },
+      { currencyCode: 'VES', quantityScale: 0, salesCount: 1, lineCount: 1, quantitySoldScaled: 2,
+        grossMinorUnits: 1000, discountMinorUnits: 0, netMinorUnits: 1000 }
+    ]);
+
+    const inventory = await new DrizzleInventoryReportRepository(handle).findInventorySnapshot({
+      asOf: new Date('2026-09-05T00:00:00.000Z'), limit: 100
+    });
+    // Movimientos posteriores al corte no cuentan: 10 - 4 = 6, sin restar la salida del día 10.
+    expect(inventory).toEqual([expect.objectContaining({
+      stockItemId: 'stock-a', productId: 'product-a', batchId: null, onHandScaled: 6, expiryStatus: 'NONE'
+    })]);
   });
 });

@@ -1,4 +1,5 @@
 import type { BranchStatus, DeviceStatus, DeviceType } from '../../domain/config/index.js';
+import type { PaymentMethodKind } from '../../domain/currency/index.js';
 
 export type BranchDto = {
   id: string;
@@ -42,3 +43,32 @@ export type UpdateDeviceInput = {
   reason: string;
 };
 export type ChangeDeviceStatusInput = { deviceId: string; status: DeviceStatus; reason: string };
+
+export type CategoryConfigDto = { id: string; name: string; isActive: boolean };
+export type UnitConfigDto = {
+  id: string; code: string; name: string; quantityScale: number; isActive: boolean;
+};
+export type PaymentMethodConfigDto = {
+  code: string; name: string; kind: PaymentMethodKind; currencyCode: string; isActive: boolean;
+};
+export type OperationalMasterDataDto = {
+  categories: readonly CategoryConfigDto[];
+  units: readonly UnitConfigDto[];
+  paymentMethods: readonly PaymentMethodConfigDto[];
+};
+export type SaveCategoryInput = {
+  id?: string; name: string; isActive: boolean; reason: string;
+};
+export type SaveUnitInput = {
+  code: string; name: string; quantityScale: number; isActive: boolean; reason: string;
+};
+export type SavePaymentMethodInput = {
+  code: string; name: string; kind: PaymentMethodKind; currencyCode: string;
+  isActive: boolean; reason: string;
+};
+export type ActivateDiscountPolicyInput = { maximumBasisPoints: number; reason: string };
+export type ActivateTaxPolicyInput = {
+  rateBasisPoints: number; eligiblePaymentMethodCodes: readonly string[];
+  eligibleCurrencies: readonly string[]; reason: string;
+};
+export type PolicyActivationDto = { created: boolean; policyId: string; version: number };

@@ -186,7 +186,27 @@ input:focus-visible {
 }
 .sidebar .brand { padding: 0 8px 28px; }
 .sidebar .brand small { color: #a8bcb2; }
-.sidebar nav { display: grid; gap: 4px; }
+.sidebar nav,
+.navigation-group { display: grid; gap: 4px; }
+.navigation-group + .navigation-group { margin-top: 14px; }
+.navigation-group > p {
+  margin: 0;
+  padding: 0 14px 4px;
+  color: #8fb09f;
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.configuration-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #e8ede9;
+}
 .sidebar nav a {
   display: flex;
   align-items: center;

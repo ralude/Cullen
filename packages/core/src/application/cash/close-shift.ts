@@ -80,13 +80,23 @@ export class CloseShift {
         ]));
         const hasDifference = [...new Set([...declared.keys(), ...expected.keys()])]
           .some((key) => (declared.get(key) ?? 0) !== (expected.get(key) ?? 0));
-        if (hasDifference && !(await this.authorization.authorize(
+        const negativeExpectedMethods = shift.expectedBalances
+          .filter((balance) => balance.amount.minorUnits < 0)
+          .map((balance) => `${balance.paymentMethodCode}:${balance.amount.currency}`);
+        if ((hasDifference || negativeExpectedMethods.length > 0) && !(await this.authorization.authorize(
           context,
           CASH_PERMISSIONS.CLOSE_SHIFT_WITH_DIFFERENCE
         ))) {
           return err(new ApplicationError(
             'FORBIDDEN',
             'Actor is not authorized to close a shift with differences.'
+          ));
+        }
+        const closeReason = input.reason?.trim() ?? '';
+        if (negativeExpectedMethods.length > 0 && closeReason.length === 0) {
+          return err(new ApplicationError(
+            'SHIFT_NEGATIVE_EXPECTED_REASON_REQUIRED',
+            'Closing a shift with a negative expected balance requires an explicit reason.'
           ));
         }
         const previousEventCount = shift.domainEvents.length;
@@ -117,6 +127,7 @@ export class CloseShift {
             before: { status: 'OPEN' },
             after: {
               status: shift.status,
+              negativeExpectedMethods,
               balances: shift.closingBalances?.map((balance) => ({
                 paymentMethodCode: balance.paymentMethodCode,
                 currencyCode: balance.expected.currency,
@@ -125,7 +136,7 @@ export class CloseShift {
                 differenceMinorUnits: balance.difference.minorUnits
               })) ?? []
             },
-            reason: 'Shift closed with declared balances.',
+            reason: closeReason || 'Shift closed with declared balances.',
             terminalId: context.terminalId,
             originNodeId: context.originNodeId,
             occurredAt: closedAt,

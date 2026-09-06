@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.16: Perfil Inventario
 
 - **Sub-fase:** [9B.16 Perfil Inventario](./9b.16-perfil-inventario.md)
-- **Estado del plan:** Bloqueado hasta volver a cerrar 9B.04 y 9B.07
+- **Estado del plan:** ~~Implementado y cerrado 2026-09-05~~
 - **Base:** 9B.03 completada; 9B.04 y 9B.07 están reabiertas; 9B.08 permanece
   diferida por [ADR-0020](../../architecture/adr/0020-modelo-de-almacenes-y-transferencias.md)
 - **Disciplina:** Outside-in TDD (ADR-0007) y Ponytail `full`
@@ -48,13 +48,13 @@ del nodo y sin acceso a caja o venta.
 
 ## Criterios de aceptación
 
-- [ ] La existencia del nodo es el punto de entrada y muestra lotes/vencimientos cuando aplican.
-- [ ] Listado y kardex están acotados y filtrados en servidor/aplicación.
-- [ ] Recepción, ajuste y conteo conservan referencia, motivo, actor y UTC.
-- [ ] Proveedores y conteos se reutilizan; no existen pantallas o repositorios duplicados.
-- [ ] No se ofrece almacén ni transferencia mientras 9B.08 siga diferida.
-- [ ] Caja y venta no aparecen por pertenecer a otro conjunto de permisos.
-- [ ] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+- [x] ~~La existencia del nodo es el punto de entrada y muestra lotes/vencimientos cuando aplican.~~
+- [x] ~~Listado y kardex están acotados y filtrados en servidor/aplicación.~~
+- [x] ~~Recepción, ajuste y conteo conservan referencia, motivo, actor y UTC.~~
+- [x] ~~Proveedores y conteos se reutilizan; no existen pantallas o repositorios duplicados.~~
+- [x] ~~No se ofrece almacén ni transferencia mientras 9B.08 siga diferida.~~
+- [x] ~~Caja y venta no aparecen por pertenecer a otro conjunto de permisos.~~
+- [x] ~~`pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.~~ 591 pruebas / 120 archivos.
 
 ## Fuera de alcance
 

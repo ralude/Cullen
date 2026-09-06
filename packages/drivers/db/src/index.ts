@@ -19,13 +19,16 @@ export {
   SqliteFinancialTransactionTaxPolicyProvider
 } from './operational-policy-providers.js';
 export { SqliteOperationalPolicyWriter } from './operational-policy-writer.js';
+export { SqliteOperationalMasterDataStore } from './operational-master-data-store.js';
 export { DrizzleFiscalDocumentRepository } from './fiscal-document-repository.js';
 export { DrizzleCatalogReadRepository } from './catalog-read-repository.js';
 export {
   DrizzleAuditReportRepository,
   DrizzleCashClosureReportRepository,
   DrizzleFiscalOperationsReportRepository,
-  DrizzleMarginReportRepository
+  DrizzleInventoryReportRepository,
+  DrizzleMarginReportRepository,
+  DrizzleSalesReportRepository
 } from './reporting-repositories.js';
 export { DrizzleFiscalDayRepository } from './fiscal-day-repository.js';
 export { SqliteAuthenticationStore, SqliteAuthorizationService } from './authentication-store.js';

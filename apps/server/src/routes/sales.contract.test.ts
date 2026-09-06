@@ -229,6 +229,16 @@ describe('sales HTTP contracts', () => {
     const replay = await app.inject({ method: 'POST', url: `/api/v1/sales/${saleId}/return`, headers, payload: { reason: 'Devolución de prueba' } });
     expect(replay.statusCode).toBe(201);
     expect(replay.json()).toEqual(returned.json());
+
+    const history = await app.inject({ method: 'GET', url: `/api/v1/sales/${saleId}/history`, headers: { cookie } });
+    expect(history.statusCode).toBe(200);
+    const versions = history.json<Array<{ eventType: string; status: string; refundMinorUnits: number | null }>>();
+    expect(versions.at(-1)).toMatchObject({
+      eventType: 'SaleReturned', status: 'RETURNED', refundMinorUnits: item.totalMinorUnits
+    });
+
+    const anonymous = await app.inject({ method: 'GET', url: `/api/v1/sales/${saleId}/history` });
+    expect(anonymous.statusCode).toBe(401);
   });
 
   it('fails closed when the IGTF policy is not configured', async () => {

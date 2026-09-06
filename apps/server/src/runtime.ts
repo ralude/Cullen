@@ -22,7 +22,9 @@ import {
   DrizzleAuditReportRepository,
   DrizzleCashClosureReportRepository,
   DrizzleFiscalOperationsReportRepository,
+  DrizzleInventoryReportRepository,
   DrizzleMarginReportRepository,
+  DrizzleSalesReportRepository,
   DrizzleProductSnapshotProvider,
   DrizzleSaleRepository,
   DrizzleShiftRepository,
@@ -39,6 +41,8 @@ import {
   SqliteAuthorizationService,
   SqliteDiscountPolicyProvider,
   SqliteFinancialTransactionTaxPolicyProvider,
+  SqliteOperationalMasterDataStore,
+  SqliteOperationalPolicyWriter,
   SqliteUnitOfWork,
   type DatabaseHandle
 } from '@supermarket/driver-db';
@@ -116,6 +120,8 @@ export const createSecurityRuntime = (
   const cashRegisterRepository = new DrizzleCashRegisterRepository(handle);
   const discountPolicyProvider = new SqliteDiscountPolicyProvider(handle);
   const taxPolicyProvider = new SqliteFinancialTransactionTaxPolicyProvider(handle);
+  const operationalMasterDataStore = new SqliteOperationalMasterDataStore(handle);
+  const operationalPolicyWriter = new SqliteOperationalPolicyWriter(handle);
   const stockItemRepository = new DrizzleStockItemRepository(handle);
   const stockCountRepository = new DrizzleStockCountRepository(handle);
   const branchRepository = new DrizzleBranchRepository(handle);
@@ -219,6 +225,9 @@ export const createSecurityRuntime = (
         ),
         setSaleRecipient: new application.SetSaleRecipient(
           saleRepository, ids, clock, unitOfWork, eventStore, idempotencyStore
+        ),
+        getSaleHistory: new application.GetSaleHistory(
+          eventStore, saleReturnRepository, authorization
         )
       },
       cash: {
@@ -228,6 +237,7 @@ export const createSecurityRuntime = (
           unitOfWork, eventStore, outboxStore, auditWriter, ids, idempotencyStore
         ),
         getOpenShift: new application.GetOpenShift(shiftRepository),
+        getShift: new application.GetShift(shiftRepository, authorization),
         registerCashMovement: new application.RegisterCashMovement(
           shiftRepository, paymentMethodRepository, authorization, ids, ids, clock,
           unitOfWork, eventStore, outboxStore, auditWriter, ids, idempotencyStore
@@ -246,7 +256,7 @@ export const createSecurityRuntime = (
           stockItemRepository, authorization, ids, ids, ids, clock,
           unitOfWork, eventStore, auditWriter, idempotencyStore
         ),
-        getKardex: new application.GetKardex(stockItemRepository)
+        getKardex: new application.GetKardex(stockItemRepository, authorization)
       },
       stockCounts: {
         open: new application.OpenStockCount(
@@ -295,6 +305,24 @@ export const createSecurityRuntime = (
             deviceRepository, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
           ),
           list: new application.ListDevices(deviceRepository, authorization)
+        },
+        operational: {
+          list: new application.ListOperationalMasterData(operationalMasterDataStore, authorization),
+          saveCategory: new application.SaveCategory(
+            operationalMasterDataStore, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
+          ),
+          saveUnit: new application.SaveUnit(
+            operationalMasterDataStore, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
+          ),
+          savePaymentMethod: new application.SavePaymentMethod(
+            operationalMasterDataStore, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
+          ),
+          activateDiscountPolicy: new application.ActivateDiscountPolicy(
+            operationalPolicyWriter, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
+          ),
+          activateTaxPolicy: new application.ActivateFinancialTransactionTaxPolicy(
+            operationalPolicyWriter, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
+          )
         }
       },
       suppliers: {
@@ -352,6 +380,12 @@ export const createSecurityRuntime = (
         ),
         getMarginReport: new application.GetMarginReport(
           new DrizzleMarginReportRepository(handle), authorization
+        ),
+        getSalesReport: new application.GetSalesReport(
+          new DrizzleSalesReportRepository(handle), authorization
+        ),
+        getInventoryReport: new application.GetInventoryReport(
+          new DrizzleInventoryReportRepository(handle), authorization
         )
       },
       ...(simulatedReportsEnabled ? {

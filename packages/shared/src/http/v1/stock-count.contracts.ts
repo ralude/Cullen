@@ -116,7 +116,10 @@ export const openStockCountContract = {
   method: 'POST', path: '/api/v1/inventory/counts',
   permission: 'inventory.count.perform', idempotency: 'REQUIRED',
   schema: { headers, body: reasonBody, response: { 201: stockCountResponseSchema, ...mutationResponses } },
-  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY']
+  errorCodes: [
+    'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'STOCK_COUNT_ALREADY_OPEN',
+    'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY'
+  ]
 } as const satisfies HttpContractV1;
 
 export const recordStockCountLineContract = {

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ApiProblemError, type DesktopApi } from './api-client.js';
 import {
   AppView, PRODUCT_NAME, isRouteReachable, loadInitialState, resolveRoute, shortcutHash,
+  visibleNavigationGroups,
   type AppViewState, type NodeConnection
 } from './App.js';
 
@@ -82,7 +83,7 @@ describe('desktop renderer base states', () => {
       kind: 'ready',
       session: {
         actorId: 'user-1', displayName: 'Operador Uno', roleCodes: ['cashier'],
-        permissionCodes: [],
+        permissionCodes: ['catalog.product.create'],
         idleExpiresAt: '2026-09-02T18:00:00.000Z',
         absoluteExpiresAt: '2026-09-03T00:00:00.000Z'
       },
@@ -124,27 +125,51 @@ describe('desktop renderer base states', () => {
     expect(shortcutHash('a')).toBeNull();
   });
 
-  it('reaches every operational screen with no permission at all, since each one has a read open to any valid session', () => {
+  it('does not turn session-only reads into an operational profile', () => {
     const noPermission: readonly string[] = [];
-    expect(isRouteReachable(resolveRoute('#/sales'), noPermission)).toBe(true);
-    expect(isRouteReachable(resolveRoute('#/cash'), noPermission)).toBe(true);
-    expect(isRouteReachable(resolveRoute('#/catalog'), noPermission)).toBe(true);
-    expect(isRouteReachable(resolveRoute('#/inventory'), noPermission)).toBe(true);
-    expect(isRouteReachable(resolveRoute('#/rates'), noPermission)).toBe(true);
+    expect(isRouteReachable(resolveRoute('#/sales'), noPermission)).toBe(false);
+    expect(isRouteReachable(resolveRoute('#/cash'), noPermission)).toBe(false);
+    expect(isRouteReachable(resolveRoute('#/catalog'), noPermission)).toBe(false);
+    expect(isRouteReachable(resolveRoute('#/inventory'), noPermission)).toBe(false);
+    expect(isRouteReachable(resolveRoute('#/rates'), noPermission)).toBe(false);
+  });
+
+  it('composes profile workspaces from effective permissions without reading role codes', () => {
+    const routeIds = (permissions: readonly string[]) => visibleNavigationGroups(permissions)
+      .flatMap((group) => group.routes.map((route) => route.id));
+
+    expect(routeIds(['cash.shift.open', 'cash.shift.close'])).toEqual([
+      'home', 'sales', 'cash', 'catalog'
+    ]);
+    expect(routeIds([
+      'inventory.kardex.read', 'inventory.purchase.receive', 'inventory.count.read', 'supplier.read'
+    ])).toEqual(['home', 'inventory', 'suppliers', 'counts']);
+    expect(routeIds([
+      'config.branch.manage', 'config.device.manage', 'currency.rate.update', 'reports.audit.read'
+    ])).toEqual(['home', 'config', 'rates', 'reports']);
+    expect(routeIds([
+      'reports.sales.read', 'reports.inventory.read', 'reports.margin.read', 'reports.audit.read'
+    ])).toEqual(['home', 'reports']);
   });
 
   it('gates the screens whose whole purpose is a command behind their permissions', () => {
     const noPermission: readonly string[] = [];
     expect(isRouteReachable(resolveRoute('#/reports'), noPermission)).toBe(false);
     expect(isRouteReachable(resolveRoute('#/reports'), ['reports.audit.read'])).toBe(true);
+    expect(isRouteReachable(resolveRoute('#/reports'), ['reports.sales.read'])).toBe(true);
+    expect(isRouteReachable(resolveRoute('#/reports'), ['sale.history.read'])).toBe(true);
     expect(isRouteReachable(resolveRoute('#/suppliers'), noPermission)).toBe(false);
+    expect(isRouteReachable(resolveRoute('#/suppliers'), ['supplier.read'])).toBe(true);
     expect(isRouteReachable(resolveRoute('#/suppliers'), ['supplier.update'])).toBe(true);
     expect(isRouteReachable(resolveRoute('#/counts'), noPermission)).toBe(false);
     expect(isRouteReachable(resolveRoute('#/counts'), ['inventory.count.perform'])).toBe(true);
     expect(isRouteReachable(resolveRoute('#/counts'), ['inventory.count.approve'])).toBe(true);
+    expect(isRouteReachable(resolveRoute('#/counts'), ['inventory.count.read'])).toBe(true);
     expect(isRouteReachable(resolveRoute('#/config'), noPermission)).toBe(false);
     expect(isRouteReachable(resolveRoute('#/config'), ['config.branch.manage'])).toBe(true);
     expect(isRouteReachable(resolveRoute('#/config'), ['config.device.manage'])).toBe(true);
+    expect(isRouteReachable(resolveRoute('#/config'), ['config.payment_method.manage'])).toBe(true);
+    expect(isRouteReachable(resolveRoute('#/config'), ['config.tax.manage'])).toBe(true);
   });
 
   it('hides the Reportes entry and blocks the hash without a report permission, without touching the server', () => {

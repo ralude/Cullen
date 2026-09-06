@@ -1,10 +1,14 @@
 import {
   applySaleDiscountContract,
+  activateDiscountPolicyContract,
+  activateTaxPolicyContract,
   approveStockCountContract,
   closeStockCountContract,
   changeBranchStatusContract,
   changeDeviceStatusContract,
   closeShiftContract,
+  getShiftContract,
+  getSaleHistoryContract,
   changeSupplierStatusContract,
   completePurchaseReceiptContract,
   correctSupplierTaxIdentityContract,
@@ -19,10 +23,14 @@ import {
   getAuditReportContract,
   getCashClosureReportContract,
   getFiscalOperationsReportContract,
+  getKardexContract,
   getMarginReportContract,
+  getSalesReportContract,
+  getInventoryReportContract,
   issueSimulatedFiscalDocumentContract,
   listBranchesContract,
   listDevicesContract,
+  listOperationalMasterDataContract,
   listStockCountsContract,
   listSuppliersContract,
   openStockCountContract,
@@ -30,6 +38,9 @@ import {
   printSimulatedXReportContract,
   printSimulatedZReportContract,
   receivePurchaseContract,
+  saveCategoryContract,
+  savePaymentMethodContract,
+  saveUnitContract,
   recordStockCountLineContract,
   rejectStockCountContract,
   reconcileSimulatedFiscalDocumentContract,
@@ -70,6 +81,7 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
       application.CASH_PERMISSIONS.REGISTER_WITHDRAWAL
     );
     expectedPermission(closeShiftContract, application.CASH_PERMISSIONS.CLOSE_SHIFT);
+    expectedPermission(getShiftContract, application.CASH_PERMISSIONS.READ_SHIFT);
   });
 
   it('catalogo', () => {
@@ -96,6 +108,7 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
       application.INVENTORY_PERMISSIONS.REGISTER_WASTE,
       application.INVENTORY_PERMISSIONS.REGISTER_ADJUSTMENT
     );
+    expectedPermission(getKardexContract, application.INVENTORY_PERMISSIONS.READ_KARDEX);
   });
 
   it('conteos', () => {
@@ -117,6 +130,16 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
       listDevicesContract]) {
       expectedPermission(contract, application.CONFIG_PERMISSIONS.MANAGE_DEVICE);
     }
+    expectedPermission(saveCategoryContract, application.CATALOG_PERMISSIONS.UPDATE_PRODUCT);
+    expectedPermission(saveUnitContract, application.CATALOG_PERMISSIONS.UPDATE_PRODUCT);
+    expectedPermission(savePaymentMethodContract, application.CONFIG_PERMISSIONS.MANAGE_PAYMENT_METHOD);
+    expectedPermission(activateDiscountPolicyContract, application.CONFIG_PERMISSIONS.MANAGE_TAX);
+    expectedPermission(activateTaxPolicyContract, application.CONFIG_PERMISSIONS.MANAGE_TAX);
+    expectedPermission(
+      listOperationalMasterDataContract,
+      application.CATALOG_PERMISSIONS.UPDATE_PRODUCT,
+      application.CONFIG_PERMISSIONS.MANAGE_PAYMENT_METHOD
+    );
   });
 
   it('reportes', () => {
@@ -124,6 +147,8 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
     expectedPermission(getAuditReportContract, application.REPORT_PERMISSIONS.READ_AUDIT);
     expectedPermission(getFiscalOperationsReportContract, application.REPORT_PERMISSIONS.READ_FISCAL);
     expectedPermission(getMarginReportContract, application.REPORT_PERMISSIONS.READ_MARGIN);
+    expectedPermission(getSalesReportContract, application.REPORT_PERMISSIONS.READ_SALES);
+    expectedPermission(getInventoryReportContract, application.REPORT_PERMISSIONS.READ_INVENTORY);
   });
 
   it('proveedores', () => {
@@ -149,5 +174,6 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
     expectedPermission(applySaleDiscountContract, application.SALE_PERMISSIONS.APPLY_DISCOUNT);
     expectedPermission(voidSaleContract, application.SALE_PERMISSIONS.VOID);
     expectedPermission(returnSaleContract, application.SALE_PERMISSIONS.RETURN);
+    expectedPermission(getSaleHistoryContract, application.SALE_PERMISSIONS.READ_HISTORY);
   });
 });

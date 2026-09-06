@@ -4,5 +4,6 @@ export const INVENTORY_PERMISSIONS = {
   REGISTER_ADJUSTMENT: 'inventory.adjust',
   PERFORM_COUNT: 'inventory.count.perform',
   APPROVE_COUNT: 'inventory.count.approve',
-  READ_COUNT: 'inventory.count.read'
+  READ_COUNT: 'inventory.count.read',
+  READ_KARDEX: 'inventory.kardex.read'
 } as const;

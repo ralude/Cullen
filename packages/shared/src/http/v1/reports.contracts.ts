@@ -180,6 +180,88 @@ export const getMarginReportContract = {
   errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN']
 } as const satisfies HttpContractV1;
 
+export type SalesReportResponse = {
+  readonly currencyCode: string;
+  readonly quantityScale: number;
+  readonly salesCount: number;
+  readonly lineCount: number;
+  readonly quantitySoldScaled: number;
+  readonly grossMinorUnits: number;
+  readonly discountMinorUnits: number;
+  readonly netMinorUnits: number;
+};
+
+const salesSchema = {
+  type: 'object', additionalProperties: false,
+  required: [
+    'currencyCode', 'quantityScale', 'salesCount', 'lineCount', 'quantitySoldScaled',
+    'grossMinorUnits', 'discountMinorUnits', 'netMinorUnits'
+  ],
+  properties: {
+    currencyCode: { type: 'string' }, quantityScale: { type: 'integer', minimum: 0 },
+    salesCount: { type: 'integer', minimum: 0 }, lineCount: { type: 'integer', minimum: 0 },
+    quantitySoldScaled: { type: 'integer' }, grossMinorUnits: { type: 'integer' },
+    discountMinorUnits: { type: 'integer' }, netMinorUnits: { type: 'integer' }
+  }
+} as const;
+
+export const getSalesReportContract = {
+  method: 'GET', path: '/api/v1/reports/sales',
+  permission: 'reports.sales.read', idempotency: 'NONE',
+  schema: {
+    querystring: {
+      type: 'object', additionalProperties: false, required: ['from', 'to'],
+      properties: { ...period, currencyCode: { type: 'string', pattern: '^[A-Z]{3}$' } }
+    },
+    response: { 200: { type: 'array', items: salesSchema }, ...readResponses }
+  },
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN']
+} as const satisfies HttpContractV1;
+
+export type InventoryReportResponse = {
+  readonly stockItemId: string;
+  readonly productId: string;
+  readonly batchId: string | null;
+  readonly lotNumber: string | null;
+  readonly unitCode: string;
+  readonly quantityScale: number;
+  readonly onHandScaled: number;
+  readonly expiresAt: string | null;
+  readonly expiryStatus: 'NONE' | 'OK' | 'EXPIRING' | 'EXPIRED';
+};
+
+const inventorySchema = {
+  type: 'object', additionalProperties: false,
+  required: [
+    'stockItemId', 'productId', 'batchId', 'lotNumber', 'unitCode', 'quantityScale',
+    'onHandScaled', 'expiresAt', 'expiryStatus'
+  ],
+  properties: {
+    stockItemId: id, productId: id, batchId: { anyOf: [id, { type: 'null' }] },
+    lotNumber: nullableText, unitCode: { type: 'string' },
+    quantityScale: { type: 'integer', minimum: 0 }, onHandScaled: { type: 'integer' },
+    expiresAt: { anyOf: [timestamp, { type: 'null' }] },
+    expiryStatus: { enum: ['NONE', 'OK', 'EXPIRING', 'EXPIRED'] }
+  }
+} as const;
+
+export const getInventoryReportContract = {
+  method: 'GET', path: '/api/v1/reports/inventory',
+  permission: 'reports.inventory.read', idempotency: 'NONE',
+  schema: {
+    querystring: {
+      type: 'object', additionalProperties: false, required: ['asOf'],
+      properties: {
+        asOf: timestamp,
+        expiringWithinDays: { type: 'integer', minimum: 0, maximum: 3650 },
+        limit: { type: 'integer', minimum: 1, maximum: 500 }
+      }
+    },
+    response: { 200: { type: 'array', items: inventorySchema }, ...readResponses }
+  },
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN']
+} as const satisfies HttpContractV1;
+
 export const getFiscalOperationsReportContract = {
   method: 'GET', path: '/api/v1/reports/fiscal-operations',
   permission: 'reports.fiscal.read', idempotency: 'NONE',

@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   completePurchaseReceiptContract,
+  getInventoryReportContract,
   isPermissionGranted,
+  listSuppliersContract,
   receivePurchaseContract,
   registerStockAdjustmentContract,
   startPurchaseReceiptContract,
+  type InventoryReportResponse,
   type KardexDto,
   type SupplierResponse
 } from '@supermarket/shared';
@@ -29,6 +32,11 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
   const [productId, setProductId] = useState('');
   const [consultedProductId, setConsultedProductId] = useState('');
   const [kardex, setKardex] = useState<KardexDto | null>(null);
+  const [kardexBatchId, setKardexBatchId] = useState('');
+  const [kardexFrom, setKardexFrom] = useState('');
+  const [kardexTo, setKardexTo] = useState('');
+  const [kardexReason, setKardexReason] = useState('');
+  const [kardexLimit, setKardexLimit] = useState('100');
   const [type, setType] = useState<'WASTE' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT'>('WASTE');
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState('');
@@ -47,14 +55,25 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [overview, setOverview] = useState<readonly InventoryReportResponse[] | null>(null);
   const visibleSuppliers = useMemo(
     () => filterSuppliers(suppliers, supplierQuery),
     [suppliers, supplierQuery]
   );
+  const canReceive = isPermissionGranted(receivePurchaseContract.permission, permissionCodes);
+  const canReceiveDocumented = isPermissionGranted(startPurchaseReceiptContract.permission, permissionCodes)
+    && isPermissionGranted(completePurchaseReceiptContract.permission, permissionCodes);
+  const canAdjust = isPermissionGranted(registerStockAdjustmentContract.permission, permissionCodes);
 
   useEffect(() => {
-    void api.listSuppliers('ACTIVE').then(setSuppliers).catch(setError);
-  }, [api]);
+    if (isPermissionGranted(listSuppliersContract.permission, permissionCodes)) {
+      void api.listSuppliers('ACTIVE').then(setSuppliers).catch(setError);
+    }
+    if (isPermissionGranted(getInventoryReportContract.permission, permissionCodes)) {
+      void api.getInventoryReport({ asOf: new Date().toISOString(), limit: 100 })
+        .then(setOverview).catch(setError);
+    }
+  }, [api, permissionCodes]);
 
   const dismissFeedback = (): void => { setError(null); setNotice(null); };
 
@@ -70,7 +89,13 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
     setError(null);
     setNotice(null);
     setConsultedProductId(consulted);
-    try { setKardex(await api.getKardex(consulted)); }
+    try { setKardex(await api.getKardex(consulted, {
+      ...(kardexBatchId.trim() ? { batchId: kardexBatchId.trim() } : {}),
+      ...(kardexFrom ? { from: new Date(`${kardexFrom}T00:00:00.000Z`).toISOString() } : {}),
+      ...(kardexTo ? { to: new Date(`${kardexTo}T23:59:59.999Z`).toISOString() } : {}),
+      ...(kardexReason.trim() ? { reason: kardexReason.trim() } : {}),
+      limit: Number(kardexLimit)
+    })); }
     catch (nextError) {
       setKardex(null);
       setError(nextError);
@@ -162,6 +187,20 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
         trazabilidad pertenecen al agregado del nodo.
       </ScreenNote>
       <Feedback error={error} notice={notice} onDismiss={dismissFeedback} />
+      {overview && <section className="panel">
+        <div className="panel-heading">
+          <div><p className="eyebrow">Existencia del nodo</p><h3>Artículos y vencimientos</h3></div>
+          <span className="status-label">Máximo 100 filas</span>
+        </div>
+        {overview.length === 0 ? <EmptyState>Sin existencia registrada.</EmptyState> :
+          <div className="table-wrap"><table><thead><tr>
+            <th>Producto</th><th>Lote</th><th>Unidad</th><th>Existencia</th><th>Vence</th>
+          </tr></thead><tbody>{overview.map((entry) => <tr key={entry.stockItemId + (entry.batchId ?? '')}>
+            <td>{entry.productId}</td><td>{entry.lotNumber ?? '—'}</td><td>{entry.unitCode}</td>
+            <td>{formatScaledDecimal(entry.onHandScaled, entry.quantityScale)}</td>
+            <td>{entry.expiresAt ? new Date(entry.expiresAt).toLocaleDateString('es-VE') : 'Sin vencimiento'}</td>
+          </tr>)}</tbody></table></div>}
+      </section>}
       <section className="panel">
         <form className="inline-form" onSubmit={load}>
           <label className="grow">Producto
@@ -171,6 +210,11 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
           <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>
             {loading ? 'Consultando…' : 'Consultar kardex'}
           </ActionButton>
+          <label>Lote<input value={kardexBatchId} onChange={(event) => setKardexBatchId(event.target.value)} /></label>
+          <label>Desde<input type="date" value={kardexFrom} onChange={(event) => setKardexFrom(event.target.value)} /></label>
+          <label>Hasta<input type="date" value={kardexTo} onChange={(event) => setKardexTo(event.target.value)} /></label>
+          <label>Motivo<input value={kardexReason} onChange={(event) => setKardexReason(event.target.value)} /></label>
+          <label>Límite<input type="number" min="1" max="500" value={kardexLimit} onChange={(event) => setKardexLimit(event.target.value)} required /></label>
         </form>
       </section>
       {consultedProductId && (
@@ -220,7 +264,8 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
               </EmptyState>
             </section>
           )}
-          <section className="panel">
+          {(canReceive || canReceiveDocumented || (kardex && canAdjust)) && <section className="panel">
+            {canReceive && <>
             <p className="eyebrow">Recepción</p>
             <h3>Registrar compra</h3>
             <form className="stack-form" onSubmit={receive}>
@@ -249,10 +294,12 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
               <label>Vencimiento<input type="date" value={lotExpiresAt} onChange={(event) => setLotExpiresAt(event.target.value)} /></label>
               <label>Motivo<input value={reason} onChange={(event) => setReason(event.target.value)} required /></label>
               <ActionButton className="primary-button" type="submit" busy={loading}
-                disabled={loading || !isPermissionGranted(receivePurchaseContract.permission, permissionCodes)}>
+                disabled={loading}>
                 {loading ? 'Registrando…' : 'Registrar recepción'}
               </ActionButton>
             </form>
+            </>}
+            {canReceiveDocumented && <>
             <p className="eyebrow">Recepción documentada</p>
             <h3>Compra con documento y costo</h3>
             <form className="stack-form" onSubmit={receiveWithDocument}>
@@ -281,13 +328,12 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
               </label>
               <ActionButton className="primary-button" type="submit" busy={loading}
                 disabled={loading
-                  || !documentNumber.trim() || !unitCostMinorUnits.trim()
-                  || !isPermissionGranted(startPurchaseReceiptContract.permission, permissionCodes)
-                  || !isPermissionGranted(completePurchaseReceiptContract.permission, permissionCodes)}>
+                  || !documentNumber.trim() || !unitCostMinorUnits.trim()}>
                 {loading ? 'Registrando…' : 'Completar recepción documentada'}
               </ActionButton>
             </form>
-            {kardex && (
+            </>}
+            {kardex && canAdjust && (
             <>
             <p className="eyebrow">Movimiento autorizado</p>
             <h3>Ajustar existencia</h3>
@@ -309,7 +355,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
             </form>
             </>
             )}
-          </section>
+          </section>}
         </div>
       )}
     </div>

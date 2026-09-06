@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.18: Perfil Gerencia
 
 - **Sub-fase:** [9B.18 Perfil Gerencia](./9b.18-perfil-gerencia.md)
-- **Estado del plan:** Bloqueado hasta cerrar el corte correctivo de 9B.13
+- **Estado del plan:** ~~Implementado y cerrado 2026-09-05~~
 - **Base:** [ADR-0013](../../architecture/adr/0013-reportes-operativos-de-lectura.md),
   [ADR-0015](../../architecture/adr/0015-permisos-efectivos-en-la-sesion.md) y
   [plan 9B.13](./plan-9b.13-kpis-de-gerencia.md)
@@ -47,13 +47,14 @@ agregados.
 
 ## Criterios de aceptación
 
-- [ ] La vista solo contiene lecturas concedidas por permisos efectivos.
-- [ ] Ninguna acción visible ni llamada del cliente modifica un agregado.
-- [ ] Período, moneda, nodo y límite son visibles junto a cada resultado.
-- [ ] Margen no se muestra como cero ni estimado cuando 9B.04 no está disponible.
-- [ ] La exportación no vuelve a consultar ni amplía la proyección autorizada.
-- [ ] No se añade una dependencia de gráficos ni un motor de dashboard.
-- [ ] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+- [x] ~~La vista solo contiene lecturas concedidas por permisos efectivos.~~
+- [x] ~~Ninguna acción visible ni llamada del cliente modifica un agregado.~~
+- [x] ~~Período, moneda, nodo y límite son visibles junto a cada resultado.~~
+- [x] ~~Margen no se muestra como cero ni estimado cuando 9B.04 no está disponible.~~ 9B.04 está
+  cerrada y el panel solo se consulta con `reports.margin.read`.
+- [x] ~~La exportación no vuelve a consultar ni amplía la proyección autorizada.~~
+- [x] ~~No se añade una dependencia de gráficos ni un motor de dashboard.~~
+- [x] ~~`pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.~~ 591 pruebas / 120 archivos.
 
 ## Fuera de alcance
 

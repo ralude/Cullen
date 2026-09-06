@@ -64,18 +64,20 @@ export const registerInventoryRoutes = (
 
   app.get<{
     Params: { productId: string };
-    Querystring: { batchId?: string; from?: string; to?: string; reason?: string };
+    Querystring: { batchId?: string; from?: string; to?: string; reason?: string; limit?: number };
   }>(getKardexContract.path, {
     schema: getKardexContract.schema as FastifySchema
   }, async (request, reply) => {
-    if (!await requirePrincipal(request, reply, dependencies)) return;
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
     const result = await dependencies.inventory.getKardex.execute({
       productId: request.params.productId,
       ...(request.query.batchId ? { batchId: request.query.batchId } : {}),
       ...(request.query.from ? { from: new Date(request.query.from) } : {}),
       ...(request.query.to ? { to: new Date(request.query.to) } : {}),
-      ...(request.query.reason ? { reason: request.query.reason } : {})
-    });
+      ...(request.query.reason ? { reason: request.query.reason } : {}),
+      ...(request.query.limit ? { limit: request.query.limit } : {})
+    }, createExecutionContext(request, principal, dependencies));
     return result.ok ? reply.send(stockResponse(result.value))
       : sendProblem(reply, request, result.error.code, result.error.message);
   });

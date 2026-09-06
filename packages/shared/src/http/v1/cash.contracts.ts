@@ -11,7 +11,10 @@ export type RegisterCashMovementRequest = {
   readonly type: 'INCOME' | 'WITHDRAWAL'; readonly paymentMethodCode: string;
   readonly currencyCode: string; readonly amountMinorUnits: number; readonly reason: string;
 };
-export type CloseShiftRequest = { readonly declaredBalances: readonly CashBalanceRequest[] };
+export type CloseShiftRequest = {
+  readonly declaredBalances: readonly CashBalanceRequest[];
+  readonly reason?: string;
+};
 export type ShiftResponse = {
   readonly id: string; readonly cashRegisterId: string; readonly terminalId: string;
   readonly originNodeId: string; readonly status: 'OPEN' | 'CLOSED'; readonly version: number;
@@ -138,6 +141,19 @@ export const getOpenShiftContract = {
   errorCodes: ['UNAUTHORIZED', 'SHIFT_NOT_FOUND']
 } as const satisfies HttpContractV1;
 
+export const getShiftContract = {
+  method: 'GET', path: '/api/v1/cash/shifts/:shiftId',
+  permission: 'cash.shift.read', idempotency: 'NONE',
+  schema: {
+    params: shiftParams,
+    response: {
+      200: shiftResponse, 401: problemDetailsSchema, 403: problemDetailsSchema,
+      404: problemDetailsSchema
+    }
+  },
+  errorCodes: ['UNAUTHORIZED', 'FORBIDDEN', 'SHIFT_NOT_FOUND']
+} as const satisfies HttpContractV1;
+
 export const registerCashMovementContract = {
   method: 'POST', path: '/api/v1/cash/shifts/:shiftId/movements',
   permission: 'cash.movement.income|cash.movement.withdrawal', idempotency: 'REQUIRED',
@@ -167,12 +183,15 @@ export const closeShiftContract = {
     params: shiftParams, headers,
     body: {
       type: 'object', additionalProperties: false, required: ['declaredBalances'],
-      properties: { declaredBalances: { type: 'array', items: balance } }
+      properties: {
+        declaredBalances: { type: 'array', items: balance },
+        reason: { type: 'string', minLength: 1, maxLength: 500 }
+      }
     }, response: responses
   },
   errorCodes: [
     'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'SHIFT_NOT_FOUND',
-    'SHIFT_INVALID_STATE', 'IDEMPOTENCY_KEY_CONFLICT'
+    'SHIFT_INVALID_STATE', 'SHIFT_NEGATIVE_EXPECTED_REASON_REQUIRED', 'IDEMPOTENCY_KEY_CONFLICT'
   ]
 } as const satisfies HttpContractV1;
 

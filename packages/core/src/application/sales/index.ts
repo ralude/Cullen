@@ -7,7 +7,7 @@ export { SetSaleRecipient } from './set-sale-recipient.js';
 export { StartSale } from './start-sale.js';
 export { VoidSale } from './void-sale.js';
 export { ReturnSale } from './return-sale.js';
-export { GetSaleHistory, type SaleHistoryVersion } from './get-sale-history.js';
+export { GetSaleHistory, type SaleHistoryVersion, type GetSaleHistoryInput } from './get-sale-history.js';
 export { GetSale } from './get-sale.js';
 export { SALE_PERMISSIONS } from './permissions.js';
 export type {

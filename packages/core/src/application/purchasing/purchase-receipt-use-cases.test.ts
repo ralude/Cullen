@@ -351,4 +351,35 @@ describe('purchase receipt use cases', () => {
     ).execute({ receiptId: 'receipt-1', reason: 'Documento duplicado' }, context);
     expect(blocked).toMatchObject({ ok: false, error: { code: 'STOCK_INSUFFICIENT' } });
   });
+
+  it('rejects completing or reversing a receipt from a node that does not own it', async () => {
+    const receipts = new FakePurchaseReceipts();
+    const suppliers = new FakeSuppliers();
+    const stockItems = new FakeStockItems();
+    await startService({ receipts, suppliers, stockItems }).execute({
+      supplierId: 'supplier-001', reason: 'Compra', sourceDocument: { type: 'INVOICE', number: 'FAC-400' },
+      effectiveAt: new Date('2026-09-04T09:00:00Z'),
+      lines: [{ productId: 'product-001', quantity: '3', purchaseUnitCostMinorUnits: 100, purchaseCurrency: 'USD' }]
+    }, context);
+
+    const foreignContext: ExecutionContext = { ...context, originNodeId: 'node-999' };
+    const complete = new CompletePurchaseReceipt(
+      receipts, suppliers, stockItems, allow(PURCHASE_RECEIPT_PERMISSIONS.COMPLETE),
+      sequence('movement'), sequence('event'), sequence('audit'), clock, unitOfWork,
+      eventStore([]), auditWriter([])
+    );
+    expect(await complete.execute({ receiptId: 'receipt-1', reason: 'Recepción' }, foreignContext))
+      .toMatchObject({ ok: false, error: { code: 'AGGREGATE_OWNER_MISMATCH' } });
+    expect(stockItems.values.size).toBe(0);
+
+    expect((await complete.execute({ receiptId: 'receipt-1', reason: 'Recepción' }, context)).ok).toBe(true);
+
+    const reverse = new ReversePurchaseReceipt(
+      receipts, stockItems, allow(PURCHASE_RECEIPT_PERMISSIONS.REVERSE),
+      sequence('reversal-movement'), sequence('reversal-event'), sequence('reversal-audit'),
+      clock, unitOfWork, eventStore([]), auditWriter([])
+    );
+    expect(await reverse.execute({ receiptId: 'receipt-1', reason: 'Documento duplicado' }, foreignContext))
+      .toMatchObject({ ok: false, error: { code: 'AGGREGATE_OWNER_MISMATCH' } });
+  });
 });

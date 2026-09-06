@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.17: Perfil Administrador
 
 - **Sub-fase:** [9B.17 Perfil Administrador](./9b.17-perfil-administrador.md)
-- **Estado del plan:** Bloqueado hasta completar 9B.10 y volver a cerrar 9B.11
+- **Estado del plan:** ~~Implementado y cerrado 2026-09-05~~
 - **Base:** 9B.10, 9B.11, ADR-0013 y
   [ADR-0021](../../architecture/adr/0021-mvp-referencia-no-certificado.md)
 - **Disciplina:** Outside-in TDD (ADR-0007) y Ponytail `full`
@@ -47,13 +47,13 @@ de una integración fiscal real.
 
 ## Criterios de aceptación
 
-- [ ] El workspace compone capacidades existentes sin duplicar reglas ni estado.
-- [ ] Toda mutación se autoriza en aplicación, es auditable y conserva historia.
-- [ ] Auditoría respeta filtros, límite y redacción de ADR-0013.
-- [ ] Ningún dispositivo declarado habilita una integración real.
-- [ ] No se simula administración de identidad antes de 11.02.
-- [ ] No se añaden secretos, drivers reales ni catálogo fiscal especulativo.
-- [ ] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+- [x] ~~El workspace compone capacidades existentes sin duplicar reglas ni estado.~~
+- [x] ~~Toda mutación se autoriza en aplicación, es auditable y conserva historia.~~
+- [x] ~~Auditoría respeta filtros, límite y redacción de ADR-0013.~~
+- [x] ~~Ningún dispositivo declarado habilita una integración real.~~
+- [x] ~~No se simula administración de identidad antes de 11.02.~~
+- [x] ~~No se añaden secretos, drivers reales ni catálogo fiscal especulativo.~~
+- [x] ~~`pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.~~ 591 pruebas / 120 archivos.
 
 ## Fuera de alcance
 

@@ -4,6 +4,7 @@ import {
   correctSupplierTaxIdentityContract,
   createSupplierContract,
   isPermissionGranted,
+  listSuppliersContract,
   updateSupplierContract,
   type FiscalAddressPayload,
   type SupplierResponse,
@@ -14,17 +15,17 @@ import { createIdempotencyKey } from '../api-client.js';
 import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
 
 /** Contratos que convierten esta pantalla en trabajo real y no en una lectura. */
-const SUPPLIER_COMMAND_CONTRACTS = [
-  createSupplierContract, updateSupplierContract, correctSupplierTaxIdentityContract
+const SUPPLIER_WORK_CONTRACTS = [
+  listSuppliersContract, createSupplierContract, updateSupplierContract,
+  correctSupplierTaxIdentityContract
 ] as const;
 
 /**
- * El maestro de proveedores solo se ofrece a quien puede administrarlo. La
- * lectura sigue disponible para el selector de recepción, que cualquier sesión
- * válida puede consultar; el servidor vuelve a autorizar cada comando.
+ * El maestro se ofrece a quien puede leerlo o administrarlo; cada comando se
+ * sigue mostrando según su contrato y vuelve a autorizar en el servidor.
  */
 export const canManageSuppliers = (permissionCodes: readonly string[]): boolean =>
-  SUPPLIER_COMMAND_CONTRACTS.some(
+  SUPPLIER_WORK_CONTRACTS.some(
     (contract) => isPermissionGranted(contract.permission, permissionCodes)
   );
 

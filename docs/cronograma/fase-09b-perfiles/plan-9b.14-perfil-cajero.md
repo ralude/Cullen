@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.14: Perfil Cajero
 
 - **Sub-fase:** [9B.14 Perfil Cajero](./9b.14-perfil-cajero.md)
-- **Estado del plan:** Bloqueado por el plan correctivo previo a perfiles
+- **Estado del plan:** ~~Implementado y cerrado 2026-09-05~~
 - **Base:** [ADR-0015](../../architecture/adr/0015-permisos-efectivos-en-la-sesion.md)
 - **Disciplina:** Outside-in para comportamiento; los componentes puramente presentacionales
   no requieren TDD (ADR-0007). Ponytail `full`.
@@ -52,13 +52,15 @@ supervisión.
 
 ## Criterios de aceptación
 
-- [ ] El workspace muestra solo lecturas y comandos permitidos por los contratos.
-- [ ] El recorrido principal de caja y venta se completa sin ratón.
-- [ ] No se puede consultar ni operar el turno de otra estación desde este perfil.
-- [ ] Errores preservan el estado útil y devuelven el foco a una acción recuperable.
-- [ ] El receptor sigue opcional y toda fiscalidad visible dice `SIMULACION`.
-- [ ] No hay lógica de negocio ni permisos duplicados a mano en React.
-- [ ] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+- [x] ~~El workspace muestra solo lecturas y comandos permitidos por los contratos.~~
+- [x] ~~El recorrido principal de caja y venta se completa sin ratón.~~ Formularios nativos,
+  Enter, foco devuelto al barcode y atajos `Alt+0..9`; verificación DOM limitada a markup por
+  la decisión del plan de no incorporar `jsdom`.
+- [x] ~~No se puede consultar ni operar el turno de otra estación desde este perfil.~~
+- [x] ~~Errores preservan el estado útil y devuelven el foco a una acción recuperable.~~
+- [x] ~~El receptor sigue opcional y toda fiscalidad visible dice `SIMULACION`.~~
+- [x] ~~No hay lógica de negocio ni permisos duplicados a mano en React.~~
+- [x] ~~`pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.~~ 591 pruebas / 120 archivos.
 
 ## Fuera de alcance
 

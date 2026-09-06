@@ -18,13 +18,31 @@ Esta topología conserva la regla single-writer: cada archivo SQLite tiene un ú
 | usuarios, roles y permisos | nodo coordinador de tienda | usar concesiones cacheadas según política de expiración | permisos con códigos estables y roles configurables; revocaciones se aplican al sincronizar; la política definitiva se cierra antes del piloto |
 | inventario (`StockItem`) | ledger autoritativo del nodo coordinador | vender contra una proyección local | movimientos append-only y saldo derivado; una desconexión no garantiza stock global; registrar discrepancia si el movimiento no puede aplicarse |
 | `PurchaseReceipt` y `StockCount` | nodo donde se crean | completar el documento localmente | el nodo de origen es inmutable y otro nodo rechaza comandos de escritura |
-| `Branch` | nodo coordinador de tienda; en standalone, el nodo local cumple ese rol | editar en el coordinador | distribuir versiones ordenadas; otro nodo solo consume la referencia |
-| `Device` | nodo que declara el dispositivo | administrar el inventario local del equipo | `terminalId` es asignación operativa; `originNodeId` conserva la autoridad de escritura |
+| `Branch` | nodo de origen fijo (`originNodeId`), registrado al crear | editar en el nodo de origen | `originNodeId` es inmutable; otro nodo solo consume la referencia; distribuir versiones ordenadas |
+| `Device` | nodo que declara el dispositivo (`originNodeId`) | administrar el inventario local del equipo | `terminalId` es asignación operativa; `originNodeId` conserva la autoridad de escritura y es inmutable |
 | reportes | proyecciones de lectura | consultar último estado sincronizado | reconstruir la proyección desde eventos idempotentes |
 
-Las filas anteriores a esta decisión recuperan `originNodeId` únicamente desde su entrada de
-auditoría de creación. Si esa evidencia no existe, el ownership queda sin resolver y cualquier
-mutación se rechaza hasta una corrección administrativa explícita; la migración no inventa un nodo.
+Para los cuatro agregados con `originNodeId` (`Branch`, `Device`, `StockCount`,
+`PurchaseReceipt`) la autoridad de escritura del MVP es el **nodo de origen fijo**, no un rol
+resuelto dinámicamente. En un despliegue standalone el nodo local es el origen y coincide con
+el coordinador. Cuando la Fase 10 introduzca un coordinador de tienda, revisar si `Branch` (y
+solo `Branch`) debe pasar a autoridad por rol; ese cambio es una decisión explícita de Fase 10,
+no un supuesto de este documento. Hasta entonces, doc y migración `0026` dicen lo mismo: origen
+fijo derivado de la creación.
+
+Reglas de la columna `originNodeId`:
+
+- Una fila nueva **siempre** se inserta con `originNodeId` no nulo (regla de dominio y trigger
+  `*_origin_node_required`). No hay ruta de alta que produzca ownership sin resolver.
+- Las filas anteriores a esta decisión recuperan `originNodeId` únicamente desde su entrada de
+  auditoría de creación. Si esa evidencia no existe, la fila queda con `originNodeId` nulo, el
+  ownership está **sin resolver** y toda mutación se rechaza (`AGGREGATE_OWNER_UNRESOLVED`).
+- El trigger `*_origin_node_immutable` bloquea `valor → otro valor` y `valor → null`; ninguna
+  ruta de escritura —repositorio o SQL directo— puede mutar un ownership ya resuelto. La
+  migración no inventa un nodo.
+- La transición `null → valor` (recuperar una fila de historia sin resolver) requeriría un
+  **caso de uso de corrección administrativa** con motivo y auditoría. El MVP no lo implementa
+  porque no genera filas sin resolver; se añade solo si una migración real produce una.
 
 ## Política inicial de inventario offline
 

@@ -1011,4 +1011,44 @@ describe('database migrations', () => {
       update stock_items set valuation_currency_code = 'VES' where id = 'stock-usd'
     `).run()).toThrowError('stock item configuration is immutable');
   });
+
+  it('backfills aggregate origin node only from the creation audit entry', () => {
+    const handle = openDatabase(':memory:');
+    handles.push(handle);
+    applyMigrations(handle.sqlite, migrations.filter(({ version }) => version <= 25));
+    handle.sqlite.exec(`
+      insert into branches (id, code, name, status, created_at, updated_at, version) values
+        ('branch-known', 'CCS', 'Sucursal Centro', 'ACTIVE', 1, 1, 1),
+        ('branch-orphan', 'MCB', 'Sucursal Maracaibo', 'ACTIVE', 1, 1, 1);
+      insert into audit_log (
+        audit_id, actor_id, actor_role_codes, action, entity_type, entity_id,
+        before_state, after_state, reason, terminal_id, origin_node_id, occurred_at, correlation_id
+      ) values
+        ('audit-1', 'user-1', '[]', 'BRANCH_CREATED', 'Branch', 'branch-known',
+          null, null, 'Alta', 'terminal-1', 'node-alpha', 1, 'corr-1'),
+        ('audit-2', 'user-1', '[]', 'BRANCH_UPDATED', 'Branch', 'branch-orphan',
+          null, null, 'Cambio', 'terminal-1', 'node-beta', 2, 'corr-2');
+    `);
+
+    expect(applyMigrations(handle.sqlite, migrations.filter(({ version }) => version <= 26))).toEqual([26]);
+    expect(handle.sqlite.prepare(`
+      select id, origin_node_id as node from branches order by id
+    `).all()).toEqual([
+      { id: 'branch-known', node: 'node-alpha' },
+      { id: 'branch-orphan', node: null }
+    ]);
+
+    expect(() => handle.sqlite.prepare(`
+      insert into branches (id, code, name, status, created_at, updated_at, version)
+      values ('branch-null', 'VLN', 'Sucursal Valencia', 'ACTIVE', 1, 1, 1)
+    `).run()).toThrowError('branch origin node is required');
+
+    expect(() => handle.sqlite.prepare(`
+      update branches set origin_node_id = 'node-gamma' where id = 'branch-known'
+    `).run()).toThrowError('branch origin node is immutable');
+
+    expect(handle.sqlite.prepare(`
+      update branches set origin_node_id = 'node-recovered' where id = 'branch-orphan'
+    `).run().changes).toBe(1);
+  });
 });

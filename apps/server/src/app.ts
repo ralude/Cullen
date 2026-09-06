@@ -80,10 +80,12 @@ export type ServerDependencies = {
     readonly voidSale: application.VoidSale;
     readonly returnSale: application.ReturnSale;
     readonly setSaleRecipient: application.SetSaleRecipient;
+    readonly getSaleHistory: application.GetSaleHistory;
   };
   readonly cash: {
     readonly openShift: application.OpenShift;
     readonly getOpenShift: application.GetOpenShift;
+    readonly getShift: application.GetShift;
     readonly registerCashMovement: application.RegisterCashMovement;
     readonly closeShift: application.CloseShift;
   };
@@ -115,6 +117,14 @@ export type ServerDependencies = {
       readonly changeStatus: application.ChangeDeviceStatus;
       readonly list: application.ListDevices;
     };
+    readonly operational: {
+      readonly list: application.ListOperationalMasterData;
+      readonly saveCategory: application.SaveCategory;
+      readonly saveUnit: application.SaveUnit;
+      readonly savePaymentMethod: application.SavePaymentMethod;
+      readonly activateDiscountPolicy: application.ActivateDiscountPolicy;
+      readonly activateTaxPolicy: application.ActivateFinancialTransactionTaxPolicy;
+    };
   };
   readonly suppliers: {
     readonly create: application.CreateSupplier;
@@ -140,6 +150,8 @@ export type ServerDependencies = {
     readonly getAuditReport: application.GetAuditReport;
     readonly getFiscalOperationsReport: application.GetFiscalOperationsReport;
     readonly getMarginReport: application.GetMarginReport;
+    readonly getSalesReport: application.GetSalesReport;
+    readonly getInventoryReport: application.GetInventoryReport;
   };
   readonly fiscalReports?: {
     readonly printX: FiscalReportUseCase;
@@ -162,6 +174,7 @@ const statusFor = (code: string): number => {
     return 409;
   }
   if (code === 'SUPPLIER_NOT_ACTIVE') return 409;
+  if (code.endsWith('_IN_USE')) return 409;
   if (code === 'PURCHASE_RECEIPT_SOURCE_DUPLICATED' || code === 'PURCHASE_RECEIPT_NOT_DRAFT') return 409;
   if (code === 'POLICY_NOT_CONFIGURED') return 409;
   if (code === 'DATABASE_BUSY' || code === 'NETWORK_UNAVAILABLE') return 503;

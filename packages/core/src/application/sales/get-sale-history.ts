@@ -1,17 +1,27 @@
 import { ApplicationError, err, ok, type AppError, type Result } from '@supermarket/shared';
+import type { ExecutionContext } from '../execution-context.js';
 import type { JsonValue } from '../events/index.js';
-import type { BusinessEventStore } from '../ports/index.js';
+import type { AuthorizationService, BusinessEventStore, SaleReturnRepository } from '../ports/index.js';
+import { resolveRowLimit } from '../reporting/row-limit.js';
+import { SALE_PERMISSIONS } from './permissions.js';
 
 export type SaleHistoryVersion = {
   readonly version: number;
   readonly eventType: string;
   readonly occurredAt: Date;
   readonly actorId: string;
-  readonly status: 'DRAFT' | 'COMPLETED' | 'VOIDED';
+  readonly status: 'DRAFT' | 'COMPLETED' | 'VOIDED' | 'RETURNED';
   readonly itemIds: readonly string[];
   readonly discountTotalMinorUnits: number;
   readonly paymentTotalMinorUnits: number;
   readonly totalMinorUnits: number | null;
+  readonly recipientAttached: boolean;
+  readonly refundMinorUnits: number | null;
+};
+
+export type GetSaleHistoryInput = {
+  readonly saleId: string;
+  readonly limit?: number;
 };
 
 const record = (value: JsonValue): Record<string, JsonValue> =>
@@ -25,11 +35,28 @@ const minorUnits = (value: JsonValue | undefined): number => {
   return typeof amount.minorUnits === 'number' ? amount.minorUnits : 0;
 };
 
+/**
+ * Historia consultable de una venta. Reúne los eventos de la propia venta
+ * (incluido el cambio de receptor, ADR-0018) y, si existe, la devolución que
+ * vive en el agregado `SaleReturn`, sin reescribir la venta original. La
+ * lectura autoriza en aplicación y acota el número de versiones devueltas.
+ */
 export class GetSaleHistory {
-  constructor(private readonly events: BusinessEventStore) {}
+  constructor(
+    private readonly events: BusinessEventStore,
+    private readonly saleReturns: SaleReturnRepository,
+    private readonly authorization: AuthorizationService
+  ) {}
 
-  async execute(saleId: string): Promise<Result<readonly SaleHistoryVersion[], AppError>> {
-    const events = await this.events.findByAggregate('Sale', saleId);
+  async execute(
+    input: GetSaleHistoryInput,
+    context: ExecutionContext
+  ): Promise<Result<readonly SaleHistoryVersion[], AppError>> {
+    if (!(await this.authorization.authorize(context, SALE_PERMISSIONS.READ_HISTORY))) {
+      return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to read sale history.'));
+    }
+
+    const events = await this.events.findByAggregate('Sale', input.saleId);
     if (events.length === 0) {
       return err(new ApplicationError('SALE_HISTORY_NOT_FOUND', 'Sale history was not found.'));
     }
@@ -39,6 +66,7 @@ export class GetSaleHistory {
     let discountTotalMinorUnits = 0;
     let paymentTotalMinorUnits = 0;
     let totalMinorUnits: number | null = null;
+    let recipientAttached = false;
     const history: SaleHistoryVersion[] = [];
 
     for (const event of events) {
@@ -58,6 +86,8 @@ export class GetSaleHistory {
         totalMinorUnits = minorUnits(payload.total);
       } else if (event.eventType === 'SaleVoided') {
         status = 'VOIDED';
+      } else if (event.eventType === 'SaleRecipientChanged') {
+        recipientAttached = payload.attached === true;
       }
       history.push({
         version: event.aggregateVersion,
@@ -68,9 +98,30 @@ export class GetSaleHistory {
         itemIds: [...itemIds],
         discountTotalMinorUnits,
         paymentTotalMinorUnits,
-        totalMinorUnits
+        totalMinorUnits,
+        recipientAttached,
+        refundMinorUnits: null
       });
     }
-    return ok(history);
+
+    const saleReturn = await this.saleReturns.findBySaleId(input.saleId);
+    if (saleReturn !== null) {
+      status = 'RETURNED';
+      history.push({
+        version: (history.at(-1)?.version ?? 0) + 1,
+        eventType: 'SaleReturned',
+        occurredAt: new Date(saleReturn.occurredAt),
+        actorId: saleReturn.actorId,
+        status,
+        itemIds: [...itemIds],
+        discountTotalMinorUnits,
+        paymentTotalMinorUnits,
+        totalMinorUnits,
+        recipientAttached,
+        refundMinorUnits: saleReturn.refund.minorUnits
+      });
+    }
+
+    return ok(history.slice(-resolveRowLimit(input.limit)));
   }
 }

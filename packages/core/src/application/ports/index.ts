@@ -14,6 +14,7 @@ export type {
   FinancialTransactionTaxPolicyProvider
 } from './financial-transaction-tax-policy-provider.js';
 export type { PaymentMethodRepository } from './payment-method-repository.js';
+export type { OperationalMasterDataStore } from './operational-master-data-store.js';
 export type { ProductSnapshotProvider } from './product-snapshot-provider.js';
 export type { SaleRepository } from './sale-repository.js';
 export type { SaleReturnRepository } from './sale-return-repository.js';
@@ -41,7 +42,9 @@ export type {
   AuditReportRepository,
   CashClosureReportRepository,
   FiscalOperationsReportRepository,
-  MarginReportRepository
+  InventoryReportRepository,
+  MarginReportRepository,
+  SalesReportRepository
 } from './reporting-repositories.js';
 export type {
   FiscalDocumentLinePayload,

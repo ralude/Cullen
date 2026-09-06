@@ -26,6 +26,12 @@ export type RegisterCashMovementInput = {
 export type CloseShiftInput = {
   shiftId: string;
   declaredBalances: CashBalanceInput[];
+  /**
+   * Motivo del cierre. Obligatorio cuando algún saldo esperado es negativo
+   * (reintegro de una venta que este turno no cobró, ADR-0017 punto 8): el
+   * cierre exige reconocimiento explícito y autorización de supervisor.
+   */
+  reason?: string;
 };
 
 export type CashMovementDto = {

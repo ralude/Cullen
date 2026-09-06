@@ -4,6 +4,7 @@ import {
   applySaleDiscountContract,
   completeSaleContract,
   getSaleContract,
+  getSaleHistoryContract,
   registerSalePaymentsContract,
   returnSaleContract,
   removeSaleItemContract,
@@ -62,6 +63,24 @@ export const registerSalesRoutes = (
       ? reply.send(saleResponse(result.value))
       : sendProblem(reply, request, result.error.code, result.error.message);
   });
+
+  app.get<{ Params: { saleId: string }; Querystring: { limit?: number } }>(
+    getSaleHistoryContract.path,
+    { schema: getSaleHistoryContract.schema as FastifySchema },
+    async (request, reply) => {
+      const principal = await requirePrincipal(request, reply, dependencies);
+      if (!principal) return;
+      const result = await dependencies.sales.getSaleHistory.execute({
+        saleId: request.params.saleId,
+        ...(request.query.limit === undefined ? {} : { limit: request.query.limit })
+      }, createExecutionContext(request, principal, dependencies));
+      return result.ok
+        ? reply.send(result.value.map((version) => ({
+          ...version, occurredAt: version.occurredAt.toISOString()
+        })))
+        : sendProblem(reply, request, result.error.code, result.error.message);
+    }
+  );
 
   app.post<{ Params: { saleId: string }; Body: AddSaleItemRequest }>(addSaleItemContract.path, {
     schema: addSaleItemContract.schema as FastifySchema

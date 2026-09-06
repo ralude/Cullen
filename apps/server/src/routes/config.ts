@@ -1,5 +1,7 @@
 import type { FastifyInstance, FastifySchema } from 'fastify';
 import {
+  activateDiscountPolicyContract,
+  activateTaxPolicyContract,
   changeBranchStatusContract,
   changeDeviceStatusContract,
   createBranchContract,
@@ -7,14 +9,23 @@ import {
   getBranchContract,
   listBranchesContract,
   listDevicesContract,
+  listOperationalMasterDataContract,
+  saveCategoryContract,
+  savePaymentMethodContract,
+  saveUnitContract,
   updateBranchContract,
   updateDeviceContract,
   type BranchStatusResponse,
+  type ActivateDiscountPolicyRequest,
+  type ActivateTaxPolicyRequest,
   type ChangeBranchStatusRequest,
   type ChangeDeviceStatusRequest,
   type CreateBranchRequest,
   type DeclareDeviceRequest,
   type DeviceStatusResponse,
+  type SaveCategoryRequest,
+  type SavePaymentMethodRequest,
+  type SaveUnitRequest,
   type UpdateBranchRequest,
   type UpdateDeviceRequest
 } from '@supermarket/shared';
@@ -38,6 +49,72 @@ export const registerConfigRoutes = (
   app: FastifyInstance,
   dependencies: ServerDependencies
 ): void => {
+  app.get(listOperationalMasterDataContract.path, {
+    schema: listOperationalMasterDataContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.config.operational.list.execute(
+      createExecutionContext(request, principal, dependencies)
+    );
+    return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
+  app.put<{ Body: SaveCategoryRequest }>(saveCategoryContract.path, {
+    schema: saveCategoryContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.config.operational.saveCategory.execute(
+      request.body, createExecutionContext(request, principal, dependencies)
+    );
+    return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
+  app.put<{ Body: SaveUnitRequest }>(saveUnitContract.path, {
+    schema: saveUnitContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.config.operational.saveUnit.execute(
+      request.body, createExecutionContext(request, principal, dependencies)
+    );
+    return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
+  app.put<{ Body: SavePaymentMethodRequest }>(savePaymentMethodContract.path, {
+    schema: savePaymentMethodContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.config.operational.savePaymentMethod.execute(
+      request.body, createExecutionContext(request, principal, dependencies)
+    );
+    return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
+  app.post<{ Body: ActivateDiscountPolicyRequest }>(activateDiscountPolicyContract.path, {
+    schema: activateDiscountPolicyContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.config.operational.activateDiscountPolicy.execute(
+      request.body, createExecutionContext(request, principal, dependencies)
+    );
+    return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
+  app.post<{ Body: ActivateTaxPolicyRequest }>(activateTaxPolicyContract.path, {
+    schema: activateTaxPolicyContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.config.operational.activateTaxPolicy.execute(
+      request.body, createExecutionContext(request, principal, dependencies)
+    );
+    return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
   app.post<{ Body: CreateBranchRequest }>(createBranchContract.path, {
     schema: createBranchContract.schema as FastifySchema
   }, async (request, reply) => {

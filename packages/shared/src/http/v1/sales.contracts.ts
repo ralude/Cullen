@@ -361,3 +361,54 @@ export const returnSaleContract = {
     'FISCAL_DOCUMENT_FAILED'
   ]
 } as const satisfies HttpContractV1;
+
+export type SaleHistoryVersionResponse = {
+  readonly version: number;
+  readonly eventType: string;
+  readonly occurredAt: string;
+  readonly actorId: string;
+  readonly status: 'DRAFT' | 'COMPLETED' | 'VOIDED' | 'RETURNED';
+  readonly itemIds: readonly string[];
+  readonly discountTotalMinorUnits: number;
+  readonly paymentTotalMinorUnits: number;
+  readonly totalMinorUnits: number | null;
+  readonly recipientAttached: boolean;
+  readonly refundMinorUnits: number | null;
+};
+
+const saleHistoryVersionSchema = {
+  type: 'object', additionalProperties: false,
+  required: [
+    'version', 'eventType', 'occurredAt', 'actorId', 'status', 'itemIds',
+    'discountTotalMinorUnits', 'paymentTotalMinorUnits', 'totalMinorUnits',
+    'recipientAttached', 'refundMinorUnits'
+  ],
+  properties: {
+    version: { type: 'integer', minimum: 1 }, eventType: { type: 'string' },
+    occurredAt: { type: 'string', format: 'date-time' }, actorId: id,
+    status: { enum: ['DRAFT', 'COMPLETED', 'VOIDED', 'RETURNED'] },
+    itemIds: { type: 'array', items: id },
+    discountTotalMinorUnits: { type: 'integer' }, paymentTotalMinorUnits: { type: 'integer' },
+    totalMinorUnits: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
+    recipientAttached: { type: 'boolean' },
+    refundMinorUnits: { anyOf: [{ type: 'integer' }, { type: 'null' }] }
+  }
+} as const;
+
+export const getSaleHistoryContract = {
+  method: 'GET', path: '/api/v1/sales/:saleId/history',
+  permission: 'sale.history.read', idempotency: 'NONE',
+  schema: {
+    params: saleParams,
+    querystring: {
+      type: 'object', additionalProperties: false,
+      properties: { limit: { type: 'integer', minimum: 1, maximum: 500 } }
+    },
+    response: {
+      200: { type: 'array', items: saleHistoryVersionSchema },
+      400: problemDetailsSchema, 401: problemDetailsSchema, 403: problemDetailsSchema,
+      404: problemDetailsSchema
+    }
+  },
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'SALE_HISTORY_NOT_FOUND']
+} as const satisfies HttpContractV1;

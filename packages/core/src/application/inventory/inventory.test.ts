@@ -360,11 +360,11 @@ describe('inventory application', () => {
 
   it('queries kardex by batch, date and reason while deriving its current balance', async () => {
     const repository = new FakeStockItemRepository(stockedBatches());
-    const result = await new GetKardex(repository).execute({
+    const result = await new GetKardex(repository, { authorize: async () => true }).execute({
       productId: 'product-001', batchId: 'batch-first',
       from: new Date('2026-08-02T00:00:00.000Z'),
       to: new Date('2026-08-03T00:00:00.000Z'), reason: 'purchase'
-    });
+    }, context);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -373,5 +373,37 @@ describe('inventory application', () => {
     expect(result.value.movements).toMatchObject([{
       id: 'receipt-first', batchId: 'batch-first', reason: 'Purchase'
     }]);
+  });
+
+  it('denies reading the kardex without the kardex read permission', async () => {
+    const repository = new FakeStockItemRepository(stockedBatches());
+    let repositoryTouched = false;
+    const guardedRepository = {
+      ...repository,
+      findByProductId: async (productId: string) => {
+        repositoryTouched = true;
+        return repository.findByProductId(productId);
+      }
+    } as typeof repository;
+    const result = await new GetKardex(guardedRepository, { authorize: async () => false })
+      .execute({ productId: 'product-001' }, context);
+
+    expect(result).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
+    expect(repositoryTouched).toBe(false);
+  });
+
+  it('limits the kardex and returns the newest matching movements first', async () => {
+    const repository = new FakeStockItemRepository(stockedBatches());
+    const result = await new GetKardex(repository, { authorize: async () => true })
+      .execute({ productId: 'product-001', limit: 1 }, context);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.movements).toHaveLength(1);
+    expect(result.value.movements[0]?.occurredAt.getTime()).toBe(
+      Math.max(...(repository.stored?.movements ?? []).map((movement) => movement.occurredAt.getTime()))
+    );
+    expect(await new GetKardex(repository, { authorize: async () => true })
+      .execute({ productId: 'product-001', limit: 501 }, context))
+      .toMatchObject({ ok: false, error: { code: 'KARDEX_LIMIT_INVALID' } });
   });
 });

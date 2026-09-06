@@ -9,10 +9,16 @@ import type {
   FiscalOperationReportEntryDto,
   FiscalOperationsReportInput,
   FiscalOperationsReportRepository,
+  InventoryReportEntryDto,
+  InventoryReportInput,
+  InventoryReportRepository,
   MarginReportEntryDto,
   MarginReportInput,
   MarginReportRepository,
-  ResolvedReportQuery
+  ResolvedReportQuery,
+  SalesReportEntryDto,
+  SalesReportInput,
+  SalesReportRepository
 } from '@supermarket/core';
 import { and, desc, eq, gte, lte, sql, type SQL } from 'drizzle-orm';
 import type { DatabaseHandle } from './connection.js';
@@ -314,6 +320,109 @@ export class DrizzleMarginReportRepository implements MarginReportRepository {
       marginMinorUnits: row.revenueMinorUnits !== null && row.costMinorUnits !== null
         ? row.revenueMinorUnits - row.costMinorUnits
         : null
+    }));
+  }
+}
+
+/** Redondeo entero de `unit * quantityScaled` a la escala dada, sin `float`. */
+const scaledProduct = (unit: string, quantity: string, scale: string): string => `
+  cast(case ${scale}
+    when 0 then ${unit} * ${quantity}
+    when 1 then (${unit} * ${quantity} + 5) / 10
+    when 2 then (${unit} * ${quantity} + 50) / 100
+    when 3 then (${unit} * ${quantity} + 500) / 1000
+    when 4 then (${unit} * ${quantity} + 5000) / 10000
+    when 5 then (${unit} * ${quantity} + 50000) / 100000
+    when 6 then (${unit} * ${quantity} + 500000) / 1000000
+  end as integer)`;
+
+/**
+ * Resumen de ventas `COMPLETED` por moneda y escala de cantidad, acotado y
+ * agregado en SQLite. Cada fila declara moneda y escala; no se suman escalas
+ * distintas ni se convierten monedas (9B.13).
+ */
+export class DrizzleSalesReportRepository implements SalesReportRepository {
+  constructor(private readonly handle: DatabaseHandle) {}
+
+  async findSalesSummary(
+    query: ResolvedReportQuery<SalesReportInput>
+  ): Promise<readonly SalesReportEntryDto[]> {
+    const rows = this.handle.sqlite.prepare(`
+      with line as (
+        select item.currency_code, item.quantity_scale, item.sale_id, item.id as item_id,
+          item.quantity_scaled,
+          ${scaledProduct('item.price_minor_units', 'item.quantity_scaled', 'item.quantity_scale')}
+            as gross_minor_units,
+          coalesce((select sum(discount.amount_minor_units) from sale_discounts discount
+            where discount.item_id = item.id), 0) as discount_minor_units
+        from sale_items item
+        join sales sale on sale.id = item.sale_id
+        where sale.status = 'COMPLETED' and sale.completed_at between @from and @to
+      )
+      select currency_code as currencyCode, quantity_scale as quantityScale,
+        count(distinct sale_id) as salesCount,
+        count(*) as lineCount,
+        sum(quantity_scaled) as quantitySoldScaled,
+        sum(gross_minor_units) as grossMinorUnits,
+        sum(discount_minor_units) as discountMinorUnits,
+        sum(gross_minor_units - discount_minor_units) as netMinorUnits
+      from line
+      where @currency is null or currency_code = @currency
+      group by currency_code, quantity_scale
+      order by currency_code, quantity_scale
+      limit @limit
+    `).all({
+      from: query.from.getTime(), to: query.to.getTime(),
+      currency: query.currencyCode ?? null, limit: query.limit
+    }) as SalesReportEntryDto[];
+    return rows;
+  }
+}
+
+/**
+ * Existencia del nodo por artículo y lote a una fecha de corte, con el estado
+ * de vencimiento del lote. El saldo se deriva de los movimientos hasta el
+ * corte; no se materializa un saldo mutable (9B.13).
+ */
+export class DrizzleInventoryReportRepository implements InventoryReportRepository {
+  constructor(private readonly handle: DatabaseHandle) {}
+
+  async findInventorySnapshot(
+    query: ResolvedReportQuery<InventoryReportInput>
+  ): Promise<readonly InventoryReportEntryDto[]> {
+    const asOf = query.asOf.getTime();
+    const horizon = asOf + (query.expiringWithinDays ?? 0) * 86_400_000;
+    const rows = this.handle.sqlite.prepare(`
+      with balance as (
+        select movement.stock_item_id, movement.batch_id,
+          sum(case movement.direction when 'IN' then movement.quantity_scaled
+            else -movement.quantity_scaled end) as on_hand_scaled
+        from stock_movements movement
+        where movement.occurred_at <= @asOf
+        group by movement.stock_item_id, movement.batch_id
+      )
+      select item.id as stockItemId, item.product_id as productId,
+        balance.batch_id as batchId, batch.lot_number as lotNumber,
+        item.unit_code as unitCode, item.quantity_scale as quantityScale,
+        coalesce(balance.on_hand_scaled, 0) as onHandScaled,
+        batch.expires_at as expiresAtMs,
+        case
+          when batch.expires_at is null then 'NONE'
+          when batch.expires_at <= @asOf then 'EXPIRED'
+          when batch.expires_at <= @horizon then 'EXPIRING'
+          else 'OK'
+        end as expiryStatus
+      from stock_items item
+      left join balance on balance.stock_item_id = item.id
+      left join stock_batches batch on batch.id = balance.batch_id
+      order by item.product_id, batch.lot_number
+      limit @limit
+    `).all({ asOf, horizon, limit: query.limit }) as ReadonlyArray<
+      Omit<InventoryReportEntryDto, 'expiresAt'> & { expiresAtMs: number | null }
+    >;
+    return rows.map(({ expiresAtMs, ...row }) => ({
+      ...row,
+      expiresAt: expiresAtMs === null ? null : new Date(expiresAtMs)
     }));
   }
 }

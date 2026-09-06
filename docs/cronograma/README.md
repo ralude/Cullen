@@ -16,18 +16,50 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 7 | Driver fiscal fake | ~~Completada~~ |
 | 8 | Integracion serial | Suspendida por dependencia externa |
 | 9 | UI | ~~Completada~~ |
-| 9B | Perfiles operativos | En corrección (5 de 18 sub-fases activas completadas) |
+| 9B | Perfiles operativos | Perfiles 9B.14–9B.18 y configuración 9B.10 completados 2026-09-05; 9B.08 diferida y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | Pendiente |
 | 11 | Seguridad | Pendiente (corte minimo pre-UI adelantado) |
 | 12 | Optimizacion | Pendiente |
 
 **Fase actual:** Fase 9B - Perfiles operativos y capacidades faltantes
-**Trabajo actual:** gate previo a continuar, según el
-[plan correctivo de la auditoría del 2026-09-05](./fase-09b-perfiles/plan-correcciones-auditoria-9b.md).
-La auditoría reabrió 9B.04, 9B.06, 9B.07 y 9B.11, bloqueó 9B.12/9B.13 por decisiones y
-correcciones pendientes, y confirmó que la prueba contractual de devolución está roja antes
-de alcanzar `POST /return`. El avance de capacidades y perfiles queda detenido hasta cerrar el
-gate con la suite completa verde.
+**Trabajo actual:** el
+[plan correctivo de la auditoría del 2026-09-05](./fase-09b-perfiles/plan-correcciones-auditoria-9b.md)
+quedó **cerrado el 2026-09-05** (Cortes 0-4). La auditoría había reabierto 9B.04, 9B.06, 9B.07
+y 9B.11 y bloqueado 9B.12/9B.13 por decisiones pendientes.
+
+Resultado del gate (580 pruebas / 119 archivos verdes; `typecheck`, `lint`, `git diff --check`
+limpios):
+
+- **Corte 0:** persistencia de `originNodeId` completada (migración `0026-aggregate-origin-node`,
+  backfill solo desde la auditoría de creación, triggers de obligatoriedad e inmutabilidad).
+- **Decisiones bloqueantes aceptadas:** ADR-0016 (moneda de valoración de escritura única +
+  riesgo de margen mudo aceptado y «valoración inicial administrativa» diferida); M5 (un conteo
+  `OPEN` por nodo; diferencia congelada aplicada como delta con signo); ADR-0017 punto 8 /
+  FS-006 (reintegro por método original; esperado negativo exige motivo y autorización de
+  supervisor al cierre, `SHIFT_NEGATIVE_EXPECTED_REASON_REQUIRED`, implementado en
+  `CloseShift`); M8 (`originNodeId` como nodo de origen fijo e inmutable para `Branch`,
+  `Device`, `StockCount`, `PurchaseReceipt`).
+- **Corte 1:** invariante de costo, `PURCHASE_RECEIPT_SOURCE_DUPLICATED`, `DRAFT` sin efectos
+  durables, `reverse()` validado antes de compensar, ownership de recepción.
+- **Corte 2:** autorización en aplicación de todas las lecturas (incl. `GetKardex` con
+  `inventory.kardex.read`), matriz de permisos ampliada, unicidad de identificador de
+  dispositivo (app + índice `0024`), motivo del operador e idempotencia por intención en el
+  renderer, `OPEN` único por nodo, `formatScaledDecimal` sin `float`, tipos reales de Electron.
+- **Corte 3:** `GetSaleHistory` pliega devolución y cambio de destinatario, autoriza con
+  `sale.history.read` y acota versiones; cierre con esperado negativo; "turno ajeno" definido
+  como `Shift.openedBy !== actor`.
+- **Corte 4:** margen neto de descuentos y devoluciones, período UTC válido con cota en SQL,
+  `quantitySoldScaled` derivado sin costo, escalas incompatibles separadas, `currencyCode`
+  normalizado a mayúsculas en la frontera.
+
+Tras cerrar el gate se completaron **9B.12** (lectura de arqueo `GetShift` con pertenencia por
+`Shift.openedBy` y `cash.shift.read.any`; `GET /api/v1/sales/:saleId/history` con
+`sale.history.read`) y **9B.13** (`reports.sales.read` y `reports.inventory.read` con
+adaptadores SQLite acotados, rutas y panel del renderer con exportación CSV; margen ya
+corregido en el Corte 4). El 2026-09-05 se completaron **9B.10** y los perfiles
+**9B.14-9B.18**, que ensamblan pantallas y controles a partir de permisos efectivos. Único diferido: el caso de uso de
+corrección administrativa de `originNodeId`, solo si una migración real produce una fila sin
+resolver.
 
 9B.11 - Sucursales y dispositivos se marcó **completada** el 2026-09-04, con alcance recortado
 (ver más abajo). 9B.07 - Conteos físicos quedó **completada** el 2026-09-04. 9B.03 -

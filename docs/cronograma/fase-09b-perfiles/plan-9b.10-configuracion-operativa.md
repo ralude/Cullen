@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.10: Configuración operativa
 
 - **Sub-fase:** [9B.10 Configuración operativa](./9b.10-configuracion-operativa.md)
-- **Estado del plan:** Listo después de los cortes 0–2 del plan correctivo
+- **Estado del plan:** ~~Implementado y cerrado 2026-09-05~~
 - **Decisión:** [ADR-0021](../../architecture/adr/0021-mvp-referencia-no-certificado.md) permite
   defaults de referencia sin catálogo fiscal hipotético.
 
@@ -52,16 +52,24 @@ unidades y políticas operativas— sin reescribir hechos históricos.
 
 ## Criterios de aceptación
 
-- [ ] Los maestros existentes se administran desde la interfaz con permisos de caso de uso.
-- [ ] Las lecturas administrativas autorizan en aplicación antes de consultar.
-- [ ] Las políticas versionadas conservan su historial.
-- [ ] No existe borrado físico de un maestro con historia.
-- [ ] Los cambios sensibles conservan motivo real, auditoría e idempotencia por intención y no
-  reescriben hechos.
-- [ ] La unicidad de dispositivos y el bloqueo de desactivación en uso tienen pruebas de
-  aplicación y persistencia; no se asume que exista un precedente reutilizable.
-- [ ] El catálogo futuro de alícuotas no es requisito de salida.
-- [ ] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+- [x] ~~Los maestros existentes se administran desde la interfaz con permisos de caso de uso.~~
+- [x] ~~Las lecturas administrativas autorizan en aplicación antes de consultar.~~
+- [x] ~~Las políticas versionadas conservan su historial.~~
+- [x] ~~No existe borrado físico de un maestro con historia.~~
+- [x] ~~Los cambios sensibles conservan motivo real, auditoría e idempotencia por intención y no
+  reescriben hechos.~~
+- [x] ~~La unicidad de dispositivos y el bloqueo de desactivación en uso tienen pruebas de
+  aplicación y persistencia; no se asume que exista un precedente reutilizable.~~
+- [x] ~~El catálogo futuro de alícuotas no es requisito de salida.~~
+- [x] ~~`pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.~~ 591 pruebas / 120 archivos.
+
+## Evidencia de cierre
+
+`OperationalMasterDataStore` hace explícita la consulta de uso vivo e historia; categorías,
+unidades y métodos se desactivan sin borrar filas. Los comandos se autorizan antes de tocar el
+store, conservan la clave de intención, auditan motivo/actor/terminal/nodo/UTC y publican las
+políticas mediante `OperationalPolicyWriter`. La interfaz exige confirmar alcance y nueva
+vigencia para descuento e IGTF, ambos rotulados como `SIMULACIÓN`.
 
 ## Fuera de alcance
 

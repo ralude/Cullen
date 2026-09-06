@@ -46,6 +46,36 @@ export type UpdateDeviceRequest = {
 };
 export type ChangeDeviceStatusRequest = { readonly status: DeviceStatusResponse; readonly reason: string };
 
+export type CategoryConfigResponse = { readonly id: string; readonly name: string; readonly isActive: boolean };
+export type UnitConfigResponse = {
+  readonly id: string; readonly code: string; readonly name: string;
+  readonly quantityScale: number; readonly isActive: boolean;
+};
+export type PaymentMethodConfigResponse = {
+  readonly code: string; readonly name: string;
+  readonly kind: 'CASH' | 'CARD' | 'MOBILE_PAYMENT' | 'BANK_TRANSFER' | 'OTHER';
+  readonly currencyCode: string; readonly isActive: boolean;
+};
+export type OperationalMasterDataResponse = {
+  readonly categories: readonly CategoryConfigResponse[];
+  readonly units: readonly UnitConfigResponse[];
+  readonly paymentMethods: readonly PaymentMethodConfigResponse[];
+};
+export type SaveCategoryRequest = { readonly id?: string; readonly name: string; readonly isActive: boolean; readonly reason: string };
+export type SaveUnitRequest = {
+  readonly code: string; readonly name: string; readonly quantityScale: number;
+  readonly isActive: boolean; readonly reason: string;
+};
+export type SavePaymentMethodRequest = Omit<PaymentMethodConfigResponse, 'isActive'> & {
+  readonly isActive: boolean; readonly reason: string;
+};
+export type ActivateDiscountPolicyRequest = { readonly maximumBasisPoints: number; readonly reason: string };
+export type ActivateTaxPolicyRequest = {
+  readonly rateBasisPoints: number; readonly eligiblePaymentMethodCodes: readonly string[];
+  readonly eligibleCurrencies: readonly string[]; readonly reason: string;
+};
+export type PolicyActivationResponse = { readonly created: boolean; readonly policyId: string; readonly version: number };
+
 const id = { type: 'string', minLength: 1, maxLength: 128 } as const;
 const headers = {
   type: 'object', required: ['idempotency-key'],
@@ -246,4 +276,86 @@ export const changeDeviceStatusContract = {
     'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'DEVICE_NOT_FOUND',
     'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY'
   ]
+} as const satisfies HttpContractV1;
+
+const categoryConfigSchema = {
+  type: 'object', additionalProperties: false, required: ['id', 'name', 'isActive'],
+  properties: { id, name: { type: 'string' }, isActive: { type: 'boolean' } }
+} as const;
+const unitConfigSchema = {
+  type: 'object', additionalProperties: false, required: ['id', 'code', 'name', 'quantityScale', 'isActive'],
+  properties: { id, code: { type: 'string' }, name: { type: 'string' }, quantityScale: { type: 'integer', minimum: 0, maximum: 6 }, isActive: { type: 'boolean' } }
+} as const;
+const paymentMethodConfigSchema = {
+  type: 'object', additionalProperties: false, required: ['code', 'name', 'kind', 'currencyCode', 'isActive'],
+  properties: {
+    code: { type: 'string' }, name: { type: 'string' },
+    kind: { type: 'string', enum: ['CASH', 'CARD', 'MOBILE_PAYMENT', 'BANK_TRANSFER', 'OTHER'] },
+    currencyCode: { type: 'string' }, isActive: { type: 'boolean' }
+  }
+} as const;
+const reason = { type: 'string', minLength: 1, maxLength: 500 } as const;
+const policyActivationSchema = {
+  type: 'object', additionalProperties: false, required: ['created', 'policyId', 'version'],
+  properties: { created: { type: 'boolean' }, policyId: id, version: { type: 'integer', minimum: 1 } }
+} as const;
+const operationalMutationResponses = {
+  200: categoryConfigSchema, 400: problemDetailsSchema, 401: problemDetailsSchema,
+  403: problemDetailsSchema, 404: problemDetailsSchema, 409: problemDetailsSchema, 503: problemDetailsSchema
+} as const;
+
+export const listOperationalMasterDataContract = {
+  method: 'GET', path: '/api/v1/config/operational-master-data',
+  permission: 'catalog.product.update|config.payment_method.manage', idempotency: 'NONE',
+  schema: { response: {
+    200: { type: 'object', additionalProperties: false, required: ['categories', 'units', 'paymentMethods'], properties: {
+      categories: { type: 'array', items: categoryConfigSchema }, units: { type: 'array', items: unitConfigSchema },
+      paymentMethods: { type: 'array', items: paymentMethodConfigSchema }
+    } }, 401: problemDetailsSchema, 403: problemDetailsSchema
+  } }, errorCodes: ['UNAUTHORIZED', 'FORBIDDEN']
+} as const satisfies HttpContractV1;
+
+export const saveCategoryContract = {
+  method: 'PUT', path: '/api/v1/config/categories', permission: 'catalog.product.update', idempotency: 'REQUIRED',
+  schema: { headers, body: { type: 'object', additionalProperties: false, required: ['name', 'isActive', 'reason'], properties: {
+    id, name: { type: 'string', minLength: 1, maxLength: 200 }, isActive: { type: 'boolean' }, reason
+  } }, response: operationalMutationResponses },
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'CATEGORY_NOT_FOUND', 'CATEGORY_IN_USE', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY']
+} as const satisfies HttpContractV1;
+
+export const saveUnitContract = {
+  method: 'PUT', path: '/api/v1/config/units', permission: 'catalog.product.update', idempotency: 'REQUIRED',
+  schema: { headers, body: { type: 'object', additionalProperties: false, required: ['code', 'name', 'quantityScale', 'isActive', 'reason'], properties: {
+    code: { type: 'string', minLength: 1, maxLength: 32 }, name: { type: 'string', minLength: 1, maxLength: 200 },
+    quantityScale: { type: 'integer', minimum: 0, maximum: 6 }, isActive: { type: 'boolean' }, reason
+  } }, response: { ...operationalMutationResponses, 200: unitConfigSchema } },
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'UNIT_OF_MEASURE_SCALE_IN_USE', 'UNIT_OF_MEASURE_IN_USE', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY']
+} as const satisfies HttpContractV1;
+
+export const savePaymentMethodContract = {
+  method: 'PUT', path: '/api/v1/config/payment-methods', permission: 'config.payment_method.manage', idempotency: 'REQUIRED',
+  schema: { headers, body: { type: 'object', additionalProperties: false, required: ['code', 'name', 'kind', 'currencyCode', 'isActive', 'reason'], properties: {
+    code: { type: 'string', minLength: 1, maxLength: 32 }, name: { type: 'string', minLength: 1, maxLength: 200 },
+    kind: { type: 'string', enum: ['CASH', 'CARD', 'MOBILE_PAYMENT', 'BANK_TRANSFER', 'OTHER'] },
+    currencyCode: { type: 'string', minLength: 3, maxLength: 3 }, isActive: { type: 'boolean' }, reason
+  } }, response: { ...operationalMutationResponses, 200: paymentMethodConfigSchema } },
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'PAYMENT_METHOD_IN_USE', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY']
+} as const satisfies HttpContractV1;
+
+export const activateDiscountPolicyContract = {
+  method: 'POST', path: '/api/v1/config/policies/discount', permission: 'config.tax.manage', idempotency: 'REQUIRED',
+  schema: { headers, body: { type: 'object', additionalProperties: false, required: ['maximumBasisPoints', 'reason'], properties: {
+    maximumBasisPoints: { type: 'integer', minimum: 0, maximum: 10000 }, reason
+  } }, response: { 200: policyActivationSchema, 400: problemDetailsSchema, 401: problemDetailsSchema, 403: problemDetailsSchema, 409: problemDetailsSchema, 503: problemDetailsSchema } },
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY']
+} as const satisfies HttpContractV1;
+
+export const activateTaxPolicyContract = {
+  method: 'POST', path: '/api/v1/config/policies/financial-transaction-tax', permission: 'config.tax.manage', idempotency: 'REQUIRED',
+  schema: { headers, body: { type: 'object', additionalProperties: false, required: ['rateBasisPoints', 'eligiblePaymentMethodCodes', 'eligibleCurrencies', 'reason'], properties: {
+    rateBasisPoints: { type: 'integer', minimum: 0, maximum: 10000 },
+    eligiblePaymentMethodCodes: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 32 } },
+    eligibleCurrencies: { type: 'array', items: { type: 'string', minLength: 3, maxLength: 3 } }, reason
+  } }, response: { 200: policyActivationSchema, 400: problemDetailsSchema, 401: problemDetailsSchema, 403: problemDetailsSchema, 409: problemDetailsSchema, 503: problemDetailsSchema } },
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY']
 } as const satisfies HttpContractV1;

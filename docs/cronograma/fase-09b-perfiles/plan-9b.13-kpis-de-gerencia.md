@@ -1,7 +1,13 @@
 # Plan de ejecución 9B.13: KPIs de gerencia
 
 - **Sub-fase:** [9B.13 KPIs de gerencia](./9b.13-kpis-de-gerencia.md)
-- **Estado del plan:** Bloqueado por los cortes 0, 1 y 4 del plan correctivo
+- **Estado del plan:** ~~Implementado y cerrado 2026-09-05~~. El reporte de margen
+  (`reports.margin.read`) netea descuentos y devoluciones, exige período UTC válido con cota en
+  SQL, deriva `quantitySoldScaled` sin costo, separa escalas incompatibles y normaliza
+  `currencyCode` a mayúsculas en la frontera. `reports.sales.read` y `reports.inventory.read`
+  quedaron construidos sobre esa base (`GetSalesReport` / `GetInventoryReport` +
+  `DrizzleSalesReportRepository` / `DrizzleInventoryReportRepository` + contratos + rutas +
+  panel del renderer con exportación CSV visible).
 - **Decisiones:** [ADR-0013](../../architecture/adr/0013-reportes-operativos-de-lectura.md),
   [ADR-0016](../../architecture/adr/0016-metodo-de-costeo-y-margen.md) y
   [ADR-0021](../../architecture/adr/0021-mvp-referencia-no-certificado.md)
@@ -73,16 +79,23 @@ están especificados. Agregarla exige criterios de aceptación propios, no bloqu
 
 ## Criterios de aceptación
 
-- [ ] Ventas e inventario funcionan independientemente de 9B.04.
-- [ ] Cada lectura autoriza en aplicación y siempre consulta con cota.
-- [ ] Monedas y períodos son explícitos y válidos; no hay conversiones implícitas ni filtros
-  sensibles a casing.
-- [ ] Margen usa ingreso neto de descuentos/devoluciones y costo histórico estable, autorizado
-  y reversible mediante snapshots.
-- [ ] `quantitySoldScaled` no depende de la disponibilidad de costo y no mezcla escalas.
-- [ ] El renderer presenta los valores recibidos y reutiliza la exportación existente.
-- [ ] No se añade dependencia de visualización ni abstracción genérica de BI.
-- [ ] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+- [x] ~~Ventas e inventario funcionan independientemente de 9B.04.~~ `GetSalesReport` agrega
+  líneas de venta; `GetInventoryReport` deriva saldo de movimientos; ninguno depende del costo.
+- [x] ~~Cada lectura autoriza en aplicación y siempre consulta con cota.~~ `reports.sales.read`
+  / `reports.inventory.read` autorizan antes de consultar (prueba `queries === []` en denegación)
+  y aplican `resolveRowLimit`; la agregación y el `limit` ocurren en SQL.
+- [x] ~~Monedas y períodos explícitos y válidos; sin conversiones implícitas ni filtros
+  sensibles a casing.~~ `from`/`to` (o `asOf`) obligatorios y validados (`REPORT_PERIOD_INVALID`);
+  `currencyCode` se normaliza a mayúsculas en la frontera y el contrato rechaza `^[A-Z]{3}$`.
+- [x] ~~Margen usa ingreso neto de descuentos/devoluciones y costo histórico estable.~~ Ver
+  Corte 4 del plan correctivo.
+- [x] ~~`quantitySoldScaled` no depende del costo y no mezcla escalas.~~ `sale_group` separado
+  de `cost_group`, ambos agrupan por `quantity_scale`.
+- [x] ~~El renderer presenta los valores recibidos y reutiliza la exportación existente.~~
+  Paneles «Ventas» e «Inventario» en `reports.tsx` con `downloadCsv` visible.
+- [x] ~~No se añade dependencia de visualización ni abstracción genérica de BI.~~ Solo tablas
+  y CSV.
+- [x] ~~`pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.~~ 580 pruebas / 119 archivos.
 
 ## Fuera de alcance
 

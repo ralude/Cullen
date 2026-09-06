@@ -276,6 +276,49 @@ describe('stock count application', () => {
     expect(stored?.movements.some((movement) => movement.type === 'ADJUSTMENT_OUT')).toBe(true);
   });
 
+  it('applies the frozen difference as a signed delta over movements booked after the close', async () => {
+    const item = withBalance(stockItem(), 5);
+    const stockRepository = new FakeStockItemRepository([item]);
+    const countRepository = new FakeStockCountRepository();
+    const closed = openedCount();
+    closed.recordLine({
+      id: 'line-001', productId: 'product-001', stockItemId: 'stock-001',
+      countedQuantity: Quantity.fromScaled(8, 0)
+    });
+    closed.close([{
+      lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
+      expectedScaled: 5, countedScaled: 8, differenceScaled: 3
+    }], new Date('2026-09-05T11:00:00.000Z'));
+    countRepository.stored = closed;
+
+    // A sale is booked between CLOSE and APPROVE: balance drops from 5 to 3.
+    item.registerMovement({
+      id: 'post-close-sale', type: 'SALE_ISSUE', quantity: Quantity.fromScaled(2, 0),
+      actorId: 'user-001', reason: 'Venta posterior al cierre', referenceId: 'event:sale-x',
+      occurredAt: new Date('2026-09-05T11:30:00.000Z'), eventId: 'post-close-sale-event'
+    });
+
+    const recorded = evidence();
+    const useCase = new ApproveStockCount(
+      countRepository, stockRepository, allow('inventory.count.approve'),
+      sequence('movement'), sequence('event'), sequence('audit'),
+      { now: () => new Date('2026-09-05T12:00:00.000Z') }, unitOfWork,
+      eventStore(recorded.ledger), auditWriter(recorded.audit)
+    );
+
+    const result = await useCase.execute({ stockCountId: 'count-001', reason: 'Aprobado' }, context);
+
+    expect(result.ok).toBe(true);
+    const stored = await stockRepository.findById('stock-001');
+    // counted (8) + movements booked after the close (-2) = 6, not the counted 8.
+    expect(stored?.balance.scaledValue).toBe(6);
+    // The adjustment audit records the balance at approval time (3) so the drift is visible.
+    expect(recorded.audit).toMatchObject([
+      { action: 'STOCK_COUNT_ADJUSTMENT_REGISTERED', before: { balanceScaled: 3 } },
+      { action: 'STOCK_COUNT_APPROVED' }
+    ]);
+  });
+
   it('approves a count with no difference and creates no adjustment', async () => {
     const item = withBalance(stockItem(), 5);
     const stockRepository = new FakeStockItemRepository([item]);

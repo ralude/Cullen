@@ -126,6 +126,62 @@ describe('cash HTTP contracts', () => {
       .pluck().all()).toEqual([
       'SHIFT_OPENED', 'CASH_INCOME_REGISTERED', 'CASH_WITHDRAWAL_REGISTERED', 'SHIFT_CLOSED'
     ]);
+
+    const arqueo = await app.inject({
+      method: 'GET', url: `/api/v1/cash/shifts/${shiftId}`, headers: { cookie }
+    });
+    expect(arqueo.statusCode).toBe(200);
+    expect(arqueo.json()).toMatchObject({
+      id: shiftId, status: 'CLOSED',
+      closingBalances: [{ expectedMinorUnits: 1300, declaredMinorUnits: 1300, differenceMinorUnits: 0 }]
+    });
+  });
+
+  it('reads an own shift with the base permission but needs cash.shift.read.any for a foreign one', async () => {
+    const runtime = createSecurityRuntime(':memory:', {
+      terminalId: 'terminal-001', originNodeId: 'node-001'
+    });
+    runtimes.push(runtime);
+    await runtime.provisionInitialAdmin.execute({
+      operatorCode: 'OP009', displayName: 'Cajero sin any', pin: '999999',
+      permissions: ['cash.shift.open', 'cash.shift.read']
+    });
+    const app = buildApp(runtime.dependencies);
+    apps.push(app);
+    const login = await app.inject({
+      method: 'POST', url: '/api/v1/auth/session', payload: { operatorCode: 'OP009', pin: '999999' }
+    });
+    const cookie = String(login.headers['set-cookie']).split(';')[0]!;
+
+    runtime.handle.sqlite.exec(`
+      insert into cash_registers (id, name, terminal_id, origin_node_id, is_active)
+      values ('register-arq', 'Caja arqueo', 'terminal-001', 'node-001', 1),
+             ('register-ghost', 'Caja ajena', 'terminal-001', 'node-001', 1);
+    `);
+    const opened = await app.inject({
+      method: 'POST', url: '/api/v1/cash/shifts',
+      headers: { cookie, 'idempotency-key': 'shift-arq-open' },
+      payload: { cashRegisterId: 'register-arq', openingFunds: [] }
+    });
+    const shiftId = opened.json<{ id: string }>().id;
+
+    const own = await app.inject({
+      method: 'GET', url: `/api/v1/cash/shifts/${shiftId}`, headers: { cookie }
+    });
+    expect(own.statusCode).toBe(200);
+    expect(own.json()).toMatchObject({ id: shiftId, status: 'OPEN' });
+
+    runtime.handle.sqlite.exec(`
+      insert into shifts (id, cash_register_id, terminal_id, origin_node_id, opened_by, opened_at,
+        status, version)
+      values ('shift-ghost', 'register-ghost', 'terminal-001', 'node-001', 'ghost-operator',
+        1756000000000, 'OPEN', 1);
+    `);
+    const foreign = await app.inject({
+      method: 'GET', url: '/api/v1/cash/shifts/shift-ghost', headers: { cookie }
+    });
+    expect(foreign.statusCode).toBe(403);
+    expect(foreign.json()).toMatchObject({ code: 'FORBIDDEN' });
   });
 
   it('lists active cash registers for a selector, requiring a session', async () => {

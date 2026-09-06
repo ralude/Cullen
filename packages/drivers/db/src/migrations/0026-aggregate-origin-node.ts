@@ -29,6 +29,34 @@ update purchase_receipts set origin_node_id = (
   order by audit_log.occurred_at asc limit 1
 );
 
+create trigger branches_origin_node_required
+before insert on branches
+when new.origin_node_id is null
+begin
+  select raise(abort, 'branch origin node is required');
+end;
+
+create trigger devices_origin_node_required
+before insert on devices
+when new.origin_node_id is null
+begin
+  select raise(abort, 'device origin node is required');
+end;
+
+create trigger stock_counts_origin_node_required
+before insert on stock_counts
+when new.origin_node_id is null
+begin
+  select raise(abort, 'stock count origin node is required');
+end;
+
+create trigger purchase_receipts_origin_node_required
+before insert on purchase_receipts
+when new.origin_node_id is null
+begin
+  select raise(abort, 'purchase receipt origin node is required');
+end;
+
 create trigger branches_origin_node_immutable
 before update on branches
 when old.origin_node_id is not null and new.origin_node_id is not old.origin_node_id

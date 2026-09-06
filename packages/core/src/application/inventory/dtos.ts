@@ -51,6 +51,7 @@ export type GetKardexInput = {
   from?: Date;
   to?: Date;
   reason?: string;
+  limit?: number;
 };
 
 export type KardexDto = {

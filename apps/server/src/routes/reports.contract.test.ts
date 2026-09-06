@@ -31,7 +31,9 @@ describe('reporting HTTP contracts', () => {
     '/api/v1/reports/cash-closures',
     '/api/v1/reports/audit',
     '/api/v1/reports/fiscal-operations',
-    '/api/v1/reports/margin?from=2025-08-01T00%3A00%3A00.000Z&to=2025-09-01T00%3A00%3A00.000Z'
+    '/api/v1/reports/margin?from=2025-08-01T00%3A00%3A00.000Z&to=2025-09-01T00%3A00%3A00.000Z',
+    '/api/v1/reports/sales?from=2025-08-01T00%3A00%3A00.000Z&to=2025-09-01T00%3A00%3A00.000Z',
+    '/api/v1/reports/inventory?asOf=2025-09-01T00%3A00%3A00.000Z'
   ];
 
   it('projects cash closures and audit entries from SQLite for an authorized reader', async () => {
@@ -155,5 +157,62 @@ describe('reporting HTTP contracts', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ code: 'HTTP_VALIDATION_FAILED' });
+  });
+
+  it('summarizes completed sales by currency and scale, net of discounts', async () => {
+    const { app, runtime, cookie } = await setup();
+    runtime.handle.sqlite.exec(`
+      insert into sales (id, shift_id, currency_code, terminal_id, origin_node_id, started_by, started_at,
+        status, version, financial_transaction_tax_minor_units, completed_at)
+      values
+        ('sale-1', 'shift-1', 'USD', 'terminal-001', 'node-001', 'user-1', 1756399000000, 'COMPLETED', 3, 0, 1756400000000),
+        ('sale-2', 'shift-1', 'USD', 'terminal-001', 'node-001', 'user-1', 1756399000000, 'VOIDED', 3, 0, 1756400000000);
+      insert into sale_items (id, sale_id, product_id, description, price_minor_units, currency_code,
+        tax_rate_basis_points, unit_code, unit_scale, quantity_scaled, quantity_scale)
+      values
+        ('item-1', 'sale-1', 'product-1', 'Uno', 150, 'USD', 1600, 'UND', 0, 4, 0),
+        ('item-2', 'sale-2', 'product-1', 'Anulada', 150, 'USD', 1600, 'UND', 0, 9, 0);
+      insert into sale_discounts (id, sale_id, item_id, percentage_basis_points, amount_minor_units,
+        currency_code, reason, applied_by, applied_at)
+      values ('disc-1', 'sale-1', 'item-1', 667, 40, 'USD', 'Promo', 'user-1', 1756399500000);
+    `);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/reports/sales?from=2025-08-01T00%3A00%3A00.000Z&to=2025-09-01T00%3A00%3A00.000Z',
+      headers: { cookie }
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([{
+      currencyCode: 'USD', quantityScale: 0, salesCount: 1, lineCount: 1,
+      quantitySoldScaled: 4, grossMinorUnits: 600, discountMinorUnits: 40, netMinorUnits: 560
+    }]);
+  });
+
+  it('projects on-hand inventory by batch with the expiry status at a cutoff', async () => {
+    const { app, runtime, cookie } = await setup();
+    runtime.handle.sqlite.exec(`
+      insert into stock_items (id, product_id, unit_code, quantity_scale, tracks_batches)
+      values ('stock-1', 'product-1', 'UND', 0, 1);
+      insert into stock_batches (id, stock_item_id, lot_number, expires_at)
+      values ('batch-1', 'stock-1', 'L-1', 1757894400000);
+      insert into stock_movements (id, stock_item_id, event_id, aggregate_version, type, direction,
+        quantity_scaled, quantity_scale, batch_id, actor_id, reason, reference_id, occurred_at)
+      values
+        ('m-in', 'stock-1', 'e-in', 1, 'PURCHASE_RECEIPT', 'IN', 10, 0, 'batch-1', 'user-1', 'Compra', 'r-1', 1756000000000),
+        ('m-out', 'stock-1', 'e-out', 2, 'SALE_ISSUE', 'OUT', 4, 0, 'batch-1', 'user-1', 'Venta', 'r-2', 1756500000000);
+    `);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/reports/inventory?asOf=2025-09-01T00%3A00%3A00.000Z&expiringWithinDays=30',
+      headers: { cookie }
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([{
+      stockItemId: 'stock-1', productId: 'product-1', batchId: 'batch-1', lotNumber: 'L-1',
+      unitCode: 'UND', quantityScale: 0, onHandScaled: 6,
+      expiresAt: new Date(1757894400000).toISOString(), expiryStatus: 'EXPIRING'
+    }]);
   });
 });

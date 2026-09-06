@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { application, type BusinessEventV1 } from '@supermarket/core';
+import { application, type BusinessEventV1, type ExecutionContext } from '@supermarket/core';
 import { DrizzleBusinessEventStore } from './business-event-store.js';
 import { openDatabase } from './connection.js';
 import { applyMigrations } from './migrations.js';
@@ -18,6 +18,12 @@ const businessEvent = (
   originNodeId: 'node-001', correlationId: 'correlation-001', actorId: 'user-001',
   occurredAt: new Date(`2026-08-29T10:0${version}:00Z`), payload
 });
+
+const context: ExecutionContext = {
+  actorId: 'user-001', terminalId: 'terminal-001', originNodeId: 'node-001', correlationId: 'correlation-001'
+};
+const noReturns = { save: async () => {}, findById: async () => null, findBySaleId: async () => null };
+const allowHistory = { authorize: async () => true };
 
 describe('GetSaleHistory with persisted ledger', () => {
   it('projects every sale version after a database restart', async () => {
@@ -45,8 +51,8 @@ describe('GetSaleHistory with persisted ledger', () => {
 
     const restarted = openDatabase(databasePath);
     const result = await new application.GetSaleHistory(
-      new DrizzleBusinessEventStore(restarted)
-    ).execute('sale-001');
+      new DrizzleBusinessEventStore(restarted), noReturns, allowHistory
+    ).execute({ saleId: 'sale-001' }, context);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.map((version) => version.version)).toEqual([1, 2, 3, 4, 5]);
@@ -63,8 +69,8 @@ describe('GetSaleHistory with persisted ledger', () => {
     const handle = openDatabase(':memory:');
     applyMigrations(handle.sqlite);
     const result = await new application.GetSaleHistory(
-      new DrizzleBusinessEventStore(handle)
-    ).execute('missing');
+      new DrizzleBusinessEventStore(handle), noReturns, allowHistory
+    ).execute({ saleId: 'missing' }, context);
     expect(result).toMatchObject({ ok: false, error: { code: 'SALE_HISTORY_NOT_FOUND' } });
     handle.close();
   });

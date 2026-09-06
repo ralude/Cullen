@@ -123,7 +123,7 @@ export const registerStockAdjustmentContract = {
 
 export const getKardexContract = {
   method: 'GET', path: '/api/v1/inventory/products/:productId/kardex',
-  permission: null, idempotency: 'NONE',
+  permission: 'inventory.kardex.read', idempotency: 'NONE',
   schema: {
     params: {
       type: 'object', additionalProperties: false, required: ['productId'],
@@ -133,7 +133,8 @@ export const getKardexContract = {
       type: 'object', additionalProperties: false,
       properties: {
         batchId: id, from: { type: 'string', format: 'date-time' },
-        to: { type: 'string', format: 'date-time' }, reason: { type: 'string', maxLength: 200 }
+        to: { type: 'string', format: 'date-time' }, reason: { type: 'string', maxLength: 200 },
+        limit: { type: 'integer', minimum: 1, maximum: 500 }
       }
     },
     response: {
@@ -150,8 +151,9 @@ export const getKardexContract = {
           movements: { type: 'array', items: movement }
         }
       },
-      400: problemDetailsSchema, 401: problemDetailsSchema, 404: problemDetailsSchema
+      400: problemDetailsSchema, 401: problemDetailsSchema, 403: problemDetailsSchema,
+      404: problemDetailsSchema
     }
   },
-  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'STOCK_ITEM_NOT_FOUND']
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'STOCK_ITEM_NOT_FOUND', 'KARDEX_LIMIT_INVALID']
 } as const satisfies HttpContractV1;

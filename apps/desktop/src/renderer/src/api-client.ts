@@ -12,7 +12,11 @@ import {
   getCurrentExchangeRateContract,
   getExchangeRateHistoryContract,
   getFiscalOperationsReportContract,
+  getInventoryReportContract,
   getMarginReportContract,
+  getSalesReportContract,
+  getShiftContract,
+  getSaleHistoryContract,
   startPurchaseReceiptContract,
   completePurchaseReceiptContract,
   reversePurchaseReceiptContract,
@@ -56,6 +60,12 @@ import {
   updateDeviceContract,
   changeDeviceStatusContract,
   listDevicesContract,
+  listOperationalMasterDataContract,
+  saveCategoryContract,
+  saveUnitContract,
+  savePaymentMethodContract,
+  activateDiscountPolicyContract,
+  activateTaxPolicyContract,
   logoutContract,
   startSaleContract,
   createProductContract,
@@ -80,7 +90,10 @@ import {
   type AuditReportResponse,
   type CashClosureReportResponse,
   type FiscalOperationsReportResponse,
+  type InventoryReportResponse,
   type MarginReportResponse,
+  type SalesReportResponse,
+  type SaleHistoryVersionResponse,
   type PurchaseReceiptResponse,
   type StartPurchaseReceiptRequest,
   type CompletePurchaseReceiptRequest,
@@ -122,6 +135,13 @@ import {
   type ChangeDeviceStatusRequest,
   type DeviceResponse,
   type DeviceStatusResponse,
+  type OperationalMasterDataResponse,
+  type SaveCategoryRequest,
+  type SaveUnitRequest,
+  type SavePaymentMethodRequest,
+  type ActivateDiscountPolicyRequest,
+  type ActivateTaxPolicyRequest,
+  type PolicyActivationResponse,
   type CashRegisterResponse,
   type CategoryResponse,
   type PaymentMethodResponse,
@@ -386,6 +406,29 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
   listDevices: (query: { terminalId?: string; status?: DeviceStatusResponse } = {}): Promise<readonly DeviceResponse[]> => requestJson(
     fetcher, listDevicesContract.path + search(query), { method: listDevicesContract.method }
   ),
+  listOperationalMasterData: (): Promise<OperationalMasterDataResponse> => requestJson(
+    fetcher, listOperationalMasterDataContract.path, { method: listOperationalMasterDataContract.method }
+  ),
+  saveCategory: (input: SaveCategoryRequest, idempotencyKey: string): Promise<OperationalMasterDataResponse['categories'][number]> => requestJson(
+    fetcher, saveCategoryContract.path,
+    { method: saveCategoryContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
+  ),
+  saveUnit: (input: SaveUnitRequest, idempotencyKey: string): Promise<OperationalMasterDataResponse['units'][number]> => requestJson(
+    fetcher, saveUnitContract.path,
+    { method: saveUnitContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
+  ),
+  savePaymentMethod: (input: SavePaymentMethodRequest, idempotencyKey: string): Promise<OperationalMasterDataResponse['paymentMethods'][number]> => requestJson(
+    fetcher, savePaymentMethodContract.path,
+    { method: savePaymentMethodContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
+  ),
+  activateDiscountPolicy: (input: ActivateDiscountPolicyRequest, idempotencyKey: string): Promise<PolicyActivationResponse> => requestJson(
+    fetcher, activateDiscountPolicyContract.path,
+    { method: activateDiscountPolicyContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
+  ),
+  activateTaxPolicy: (input: ActivateTaxPolicyRequest, idempotencyKey: string): Promise<PolicyActivationResponse> => requestJson(
+    fetcher, activateTaxPolicyContract.path,
+    { method: activateTaxPolicyContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
+  ),
   getPriceHistory: (productId: string): Promise<readonly PriceHistoryResponse[]> => requestJson(
     fetcher, path(getPriceHistoryContract.path, productId), { method: getPriceHistoryContract.method }
   ),
@@ -393,8 +436,11 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
     fetcher, createProductContract.path,
     { method: createProductContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
   ),
-  getKardex: (productId: string): Promise<KardexDto> => requestJson(
-    fetcher, path(getKardexContract.path, productId), { method: getKardexContract.method }
+  getKardex: (productId: string, query: {
+    readonly batchId?: string; readonly from?: string; readonly to?: string;
+    readonly reason?: string; readonly limit?: number;
+  } = {}): Promise<KardexDto> => requestJson(
+    fetcher, path(getKardexContract.path, productId) + search(query), { method: getKardexContract.method }
   ),
   receivePurchase: (input: ReceivePurchaseRequest, idempotencyKey: string): Promise<KardexDto> => requestJson(
     fetcher, receivePurchaseContract.path,
@@ -419,6 +465,25 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
   getMarginReport: (query: ReportQuery = {}): Promise<readonly MarginReportResponse[]> => requestJson(
     fetcher, getMarginReportContract.path + search(query),
     { method: getMarginReportContract.method }
+  ),
+  getSalesReport: (query: ReportQuery = {}): Promise<readonly SalesReportResponse[]> => requestJson(
+    fetcher, getSalesReportContract.path + search(query),
+    { method: getSalesReportContract.method }
+  ),
+  getInventoryReport: (
+    query: { readonly asOf: string; readonly expiringWithinDays?: number; readonly limit?: number }
+  ): Promise<readonly InventoryReportResponse[]> => requestJson(
+    fetcher, getInventoryReportContract.path + search(query),
+    { method: getInventoryReportContract.method }
+  ),
+  getShift: (shiftId: string): Promise<ShiftResponse> => requestJson(
+    fetcher, path(getShiftContract.path, shiftId), { method: getShiftContract.method }
+  ),
+  getSaleHistory: (
+    saleId: string, query: { readonly limit?: number } = {}
+  ): Promise<readonly SaleHistoryVersionResponse[]> => requestJson(
+    fetcher, path(getSaleHistoryContract.path, saleId) + search(query),
+    { method: getSaleHistoryContract.method }
   ),
   startPurchaseReceipt: (input: StartPurchaseReceiptRequest, idempotencyKey: string): Promise<PurchaseReceiptResponse> => requestJson(
     fetcher, startPurchaseReceiptContract.path,

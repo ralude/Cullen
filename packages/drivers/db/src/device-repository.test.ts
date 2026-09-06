@@ -30,11 +30,14 @@ describe('DrizzleDeviceRepository', () => {
     expect((await repository.findAll({ terminalId: 'terminal-001' })).map(({ id }) => id)).toEqual(['device-1']);
     expect((await repository.findAll({ status: 'ACTIVE' })).map(({ id }) => id)).toEqual(['device-1']);
     expect(await repository.findAll()).toHaveLength(2);
+    // The unique index from migration 0024 rejects a case-insensitive identifier collision
+    // even when the application-level guard is bypassed.
     expect(() => handle.sqlite.prepare(`
       insert into devices (
-        id, type, identifier, terminal_id, branch_id, status, created_at, updated_at, version
-      ) values ('device-3', 'SCALE', 'sn-0001', 'terminal-003', null, 'ACTIVE', 1, 1, 1)
-    `).run()).toThrowError();
+        id, origin_node_id, type, identifier, terminal_id, branch_id, status,
+        created_at, updated_at, version
+      ) values ('device-3', 'node-1', 'SCALE', 'sn-0001', 'terminal-003', null, 'ACTIVE', 1, 1, 1)
+    `).run()).toThrowError(/UNIQUE|constraint/i);
 
     expect(() => handle.sqlite.prepare("delete from devices where id = 'device-1'").run())
       .toThrowError('devices cannot be deleted');

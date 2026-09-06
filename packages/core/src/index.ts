@@ -19,8 +19,12 @@ export type {
   CashClosureReportInput,
   FiscalOperationReportEntryDto,
   FiscalOperationsReportInput,
+  InventoryReportEntryDto,
+  InventoryReportInput,
   MarginReportEntryDto,
   MarginReportInput,
+  SalesReportEntryDto,
+  SalesReportInput,
   ResolvedReportQuery
 } from './application/reporting/index.js';
 export type {
@@ -97,11 +101,14 @@ export type {
   FinancialTransactionTaxPolicyInput,
   OperationalPolicyMetadata,
   OperationalPolicyWriter,
+  OperationalMasterDataStore,
   PolicyActivation,
   UnitOfWork,
   UnitOfMeasureRepository,
   AuditReportRepository,
   CashClosureReportRepository,
   FiscalOperationsReportRepository,
-  MarginReportRepository
+  InventoryReportRepository,
+  MarginReportRepository,
+  SalesReportRepository
 } from './application/ports/index.js';

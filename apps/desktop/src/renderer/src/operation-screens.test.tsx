@@ -60,10 +60,17 @@ describe('operation screens', () => {
 
 
   it('exposes cash, catalog, inventory and report operations', () => {
-    expect(renderToStaticMarkup(<CashScreen {...props()} />)).toContain('Abrir caja');
+    expect(renderToStaticMarkup(<CashScreen {...props(['cash.shift.open'])} />)).toContain('Abrir caja');
     expect(renderToStaticMarkup(<CatalogScreen {...props()} />)).toContain('Buscar');
     expect(renderToStaticMarkup(<InventoryScreen {...props()} />)).toContain('Consultar kardex');
-    expect(renderToStaticMarkup(<ReportsScreen {...props()} />)).toContain('deshabilitados');
+    expect(renderToStaticMarkup(<ReportsScreen {...props(['fiscal.report.x'])} />)).toContain('deshabilitados');
+  });
+
+  it('does not render cash commands that the session cannot execute', () => {
+    const markup = renderToStaticMarkup(<CashScreen {...props(['cash.shift.read'])} />);
+    expect(markup).not.toContain('Abrir turno');
+    expect(markup).not.toContain('Registrar movimiento');
+    expect(markup).not.toContain('Cerrar turno');
   });
 
   it('names the reason why a sale cannot be completed yet', () => {
@@ -92,6 +99,7 @@ describe('operation screens', () => {
   it('only offers the supplier master to who can administer it', () => {
     expect(canManageSuppliers([])).toBe(false);
     expect(canManageSuppliers(['inventory.purchase.receive'])).toBe(false);
+    expect(canManageSuppliers(['supplier.read'])).toBe(true);
     expect(canManageSuppliers(['supplier.create'])).toBe(true);
     expect(canManageSuppliers(['supplier.update'])).toBe(true);
     expect(canManageSuppliers(['supplier.tax_identity.correct'])).toBe(true);
@@ -142,6 +150,7 @@ describe('operation screens', () => {
   it('only offers the stock count screen to who can count or approve', () => {
     expect(canWorkOnStockCounts([])).toBe(false);
     expect(canWorkOnStockCounts(['inventory.purchase.receive'])).toBe(false);
+    expect(canWorkOnStockCounts(['inventory.count.read'])).toBe(true);
     expect(canWorkOnStockCounts(['inventory.count.perform'])).toBe(true);
     expect(canWorkOnStockCounts(['inventory.count.approve'])).toBe(true);
   });
@@ -158,11 +167,24 @@ describe('operation screens', () => {
     expect(withoutPermission).not.toContain('Abrir conteo');
   });
 
-  it('only offers the config screen to who manages branches or devices', () => {
+  it('offers configuration for each explicit administrative permission', () => {
     expect(canManageConfig([])).toBe(false);
     expect(canManageConfig(['inventory.count.perform'])).toBe(false);
     expect(canManageConfig(['config.branch.manage'])).toBe(true);
     expect(canManageConfig(['config.device.manage'])).toBe(true);
+    expect(canManageConfig(['catalog.product.update'])).toBe(true);
+    expect(canManageConfig(['config.payment_method.manage'])).toBe(true);
+    expect(canManageConfig(['config.tax.manage'])).toBe(true);
+  });
+
+  it('shows only the operational configuration sections granted to the session', () => {
+    const tax = renderToStaticMarkup(<ConfigScreen {...props(['config.tax.manage'])} />);
+    const payments = renderToStaticMarkup(<ConfigScreen {...props(['config.payment_method.manage'])} />);
+    expect(tax).toContain('Descuento máximo');
+    expect(tax).toContain('IGTF · SIMULACIÓN');
+    expect(tax).not.toContain('Métodos de pago');
+    expect(payments).toContain('Métodos de pago');
+    expect(payments).not.toContain('Descuento máximo');
   });
 
   it('labels every device type and marks the fiscal printer as simulation', () => {

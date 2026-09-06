@@ -1,9 +1,26 @@
 import { Component, useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
+  applySaleDiscountContract,
+  closeShiftContract,
+  createProductContract,
+  getInventoryReportContract,
+  getKardexContract,
+  getMarginReportContract,
   getAuditReportContract,
   getCashClosureReportContract,
   getFiscalOperationsReportContract,
+  getSaleHistoryContract,
+  getSalesReportContract,
+  getShiftContract,
   isPermissionGranted,
+  openShiftContract,
+  receivePurchaseContract,
+  registerCashMovementContract,
+  registerStockAdjustmentContract,
+  returnSaleContract,
+  updateExchangeRateContract,
+  updatePriceContract,
+  voidSaleContract,
   type CapabilitiesResponse,
   type SessionResponse
 } from '@supermarket/shared';
@@ -33,8 +50,36 @@ type AppRoute = {
 };
 
 const REPORTS_READ_CONTRACTS = [
-  getCashClosureReportContract, getAuditReportContract, getFiscalOperationsReportContract
+  getCashClosureReportContract, getAuditReportContract, getFiscalOperationsReportContract,
+  getMarginReportContract, getSalesReportContract, getInventoryReportContract,
+  getShiftContract, getSaleHistoryContract
 ] as const;
+
+type PermissionContract = { readonly permission: string | null };
+const grantsAny = (
+  contracts: readonly PermissionContract[], permissionCodes: readonly string[]
+): boolean => contracts.some(
+  (contract) => contract.permission !== null
+    && isPermissionGranted(contract.permission, permissionCodes)
+);
+
+const CASH_WORK_CONTRACTS = [
+  openShiftContract, closeShiftContract, registerCashMovementContract, getShiftContract,
+  applySaleDiscountContract, voidSaleContract, returnSaleContract, getSaleHistoryContract
+] as const;
+const CATALOG_WORK_CONTRACTS = [createProductContract, updatePriceContract] as const;
+const INVENTORY_WORK_CONTRACTS = [
+  getKardexContract, receivePurchaseContract, registerStockAdjustmentContract
+] as const;
+
+const canWorkCash = (permissionCodes: readonly string[]): boolean =>
+  grantsAny(CASH_WORK_CONTRACTS, permissionCodes);
+const canWorkCatalog = (permissionCodes: readonly string[]): boolean =>
+  canWorkCash(permissionCodes) || grantsAny(CATALOG_WORK_CONTRACTS, permissionCodes);
+const canWorkInventory = (permissionCodes: readonly string[]): boolean =>
+  grantsAny(INVENTORY_WORK_CONTRACTS, permissionCodes)
+  || canManageSuppliers(permissionCodes)
+  || canWorkOnStockCounts(permissionCodes);
 
 const ROUTES: readonly AppRoute[] = [
   {
@@ -43,19 +88,23 @@ const ROUTES: readonly AppRoute[] = [
   },
   {
     id: 'sales', hash: '#/sales', label: 'Venta', title: 'Punto de venta', shortcut: '2',
-    description: 'Escanea productos, cobra y completa la venta del turno abierto.'
+    description: 'Escanea productos, cobra y completa la venta del turno abierto.',
+    isReachable: canWorkCash
   },
   {
     id: 'cash', hash: '#/cash', label: 'Caja', title: 'Operación de caja', shortcut: '3',
-    description: 'Apertura de turno, movimientos de efectivo y cierre con arqueo.'
+    description: 'Apertura de turno, movimientos de efectivo y cierre con arqueo.',
+    isReachable: canWorkCash
   },
   {
     id: 'catalog', hash: '#/catalog', label: 'Catálogo', title: 'Catálogo', shortcut: '4',
-    description: 'Consulta productos por barcode y administra precios auditados.'
+    description: 'Consulta productos por barcode y administra precios auditados.',
+    isReachable: canWorkCatalog
   },
   {
     id: 'inventory', hash: '#/inventory', label: 'Inventario', title: 'Inventario', shortcut: '5',
-    description: 'Kardex, recepciones de compra y ajustes autorizados de existencia.'
+    description: 'Kardex, recepciones de compra y ajustes autorizados de existencia.',
+    isReachable: canWorkInventory
   },
   {
     id: 'suppliers', hash: '#/suppliers', label: 'Proveedores', title: 'Proveedores',
@@ -71,19 +120,33 @@ const ROUTES: readonly AppRoute[] = [
   {
     id: 'reports', hash: '#/reports', label: 'Reportes', title: 'Reportes y cierres', shortcut: '8',
     description: 'Cierres de caja, auditoría y estados fiscales del período.',
-    isReachable: (permissionCodes) => REPORTS_READ_CONTRACTS.some(
-      (contract) => isPermissionGranted(contract.permission, permissionCodes)
-    )
+    isReachable: (permissionCodes) => grantsAny(REPORTS_READ_CONTRACTS, permissionCodes)
   },
   {
-    id: 'config', hash: '#/config', label: 'Config.', title: 'Sucursales y dispositivos', shortcut: '0',
-    description: 'Sucursales y dispositivos declarados por la estación.',
+    id: 'config', hash: '#/config', label: 'Config.', title: 'Configuración operativa', shortcut: '0',
+    description: 'Administra maestros, políticas, sucursales y dispositivos.',
     isReachable: canManageConfig
   },
   {
     id: 'rates', hash: '#/rates', label: 'Tasas', title: 'Tasas de cambio', shortcut: '9',
-    description: 'Tasa vigente, histórico local y confirmación de sugerencias externas.'
+    description: 'Tasa vigente, histórico local y confirmación de sugerencias externas.',
+    isReachable: (permissionCodes) => isPermissionGranted(
+      updateExchangeRateContract.permission, permissionCodes
+    )
   }
+];
+
+type NavigationGroup = {
+  readonly label: string;
+  readonly routes: readonly AppRoute[];
+};
+
+const NAVIGATION_GROUPS: readonly NavigationGroup[] = [
+  { label: 'General', routes: ROUTES.filter(({ id }) => id === 'home') },
+  { label: 'Caja', routes: ROUTES.filter(({ id }) => ['sales', 'cash', 'catalog'].includes(id)) },
+  { label: 'Inventario', routes: ROUTES.filter(({ id }) => ['inventory', 'suppliers', 'counts'].includes(id)) },
+  { label: 'Administración', routes: ROUTES.filter(({ id }) => ['config', 'rates'].includes(id)) },
+  { label: 'Supervisión y gerencia', routes: ROUTES.filter(({ id }) => id === 'reports') }
 ];
 
 export const resolveRoute = (hash: string): AppRoute =>
@@ -96,6 +159,19 @@ export const resolveRoute = (hash: string): AppRoute =>
  */
 export const isRouteReachable = (route: AppRoute, permissionCodes: readonly string[]): boolean =>
   route.isReachable === undefined || route.isReachable(permissionCodes);
+
+/**
+ * Un perfil es la unión de capacidades concedidas. Los nombres de rol no
+ * participan y una ruta aparece una sola vez aunque varios permisos la habiliten.
+ */
+export const visibleNavigationGroups = (
+  permissionCodes: readonly string[]
+): readonly NavigationGroup[] => NAVIGATION_GROUPS
+  .map((group) => ({
+    ...group,
+    routes: group.routes.filter((route) => isRouteReachable(route, permissionCodes))
+  }))
+  .filter((group) => group.routes.length > 0);
 
 /** Atajo de teclado del POS: Alt + dígito lleva a la pantalla correspondiente. */
 export const shortcutHash = (key: string): string | null =>
@@ -203,7 +279,8 @@ const HomeScreen = ({ capabilities, permissionCodes }: {
       {PRODUCT_NAME} está conectado al nodo local. Elige una operación para comenzar.
     </p>
     <nav className="quick-actions" aria-label="Accesos directos">
-      {ROUTES.filter((item) => item.id !== 'home' && isRouteReachable(item, permissionCodes)).map((item) => (
+      {visibleNavigationGroups(permissionCodes).flatMap((group) => group.routes)
+        .filter((item) => item.id !== 'home').map((item) => (
         <a key={item.id} className="quick-action" href={item.hash}>
           <span className="quick-action-key" aria-hidden="true">Alt+{item.shortcut}</span>
           <strong>{item.label}</strong>
@@ -317,16 +394,21 @@ export const AppView = ({
       <aside className="sidebar">
         <Brand />
         <nav aria-label="Navegación principal">
-          {ROUTES.filter((item) => isRouteReachable(item, state.session.permissionCodes)).map((item) => (
-            <a
-              key={item.id}
-              href={item.hash}
-              aria-current={route.id === item.id ? 'page' : undefined}
-              title={item.description}
-            >
-              <span>{item.label}</span>
-              <kbd aria-hidden="true">Alt+{item.shortcut}</kbd>
-            </a>
+          {visibleNavigationGroups(state.session.permissionCodes).map((group) => (
+            <div className="navigation-group" key={group.label}>
+              {group.label !== 'General' && <p>{group.label}</p>}
+              {group.routes.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.hash}
+                  aria-current={route.id === item.id ? 'page' : undefined}
+                  title={item.description}
+                >
+                  <span>{item.label}</span>
+                  <kbd aria-hidden="true">Alt+{item.shortcut}</kbd>
+                </a>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-footer">
@@ -408,13 +490,14 @@ export const App = ({ api = defaultApi }: { readonly api?: DesktopApi }): React.
     const navigate = (event: KeyboardEvent): void => {
       if (!event.altKey || event.ctrlKey || event.metaKey) return;
       const hash = shortcutHash(event.key);
-      if (!hash) return;
+      if (!hash || state.kind !== 'ready'
+        || !isRouteReachable(resolveRoute(hash), state.session.permissionCodes)) return;
       event.preventDefault();
       window.location.hash = hash;
     };
     window.addEventListener('keydown', navigate);
     return () => window.removeEventListener('keydown', navigate);
-  }, []);
+  }, [state]);
 
   const login = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();

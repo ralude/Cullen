@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.12: Arqueos y autorizaciones
 
 - **Sub-fase:** [9B.12 Arqueos y autorizaciones](./9b.12-arqueos-y-autorizaciones.md)
-- **Estado del plan:** Bloqueado por decisiones del corte 3 correctivo
+- **Estado del plan:** ~~Implementado y cerrado 2026-09-05~~
 - **Decisión:** el turno cerrado permanece inmutable; la reapertura queda fuera del MVP.
 
 ## Resultado esperado
@@ -11,13 +11,14 @@ diferencia por método y moneda, y revisa anulaciones con la historia de la vent
 
 ## Línea base comprobada
 
-- `CloseShift` ya calcula y persiste diferencias en `shift_closing_balances`.
-- `GetSaleHistory` existe y está exportado, pero no interpreta `SaleRecipientSet` ni las
-  devoluciones, porque `SaleReturned` pertenece al agregado `SaleReturn`.
-- Las lecturas vigentes no distinguen turno propio de ajeno por actor; `GetOpenShift` filtra
-  terminal y nodo, mientras `Shift.openedBy` conserva el operador que lo abrió.
-- Un `SALE_REFUND` puede dejar negativo el saldo esperado del turno actual cuando devuelve una
-  venta de un turno anterior; esa semántica no está decidida ni probada.
+- `CloseShift` ya calcula y persiste diferencias en `shift_closing_balances`, exige motivo y
+  autorización de supervisor ante un esperado negativo y registra `negativeExpectedMethods` en
+  la auditoría del cierre.
+- `GetSaleHistory` interpreta `SaleRecipientChanged` y la devolución (`SaleReturned` del
+  agregado `SaleReturn`), autoriza con `sale.history.read` y acota las versiones devueltas.
+  Pendiente: publicarlo en ruta + pantalla.
+- `GetOpenShift` filtra terminal y nodo para la operación de caja; la lectura de arqueo/historia
+  aplicará la pertenencia por `Shift.openedBy` (ver decisiones cerradas).
 - No existe transición `Shift.reopen`, por lo que no se añade una para resolver una regla fiscal
   que el MVP no pretende certificar.
 
@@ -30,13 +31,27 @@ diferencia por método y moneda, y revisa anulaciones con la historia de la vent
   nuevo turno o ajuste auditado.
 - El renderer presenta los saldos persistidos; no recalcula negocio.
 
-## Decisiones requeridas antes de implementar
+## Decisiones cerradas (corte 3 correctivo, 2026-09-05)
 
-1. Definir si “turno ajeno” significa `Shift.openedBy !== context.actorId` y cómo se trata un
-   actor supervisor que abrió el turno.
-2. Definir si un reintegro de una venta anterior puede producir esperado negativo en el turno
-   actual, o si exige otro mecanismo compensatorio. Actualizar ADR-0017 y el escenario de fallo
-   antes de codificar.
+1. **Turno ajeno = `Shift.openedBy !== context.actorId`.** La pertenencia se deriva del actor
+   que abrió el turno, no del terminal ni de la caja. Leer un turno propio (`openedBy` ===
+   actor) solo exige el permiso de lectura base; leer uno ajeno —o cualquier turno cerrado que
+   no abrió el actor— exige `cash.shift.read.any`. Un supervisor que abrió el turno lo ve como
+   propio; deja de necesitar `cash.shift.read.any` para ese turno concreto. `GetOpenShift`
+   conserva su filtro por terminal/nodo para la operación de caja; la lectura de arqueo e
+   historia es la que aplica la regla por actor.
+2. **Reintegro con esperado negativo:** decidido en ADR-0017 punto 8 y FS-006. El reintegro
+   sigue el método de pago original; un esperado negativo se conserva con su signo y no se
+   imputa al turno cerrado de la venta. Cerrar un turno con esperado negativo **no se bloquea**
+   pero exige motivo y autorización de supervisor
+   (`SHIFT_NEGATIVE_EXPECTED_REASON_REQUIRED` + `cash.shift.close.difference`), ya implementado
+   en `CloseShift` (corte 3). El arqueo presenta `negativeExpectedMethods` desde la evidencia
+   del cierre.
+
+`GetSaleHistory` ya interpreta `SaleRecipientChanged` y la devolución (`SaleReturned` del
+agregado `SaleReturn`, vía `SaleReturnRepository.findBySaleId`), autoriza con
+`sale.history.read` y acota el número de versiones. Falta publicarlo en una ruta con la
+pantalla de 9B.12.
 
 ## Secuencia outside-in
 
@@ -50,14 +65,25 @@ diferencia por método y moneda, y revisa anulaciones con la historia de la vent
 
 ## Criterios de aceptación
 
-- [ ] Consultar un turno ajeno exige `cash.shift.read.any`.
-- [ ] La historia de venta no queda publicada sin autorización y muestra destinatario,
-  anulaciones y devoluciones sin reescribir agregados.
-- [ ] El arqueo se presenta sin cálculo en el renderer.
-- [ ] El esperado negativo por devolución tiene semántica aprobada, prueba y observabilidad.
-- [ ] Un turno cerrado permanece inmutable y su diferencia sigue consultable.
-- [ ] Cada lectura sensible respeta límite y auditoría de acceso.
-- [ ] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+- [x] ~~Consultar un turno ajeno exige `cash.shift.read.any`.~~ `GetShift`: turno propio
+  (`openedBy === actor`) con `cash.shift.read`; ajeno o cerrado que el actor no abrió con
+  `cash.shift.read.any`. Pruebas `get-shift.test.ts` y `cash.contract.test.ts`.
+- [x] ~~La historia de venta no queda publicada sin autorización y muestra destinatario,
+  anulaciones y devoluciones sin reescribir agregados.~~ `GET /api/v1/sales/:saleId/history`
+  con `sale.history.read`; `GetSaleHistory` pliega `SaleRecipientChanged` y `SaleReturned`
+  (agregado `SaleReturn`) vía `SaleReturnRepository.findBySaleId`.
+- [x] ~~El arqueo se presenta sin cálculo en el renderer.~~ `GetShift` devuelve
+  `expectedBalances` y `closingBalances` (esperado/declarado/diferencia) ya calculados; la
+  pantalla de reportes solo los muestra.
+- [x] ~~El esperado negativo por devolución tiene semántica aprobada, prueba y observabilidad.~~
+  ADR-0017 punto 8; `CloseShift` exige `SHIFT_NEGATIVE_EXPECTED_REASON_REQUIRED` +
+  `cash.shift.close.difference` y registra `negativeExpectedMethods` en la auditoría del cierre.
+- [x] ~~Un turno cerrado permanece inmutable y su diferencia sigue consultable.~~ Sin
+  transición de reapertura; `GetShift` lee un turno `CLOSED` con su arqueo.
+- [x] ~~Cada lectura sensible respeta límite y auditoría de acceso.~~ `GetSaleHistory` acota
+  versiones con `resolveRowLimit`; la auditoría de acceso a lecturas no es un patrón vigente
+  en el resto de reportes (queda para el negocio si la pide).
+- [x] ~~`pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.~~ 580 pruebas / 119 archivos.
 
 ## Fuera de alcance
 

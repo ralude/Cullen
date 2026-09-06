@@ -131,4 +131,75 @@ describe('config (branches and devices) HTTP contracts', () => {
     expect(runtime.handle.sqlite.prepare('select count(*) from branches').pluck().get()).toBe(0);
     expect(runtime.handle.sqlite.prepare('select count(*) from devices').pluck().get()).toBe(0);
   });
+
+  it('administers operational masters and preserves policy versions through HTTP', async () => {
+    const { app, runtime, cookie } = await setup();
+    const category = await app.inject({
+      method: 'PUT', url: '/api/v1/config/categories',
+      headers: { cookie, 'idempotency-key': 'category-001' },
+      payload: { name: 'Víveres', isActive: true, reason: 'Alta de catálogo' }
+    });
+    expect(category.statusCode).toBe(200);
+    const categoryId = category.json<{ id: string }>().id;
+    const unit = await app.inject({
+      method: 'PUT', url: '/api/v1/config/units',
+      headers: { cookie, 'idempotency-key': 'unit-001' },
+      payload: { code: 'UND', name: 'Unidad', quantityScale: 0, isActive: true, reason: 'Alta de catálogo' }
+    });
+    expect(unit.statusCode).toBe(200);
+    const unitId = unit.json<{ id: string }>().id;
+    const method = await app.inject({
+      method: 'PUT', url: '/api/v1/config/payment-methods',
+      headers: { cookie, 'idempotency-key': 'payment-001' },
+      payload: { code: 'CASH', name: 'Efectivo', kind: 'CASH', currencyCode: 'VES', isActive: true, reason: 'Alta' }
+    });
+    expect(method.statusCode).toBe(200);
+
+    const listed = await app.inject({ method: 'GET', url: '/api/v1/config/operational-master-data', headers: { cookie } });
+    expect(listed.statusCode).toBe(200);
+    expect(listed.json()).toMatchObject({
+      categories: [{ id: categoryId, isActive: true }],
+      units: [{ id: unitId, code: 'UND' }], paymentMethods: [{ code: 'CASH' }]
+    });
+
+    for (const [key, maximumBasisPoints] of [['discount-001', 1000], ['discount-002', 1500]] as const) {
+      const response = await app.inject({
+        method: 'POST', url: '/api/v1/config/policies/discount',
+        headers: { cookie, 'idempotency-key': key }, payload: { maximumBasisPoints, reason: 'Ajuste gerencial' }
+      });
+      expect(response.statusCode).toBe(200);
+    }
+    expect(runtime.handle.sqlite.prepare(
+      "select count(*) from operational_policy_versions where policy_type = 'DISCOUNT'"
+    ).pluck().get()).toBe(2);
+    expect(runtime.handle.sqlite.prepare(
+      "select count(*) from operational_policy_versions where policy_type = 'DISCOUNT' and is_active = 1"
+    ).pluck().get()).toBe(1);
+    expect(runtime.handle.sqlite.prepare(
+      "select count(*) from audit_log where entity_type in ('Category', 'UnitOfMeasure', 'PaymentMethod', 'OperationalPolicy')"
+    ).pluck().get()).toBe(5);
+  });
+
+  it('blocks deactivation and scale changes when an active product uses the master', async () => {
+    const { app, runtime, cookie } = await setup();
+    const category = await app.inject({ method: 'PUT', url: '/api/v1/config/categories',
+      headers: { cookie, 'idempotency-key': 'category-live' }, payload: { name: 'Activa', isActive: true, reason: 'Alta' } });
+    const unit = await app.inject({ method: 'PUT', url: '/api/v1/config/units',
+      headers: { cookie, 'idempotency-key': 'unit-live' }, payload: { code: 'KG', name: 'Kilogramo', quantityScale: 3, isActive: true, reason: 'Alta' } });
+    const categoryId = category.json<{ id: string }>().id;
+    const unitId = unit.json<{ id: string }>().id;
+    runtime.handle.sqlite.prepare(`insert into products
+      (id, name, description, category_id, unit_id, price_minor_units, currency_code, tax_rate_basis_points, is_active, version)
+      values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run('product-1', 'Arroz', '', categoryId, unitId, 100, 'VES', 1600, 1, 1);
+
+    const categoryDenied = await app.inject({ method: 'PUT', url: '/api/v1/config/categories',
+      headers: { cookie, 'idempotency-key': 'category-disable' }, payload: { id: categoryId, name: 'Activa', isActive: false, reason: 'Baja' } });
+    expect(categoryDenied.statusCode).toBe(409);
+    expect(categoryDenied.json()).toMatchObject({ code: 'CATEGORY_IN_USE' });
+    const scaleDenied = await app.inject({ method: 'PUT', url: '/api/v1/config/units',
+      headers: { cookie, 'idempotency-key': 'unit-scale' }, payload: { code: 'KG', name: 'Kilogramo', quantityScale: 2, isActive: true, reason: 'Cambio' } });
+    expect(scaleDenied.statusCode).toBe(409);
+    expect(scaleDenied.json()).toMatchObject({ code: 'UNIT_OF_MEASURE_SCALE_IN_USE' });
+  });
 });

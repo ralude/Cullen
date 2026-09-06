@@ -195,4 +195,48 @@ describe('CloseShift', () => {
     expect(differenceRepository.stored?.status).toBe('OPEN');
     expect(differenceRepository.saves).toBe(0);
   });
+
+  it('requires an explicit reason and supervisor authorization to close with a negative expected balance', async () => {
+    const refunded = (): Shift => {
+      const value = shift();
+      value.registerMovement({
+        id: 'refund-001', type: 'SALE_REFUND', method: usdCash,
+        amount: Money.fromMinorUnits(12_000, 'USD'), reason: 'Return from a previous shift',
+        registeredBy: 'user-001', terminalId: 'terminal-001', originNodeId: 'node-001',
+        occurredAt: new Date('2026-08-16T09:00:00.000Z'), eventId: 'refund-event',
+        reference: { sourceId: 'return-001', sourceEventId: 'return-event' }
+      });
+      return value;
+    };
+
+    const withoutReason = await useCase(new FakeShiftRepository(refunded())).execute({
+      shiftId: 'shift-001',
+      declaredBalances: [{ paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 0 }]
+    }, context);
+    expect(withoutReason).toMatchObject({
+      ok: false, error: { code: 'SHIFT_NEGATIVE_EXPECTED_REASON_REQUIRED' }
+    });
+
+    const withoutSupervisor = await useCase(new FakeShiftRepository(refunded()), {
+      authorize: async (_context, permission) => permission !== 'cash.shift.close.difference'
+    }).execute({
+      shiftId: 'shift-001', reason: 'Supervisor aportó efectivo para el reintegro',
+      declaredBalances: [{ paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 0 }]
+    }, context);
+    expect(withoutSupervisor).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
+
+    const evidence = { transactions: 0, ledger: [] as string[], outbox: [] as string[], audit: [] as AuditEntry[] };
+    const repository = new FakeShiftRepository(refunded());
+    const closed = await useCase(repository, { authorize: async () => true }, evidence).execute({
+      shiftId: 'shift-001', reason: 'Supervisor aportó efectivo para el reintegro',
+      declaredBalances: [{ paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 0 }]
+    }, context);
+    expect(closed.ok).toBe(true);
+    expect(repository.stored?.status).toBe('CLOSED');
+    expect(evidence.audit).toMatchObject([{
+      action: 'SHIFT_CLOSED',
+      reason: 'Supervisor aportó efectivo para el reintegro',
+      after: { negativeExpectedMethods: ['CASH_USD:USD'] }
+    }]);
+  });
 });

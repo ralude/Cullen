@@ -132,6 +132,24 @@ describe('stock count HTTP contracts', () => {
     expect(runtime.handle.sqlite.prepare('select count(*) from stock_count_differences').pluck().get()).toBe(1);
   });
 
+  it('rejects opening a second count while one is already open on the node', async () => {
+    const { app, cookie } = await setup();
+    const first = await app.inject({
+      method: 'POST', url: '/api/v1/inventory/counts',
+      headers: { cookie, 'idempotency-key': 'count-open-dup-1' },
+      payload: { reason: 'Primer conteo' }
+    });
+    expect(first.statusCode).toBe(201);
+
+    const second = await app.inject({
+      method: 'POST', url: '/api/v1/inventory/counts',
+      headers: { cookie, 'idempotency-key': 'count-open-dup-2' },
+      payload: { reason: 'Segundo conteo solapado' }
+    });
+    expect(second.statusCode).toBe(409);
+    expect(second.json()).toMatchObject({ code: 'STOCK_COUNT_ALREADY_OPEN' });
+  });
+
   it('rejects a closed count, leaving the balance untouched', async () => {
     const { app, cookie, productId } = await setup();
     const opened = await app.inject({

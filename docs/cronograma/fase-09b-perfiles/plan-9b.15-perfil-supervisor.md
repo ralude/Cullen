@@ -1,7 +1,7 @@
 # Plan de ejecución 9B.15: Perfil Jefe de cajas
 
 - **Sub-fase:** [9B.15 Perfil Jefe de cajas](./9b.15-perfil-supervisor.md)
-- **Estado del plan:** Bloqueado hasta volver a cerrar 9B.06 y completar 9B.12
+- **Estado del plan:** ~~Implementado y cerrado 2026-09-05~~
 - **Base:** [ADR-0015](../../architecture/adr/0015-permisos-efectivos-en-la-sesion.md) y
   [plan 9B.12](./plan-9b.12-arqueos-y-autorizaciones.md)
 - **Disciplina:** Outside-in TDD (ADR-0007) y Ponytail `full`
@@ -43,13 +43,15 @@ sensibles autorizadas, sin duplicar pantallas ni reabrir turnos cerrados.
 
 ## Criterios de aceptación
 
-- [ ] El supervisor reutiliza el flujo del cajero y ve una sola instancia de cada capacidad.
-- [ ] Turnos ajenos y arqueos requieren `cash.shift.read.any` y consultas acotadas.
-- [ ] Cada acción sensible comprueba permiso y motivo en aplicación y deja auditoría.
-- [ ] La historia de venta no se publica a cualquier sesión válida.
-- [ ] La devolución aparece solo cuando 9B.06 existe y el permiso está concedido.
-- [ ] No hay reapertura ni modificación de cierres previos.
-- [ ] `pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.
+- [x] ~~El supervisor reutiliza el flujo del cajero y ve una sola instancia de cada capacidad.~~
+- [x] ~~Turnos ajenos y arqueos requieren `cash.shift.read.any` y consultas acotadas.~~ El
+  detalle exige `cash.shift.read.any` cuando `openedBy` difiere; el consolidado usa el reporte
+  de cierres con período, caja y límite.
+- [x] ~~Cada acción sensible comprueba permiso y motivo en aplicación y deja auditoría.~~
+- [x] ~~La historia de venta no se publica a cualquier sesión válida.~~
+- [x] ~~La devolución aparece solo cuando 9B.06 existe y el permiso está concedido.~~
+- [x] ~~No hay reapertura ni modificación de cierres previos.~~
+- [x] ~~`pnpm test`, `pnpm typecheck` y `pnpm lint` quedan verdes.~~ 591 pruebas / 120 archivos.
 
 ## Fuera de alcance
 

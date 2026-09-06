@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifySchema } from 'fastify';
 import {
   closeShiftContract,
   getOpenShiftContract,
+  getShiftContract,
   listCashRegistersContract,
   openShiftContract,
   registerCashMovementContract,
@@ -67,6 +68,19 @@ export const registerCashRoutes = (
       : sendProblem(reply, request, result.error.code, result.error.message);
   });
 
+  app.get<{ Params: { shiftId: string } }>(getShiftContract.path, {
+    schema: getShiftContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.cash.getShift.execute(
+      request.params.shiftId,
+      createExecutionContext(request, principal, dependencies)
+    );
+    return result.ok ? reply.send(shiftResponse(result.value))
+      : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
   app.post<{ Params: { shiftId: string }; Body: RegisterCashMovementRequest }>(
     registerCashMovementContract.path,
     { schema: registerCashMovementContract.schema as FastifySchema },
@@ -88,7 +102,8 @@ export const registerCashRoutes = (
     if (!principal) return;
     const result = await dependencies.cash.closeShift.execute({
       shiftId: request.params.shiftId,
-      declaredBalances: request.body.declaredBalances.map((balance) => ({ ...balance }))
+      declaredBalances: request.body.declaredBalances.map((balance) => ({ ...balance })),
+      ...(request.body.reason === undefined ? {} : { reason: request.body.reason })
     }, createExecutionContext(request, principal, dependencies));
     return result.ok ? reply.send(shiftResponse(result.value))
       : sendProblem(reply, request, result.error.code, result.error.message);

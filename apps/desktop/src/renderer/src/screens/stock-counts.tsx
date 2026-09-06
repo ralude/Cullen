@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   approveStockCountContract,
   isPermissionGranted,
+  listStockCountsContract,
   openStockCountContract,
   rejectStockCountContract,
   type StockCountResponse,
@@ -11,8 +12,9 @@ import { createIdempotencyKey, formatScaledDecimal } from '../api-client.js';
 import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
 
 /** Contratos que convierten esta pantalla en trabajo real y no en una lectura. */
-const STOCK_COUNT_COMMAND_CONTRACTS = [
-  openStockCountContract, approveStockCountContract, rejectStockCountContract
+const STOCK_COUNT_WORK_CONTRACTS = [
+  listStockCountsContract, openStockCountContract, approveStockCountContract,
+  rejectStockCountContract
 ] as const;
 
 /**
@@ -20,7 +22,7 @@ const STOCK_COUNT_COMMAND_CONTRACTS = [
  * sin ninguno de los dos permisos no tiene trabajo real en esta pantalla.
  */
 export const canWorkOnStockCounts = (permissionCodes: readonly string[]): boolean =>
-  STOCK_COUNT_COMMAND_CONTRACTS.some(
+  STOCK_COUNT_WORK_CONTRACTS.some(
     (contract) => isPermissionGranted(contract.permission, permissionCodes)
   );
 

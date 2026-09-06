@@ -3,7 +3,9 @@ import {
   getAuditReportContract,
   getCashClosureReportContract,
   getFiscalOperationsReportContract,
-  getMarginReportContract
+  getInventoryReportContract,
+  getMarginReportContract,
+  getSalesReportContract
 } from '@supermarket/shared';
 import {
   createExecutionContext,
@@ -103,6 +105,43 @@ export const registerReportRoutes = (
       }, createExecutionContext(request, principal, dependencies));
       return result.ok
         ? reply.send(result.value)
+        : sendProblem(reply, request, result.error.code, result.error.message);
+    }
+  );
+
+  app.get<{ Querystring: { from: string; to: string; limit?: number; currencyCode?: string } }>(
+    getSalesReportContract.path,
+    { schema: getSalesReportContract.schema as FastifySchema },
+    async (request, reply) => {
+      const principal = await requirePrincipal(request, reply, dependencies);
+      if (!principal) return;
+      const result = await reports.getSalesReport.execute({
+        from: new Date(request.query.from), to: new Date(request.query.to),
+        ...(request.query.limit === undefined ? {} : { limit: request.query.limit }),
+        ...(request.query.currencyCode ? { currencyCode: request.query.currencyCode } : {})
+      }, createExecutionContext(request, principal, dependencies));
+      return result.ok
+        ? reply.send(result.value)
+        : sendProblem(reply, request, result.error.code, result.error.message);
+    }
+  );
+
+  app.get<{ Querystring: { asOf: string; expiringWithinDays?: number; limit?: number } }>(
+    getInventoryReportContract.path,
+    { schema: getInventoryReportContract.schema as FastifySchema },
+    async (request, reply) => {
+      const principal = await requirePrincipal(request, reply, dependencies);
+      if (!principal) return;
+      const result = await reports.getInventoryReport.execute({
+        asOf: new Date(request.query.asOf),
+        ...(request.query.expiringWithinDays === undefined
+          ? {} : { expiringWithinDays: request.query.expiringWithinDays }),
+        ...(request.query.limit === undefined ? {} : { limit: request.query.limit })
+      }, createExecutionContext(request, principal, dependencies));
+      return result.ok
+        ? reply.send(result.value.map((entry) => ({
+          ...entry, expiresAt: entry.expiresAt?.toISOString() ?? null
+        })))
         : sendProblem(reply, request, result.error.code, result.error.message);
     }
   );

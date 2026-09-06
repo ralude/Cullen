@@ -40,9 +40,15 @@ fallar después de guardar la intención y sus efectos comerciales.
 La devolución total es una raíz inmutable separada. El saldo de stock y el esperado del
 turno se revierten una sola vez y el documento fiscal conserva su máquina de estados.
 La simulación se rotula en la respuesta y en la UI; no constituye certificación legal.
-Si el turno actual no recibió fondos suficientes por ese método, `SALE_REFUND` conserva un
-esperado negativo. El arqueo no lo corrige ni lo atribuye al turno cerrado de la venta: muestra
-el signo y calcula la diferencia contra el efectivo o saldo realmente declarado.
+El reintegro sale por el **método de pago original** de la venta devuelta (nunca convertido a
+efectivo). Si el turno actual no recibió fondos suficientes por ese método, `SALE_REFUND`
+conserva un esperado negativo. El arqueo no lo corrige ni lo atribuye al turno cerrado de la
+venta: muestra el signo y calcula la diferencia contra el efectivo o saldo realmente declarado.
+En `CASH_*` el negativo es salida física de gaveta; en tarjeta o transferencia queda como
+partida pendiente de conciliación con el procesador. Cerrar un turno con esperado negativo en
+cualquier método exige motivo y autorización de supervisor registrados en el arqueo; sin ese
+reconocimiento el cierre se rechaza. Esa validación de cierre la implementa 9B.12 (Corte 3 del
+plan correctivo).
 
 ## Retry semantics
 

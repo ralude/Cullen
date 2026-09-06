@@ -98,3 +98,49 @@ export type MarginReportEntryDto = {
   readonly costMinorUnits: number | null;
   readonly marginMinorUnits: number | null;
 };
+
+export type SalesReportInput = {
+  readonly from: Date;
+  readonly to: Date;
+  readonly currencyCode?: string;
+  readonly limit?: number;
+};
+
+/**
+ * Resumen de ventas `COMPLETED` por moneda y escala de cantidad en un período
+ * UTC (9B.13). No suma cantidades de escalas distintas ni convierte monedas;
+ * las ventas `DRAFT` y `VOIDED` no cuentan.
+ */
+export type SalesReportEntryDto = {
+  readonly currencyCode: string;
+  readonly quantityScale: number;
+  readonly salesCount: number;
+  readonly lineCount: number;
+  readonly quantitySoldScaled: number;
+  readonly grossMinorUnits: number;
+  readonly discountMinorUnits: number;
+  readonly netMinorUnits: number;
+};
+
+export type InventoryReportInput = {
+  readonly asOf: Date;
+  readonly expiringWithinDays?: number;
+  readonly limit?: number;
+};
+
+/**
+ * Existencia del nodo por artículo y lote a una fecha de corte, con el estado
+ * de vencimiento del lote (9B.13). El saldo se deriva de los movimientos;
+ * no se materializa un saldo mutable.
+ */
+export type InventoryReportEntryDto = {
+  readonly stockItemId: string;
+  readonly productId: string;
+  readonly batchId: string | null;
+  readonly lotNumber: string | null;
+  readonly unitCode: string;
+  readonly quantityScale: number;
+  readonly onHandScaled: number;
+  readonly expiresAt: Date | null;
+  readonly expiryStatus: 'NONE' | 'OK' | 'EXPIRING' | 'EXPIRED';
+};
