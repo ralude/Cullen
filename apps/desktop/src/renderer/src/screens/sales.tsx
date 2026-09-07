@@ -3,8 +3,9 @@ import type {
   CashRegisterResponse, PaymentMethodResponse, SaleResponse, ShiftResponse
 } from '@supermarket/shared';
 import {
-  applySaleDiscountContract, isPermissionGranted, returnSaleContract, voidSaleContract,
-  type SaleReturnResponse
+  applySaleDiscountContract, isPermissionGranted, issueSaleInvoiceContract, returnSaleContract,
+  voidSaleContract,
+  type SaleReturnResponse, type SimulatedFiscalDocumentResponse
 } from '@supermarket/shared';
 import { ApiProblemError, createIdempotencyKey, formatScaledDecimal, parseMinorUnits } from '../api-client.js';
 import {
@@ -69,6 +70,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
   const [voidReason, setVoidReason] = useState('');
   const [returnReason, setReturnReason] = useState('');
   const [saleReturn, setSaleReturn] = useState<SaleReturnResponse | null>(null);
+  const [invoice, setInvoice] = useState<SimulatedFiscalDocumentResponse['document'] | null>(null);
   const [voidConfirming, setVoidConfirming] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -231,6 +233,22 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
     setVoidConfirming(false);
     void run(() => api.voidSale(sale.id, { reason: voidReason.trim() }, intentKey('void')), 'Venta anulada.', 'void');
   };
+  /**
+   * La factura es un comando propio: completar la venta no la emite, porque un
+   * fallo del dispositivo fiscal no puede revertir un cobro ya asentado. La
+   * devolución la exige, así que sin este paso el nodo la rechaza.
+   */
+  const issueInvoice = (): void => {
+    if (!sale || sale.status !== 'COMPLETED') return;
+    setLoading(true); setError(null); setNotice(null);
+    void api.issueSaleInvoice(sale.id, 'Emisión de factura de la venta', intentKey('invoice-' + sale.id))
+      .then((issued) => {
+        setInvoice(issued.document);
+        setNotice('Factura ' + (issued.document.fiscalNumber ?? issued.document.id) + ' emitida (SIMULACIÓN).');
+      })
+      .catch((nextError) => setError(nextError))
+      .finally(() => setLoading(false));
+  };
   const executeReturn = (): void => {
     if (!sale || sale.status !== 'COMPLETED' || !returnReason.trim()) return;
     setLoading(true); setError(null); setNotice(null);
@@ -243,13 +261,14 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
     setSale(null); setError(null); setNotice(null); setHighlightedItemId(null);
     setBarcode(''); setQuantity('1'); setPaymentAmount(''); setPaymentAmount2('');
     setPaymentMethodCode2(''); setVoidReason(''); setVoidConfirming(false);
-    setDiscountItemId(''); setDiscountBasisPoints(''); setDiscountReason(''); setReturnReason(''); setSaleReturn(null);
+    setDiscountItemId(''); setDiscountBasisPoints(''); setDiscountReason(''); setReturnReason(''); setSaleReturn(null); setInvoice(null);
     setRecipientValue(''); setRecipientName(''); setRecipientAddress('');
   };
   const shiftLabel = activeShiftLabel(shift, cashRegister?.name ?? null);
   const completionBlocker = saleCompletionBlocker(sale, scale);
   const voidAuthorized = isPermissionGranted(voidSaleContract.permission, permissionCodes);
   const returnAuthorized = isPermissionGranted(returnSaleContract.permission, permissionCodes);
+  const invoiceAuthorized = isPermissionGranted(issueSaleInvoiceContract.permission, permissionCodes);
   return (
     <div className="operation-screen">
       <ScreenNote>El servidor conserva los totales, impuestos y estado fiscal. Esta pantalla solo coordina intenciones del operador. No se aceptan cálculos locales.</ScreenNote>
@@ -276,11 +295,28 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
           <div><dt>Estado</dt><dd>{sale.status}</dd></div>
         </dl>
         <span className="simulation-label">Fiscal · SIMULACIÓN</span>
+        {sale.status === 'COMPLETED' && invoiceAuthorized && <section className="panel" aria-labelledby="invoice-title">
+          <p className="eyebrow">Documento fiscal</p><h3 id="invoice-title">Emitir factura</h3>
+          <p className="muted">
+            El nodo arma la factura con los importes que la venta cobró. Es un paso propio para
+            que un fallo del dispositivo no revierta el cobro ya asentado en el turno.
+          </p>
+          <ActionButton className="primary-button" type="button" onClick={issueInvoice} busy={loading} disabled={loading || invoice !== null}>
+            {invoice ? 'Factura emitida' : 'Emitir factura'}
+          </ActionButton>
+          {invoice && <p className="inline-status is-ready" role="status">
+            Factura {invoice.fiscalNumber ?? invoice.id} · {invoice.status} · SIMULACIÓN
+          </p>}
+        </section>}
         {sale.status === 'COMPLETED' && returnAuthorized && <section className="panel danger-panel" aria-labelledby="return-title">
           <p className="eyebrow">Acción sensible</p><h3 id="return-title">Devolver venta completa</h3>
           <p className="muted">Restaura inventario y registra el reintegro en el turno de origen. Solo está disponible como simulación total.</p>
+          {invoice === null && <p className="inline-status is-warning" role="status">
+            <span aria-hidden="true">!</span> Esta venta todavía no tiene factura emitida. Emítela
+            arriba: la nota de crédito se deriva de ese documento.
+          </p>}
           <label>Motivo<input value={returnReason} onChange={(event) => setReturnReason(event.target.value)} maxLength={500} required /></label>
-          <ActionButton className="primary-button" type="button" onClick={executeReturn} busy={loading} disabled={loading || !returnReason.trim() || saleReturn !== null}>
+          <ActionButton className="primary-button" type="button" onClick={executeReturn} busy={loading} disabled={loading || !returnReason.trim() || saleReturn !== null || invoice === null}>
             {saleReturn ? 'Devolución registrada' : 'Registrar devolución'}
           </ActionButton>
           {saleReturn && <p className="inline-status is-ready" role="status">Nota de crédito {saleReturn.creditNoteFiscalNumber ?? saleReturn.creditNoteId} · SIMULACIÓN</p>}

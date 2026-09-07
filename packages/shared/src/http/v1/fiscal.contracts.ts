@@ -22,6 +22,23 @@ export type SimulatedFiscalReportResponse = {
   };
 };
 
+/**
+ * Documento devuelto por las rutas fiscales. `content` viaja opaco: el nodo es
+ * su autoridad y la interfaz solo necesita identificarlo y mostrar su estado.
+ */
+export type SimulatedFiscalDocumentResponse = {
+  readonly fiscalMode: 'SIMULATION';
+  readonly document: {
+    readonly id: string;
+    readonly status: string;
+    readonly version: number;
+    readonly attempts: number;
+    readonly fiscalNumber: string | null;
+    readonly lastErrorCode: string | null;
+    readonly lastEvidence: Readonly<Record<string, string>> | null;
+  };
+};
+
 export type IssueSimulatedFiscalDocumentRequest = {
   readonly content: {
     readonly referenceId: string; readonly type: 'INVOICE' | 'CREDIT_NOTE';

@@ -17,6 +17,7 @@ import {
   getSalesReportContract,
   getShiftContract,
   getSaleHistoryContract,
+  issueSaleInvoiceContract,
   startPurchaseReceiptContract,
   completePurchaseReceiptContract,
   reversePurchaseReceiptContract,
@@ -110,6 +111,7 @@ import {
   type VoidSaleRequest,
   type ReturnSaleRequest,
   type SaleReturnResponse,
+  type SimulatedFiscalDocumentResponse,
   type SimulatedFiscalReportRequest,
   type SimulatedFiscalReportResponse,
   type LoginRequest,
@@ -293,6 +295,13 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
   completeSale: (saleId: string, idempotencyKey: string): Promise<SaleResponse> => requestJson(
     fetcher, path(completeSaleContract.path, saleId),
     { method: completeSaleContract.method, headers: withIdempotency(idempotencyKey) }
+  ),
+  issueSaleInvoice: (saleId: string, reason: string, idempotencyKey: string): Promise<SimulatedFiscalDocumentResponse> => requestJson(
+    fetcher, path(issueSaleInvoiceContract.path, saleId),
+    {
+      method: issueSaleInvoiceContract.method, headers: withIdempotency(idempotencyKey),
+      body: JSON.stringify({ reason })
+    }
   ),
   returnSale: (saleId: string, input: ReturnSaleRequest, idempotencyKey: string): Promise<SaleReturnResponse> => requestJson(
     fetcher, path(returnSaleContract.path, saleId),

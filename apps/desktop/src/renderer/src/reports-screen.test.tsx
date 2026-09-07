@@ -112,7 +112,7 @@ describe('reports screen over simulated HTTP transport', () => {
       capabilities: async () => ({ fiscalMode: 'SIMULATION' as const, simulatedReportsEnabled: false })
     } satisfies DesktopApi, {
       getSale: vi.fn(), startSale: vi.fn(), addSaleItem: vi.fn(), removeSaleItem: vi.fn(),
-      applySaleDiscount: vi.fn(), registerSalePayments: vi.fn(), completeSale: vi.fn(), returnSale: vi.fn(),
+      applySaleDiscount: vi.fn(), registerSalePayments: vi.fn(), completeSale: vi.fn(), returnSale: vi.fn(), issueSaleInvoice: vi.fn(),
       voidSale: vi.fn(), setSaleRecipient: vi.fn(), getOpenShift: vi.fn(), openShift: vi.fn(), registerCashMovement: vi.fn(),
       closeShift: vi.fn(), findProductByBarcode: vi.fn(), listProducts: vi.fn(),
       getPriceHistory: vi.fn(), createProduct: vi.fn(), updatePrice: vi.fn(), getKardex: vi.fn(),
