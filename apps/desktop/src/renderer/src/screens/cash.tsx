@@ -6,8 +6,8 @@ import {
 } from '@supermarket/shared';
 import { ApiProblemError, createIdempotencyKey, parseMinorUnits } from '../api-client.js';
 import {
-  ACTIVE_CASH_REGISTER_KEY, ACTIVE_SHIFT_KEY, ActionButton, EmptyState, Feedback, ScreenNote,
-  clearStorage, money, readStorage, writeStorage, type ScreenProps
+  ACTIVE_CASH_REGISTER_KEY, ActionButton, EmptyState, Feedback, ScreenNote,
+  money, readStorage, writeStorage, type ScreenProps
 } from './shared.js';
 
 export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
@@ -35,6 +35,15 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
     return created;
   };
 
+  /**
+   * La estación solo recuerda su caja. El turno abierto se vuelve a pedir al
+   * nodo en cada carga, así que un turno cerrado desde otra pantalla nunca
+   * sobrevive como dato local ni llega a la pantalla de Venta.
+   */
+  const remember = (next: ShiftResponse | null): void => {
+    if (next) writeStorage(ACTIVE_CASH_REGISTER_KEY, next.cashRegisterId);
+  };
+
   useEffect(() => {
     if (configuredCashRegisterId) setCashRegisterId(configuredCashRegisterId);
   }, [configuredCashRegisterId]);
@@ -47,7 +56,9 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
   }, [api]);
   useEffect(() => {
     if (!configuredCashRegisterId) return;
-    void api.getOpenShift(configuredCashRegisterId).then(setShift).catch((nextError: unknown) => {
+    void api.getOpenShift(configuredCashRegisterId).then((next) => {
+      setShift(next); remember(next);
+    }).catch((nextError: unknown) => {
       if (!(nextError instanceof ApiProblemError && nextError.problem.code === 'SHIFT_NOT_FOUND')) {
         setError(nextError);
       }
@@ -67,12 +78,7 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       const next = await action();
       setShift(next);
       intentKeys.current.delete(intent);
-      if (next.status === 'OPEN') {
-        writeStorage(ACTIVE_SHIFT_KEY, next.id);
-        writeStorage(ACTIVE_CASH_REGISTER_KEY, next.cashRegisterId);
-      } else {
-        clearStorage(ACTIVE_SHIFT_KEY);
-      }
+      remember(next);
       setNotice(success);
     } catch (nextError) { setError(nextError); }
     finally { setLoading(false); }
@@ -81,7 +87,8 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
   const load = async (): Promise<void> => {
     if (!cashRegisterId.trim()) return;
     setLoading(true); setError(null);
-    try { setShift(await api.getOpenShift(cashRegisterId.trim())); }
+    writeStorage(ACTIVE_CASH_REGISTER_KEY, cashRegisterId.trim());
+    try { const next = await api.getOpenShift(cashRegisterId.trim()); setShift(next); remember(next); }
     catch (nextError) {
       if (nextError instanceof ApiProblemError && nextError.problem.code === 'SHIFT_NOT_FOUND') {
         setShift(null);

@@ -54,7 +54,8 @@ describe('operation screens', () => {
   it('exposes the sale flow without client-side business totals', () => {
     const markup = renderToStaticMarkup(<SalesScreen {...props()} />);
     expect(markup).toContain('Abrir carrito');
-    expect(markup).toContain('Turno activo');
+    // El turno se resuelve contra el nodo; el render estático lo muestra consultándose.
+    expect(markup).toContain('Consultando el turno de la caja');
     expect(markup).toContain('No se aceptan cálculos locales');
   });
 

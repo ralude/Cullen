@@ -32,7 +32,7 @@ export const routeScreen = (routeId: string, props: ScreenProps): React.JSX.Elem
 
 export { money } from './screens/shared.js';
 export type { ReportSection } from './screens/shared.js';
-export { saleCompletionBlocker, SalesScreen } from './screens/sales.js';
+export { activeShiftLabel, saleCompletionBlocker, SalesScreen } from './screens/sales.js';
 export { CashScreen } from './screens/cash.js';
 export { CatalogScreen } from './screens/catalog.js';
 export { filterSuppliers, InventoryScreen } from './screens/inventory.js';

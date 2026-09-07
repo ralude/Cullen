@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PaymentMethodResponse, SaleResponse } from '@supermarket/shared';
+import type {
+  CashRegisterResponse, PaymentMethodResponse, SaleResponse, ShiftResponse
+} from '@supermarket/shared';
 import {
   applySaleDiscountContract, isPermissionGranted, returnSaleContract, voidSaleContract,
   type SaleReturnResponse
 } from '@supermarket/shared';
 import { ApiProblemError, createIdempotencyKey, formatScaledDecimal, parseMinorUnits } from '../api-client.js';
 import {
-  ACTIVE_SALE_KEY, ACTIVE_SHIFT_KEY, ActionButton, EmptyState, Feedback, ScreenNote,
+  ACTIVE_CASH_REGISTER_KEY, ACTIVE_SALE_KEY, ActionButton, EmptyState, Feedback, ScreenNote,
   clearStorage, money, readStorage, writeStorage, type ScreenProps
 } from './shared.js';
 
@@ -27,9 +29,27 @@ export const saleCompletionBlocker = (sale: SaleResponse | null, scale: number):
   return null;
 };
 
+/**
+ * Identidad legible del turno en curso: la caja que lo abrió y la hora en que
+ * lo hizo. El cajero reconoce su puesto, no un UUID, y la pantalla ya no
+ * presenta el `shiftId` como si fuera un dato que él deba escribir.
+ */
+export const activeShiftLabel = (
+  shift: ShiftResponse | null, registerName: string | null
+): string | null => {
+  if (!shift || shift.status !== 'OPEN') return null;
+  const opened = new Date(shift.openedAt);
+  const time = Number.isNaN(opened.getTime())
+    ? shift.openedAt
+    : opened.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  return (registerName ?? 'Caja') + ' · turno abierto ' + time;
+};
+
 export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
   const [sale, setSale] = useState<SaleResponse | null>(null);
-  const [shiftId, setShiftId] = useState(() => readStorage(ACTIVE_SHIFT_KEY) ?? '');
+  const [shift, setShift] = useState<ShiftResponse | null>(null);
+  const [cashRegister, setCashRegister] = useState<CashRegisterResponse | null>(null);
+  const [shiftLoading, setShiftLoading] = useState(true);
   const [currencyCode, setCurrencyCode] = useState('USD');
   const [currencyScale, setCurrencyScale] = useState('2');
   const [barcode, setBarcode] = useState('');
@@ -67,6 +87,32 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
     }
   }, [api]);
   useEffect(() => { const savedId = readStorage(ACTIVE_SALE_KEY); if (savedId) void refresh(savedId); }, [refresh]);
+  /**
+   * El turno lo resuelve el nodo a partir de la caja de la estación, nunca una
+   * copia en el navegador: `GET /cash-registers/:id/shift` es la autoridad y un
+   * turno cerrado desaparece de esta pantalla sin que nadie tenga que borrarlo.
+   * Sin caja recordada, una única caja registrada se toma como la de la estación.
+   */
+  const resolveShift = useCallback(async (): Promise<void> => {
+    setShiftLoading(true);
+    const registers = await api.listCashRegisters().catch(() => [] as readonly CashRegisterResponse[]);
+    const remembered = readStorage(ACTIVE_CASH_REGISTER_KEY);
+    const register = registers.find((candidate) => candidate.id === remembered)
+      ?? (registers.length === 1 ? registers[0] : undefined);
+    setCashRegister(register ?? null);
+    const registerId = register?.id ?? remembered;
+    if (!registerId) { setShift(null); setShiftLoading(false); return; }
+    try {
+      const open = await api.getOpenShift(registerId);
+      setShift(open.status === 'OPEN' ? open : null);
+    } catch (nextError) {
+      setShift(null);
+      if (!(nextError instanceof ApiProblemError && nextError.problem.code === 'SHIFT_NOT_FOUND')) {
+        setError(nextError);
+      }
+    } finally { setShiftLoading(false); }
+  }, [api]);
+  useEffect(() => { void resolveShift(); }, [resolveShift]);
   /** Precarga efectivo como método sugerido, sin impedir elegir otro. */
   useEffect(() => {
     void api.listPaymentMethods().then((methods) => {
@@ -103,9 +149,9 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
   };
   const focusBarcode = (): void => { barcodeInput.current?.focus(); barcodeInput.current?.select(); };
   const start = (): void => {
-    if (!shiftId.trim()) { setError(new Error('SHIFT_REQUIRED')); return; }
-    const intent = 'start-' + shiftId.trim() + '-' + currencyCode.trim().toUpperCase();
-    void run(() => api.startSale({ shiftId: shiftId.trim(), currencyCode: currencyCode.trim().toUpperCase() }, intentKey(intent)), 'Venta iniciada.', intent)
+    if (!shift) { setError(new Error('SHIFT_REQUIRED')); return; }
+    const intent = 'start-' + shift.id + '-' + currencyCode.trim().toUpperCase();
+    void run(() => api.startSale({ shiftId: shift.id, currencyCode: currencyCode.trim().toUpperCase() }, intentKey(intent)), 'Venta iniciada.', intent)
       .then((next) => { if (next) focusBarcode(); });
   };
   /**
@@ -200,6 +246,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
     setDiscountItemId(''); setDiscountBasisPoints(''); setDiscountReason(''); setReturnReason(''); setSaleReturn(null);
     setRecipientValue(''); setRecipientName(''); setRecipientAddress('');
   };
+  const shiftLabel = activeShiftLabel(shift, cashRegister?.name ?? null);
   const completionBlocker = saleCompletionBlocker(sale, scale);
   const voidAuthorized = isPermissionGranted(voidSaleContract.permission, permissionCodes);
   const returnAuthorized = isPermissionGranted(returnSaleContract.permission, permissionCodes);
@@ -208,13 +255,17 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
       <ScreenNote>El servidor conserva los totales, impuestos y estado fiscal. Esta pantalla solo coordina intenciones del operador. No se aceptan cálculos locales.</ScreenNote>
       <Feedback error={error} notice={notice} onDismiss={dismissFeedback} />
       {!sale ? <section className="panel start-panel" aria-labelledby="start-sale-title">
-        <div><p className="eyebrow">Nueva venta</p><h3 id="start-sale-title">Abrir carrito</h3><p className="muted">El turno lo abre la pantalla de Caja; aquí solo se selecciona.</p></div>
-        {shiftId.trim()
-          ? <p className="inline-status is-ready"><span aria-hidden="true">✓</span> Turno tomado de Caja: <code>{shiftId.trim()}</code></p>
-          : <p className="inline-status is-warning"><span aria-hidden="true">!</span> Esta estación no tiene un turno abierto. <a href="#/cash">Abre la caja</a> y vuelve a esta pantalla.</p>}
-        <label>Turno activo<input value={shiftId} onChange={(event) => setShiftId(event.target.value)} placeholder="Se completa desde Caja" required /></label>
+        <div><p className="eyebrow">Nueva venta</p><h3 id="start-sale-title">Abrir carrito</h3><p className="muted">El turno lo abre y lo cierra la pantalla de Caja; aquí solo se usa el que esté abierto.</p></div>
+        {shiftLoading
+          ? <p className="inline-status" role="status">Consultando el turno de la caja…</p>
+          : shiftLabel
+            ? <p className="inline-status is-ready" role="status"><span aria-hidden="true">✓</span> {shiftLabel}</p>
+            : <p className="inline-status is-warning" role="status"><span aria-hidden="true">!</span> Esta estación no tiene un turno abierto. <a href="#/cash">Abre la caja</a> y vuelve a esta pantalla.</p>}
         <div className="form-grid"><label>Moneda de venta<input value={currencyCode} onChange={(event) => setCurrencyCode(event.target.value.toUpperCase())} maxLength={8} required /></label><label>Escala visible<input type="number" min="0" max="6" value={currencyScale} onChange={(event) => setCurrencyScale(event.target.value)} /></label></div>
-        <ActionButton className="primary-button" type="button" onClick={start} busy={loading} disabled={loading || !shiftId.trim()}>{loading ? 'Abriendo carrito…' : 'Iniciar venta'}</ActionButton>
+        <div className="button-row">
+          <ActionButton className="primary-button" type="button" onClick={start} busy={loading} disabled={loading || shiftLoading || shift === null}>{loading ? 'Abriendo carrito…' : 'Iniciar venta'}</ActionButton>
+          <ActionButton type="button" onClick={() => void resolveShift()} busy={shiftLoading} disabled={shiftLoading}>Actualizar turno</ActionButton>
+        </div>
       </section> : sale.status !== 'DRAFT' ? <section className="panel closed-sale" aria-labelledby="closed-sale-title">
         <p className="eyebrow">{sale.status === 'COMPLETED' ? 'Venta completada' : 'Venta anulada'}</p>
         <h3 id="closed-sale-title">{money(sale.totalMinorUnits, sale.currencyCode, scale)}</h3>

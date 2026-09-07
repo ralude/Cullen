@@ -52,6 +52,21 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   movimiento de turno, salida de inventario, ledger, auditoría y outbox; debe
   repetir el caso tras reinicio y cubrir idempotencia. Un `COMPLETED` sin sus
   efectos derivados debe quedar visible como atención operativa.
+- **Estado al 2026-09-07:** cerrada la mitad de caja, abierta la de inventario.
+  `CompleteSale` compone `ApplySaleCompletedToShift` y asienta el cobro en el
+  turno dentro de la misma transacción que completa la venta: el `Shift`
+  pertenece a la terminal de origen
+  ([12-sincronizacion-y-ownership](../../architecture/12-sincronizacion-y-ownership.md)),
+  así que es una escritura local del mismo nodo y no una entrega. Un turno
+  cerrado, ajeno o inexistente revierte la venta entera.
+  `packages/drivers/db/src/sale-cash-effect.integration.test.ts` lo demuestra
+  sobre SQLite con movimiento, saldo, ledger, outbox, auditoría e idempotencia.
+  El cierre de turno exige además que no queden ventas en `DRAFT`
+  (`SHIFT_HAS_OPEN_SALES`, 409). **Sigue abierta la salida de inventario:** el
+  `StockItem` es el libro autoritativo del coordinador, y si un nodo autónomo
+  debe autoaplicar su propio `SaleCompleted` es una decisión de Fase 6 /
+  [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md)
+  que no se inventa aquí.
 - **Escenarios relacionados:** [FS-005](../../failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md)
   y [ADR-0005](../../architecture/adr/0005-eventos-outbox.md).
 

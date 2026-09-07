@@ -12,7 +12,11 @@ export type ScreenProps = {
 };
 
 export const ACTIVE_SALE_KEY = 'supermarket.active-sale.v1';
-export const ACTIVE_SHIFT_KEY = 'supermarket.active-shift.v1';
+/**
+ * La estación recuerda su caja, nunca su turno: el turno abierto lo resuelve el
+ * nodo con `GET /cash-registers/:id/shift`. Una copia local del `shiftId`
+ * sobrevivía al cierre y abría ventas contra un turno que ya no existía.
+ */
 export const ACTIVE_CASH_REGISTER_KEY = 'supermarket.active-cash-register.v1';
 
 export const readStorage = (key: string): string | null => {
@@ -38,6 +42,7 @@ export const problemMessage = (error: unknown): string => {
       SHIFT_NOT_FOUND: 'No hay un turno abierto para esta caja.',
       SHIFT_ALREADY_OPEN: 'La caja ya tiene un turno abierto.',
       SHIFT_INVALID_STATE: 'El turno no puede modificarse en este estado.',
+      SHIFT_HAS_OPEN_SALES: 'La caja conserva ventas sin cerrar: cóbralas o anúlalas antes del arqueo.',
       STOCK_ITEM_NOT_FOUND: 'No encontramos el artículo de inventario.',
       STOCK_INSUFFICIENT_BALANCE: 'La existencia no alcanza para este ajuste.',
       SUPPLIER_NOT_FOUND: 'No encontramos el proveedor seleccionado.',
