@@ -191,6 +191,7 @@ const statusFor = (code: string): number => {
   if (code === 'SUPPLIER_NOT_ACTIVE') return 409;
   if (code.endsWith('_IN_USE')) return 409;
   if (code === 'PURCHASE_RECEIPT_SOURCE_DUPLICATED' || code === 'PURCHASE_RECEIPT_NOT_DRAFT') return 409;
+  if (code === 'SHIFT_HAS_OPEN_SALES') return 409;
   if (code === 'POLICY_NOT_CONFIGURED') return 409;
   if (code === 'DATABASE_BUSY' || code === 'NETWORK_UNAVAILABLE') return 503;
   return 400;

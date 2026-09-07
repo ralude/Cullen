@@ -15,6 +15,7 @@ import { DrizzleBusinessEventStore } from './business-event-store.js';
 import { openDatabase, type DatabaseHandle } from './connection.js';
 import { DrizzleIdempotencyStore } from './idempotency-store.js';
 import { applyMigrations } from './migrations.js';
+import { SqliteOpenSalesProbe } from './open-sales-probe.js';
 import { DrizzleOutboxStore } from './outbox-store.js';
 import { DrizzleProductSnapshotProvider } from './product-snapshot-provider.js';
 import {
@@ -147,7 +148,8 @@ const harness = async (): Promise<Harness> => {
     closeShift: new application.CloseShift(
       shifts, methods, { authorize: async () => true },
       { generate: () => 'shift-event-close' }, { now: () => SOLD_AT },
-      unitOfWork, ledger, outbox, audit, { generate: () => 'audit-close' }
+      unitOfWork, ledger, outbox, audit, { generate: () => 'audit-close' },
+      new SqliteOpenSalesProbe(handle)
     )
   };
 };
@@ -211,29 +213,39 @@ describe('efecto de caja de una venta completada', () => {
     kit.handle.close();
   });
 
-  it('revierte la venta cuando el turno ya no puede recibir el cobro', async () => {
+  it('rechaza el arqueo mientras el turno conserve una venta sin cerrar', async () => {
     const kit = await harness();
     await draftSale(kit);
-    expect((await kit.closeShift.execute({
+    const close = {
       shiftId: 'shift-001',
       declaredBalances: [
-        { paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 5_000 }
+        { paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 6_200 }
       ]
-    }, { ...context, idempotencyKey: 'close-001' })).ok).toBe(true);
+    };
 
-    const result = await kit.completeSale.execute(
-      { saleId: 'sale-001' }, { ...context, idempotencyKey: 'complete-001' }
+    const blocked = await kit.closeShift.execute(
+      close, { ...context, idempotencyKey: 'close-001' }
     );
 
-    expect(result).toMatchObject({ ok: false, error: { code: 'SHIFT_INVALID_STATE' } });
-    // Ni la venta ni su hecho quedan: el cobro nunca queda fuera del arqueo.
-    expect((await kit.sales.findById('sale-001'))?.status).toBe('DRAFT');
+    expect(blocked).toMatchObject({ ok: false, error: { code: 'SHIFT_HAS_OPEN_SALES' } });
+    expect((await kit.shifts.findById('shift-001'))?.status).toBe('OPEN');
     expect(kit.handle.sqlite.prepare(
-      "select count(*) from business_event where event_type = 'SaleCompleted'"
+      "select count(*) from business_event where event_type = 'ShiftClosed'"
     ).pluck().get()).toBe(0);
-    expect(kit.handle.sqlite.prepare(
-      "select count(*) from cash_movements where type = 'SALE_PAYMENT'"
-    ).pluck().get()).toBe(0);
+
+    // Cobrado el carrito, el mismo arqueo procede y cuadra con el cobro asentado.
+    expect((await kit.completeSale.execute(
+      { saleId: 'sale-001' }, { ...context, idempotencyKey: 'complete-001' }
+    )).ok).toBe(true);
+    const closed = await kit.closeShift.execute(
+      close, { ...context, idempotencyKey: 'close-002' }
+    );
+
+    expect(closed.ok).toBe(true);
+    expect((await kit.shifts.findById('shift-001'))?.closingBalances)
+      .toMatchObject([{ paymentMethodCode: 'CASH_USD' }]);
+    expect((await kit.shifts.findById('shift-001'))?.closingBalances?.[0]?.difference.minorUnits)
+      .toBe(0);
     kit.handle.close();
   });
 });

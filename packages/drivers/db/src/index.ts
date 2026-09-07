@@ -13,6 +13,7 @@ export { DrizzleAggregateAuthorityRegistry } from './sync-authority-registry.js'
 export { SqliteSyncNodeRegistry } from './sync-node-registry.js';
 export { DrizzleAuditWriter } from './audit-writer.js';
 export { DrizzleIdempotencyStore } from './idempotency-store.js';
+export { SqliteOpenSalesProbe } from './open-sales-probe.js';
 export { DrizzleProductSnapshotProvider } from './product-snapshot-provider.js';
 export { DrizzleSupplierRepository } from './supplier-repository.js';
 export { DrizzlePurchaseReceiptRepository } from './purchase-receipt-repository.js';

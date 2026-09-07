@@ -106,6 +106,7 @@ export type {
   IdGenerator,
   IdempotencyRecord,
   IdempotencyStore,
+  OpenSalesProbe,
   OutboxDestinationSummary,
   OutboxEvent,
   OutboxStore,

@@ -18,6 +18,7 @@ export type { OperationalMasterDataStore } from './operational-master-data-store
 export type { ProductSnapshotProvider } from './product-snapshot-provider.js';
 export type { SaleCostSnapshotProvider } from './sale-cost-snapshot-provider.js';
 export type { SaleRepository } from './sale-repository.js';
+export type { OpenSalesProbe } from './open-sales-probe.js';
 export type { SaleReturnRepository } from './sale-return-repository.js';
 export type { CashRegisterRepository } from './cash-register-repository.js';
 export type { ShiftRepository } from './shift-repository.js';

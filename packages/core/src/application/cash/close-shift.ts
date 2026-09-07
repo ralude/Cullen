@@ -17,6 +17,7 @@ import type {
   Clock,
   IdGenerator,
   IdempotencyStore,
+  OpenSalesProbe,
   OutboxStore,
   PaymentMethodRepository,
   ShiftRepository,
@@ -41,6 +42,7 @@ export class CloseShift {
     private readonly outboxStore: OutboxStore,
     private readonly auditWriter: AuditWriter,
     private readonly auditIdGenerator: IdGenerator,
+    private readonly openSales: OpenSalesProbe,
     private readonly idempotencyStore?: IdempotencyStore
   ) {}
 
@@ -57,6 +59,18 @@ export class CloseShift {
         execute: async () => {
         const shift = await this.shiftRepository.findById(input.shiftId);
         if (shift === null) return err(new ApplicationError('SHIFT_NOT_FOUND', 'Shift was not found.'));
+        /**
+         * Una venta sin cerrar no puede quedar del otro lado del arqueo: su
+         * cobro solo entra al turno al completarla y, cerrado el turno, ya no
+         * hay dónde asentarlo. El cierre exige cobrarla o anularla antes.
+         */
+        const openSales = await this.openSales.countOpenByShiftId(shift.id);
+        if (openSales > 0) {
+          return err(new ApplicationError(
+            'SHIFT_HAS_OPEN_SALES',
+            `Shift still has ${openSales} open sale(s); complete or void them before closing.`
+          ));
+        }
         const declaredBalances: CloseShiftProps['declaredBalances'] = [];
         for (const balance of input.declaredBalances) {
           const methodResult = await resolvePaymentMethod(

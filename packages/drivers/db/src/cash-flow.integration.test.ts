@@ -122,7 +122,8 @@ describe('complete persisted cash flow', () => {
     const close = new application.CloseShift(
       shifts, methods, { authorize: async () => true },
       { generate: () => 'shift-event-005' }, { now: () => new Date('2026-08-29T12:00:00Z') },
-      unitOfWork, ledger, outbox, audit, { generate: () => 'audit-close' }
+      unitOfWork, ledger, outbox, audit, { generate: () => 'audit-close' },
+      { countOpenByShiftId: async () => 0 }
     );
     expect((await close.execute({
       shiftId: 'shift-001',

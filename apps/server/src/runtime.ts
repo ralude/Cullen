@@ -60,6 +60,7 @@ import {
   SqliteDiscountPolicyProvider,
   SqliteFinancialTransactionTaxPolicyProvider,
   SqliteOperationalMasterDataStore,
+  SqliteOpenSalesProbe,
   SqliteOperationalPolicyWriter,
   SqliteUnitOfWork,
   type DatabaseHandle
@@ -184,6 +185,7 @@ export const createSecurityRuntime = (
   const discountPolicyProvider = new SqliteDiscountPolicyProvider(handle);
   const taxPolicyProvider = new SqliteFinancialTransactionTaxPolicyProvider(handle);
   const operationalMasterDataStore = new SqliteOperationalMasterDataStore(handle);
+  const openSalesProbe = new SqliteOpenSalesProbe(handle);
   const operationalPolicyWriter = new SqliteOperationalPolicyWriter(handle);
   const stockItemRepository = new DrizzleStockItemRepository(handle);
   const stockCountRepository = new DrizzleStockCountRepository(handle);
@@ -418,7 +420,8 @@ export const createSecurityRuntime = (
         ),
         closeShift: new application.CloseShift(
           shiftRepository, paymentMethodRepository, authorization, ids, clock,
-          unitOfWork, eventStore, outboxStore, auditWriter, ids, idempotencyStore
+          unitOfWork, eventStore, outboxStore, auditWriter, ids, openSalesProbe,
+          idempotencyStore
         )
       },
       inventory: {

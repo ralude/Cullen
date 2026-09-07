@@ -11,6 +11,7 @@ import type {
   OutboxStore,
   PaymentMethodRepository,
   ShiftRepository,
+  OpenSalesProbe,
   UnitOfWork
 } from '../ports/index.js';
 import { CloseShift } from './close-shift.js';
@@ -58,7 +59,8 @@ function useCase(
   authorization: AuthorizationService = { authorize: async () => true },
   evidence: { transactions: number; ledger: string[]; outbox: string[]; audit: AuditEntry[] } = {
     transactions: 0, ledger: [], outbox: [], audit: []
-  }
+  },
+  openSales = 0
 ): CloseShift {
   return new CloseShift(
     repository,
@@ -85,7 +87,8 @@ function useCase(
     listPaused: async () => []
     } satisfies OutboxStore,
     { append: async (entries) => { evidence.audit.push(...entries); } } satisfies AuditWriter,
-    { generate: () => 'audit-close' }
+    { generate: () => 'audit-close' },
+    { countOpenByShiftId: async () => openSales } satisfies OpenSalesProbe
   );
 }
 
@@ -247,5 +250,21 @@ describe('CloseShift', () => {
       reason: 'Supervisor aportó efectivo para el reintegro',
       after: { negativeExpectedMethods: ['CASH_USD:USD'] }
     }]);
+  });
+
+  it('rejects the count while the shift still has open sales', async () => {
+    const evidence = { transactions: 0, ledger: [] as string[], outbox: [] as string[], audit: [] as AuditEntry[] };
+    const repository = new FakeShiftRepository(shift());
+
+    const blocked = await useCase(repository, { authorize: async () => true }, evidence, 2).execute({
+      shiftId: 'shift-001',
+      declaredBalances: [{ paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 10_000 }]
+    }, context);
+
+    expect(blocked).toMatchObject({ ok: false, error: { code: 'SHIFT_HAS_OPEN_SALES' } });
+    expect(repository.stored?.status).toBe('OPEN');
+    expect(evidence.ledger).toEqual([]);
+    expect(evidence.outbox).toEqual([]);
+    expect(evidence.audit).toEqual([]);
   });
 });
