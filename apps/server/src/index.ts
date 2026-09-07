@@ -2,6 +2,7 @@ import { buildApp } from './app.ts';
 import { application } from '@supermarket/core';
 import {
   HttpsRemoteApplicationProbe,
+  HttpsRemoteSaleIssueProbe,
   HttpsSyncEventPublisher,
   loadNodeIdentity
 } from '@supermarket/driver-security';
@@ -27,7 +28,8 @@ const runtime = createSecurityRuntime(
       ? { reportConsent: process.env.FISCAL_SIMULATED_REPORT_CONSENT }
       : {})
   },
-  clientConfiguration?.destinationNodeId ?? null
+  clientConfiguration?.destinationNodeId ?? null,
+  clientConfiguration ? new HttpsRemoteSaleIssueProbe(clientConfiguration) : undefined
 );
 const app = buildApp(runtime.dependencies);
 

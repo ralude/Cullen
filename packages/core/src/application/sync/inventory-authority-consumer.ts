@@ -2,6 +2,7 @@ import type { AppError, Result, SyncEnvelopeV1 } from '@supermarket/shared';
 import type {
   ApplyPurchaseReceiptCompletedToInventory,
   ApplySaleCompletedToInventory,
+  ApplySaleReturnedToInventory,
   ApplyStockCountApprovedToInventory
 } from '../inventory/index.js';
 import type { BusinessEventV1, JsonValue } from '../events/index.js';
@@ -46,7 +47,8 @@ export class InventoryAuthorityConsumer implements SyncConsumer {
   constructor(
     private readonly sales: ApplySaleCompletedToInventory,
     private readonly purchases?: ApplyPurchaseReceiptCompletedToInventory,
-    private readonly stockCounts?: ApplyStockCountApprovedToInventory
+    private readonly stockCounts?: ApplyStockCountApprovedToInventory,
+    private readonly saleReturns?: ApplySaleReturnedToInventory
   ) {}
 
   apply(envelope: SyncEnvelopeV1): Promise<Result<unknown, AppError>> {
@@ -55,6 +57,8 @@ export class InventoryAuthorityConsumer implements SyncConsumer {
       ? this.purchases.execute(event)
       : envelope.eventType === 'StockCountApproved' && this.stockCounts
         ? this.stockCounts.execute(event)
+        : envelope.eventType === 'SaleReturned' && this.saleReturns
+          ? this.saleReturns.execute(event)
       : this.sales.execute(event);
   }
 }

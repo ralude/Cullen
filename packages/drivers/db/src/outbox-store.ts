@@ -1,9 +1,10 @@
-import type {
-  BusinessEventV1,
-  JsonValue,
-  OutboxDestinationSummary,
-  OutboxEvent,
-  OutboxStore
+import {
+  application,
+  type BusinessEventV1,
+  type JsonValue,
+  type OutboxDestinationSummary,
+  type OutboxEvent,
+  type OutboxStore
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
 import { outboxEvents } from './schema.js';
@@ -102,13 +103,21 @@ export class DrizzleOutboxStore implements OutboxStore {
       `).all(destinationNodeId, timestamp, timestamp, limit) as OutboxRow[];
 
       /**
-       * Una versión contractual desconocida no puede materializarse como
-       * `BusinessEventV1`: se aísla de forma durable antes de mapearla y no
-       * aborta el lote de los demás agregados. Sus sucesores siguen bloqueados
-       * porque la cabecera aislada no está publicada.
+       * Una versión que el catálogo cerrado no publica para ese tipo no puede
+       * materializarse como `BusinessEventV1`: se aísla de forma durable antes
+       * de mapearla y no aborta el lote de los demás agregados. Sus sucesores
+       * siguen bloqueados porque la cabecera aislada no está publicada.
+       *
+       * Lo que decide es el catálogo, no una versión fija: una versión nueva se
+       * añade sin invalidar a la anterior (ADR-0023). Un **tipo** desconocido no
+       * se juzga aquí: lo clasifica el relay, que distingue esa causa de una
+       * versión incompatible.
        */
       const deliverable = rows.filter((row) => {
-        if (row.contract_version === 1) return true;
+        if (application.findSyncContract(row.event_type) === undefined ||
+          application.findSyncContract(row.event_type, row.contract_version) !== undefined) {
+          return true;
+        }
         this.blockRow(row.event_id, destinationNodeId, row.attempts,
           'OUTBOX_CONTRACT_VERSION_UNSUPPORTED');
         return false;
@@ -126,7 +135,7 @@ export class DrizzleOutboxStore implements OutboxStore {
       return deliverable.map((row) => ({
         eventId: row.event_id,
         eventType: row.event_type,
-        contractVersion: 1,
+        contractVersion: row.contract_version,
         aggregateId: row.aggregate_id,
         aggregateType: row.aggregate_type,
         aggregateVersion: row.aggregate_version,

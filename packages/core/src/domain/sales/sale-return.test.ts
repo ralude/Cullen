@@ -16,6 +16,7 @@ const register = (overrides: Partial<Parameters<typeof SaleReturn.register>[0]> 
   SaleReturn.register({
     id: 'return-001',
     saleId: 'sale-001',
+    saleEventId: 'event-sale-completed',
     originalDocumentId: 'document-001',
     creditNoteId: 'document-002',
     shiftId: 'shift-001',
@@ -50,14 +51,33 @@ describe('SaleReturn', () => {
     expect(event?.aggregateType).toBe('SaleReturn');
     expect(event?.payload).toEqual({
       saleId: 'sale-001',
+      saleEventId: 'event-sale-completed',
       originalDocumentId: 'document-001',
       creditNoteId: 'document-002',
       shiftId: 'shift-001',
+      terminalId: 'terminal-001',
       refundMinorUnits: 500,
       currencyCode: 'USD',
       paymentMethodCode: 'CASH',
-      lineCount: 1
+      reason: 'Producto defectuoso',
+      lineCount: 1,
+      /** La restitución viaja con lote y costo originales, no con un promedio. */
+      lines: [{
+        lineId: 'return-line-001',
+        saleItemId: 'sale-item-001',
+        productId: 'product-001',
+        stockItemId: 'stock-001',
+        batchId: 'batch-001',
+        quantityScaled: 2,
+        quantityScale: 0,
+        unitCost: { minorUnits: 120, currencyCode: 'USD' }
+      }]
     });
+  });
+
+  it('exige la salida que restituye antes de registrar la devolución', () => {
+    expect(() => register({ saleEventId: '  ' }))
+      .toThrowError(expect.objectContaining({ code: 'SALE_RETURN_SALE_EVENT_REQUIRED' }));
   });
 
   it('exige motivo, actor y al menos una línea', () => {
@@ -87,7 +107,8 @@ describe('SaleReturn', () => {
   it('copia sus líneas para que el llamador no pueda reescribir la evidencia', () => {
     const mutable = [{ ...lines[0]! }];
     const saleReturn = SaleReturn.register({
-      id: 'return-002', saleId: 'sale-002', originalDocumentId: 'document-003',
+      id: 'return-002', saleId: 'sale-002', saleEventId: 'event-sale-completed',
+      originalDocumentId: 'document-003',
       creditNoteId: 'document-004', shiftId: 'shift-001',
       refund: Money.fromMinorUnits(100, 'USD'), paymentMethodCode: 'CASH',
       reason: 'Cambio de opinión', actorId: 'actor-001', terminalId: 'terminal-001',

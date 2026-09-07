@@ -228,13 +228,14 @@ Avances implementados y probados:
 - **Escenarios añadidos.** Se automatizaron el corte de Internet distinguido del corte de LAN,
   la detención del consumidor a mitad de aplicación, la llegada de una devolución antes de su
   venta y la conciliación genérica por transporte real contra
-  `GET /sync/v1/applications/:eventId`. Compra y conteo prueban la aplicación positiva por
-  transporte real; los cortes entre sus fronteras y el flujo remoto de devolución siguen pendientes.
+  `GET /sync/v1/applications/:eventId`. Compra, conteo y devolución prueban la aplicación
+  positiva por transporte real, incluida la lectura autenticada de la salida aplicada en
+  `GET /sync/v1/sale-issues/:eventId`; los cortes entre sus fronteras siguen pendientes.
 
 Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
 
-- El escenario 11 completo: devolución remota y cortes/reinicios entre cada paso real de compra,
-  conteo y devolución.
+- El escenario 11 completo: cortes y reinicios entre cada paso real de compra, conteo y
+  devolución.
 - La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos:
   la operación queda `NEEDS_REVIEW` con la evidencia de cada paso y se resuelve con los casos
   de uso existentes, no con un paso automático.

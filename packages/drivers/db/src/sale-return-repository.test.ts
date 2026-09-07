@@ -16,7 +16,8 @@ describe('DrizzleSaleReturnRepository', () => {
     const repository = new DrizzleSaleReturnRepository(handle);
     const unitOfWork = new SqliteUnitOfWork(handle.sqlite);
     const value = SaleReturn.register({
-      id: 'return-001', saleId: 'sale-001', originalDocumentId: 'invoice-001',
+      id: 'return-001', saleId: 'sale-001', saleEventId: 'event-sale-completed',
+      originalDocumentId: 'invoice-001',
       creditNoteId: 'credit-note-001', shiftId: 'shift-001',
       refund: Money.fromMinorUnits(1_000, 'USD'), paymentMethodCode: 'CASH_USD',
       reason: 'Producto defectuoso', actorId: 'actor-001', terminalId: 'terminal-001',
@@ -32,7 +33,8 @@ describe('DrizzleSaleReturnRepository', () => {
     const restored = await repository.findBySaleId('sale-001');
 
     expect(restored).toMatchObject({
-      id: 'return-001', saleId: 'sale-001', creditNoteId: 'credit-note-001',
+      id: 'return-001', saleId: 'sale-001', saleEventId: 'event-sale-completed',
+      creditNoteId: 'credit-note-001',
       refund: { minorUnits: 1_000, currency: 'USD' }, reason: 'Producto defectuoso'
     });
     expect(restored?.lines[0]).toMatchObject({

@@ -638,6 +638,7 @@ export const purchaseReceiptLines = sqliteTable('purchase_receipt_lines', {
 export const saleReturns = sqliteTable('sale_returns', {
   id: text('id').primaryKey(),
   saleId: text('sale_id').notNull().references(() => sales.id),
+  saleEventId: text('sale_event_id').notNull(),
   originalDocumentId: text('original_document_id').notNull().references(() => fiscalDocuments.id),
   creditNoteId: text('credit_note_id').notNull().unique().references(() => fiscalDocuments.id),
   shiftId: text('shift_id').notNull().references(() => shifts.id),

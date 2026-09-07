@@ -263,6 +263,7 @@ const saleEvents = (): readonly DomainEventLike[] => {
 const saleReturnEvents = (): readonly DomainEventLike[] => SaleReturn.register({
   id: 'return-001',
   saleId: 'sale-001',
+  saleEventId: 'event-sale-completed',
   originalDocumentId: 'document-001',
   creditNoteId: 'credit-note-001',
   shiftId: 'shift-001',
@@ -443,7 +444,7 @@ describe('catálogo de contratos de integración v1', () => {
       'ExchangeRateUpdated', 'PaymentMethodPublished', 'OperatorGrantPublished',
       'StockAvailabilityPublished', 'StockAvailabilityPublished', 'ProductPublished',
       'PurchaseReceiptCompleted', 'StockCountApproved',
-      'SaleCompleted', 'SaleCompleted', 'SaleReturned', 'ShiftOpened',
+      'SaleCompleted', 'SaleCompleted', 'SaleReturned', 'SaleReturned', 'ShiftOpened',
       'CashMovementRegistered', 'ShiftClosed', 'FiscalDocumentIssued', 'FiscalDocumentFailed',
       'FiscalXReportIssued', 'FiscalZReportIssued'
     ]);
@@ -471,6 +472,7 @@ describe('catálogo de contratos de integración v1', () => {
       'SaleCompleted.v1:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
       'SaleCompleted.v2:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
       'SaleReturned.v1:COMMERCIAL_PROJECTION',
+      'SaleReturned.v2:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
       'ShiftOpened.v1:COMMERCIAL_PROJECTION',
       'CashMovementRegistered.v1:COMMERCIAL_PROJECTION',
       'ShiftClosed.v1:COMMERCIAL_PROJECTION',
@@ -501,6 +503,7 @@ describe('catálogo de contratos de integración v1', () => {
       'SaleCompleted.v1:Sale:TERMINAL_TO_COORDINATOR',
       'SaleCompleted.v2:Sale:TERMINAL_TO_COORDINATOR',
       'SaleReturned.v1:SaleReturn:TERMINAL_TO_COORDINATOR',
+      'SaleReturned.v2:SaleReturn:TERMINAL_TO_COORDINATOR',
       'ShiftOpened.v1:Shift:TERMINAL_TO_COORDINATOR',
       'CashMovementRegistered.v1:Shift:TERMINAL_TO_COORDINATOR',
       'ShiftClosed.v1:Shift:TERMINAL_TO_COORDINATOR',

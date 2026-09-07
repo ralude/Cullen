@@ -21,6 +21,7 @@ export class DrizzleSaleReturnRepository implements SaleReturnRepository {
       this.handle.db.insert(saleReturns).values({
         id: saleReturn.id,
         saleId: saleReturn.saleId,
+        saleEventId: saleReturn.saleEventId,
         originalDocumentId: saleReturn.originalDocumentId,
         creditNoteId: saleReturn.creditNoteId,
         shiftId: saleReturn.shiftId,
@@ -87,6 +88,7 @@ export class DrizzleSaleReturnRepository implements SaleReturnRepository {
     return SaleReturn.restore({
       id: row.id,
       saleId: row.saleId,
+      saleEventId: row.saleEventId,
       originalDocumentId: row.originalDocumentId,
       creditNoteId: row.creditNoteId,
       shiftId: row.shiftId,

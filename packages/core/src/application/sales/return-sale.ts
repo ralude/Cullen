@@ -26,6 +26,7 @@ import type {
   IdGenerator,
   IdempotencyStore,
   OutboxStore,
+  RemoteSaleIssueProbe,
   SaleRepository,
   SaleReturnRepository,
   ShiftRepository,
@@ -42,14 +43,41 @@ import { SALE_PERMISSIONS } from './permissions.js';
  * movimiento `SALE_ISSUE` original y conserva su lote y su costo congelado: la
  * devolución restituye exactamente lo que salió, no un promedio posterior
  * (ADR-0016 y ADR-0017).
+ *
+ * En un nodo standalone la salida es local; en LAN es la que el coordinador ya
+ * aplicó, porque allí el POS no escribe stock (ADR-0026 D3).
  */
 type Restoration = {
-  readonly item: StockItem;
   readonly saleItemId: string;
   readonly productId: string;
+  readonly stockItemId: string;
   readonly batchId: string | null;
   readonly quantity: Quantity;
   readonly unitCost: Money | null;
+};
+
+/** Plan de reposición y los artículos locales que hay que mutar, si los hay. */
+type RestorationPlan = {
+  readonly restorations: readonly Restoration[];
+  readonly items: ReadonlyMap<string, StockItem>;
+};
+
+/**
+ * La reposición explica exactamente lo vendido: una línea por cada ítem de la
+ * venta, con su misma escala y sumando su cantidad. Una evidencia que sobra,
+ * falta o no cuadra no se completa a ojo.
+ */
+const coversSale = (sale: Sale, restorations: readonly Restoration[]): boolean => {
+  const pending = new Map(sale.items.map((item) => [item.id, item.quantity]));
+  for (const restoration of restorations) {
+    const quantity = pending.get(restoration.saleItemId);
+    if (quantity === undefined || quantity.scale !== restoration.quantity.scale) return false;
+    pending.set(
+      restoration.saleItemId,
+      Quantity.fromScaled(quantity.scaledValue - restoration.quantity.scaledValue, quantity.scale)
+    );
+  }
+  return [...pending.values()].every(({ scaledValue }) => scaledValue === 0);
 };
 
 export class ReturnSale {
@@ -77,7 +105,12 @@ export class ReturnSale {
      * coordinador antes del primer efecto (ADR-0026 D3); la nota sigue su
      * flujo fiscal recuperable local y conserva `SIMULACION`.
      */
-    private readonly coordination?: CoordinatedStockOperations
+    private readonly coordination?: CoordinatedStockOperations,
+    /**
+     * Salida ya aplicada por el coordinador. En LAN es la única evidencia
+     * válida de qué salió: el POS no tiene movimientos propios que restituir.
+     */
+    private readonly saleIssues?: RemoteSaleIssueProbe
   ) {}
 
   async execute(
@@ -97,6 +130,31 @@ export class ReturnSale {
       reason
     }, context);
     if (started !== undefined && !started.ok) return err(started.error);
+    /**
+     * La salida que se restituye se identifica con el `eventId` de su
+     * `SaleCompleted`. Sin ese hecho no hay nada que restituir: no se completa
+     * la devolución con una identidad inventada.
+     */
+    const saleEventId = await this.findSaleIssueEventId(input.saleId);
+    if (saleEventId === null) {
+      return err(new ApplicationError(
+        'SALE_RETURN_SALE_EVENT_NOT_FOUND',
+        'The completed sale fact that this return restores was not found.'
+      ));
+    }
+    /**
+     * Consulta de la salida aplicada, **fuera** de cualquier transacción y
+     * antes del primer efecto local. Si el coordinador todavía no la aplicó, o
+     * la dejó en discrepancia, no hay reintegro, nota ni restitución.
+     */
+    const lanOperation = started !== undefined && started.ok &&
+      started.value.coordinatorNodeId !== null;
+    let remote: RestorationPlan | null = null;
+    if (lanOperation) {
+      const planned = await this.planRemoteRestorations(saleEventId);
+      if (!planned.ok) return planned;
+      remote = planned.value;
+    }
     try {
       /**
        * La intención comercial, la caja, el inventario, el ledger, el outbox,
@@ -111,7 +169,14 @@ export class ReturnSale {
         now: this.clock.now(),
         unitOfWork: this.unitOfWork,
         ...(this.idempotencyStore ? { idempotencyStore: this.idempotencyStore } : {}),
-        execute: () => this.registerReturn(input, reason, context, started?.ok === true ? started.value.operationId : null),
+        execute: () => this.registerReturn(
+          input,
+          reason,
+          context,
+          started?.ok === true ? started.value.operationId : null,
+          saleEventId,
+          remote
+        ),
         serialize: (output) => JSON.parse(JSON.stringify(output)) as JsonValue,
         restore: (value) => {
           const dto = value as unknown as SaleReturnDto & { occurredAt: string };
@@ -130,7 +195,10 @@ export class ReturnSale {
     input: ReturnSaleInput,
     reason: string,
     context: ExecutionContext,
-    operationId: string | null
+    operationId: string | null,
+    saleEventId: string,
+    /** Reposición autoritativa del coordinador; `null` en un nodo standalone. */
+    remote: RestorationPlan | null
   ): Promise<Result<SaleReturnDto, AppError>> {
     const sale = await this.saleRepository.findById(input.saleId);
     if (sale === null || sale.terminalId !== context.terminalId ||
@@ -166,18 +234,29 @@ export class ReturnSale {
       shift.terminalId !== context.terminalId || shift.originNodeId !== context.originNodeId) {
       return err(new ApplicationError('SHIFT_NOT_OPEN', 'An open shift is required to refund a sale.'));
     }
-    const planned = await this.planRestorations(sale);
+    const planned = remote === null ? await this.planRestorations(sale) : ok(remote);
     if (!planned.ok) return planned;
+    const plan = planned.value;
+    /**
+     * La restitución debe explicar exactamente lo vendido, venga de la salida
+     * local o de la que el coordinador ya aplicó.
+     */
+    if (!coversSale(sale, plan.restorations)) {
+      return err(new ApplicationError(
+        'SALE_RETURN_STOCK_NOT_RESTORABLE',
+        'The original stock issue cannot be restored unambiguously.'
+      ));
+    }
 
     const now = this.clock.now();
     const payment = sale.payments[0]!;
     const saleReturnId = this.returnIdGenerator.generate();
     const creditNoteId = this.documentIdGenerator.generate();
-    const lines: SaleReturnLine[] = planned.value.map((restoration, index) => ({
+    const lines: SaleReturnLine[] = plan.restorations.map((restoration, index) => ({
       id: `${saleReturnId}:${index}`,
       saleItemId: restoration.saleItemId,
       productId: restoration.productId,
-      stockItemId: restoration.item.id,
+      stockItemId: restoration.stockItemId,
       batchId: restoration.batchId,
       quantity: restoration.quantity,
       unitCost: restoration.unitCost
@@ -185,6 +264,7 @@ export class ReturnSale {
     const saleReturn = SaleReturn.register({
       id: saleReturnId,
       saleId: sale.id,
+      saleEventId,
       originalDocumentId: original.id,
       creditNoteId,
       shiftId: shift.id,
@@ -199,10 +279,18 @@ export class ReturnSale {
       lines
     });
 
+    /**
+     * En LAN el POS no escribe stock: el movimiento autoritativo lo registra el
+     * coordinador al aplicar `SaleReturned.v2`, y sumar también aquí duplicaría
+     * el saldo de la tienda (ADR-0026 D3).
+     */
     const changedItems = new Map<string, StockItem>();
     const stockEvents = [];
-    for (const [index, restoration] of planned.value.entries()) {
-      const item = restoration.item;
+    for (const [index, restoration] of (remote === null ? plan.restorations : []).entries()) {
+      const item = plan.items.get(restoration.productId);
+      if (!item) {
+        return err(new ApplicationError('STOCK_ITEM_NOT_FOUND', 'Stock item was not found.'));
+      }
       const beforeEvents = item.domainEvents.length;
       item.registerMovement({
         id: `${saleReturnId}:${index}`,
@@ -323,7 +411,7 @@ export class ReturnSale {
    * Falla cerrada si un artículo no existe o si las salidas registradas no
    * explican exactamente la cantidad vendida.
    */
-  private async planRestorations(sale: Sale): Promise<Result<Restoration[], AppError>> {
+  private async planRestorations(sale: Sale): Promise<Result<RestorationPlan, AppError>> {
     const restorations: Restoration[] = [];
     const items = new Map<string, StockItem>();
     for (const saleItem of sale.items) {
@@ -353,9 +441,9 @@ export class ReturnSale {
           grouped.set(key, { ...existing, quantity: existing.quantity.add(issue.quantity) });
         } else {
           grouped.set(key, {
-            item,
             saleItemId: saleItem.id,
             productId: saleItem.snapshot.productId,
+            stockItemId: item.id,
             batchId: issue.batchId,
             quantity: Quantity.fromScaled(issue.quantity.scaledValue, issue.quantity.scale),
             unitCost: issue.unitCost
@@ -364,7 +452,56 @@ export class ReturnSale {
       }
       restorations.push(...grouped.values());
     }
-    return ok(restorations);
+    return ok({ restorations, items });
+  }
+
+  /**
+   * Toma la reposición de la salida que el coordinador ya aplicó (ADR-0026 D3).
+   *
+   * La consulta ocurre antes de cualquier efecto local y fuera de una
+   * transacción. Si la salida no está aplicada, quedó en discrepancia o no se
+   * pudo consultar, la devolución no empieza: no hay reintegro, nota ni
+   * restitución inventada.
+   */
+  private async planRemoteRestorations(
+    saleEventId: string
+  ): Promise<Result<RestorationPlan, AppError>> {
+    if (!this.saleIssues) {
+      return err(new ApplicationError(
+        'SYNC_COORDINATION_REQUIRED',
+        'This operation requires the coordinator sale issue evidence before starting any effect.'
+      ));
+    }
+    const evidence = await this.saleIssues.saleIssuesOf(saleEventId);
+    if (evidence.state !== 'APPLIED' || evidence.lines.length === 0) {
+      return err(new ApplicationError(
+        'SALE_RETURN_SALE_ISSUE_NOT_APPLIED',
+        'The coordinator has not applied the original stock issue yet.',
+        { details: { state: evidence.state } }
+      ));
+    }
+    return ok({
+      items: new Map<string, StockItem>(),
+      restorations: evidence.lines.map((line) => ({
+        saleItemId: line.saleItemId,
+        productId: line.productId,
+        stockItemId: line.stockItemId,
+        batchId: line.batchId,
+        quantity: Quantity.fromScaled(line.quantityScaled, line.quantityScale),
+        unitCost: line.unitCost === null
+          ? null
+          : Money.fromMinorUnits(line.unitCost.minorUnits, line.unitCost.currencyCode)
+      }))
+    });
+  }
+
+  /**
+   * Identidad del hecho que causó la salida. Se lee del ledger local, que es
+   * donde esta terminal registró su propia `SaleCompleted`.
+   */
+  private async findSaleIssueEventId(saleId: string): Promise<string | null> {
+    const events = await this.eventStore.findByAggregate('Sale', saleId);
+    return events.find(({ eventType }) => eventType === 'SaleCompleted')?.eventId ?? null;
   }
 
   /**

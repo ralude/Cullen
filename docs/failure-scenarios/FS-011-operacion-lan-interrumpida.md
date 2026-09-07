@@ -60,12 +60,14 @@ integración, aplicación autoritativa y conciliación por ese `eventId`. Compra
 `SaleReturned.v2`, después de obtener del coordinador la salida aplicada. El POS no registra
 movimientos de esas operaciones.
 
-**Brecha de implementación:** compra y conteo transportan un único hecho aplicable y registran
-el movimiento autoritativo de forma idempotente; la disponibilidad v2 distribuye identidades y
-saldos por lote sin poblar `stock_items` del POS. `SaleReturned.v1` todavía solo actualiza la
-proyección comercial, y faltan los cortes entre cada frontera concreta. Un
-rechazo comercial definitivo después de efectos previos queda `NEEDS_REVIEW`; la compensación
-explícita tampoco está automatizada.
+**Brecha de implementación:** compra, conteo y devolución transportan un único hecho aplicable
+y registran el movimiento autoritativo de forma idempotente; la disponibilidad v2 distribuye
+identidades y saldos por lote sin poblar `stock_items` del POS. `SaleReturned.v2` obtiene la
+salida aplicada por `GET /sync/v1/sale-issues/:eventId` antes de cualquier efecto local, y el
+coordinador la revalida contra sus movimientos `SALE_ISSUE`; `SaleReturned.v1` conserva su
+consumo comercial y no restituye stock, porque no transporta lote ni costo. Faltan los cortes
+entre cada frontera concreta. Un rechazo comercial definitivo después de efectos previos queda
+`NEEDS_REVIEW`; la compensación explícita tampoco está automatizada.
 
 ## Retry
 
@@ -114,8 +116,9 @@ renderer y `FiscalPrinterFake`.
 
 La persistencia y reconciliación genéricas están cubiertas por
 `packages/drivers/db/src/coordinated-operations.integration.test.ts`; el transporte real de la
-consulta y la aplicación positiva de compra/conteo, por `apps/server/src/sync/lan-sync.e2e.test.ts`.
-La devolución y los cortes entre cada paso remoto siguen abiertos en
+consulta y la aplicación positiva de compra, conteo y devolución, por
+`apps/server/src/sync/lan-sync.e2e.test.ts`.
+Los cortes entre cada paso remoto siguen abiertos en
 [10.03](../cronograma/fase-10-sincronizacion/plan-10.03-servidor-receptor.md) y
 [10.04](../cronograma/fase-10-sincronizacion/plan-10.04-offline-reconexion.md).
 

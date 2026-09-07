@@ -1,8 +1,8 @@
 # Plan de ejecución 10.03: servidor receptor y base operativa LAN
 
 - Fecha: 2026-09-06.
-- Estado: **en progreso**. Cortes 0, 1, 2 y 4 implementados; corte 3 ya aplica compra y conteo,
-  pero sigue abierto en devolución y conciliación. CA-03-10 y CA-03-16 siguen abiertos.
+- Estado: **en progreso**. Cortes 0, 1, 2 y 4 implementados; corte 3 ya aplica compra, conteo y
+  devolución, pero sigue abierto en conciliación. CA-03-10 y CA-03-16 siguen abiertos.
 - Predecesora: 10.02 completada. Sucesora: 10.04, solo tras cerrar esta sub-fase.
 - Decisiones: [secuencia y registro D1–D8](./plan-secuencia-y-decisiones.md).
 - ADR: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado; detalle contractual en el corte 0.
@@ -150,8 +150,8 @@ orden, sin mezclar sus commits:
    autoritativo idempotente;
 3. [completado] `StockCountApproved.v1`, conservando el delta congelado del cierre y aplicándolo
    en el coordinador sin recálculo;
-4. lectura autenticada de la salida aplicada y `SaleReturned.v2`, con restitución validada de
-   lote/costo original y sin reimpresión por sync;
+4. [completado] lectura autenticada de la salida aplicada y `SaleReturned.v2`, con restitución
+   validada de lote/costo original y sin reimpresión por sync;
 5. conciliación de `APPLIED`, `DISCREPANCY` y estados desconocidos, y cortes/reinicios reales
    en cada frontera.
 
@@ -205,12 +205,12 @@ LAN; no puede depender del publisher de red para completar un efecto local oblig
   no queda negativo y crea una discrepancia única con resolución auditable.
 - [ ] CA-03-10: devoluciones y operaciones de stock cumplen D5/ADR-0026, incluidos lote/costo
   original, conexión inicial, estado pendiente visible y recuperación entre cada paso sin
-  duplicar efectos. La intención, el estado y la consulta de progreso están implementados,
-  pero no el efecto autoritativo remoto de devolución ni todos los cortes de conciliación. Compra,
-  conteo y snapshot de costo sí están probados; la compensación explícita de un rechazo definitivo
-  tampoco está implementada.
-  Para cerrarlo deben pasar por separado la referencia v2, compra, conteo, devolución y
-  conciliación descritos en el corte 3A, además del escenario 11 extremo a extremo.
+  duplicar efectos. La intención, el estado, la consulta de progreso y los efectos remotos de
+  compra, conteo y devolución están implementados y probados, junto al snapshot de costo; faltan
+  los cortes de conciliación. La compensación explícita de un rechazo definitivo tampoco está
+  implementada.
+  Para cerrarlo falta la conciliación descrita en el corte 3A, además del escenario 11 extremo
+  a extremo.
 - [x] ~~CA-03-11~~: cada referencia necesaria tiene productor/contrato/consumidor probado; las
   versiones v1 publicadas siguen aceptando las fixtures originales.
 - [x] ~~CA-03-12~~: bootstrap interrumpido y cambios durante el corte no dejan referencias
@@ -293,9 +293,9 @@ Avances implementados y probados:
 
 Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
 
-- El **efecto remoto autoritativo de devolución**. `SaleReturned.v1` solo alimenta la
-  consolidación comercial. También faltan la conciliación final y las caídas de cada frontera
-  de compra, conteo y devolución.
+- La **conciliación final** y las caídas de cada frontera de compra, conteo y devolución. El
+  efecto remoto autoritativo de devolución ya está implementado: `SaleReturned.v2` transporta la
+  salida que el coordinador aplicó y este la revalida contra sus movimientos `SALE_ISSUE`.
 - La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos.
   La operación queda `NEEDS_REVIEW` con la evidencia de cada paso; revertirla es una decisión
   humana que hoy se ejecuta con los casos de uso existentes, no un paso automático.

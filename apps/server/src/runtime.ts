@@ -6,6 +6,7 @@ import {
   VerifySession,
   type Clock,
   type OutboxStore,
+  type RemoteSaleIssueProbe,
   type SaleIssueEvidence,
   type SyncApplicationProgress,
   type SyncNodeRegistry,
@@ -139,7 +140,13 @@ export const createSecurityRuntime = (
    * standalone: no se exige enlace y las operaciones conservan su atomicidad
    * local existente.
    */
-  coordinatorNodeId: string | null = null
+  coordinatorNodeId: string | null = null,
+  /**
+   * Consulta de la salida aplicada en el coordinador. Solo existe en una
+   * terminal con transporte configurado; sin ella una devolución LAN no
+   * empieza, porque no hay evidencia con la que restituir (ADR-0026 D3).
+   */
+  saleIssueProbe?: RemoteSaleIssueProbe
 ): SecurityRuntime => {
   const handle = openDatabase(databasePath);
   applyMigrations(handle.sqlite);
@@ -274,6 +281,10 @@ export const createSecurityRuntime = (
             new application.ApplyStockCountApprovedToInventory(
               stockItemRepository, ids, ids, ids, application.ambientUnitOfWork,
               eventStore, auditWriter, outboxStore, nodeIdentity.originNodeId
+            ),
+            new application.ApplySaleReturnedToInventory(
+              stockItemRepository, ids, ids, ids, application.ambientUnitOfWork,
+              eventStore, auditWriter, outboxStore, nodeIdentity.originNodeId
             )
           )],
           /**
@@ -373,7 +384,7 @@ export const createSecurityRuntime = (
           saleRepository, saleReturnRepository, fiscalDocumentRepository, shiftRepository,
           stockItemRepository, fiscalPrinter, authorization, ids, ids, ids, ids, ids, clock,
           unitOfWork, eventStore, outboxStore, auditWriter, idempotencyStore,
-          coordinatedOperations
+          coordinatedOperations, saleIssueProbe
         ),
         setSaleRecipient: new application.SetSaleRecipient(
           saleRepository, ids, clock, unitOfWork, eventStore, idempotencyStore

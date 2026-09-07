@@ -9,9 +9,10 @@ import { Payment, Sale } from '../../domain/sales/index.js';
 import type { ExecutionContext } from '../execution-context.js';
 import type {
   AuditEntry, AuditWriter, AuthorizationService, BusinessEventStore, FiscalDocumentRepository,
-  FiscalPrinterPort, IdempotencyRecord, IdempotencyStore, OutboxStore, SaleRepository,
-  SaleReturnRepository, ShiftRepository, StockItemRepository, UnitOfWork
+  FiscalPrinterPort, IdempotencyRecord, IdempotencyStore, OutboxStore, RemoteSaleIssueProbe,
+  SaleRepository, SaleReturnRepository, ShiftRepository, StockItemRepository, UnitOfWork
 } from '../ports/index.js';
+import type { CoordinatedStockOperations } from '../sync/index.js';
 import { ReturnSale } from './return-sale.js';
 
 const context: ExecutionContext = {
@@ -82,8 +83,33 @@ const openShift = (): Shift => Shift.open({
   openedBy: 'actor-001', openedAt: now, eventId: 'shift-opened'
 });
 
+/**
+ * Coordinación LAN mínima: registra la intención con coordinador y recoge la
+ * evidencia local que la reconciliación usará después.
+ */
+const lanCoordination = (localEvidence: string[][]): CoordinatedStockOperations => ({
+  begin: async () => ({ ok: true, value: {
+    operationId: 'operation-001', kind: 'SALE_RETURN', fingerprint: 'sale-001',
+    coordinatorNodeId: 'node-coordinator', actorId: context.actorId,
+    terminalId: context.terminalId, originNodeId: context.originNodeId,
+    correlationId: context.correlationId, reason: 'Producto devuelto',
+    status: 'PENDING_RECONCILIATION', startedAt: now, updatedAt: now, steps: []
+  } }),
+  recordLocalEffect: async (_operationId: string, eventIds: readonly string[]) => {
+    localEvidence.push([...eventIds]);
+    return {};
+  }
+} as unknown as CoordinatedStockOperations);
+
 class Harness {
-  constructor(readonly failPrinting = false) {}
+  constructor(
+    readonly failPrinting = false,
+    /** Coordinación LAN y evidencia remota; ausentes en un nodo standalone. */
+    readonly coordination?: CoordinatedStockOperations,
+    readonly saleIssues?: RemoteSaleIssueProbe
+  ) {
+    this.useCase = this.build();
+  }
   sale: Sale = completedSale();
   document: FiscalDocument = originalDocument();
   shift: Shift = openShift();
@@ -91,6 +117,8 @@ class Harness {
   returned: Awaited<ReturnType<SaleReturnRepository['findById']>> = null;
   idempotency: IdempotencyRecord | null = null;
   printerCalls = 0;
+  /** Salida de integración observada, cuando la prueba la necesita. */
+  enqueued?: { eventType: string; contractVersion: number; payload: unknown }[];
   readonly saleRepository: SaleRepository = { save: async (sale) => { this.sale = sale; }, findById: async () => this.sale };
   readonly saleReturnRepository: SaleReturnRepository = {
     save: async (value) => { this.returned = value; }, findById: async (id) => this.returned?.id === id ? this.returned : null,
@@ -116,15 +144,33 @@ class Harness {
     },
     printXReport: async () => { throw new Error('unused'); }, printZReport: async () => { throw new Error('unused'); }
   };
-  readonly useCase = new ReturnSale(
+  /**
+   * Se compone en el constructor, no como inicializador de campo: las
+   * propiedades de parámetro se asignan después de los campos, así que
+   * `coordination` y `saleIssues` no existirían todavía.
+   */
+  readonly useCase: ReturnSale;
+
+  private build(): ReturnSale {
+    return new ReturnSale(
     this.saleRepository, this.saleReturnRepository, this.fiscalRepository, this.shiftRepository,
     this.stockRepository, this.printer, { authorize: async () => true } satisfies AuthorizationService,
     { generate: () => `return-id-${this.printerCalls}` }, { generate: () => `movement-id-${this.printerCalls}` },
     { generate: () => 'credit-note-001' }, { generate: () => `event-id-${this.printerCalls}` },
     { generate: () => `audit-id-${this.printerCalls}` }, { now: () => now },
     { execute: async <T>(work: () => Promise<T>) => work() } satisfies UnitOfWork,
-    { append: async (events) => { void events; }, findByAggregate: async () => [] } satisfies BusinessEventStore,
-    { enqueue: async (events) => { void events; }, claimAvailable: async () => [],
+    /**
+     * El ledger conserva la `SaleCompleted` que causó la salida: es la
+     * identidad con la que el coordinador reconoce qué restituir.
+     */
+    { append: async (events) => { void events; },
+      findByAggregate: async () => [{
+        eventId: 'sale-completed', eventType: 'SaleCompleted', contractVersion: 2,
+        aggregateId: 'sale-001', aggregateType: 'Sale', aggregateVersion: 4,
+        originNodeId: 'node-001', correlationId: 'correlation-001', actorId: 'actor-001',
+        occurredAt: now, payload: {}
+      }] } satisfies BusinessEventStore,
+    { enqueue: async (events) => { this.enqueued?.push(...events); }, claimAvailable: async () => [],
       isClaimActive: async () => false, markPublished: async () => false,
       markFailed: async () => false, markBlocked: async () => false,
       markPaused: async () => false, resumeDelivery: async () => false,
@@ -134,8 +180,11 @@ class Harness {
       }), listPaused: async () => [] } satisfies OutboxStore,
     { append: async (entries: readonly AuditEntry[]) => { void entries; } } satisfies AuditWriter,
     { find: async (scope, key) => this.idempotency?.scope === scope && this.idempotency.key === key ? this.idempotency : null,
-      save: async (record) => { this.idempotency = record; } } satisfies IdempotencyStore
-  );
+      save: async (record) => { this.idempotency = record; } } satisfies IdempotencyStore,
+      this.coordination,
+      this.saleIssues
+    );
+  }
 }
 
 describe('ReturnSale', () => {
@@ -176,5 +225,85 @@ describe('ReturnSale', () => {
     expect(retry).toMatchObject({ ok: false, error: { code: 'FISCAL_RECONCILIATION_REQUIRED' } });
     expect(harness.stockItem.balance.scaledValue).toBe(2);
     expect(harness.printerCalls).toBe(1);
+  });
+
+  it('en LAN restituye con la salida del coordinador y no escribe stock local', async () => {
+    const localEvidence: string[][] = [];
+    const enqueued: { eventType: string; contractVersion: number; payload: unknown }[] = [];
+    const harness = new Harness(false, lanCoordination(localEvidence), {
+      saleIssuesOf: async (saleEventId) => saleEventId === 'sale-completed'
+        ? {
+          state: 'APPLIED',
+          lines: [{
+            saleItemId: 'item-001', productId: 'product-001', stockItemId: 'stock-authority-001',
+            batchId: 'batch-authority-001', quantityScaled: 1, quantityScale: 0,
+            unitCost: { minorUnits: 800, currencyCode: 'USD' }
+          }]
+        }
+        : { state: 'NONE', lines: [] }
+    });
+    harness.enqueued = enqueued;
+
+    const result = await harness.useCase.execute(
+      { saleId: 'sale-001', reason: 'Producto devuelto' }, context
+    );
+
+    expect(result.ok).toBe(true);
+    /** El POS no toca su proyección: el movimiento autoritativo es del coordinador. */
+    expect(harness.stockItem.balance.scaledValue).toBe(1);
+    /** La caja local sí se mueve: el reintegro es un hecho del turno del origen. */
+    expect(harness.shift.expectedBalances
+      .find((entry) => entry.paymentMethodCode === 'CASH_USD')?.amount.minorUnits).toBe(4_000);
+    expect(enqueued.find(({ eventType }) => eventType === 'SaleReturned')).toMatchObject({
+      contractVersion: 2,
+      payload: {
+        saleEventId: 'sale-completed',
+        terminalId: 'terminal-001',
+        lines: [{
+          saleItemId: 'item-001', stockItemId: 'stock-authority-001',
+          batchId: 'batch-authority-001', quantityScaled: 1,
+          unitCost: { minorUnits: 800, currencyCode: 'USD' }
+        }]
+      }
+    });
+    expect(localEvidence).toHaveLength(1);
+  });
+
+  it('en LAN no devuelve nada si el coordinador aún no aplicó la salida', async () => {
+    for (const state of ['PENDING', 'DISCREPANCY', 'UNKNOWN'] as const) {
+      const harness = new Harness(false, lanCoordination([]), {
+        saleIssuesOf: async () => ({ state, lines: [] })
+      });
+
+      await expect(harness.useCase.execute(
+        { saleId: 'sale-001', reason: 'Producto devuelto' }, context
+      )).resolves.toMatchObject({
+        ok: false, error: { code: 'SALE_RETURN_SALE_ISSUE_NOT_APPLIED' }
+      });
+      /** Ni nota, ni reintegro, ni stock: la operación no empezó. */
+      expect(harness.returned).toBeNull();
+      expect(harness.printerCalls).toBe(0);
+      expect(harness.stockItem.balance.scaledValue).toBe(1);
+    }
+  });
+
+  it('en LAN rechaza una restitución que no explica lo vendido', async () => {
+    const harness = new Harness(false, lanCoordination([]), {
+      saleIssuesOf: async () => ({
+        state: 'APPLIED',
+        lines: [{
+          saleItemId: 'item-001', productId: 'product-001', stockItemId: 'stock-authority-001',
+          batchId: null, quantityScaled: 5, quantityScale: 0, unitCost: null
+        }]
+      })
+    });
+
+    await expect(harness.useCase.execute(
+      { saleId: 'sale-001', reason: 'Producto devuelto' }, context
+    )).resolves.toMatchObject({
+      ok: false, error: { code: 'SALE_RETURN_STOCK_NOT_RESTORABLE' }
+    });
+    expect(harness.returned).toBeNull();
+    expect(harness.printerCalls).toBe(0);
   });
 });

@@ -142,7 +142,7 @@ describe('versión monotónica de los maestros distribuidos', () => {
       ) values (?, 'USD', 'VES', 36500, 3, 'BCV', ?, null, 'operator-001')
     `).run('rate-new', new Date('2026-09-06T00:00:00.000Z').getTime());
 
-    expect(applyMigrations(handle.sqlite)).toEqual([32, 33, 34, 35, 36, 37, 38, 39]);
+    expect(applyMigrations(handle.sqlite)).toEqual([32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42]);
 
     expect(handle.sqlite.prepare('select id, version from categories').all())
       .toEqual([{ id: 'category-existente', version: 1 }]);

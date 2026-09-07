@@ -2,10 +2,10 @@
 
 - Estado: **Aceptado para el MVP de referencia no certificado; implementado parcialmente al
   2026-09-07**. D1, D2 y D4–D6 están implementadas y probadas. D3 tiene intención durable,
-  estado por paso, restricción de enlace y consulta de progreso. Compra y conteo ya tienen
-  efectos remotos autoritativos; devolución y la conciliación completa siguen abiertas. La
-  compensación explícita de un rechazo definitivo con efectos previos conserva además un gate
-  propio.
+  estado por paso, restricción de enlace y consulta de progreso. Compra, conteo y devolución ya
+  tienen efectos remotos autoritativos; la conciliación completa entre fronteras sigue abierta.
+  La compensación explícita de un rechazo definitivo con efectos previos conserva además un
+  gate propio.
 - Fecha: 2026-09-06.
 - Complementa: ADR-0008, 0011, 0012, 0016, 0017, 0019, 0022 y 0023.
 - Ejecución: Fase 10, secuencia 10.03 → 10.04. No habilita piloto ni producción.
@@ -45,11 +45,14 @@ consolidación de solo lectura del coordinador; la infraestructura genérica de 
 resultado por paso; y el contrato que transporta el snapshot de costo, `SaleCompleted.v2`, con
 la v1 intacta y aceptada.
 
-D3 no está cerrada: compra transporta `PurchaseReceiptCompleted.v1` y conteo
-`StockCountApproved.v1`; ambos aplican su movimiento autoritativo sin escribir stock en el POS.
-`SaleReturned.v1` solo alimenta una proyección comercial. La **compensación explícita** de un
-rechazo definitivo tampoco está implementada; una operación rechazada queda `NEEDS_REVIEW` con
-la evidencia disponible.
+D3 no está cerrada: compra transporta `PurchaseReceiptCompleted.v1`, conteo
+`StockCountApproved.v1` y devolución `SaleReturned.v2`; los tres aplican su movimiento
+autoritativo sin escribir stock en el POS. La devolución obtiene antes la salida aplicada por
+la lectura autenticada `GET /sync/v1/sale-issues/:eventId` y el coordinador la revalida contra
+sus movimientos `SALE_ISSUE`. `SaleReturned.v1` conserva intacto su consumo comercial y no
+restituye stock. Siguen abiertos los cortes de conciliación entre cada frontera concreta. La
+**compensación explícita** de un rechazo definitivo tampoco está implementada; una operación
+rechazada queda `NEEDS_REVIEW` con la evidencia disponible.
 
 ## D1. Topología, confianza y alta
 
@@ -266,9 +269,10 @@ Los criterios CA-03 y CA-04 de los planes de Fase 10 requieren transporte real, 
 nodo, entrega a dos terminales, alta de agregados creados offline, ACK perdido, corte de
 bootstrap, discrepancias y caída entre cada paso comercial. Los escenarios de transporte,
 custodia, referencias y reconciliación genérica están probados con tres archivos SQLite
-independientes, listeners reales y autenticación mutua. Compra y conteo prueban su aplicación
-positiva por transporte real; **la devolución y las caídas entre cada frontera concreta siguen
-abiertas**. FS-011 conserva esa brecha explícita.
+independientes, listeners reales y autenticación mutua. Compra, conteo y devolución prueban su
+aplicación positiva por transporte real, incluida la lectura autenticada de la salida aplicada;
+**las caídas entre cada frontera concreta siguen abiertas**. FS-011 conserva esa brecha
+explícita.
 
 Las especificaciones de detalle del corte 0 quedaron completas. Durante su implementación
 aparecieron dos correcciones que esta decisión recoge: `CashMovementRegistered` deja de

@@ -29,6 +29,12 @@ export type SaleReturnEvent = {
 export type RegisterSaleReturnProps = {
   readonly id: string;
   readonly saleId: string;
+  /**
+   * `eventId` de la `SaleCompleted` que produjo la salida. Es la identidad con
+   * la que el coordinador reconoce qué salió realmente y valida la restitución
+   * contra sus propios movimientos (ADR-0026 D3).
+   */
+  readonly saleEventId: string;
   readonly originalDocumentId: string;
   readonly creditNoteId: string;
   readonly shiftId: string;
@@ -59,6 +65,7 @@ export class SaleReturn {
   private constructor(
     readonly id: string,
     readonly saleId: string,
+    readonly saleEventId: string,
     readonly originalDocumentId: string,
     readonly creditNoteId: string,
     readonly shiftId: string,
@@ -103,6 +110,7 @@ export class SaleReturn {
     return new SaleReturn(
       required(props.id, 'SALE_RETURN_ID_REQUIRED', 'Sale return ID is required.'),
       required(props.saleId, 'SALE_RETURN_SALE_REQUIRED', 'Sale return needs its sale.'),
+      props.saleEventId.trim(),
       required(props.originalDocumentId, 'SALE_RETURN_DOCUMENT_REQUIRED', 'Sale return needs its original document.'),
       required(props.creditNoteId, 'SALE_RETURN_CREDIT_NOTE_REQUIRED', 'Sale return needs its credit note.'),
       required(props.shiftId, 'SALE_RETURN_SHIFT_REQUIRED', 'Sale return needs the shift that refunds it.'),
@@ -118,6 +126,16 @@ export class SaleReturn {
   }
 
   static register(props: RegisterSaleReturnProps): SaleReturn {
+    /**
+     * Una devolución nueva no se registra sin la salida que restituye. Las
+     * anteriores a este contrato se restauran con la cadena vacía: conservan
+     * su historia sin que se les invente una salida.
+     */
+    required(
+      props.saleEventId,
+      'SALE_RETURN_SALE_EVENT_REQUIRED',
+      'Sale return needs the sale issue it restores.'
+    );
     const saleReturn = SaleReturn.build(props);
     saleReturn.events.push({
       type: 'SaleReturned',
@@ -130,16 +148,36 @@ export class SaleReturn {
        * El ledger explica el hecho comercial sin copiar el receptor: la
        * identificación fiscal vive solo en la venta y en el documento
        * (ADR-0018), que son la fuente de verdad operativa.
+       *
+       * Las líneas transportan la restitución tomada de la salida original
+       * —lote y costo incluidos, con `null` explícito cuando el costo era
+       * desconocido— para que el coordinador reponga exactamente lo que salió
+       * en vez de un promedio posterior (ADR-0026 D3 y D4).
        */
       payload: {
         saleId: saleReturn.saleId,
+        saleEventId: saleReturn.saleEventId,
         originalDocumentId: saleReturn.originalDocumentId,
         creditNoteId: saleReturn.creditNoteId,
         shiftId: saleReturn.shiftId,
+        terminalId: saleReturn.terminalId,
         refundMinorUnits: saleReturn.refund.minorUnits,
         currencyCode: saleReturn.refund.currency,
         paymentMethodCode: saleReturn.paymentMethodCode,
-        lineCount: saleReturn.lines.length
+        reason: saleReturn.reason,
+        lineCount: saleReturn.lines.length,
+        lines: saleReturn.lines.map((line) => ({
+          lineId: line.id,
+          saleItemId: line.saleItemId,
+          productId: line.productId,
+          stockItemId: line.stockItemId,
+          batchId: line.batchId,
+          quantityScaled: line.quantity.scaledValue,
+          quantityScale: line.quantity.scale,
+          unitCost: line.unitCost === null
+            ? null
+            : { minorUnits: line.unitCost.minorUnits, currencyCode: line.unitCost.currency }
+        }))
       }
     });
     return saleReturn;

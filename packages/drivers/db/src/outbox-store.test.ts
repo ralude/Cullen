@@ -305,7 +305,8 @@ describe('outbox delivery', () => {
         eventId: 'event-other', aggregateId: 'sale-002', occurredAt: '2026-08-29T10:00:00Z'
       })
     ]));
-    handle.sqlite.prepare('update outbox_event set contract_version = 2 where event_id = ?')
+    /** Una versión que el catálogo cerrado no publica; `SaleCompleted.v2` sí existe. */
+    handle.sqlite.prepare('update outbox_event set contract_version = 99 where event_id = ?')
       .run('event-future');
 
     const claimed = await unitOfWork.execute(() => store.claimAvailable(
@@ -385,7 +386,10 @@ describe('outbox delivery', () => {
         "update outbox_event set status = 'BLOCKED'"
       ).run()).toThrow();
 
-      expect(applyMigrations(handle.sqlite)).toEqual([27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]);
+      expect(applyMigrations(handle.sqlite)).toEqual([
+        27, 28, 29, 30, 31, 32, 33, 34, 35,
+        36, 37, 38, 39, 40, 41, 42
+      ]);
       expect(handle.sqlite.prepare(
         'select event_id, status, attempts, last_error from outbox_event'
       ).all()).toEqual([{

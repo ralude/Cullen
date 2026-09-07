@@ -1,7 +1,7 @@
 # Fase 10: Sincronizacion
 
-- **Estado:** En progreso — 10.01 y 10.02 cerradas; 10.03 y 10.04 ya aplican compra y conteo,
-  pero siguen abiertas en devolución y conciliación
+- **Estado:** En progreso — 10.01 y 10.02 cerradas; 10.03 y 10.04 ya aplican compra, conteo y
+  devolución, pero siguen abiertas en conciliación
 - **Indice:** [Cronograma](../README.md)
 - **Precedida por:** [Fase 9B - Perfiles operativos](../fase-09b-perfiles/README.md), insertada por la [replanificacion del 2026-09-04](../replanificacion-fase-09b.md)
 - **Siguiente:** [Fase 11 - Seguridad](../fase-11-seguridad/README.md), bloqueada hasta cerrar
@@ -15,8 +15,8 @@ Permitir operacion offline-first entre terminales autonomas y el nodo coordinado
 
 - [~~10.01 Sync queue~~](./10.01-sync-queue.md) — **completada 2026-09-05**
 - [~~10.02 Protocolo de eventos~~](./10.02-protocolo-eventos.md) — **completada 2026-09-06**
-- [10.03 Servidor receptor](./10.03-servidor-receptor.md) — **en progreso**: falta el efecto
-  remoto autoritativo de devolución y cerrar la conciliación
+- [10.03 Servidor receptor](./10.03-servidor-receptor.md) — **en progreso**: falta cerrar la
+  conciliación entre fronteras
 - [10.04 Offline y reconexion](./10.04-offline-reconexion.md) — **en progreso**: falta probar
   el escenario 11 sobre esos pasos reales
 
@@ -66,9 +66,9 @@ ejecutó entre el 2026-09-06 y el 2026-09-07 según los planes de
 
 No se presenta como disponible:
 
-- El **efecto remoto autoritativo de devolución** y los cortes de conciliación entre fronteras.
-  Compra y conteo ya transportan un único hecho y se aplican en el coordinador sin escribir
-  stock en el POS; `SaleReturned.v1` todavía solo alimenta la proyección comercial.
+- Los **cortes de conciliación entre fronteras**. Compra, conteo y devolución ya transportan
+  un único hecho y se aplican en el coordinador sin escribir stock en el POS;
+  `SaleReturned.v1` conserva su consumo comercial y no restituye stock.
 - La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos:
   la operación queda `NEEDS_REVIEW` con la evidencia de cada paso.
 - La **administración de usuarios y roles**, que pertenece a 11.02. Las concesiones distribuyen

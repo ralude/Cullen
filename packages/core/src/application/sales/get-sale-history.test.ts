@@ -60,7 +60,7 @@ describe('GetSaleHistory', () => {
       })
     ];
     const saleReturn = SaleReturn.register({
-      id: 'return-1', saleId: 'sale-1', originalDocumentId: 'doc-1', creditNoteId: 'note-1',
+      id: 'return-1', saleId: 'sale-1', saleEventId: 'e4', originalDocumentId: 'doc-1', creditNoteId: 'note-1',
       shiftId: 'shift-1', refund: Money.fromMinorUnits(5_000, 'USD'), paymentMethodCode: 'CASH_USD',
       reason: 'Producto defectuoso', actorId: 'user-002', terminalId: 'terminal-001',
       originNodeId: 'node-001', occurredAt: new Date('2026-09-06T09:00:00.000Z'),

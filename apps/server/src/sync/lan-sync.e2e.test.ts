@@ -127,6 +127,39 @@ const saleReturnedEvent = (nodeId: string, terminalId: string): BusinessEventV1 
   }
 });
 
+/**
+ * Devolución local-first: transporta la salida que el coordinador ya aplicó,
+ * con su lote y su costo, para que la restitución reponga exactamente eso.
+ */
+const saleReturnedV2Event = (nodeId: string, terminalId: string): BusinessEventV1 => ({
+  ...saleReturnedEvent(nodeId, terminalId),
+  eventId: `event-return-v2-${terminalId}`,
+  contractVersion: 2,
+  payload: {
+    saleId: `sale-${terminalId}`,
+    saleEventId: `event-sale-${terminalId}`,
+    originalDocumentId: `document-${terminalId}`,
+    creditNoteId: `credit-${terminalId}`,
+    shiftId: `shift-${terminalId}`,
+    terminalId,
+    refundMinorUnits: 1000,
+    currencyCode: 'USD',
+    paymentMethodCode: 'CASH_USD',
+    reason: 'Producto devuelto',
+    lineCount: 1,
+    lines: [{
+      lineId: `return-line-${terminalId}`,
+      saleItemId: `line-${terminalId}`,
+      productId: 'product-1',
+      stockItemId: 'stock-1',
+      batchId: null,
+      quantityScaled: 2,
+      quantityScale: 0,
+      unitCost: null
+    }]
+  }
+});
+
 const purchaseReceiptEvent = (nodeId: string, terminalId: string): BusinessEventV1 => ({
   eventId: `event-purchase-${terminalId}`,
   eventType: 'PurchaseReceiptCompleted',
@@ -308,6 +341,11 @@ const startCoordinator = async (
             new DrizzleOutboxStore(handle)
           ),
           new application.ApplyStockCountApprovedToInventory(
+            stockItems, ids, ids, ids, application.ambientUnitOfWork,
+            new DrizzleBusinessEventStore(handle), new DrizzleAuditWriter(handle),
+            new DrizzleOutboxStore(handle), COORDINATOR
+          ),
+          new application.ApplySaleReturnedToInventory(
             stockItems, ids, ids, ids, application.ambientUnitOfWork,
             new DrizzleBusinessEventStore(handle), new DrizzleAuditWriter(handle),
             new DrizzleOutboxStore(handle), COORDINATOR
@@ -499,6 +537,71 @@ describe('LAN de una tienda con coordinador y dos terminales', () => {
     expect(coordinator.handle.sqlite.prepare(`
       select count(*) from outbox_event where event_type = 'StockAvailabilityPublished'
     `).pluck().get()).toBe(1);
+  });
+
+  it('restituye una devolución con el lote y el costo de la salida aplicada', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+    await grantAuthority(terminal);
+    await relayFor(terminal).runBatch();
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      moment = new Date(moment.getTime() + 300_000);
+      await coordinator.processor.runBatch();
+    }
+    expect(await balance()).toBe(8);
+
+    const returned = saleReturnedV2Event(terminal.nodeId, terminal.terminalId);
+    await terminal.unitOfWork.execute(() => terminal.outbox.enqueue([returned]));
+    await claimAuthority(terminal, 'SaleReturn', returned.aggregateId);
+    expect(await relayFor(terminal).runBatch()).toBe(1);
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      moment = new Date(moment.getTime() + 300_000);
+      await coordinator.processor.runBatch();
+    }
+
+    /** La salida vuelve al saldo autoritativo, y solo una vez. */
+    expect(await balance()).toBe(10);
+    expect(terminal.handle.sqlite.prepare('select count(*) from stock_items').pluck().get())
+      .toBe(0);
+    expect(coordinator.handle.sqlite.prepare(`
+      select type, reference_id as referenceId, quantity_scaled as quantity
+      from stock_movements where reference_id = ?
+    `).get(`${returned.eventId}:return-line-${terminal.terminalId}`)).toEqual({
+      type: 'ADJUSTMENT_IN',
+      referenceId: `${returned.eventId}:return-line-${terminal.terminalId}`,
+      quantity: 2
+    });
+    expect(coordinator.handle.sqlite.prepare(
+      "select count(*) from audit_log where action = 'SALE_RETURN_STOCK_RESTORED'"
+    ).pluck().get()).toBe(1);
+    await expect(coordinator.workStore.applicationProgress(returned.eventId))
+      .resolves.toBe('APPLIED');
+    /** La consolidación comercial también la proyecta, sin reemitir nada fiscal. */
+    expect(coordinator.handle.sqlite.prepare(
+      'select count(*) from sync_sale_projection where returned_at is not null'
+    ).pluck().get()).toBe(1);
+  });
+
+  it('no restituye una devolución cuya salida el coordinador no aplicó', async () => {
+    const terminal = first();
+    const returned = saleReturnedV2Event(terminal.nodeId, terminal.terminalId);
+    await terminal.unitOfWork.execute(() => terminal.outbox.enqueue([returned]));
+    await claimAuthority(terminal, 'SaleReturn', returned.aggregateId);
+    await claimAuthority(terminal, 'Sale', `sale-${terminal.terminalId}`);
+
+    expect(await relayFor(terminal).runBatch()).toBe(1);
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      moment = new Date(moment.getTime() + 300_000);
+      await coordinator.processor.runBatch();
+    }
+
+    /** Sin la venta aplicada la dependencia no se cumple: nada que restituir. */
+    expect(await balance()).toBe(10);
+    expect(coordinator.handle.sqlite.prepare(
+      "select count(*) from stock_movements where type = 'ADJUSTMENT_IN'"
+    ).pluck().get()).toBe(0);
+    await expect(coordinator.workStore.applicationProgress(returned.eventId))
+      .resolves.toBe('PENDING');
   });
 
   it('entrega una venta acumulada durante el corte y la aplica una sola vez', async () => {

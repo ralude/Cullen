@@ -1,6 +1,7 @@
 export { ApplySaleCompletedToInventory } from './apply-sale-completed-to-inventory.js';
 export { ApplyPurchaseReceiptCompletedToInventory } from './apply-purchase-receipt-completed-to-inventory.js';
 export { ApplyStockCountApprovedToInventory } from './apply-stock-count-approved-to-inventory.js';
+export { ApplySaleReturnedToInventory } from './apply-sale-returned-to-inventory.js';
 export { GetKardex } from './get-kardex.js';
 export { ReceivePurchase } from './receive-purchase.js';
 export { RegisterStockAdjustment } from './register-stock-adjustment.js';

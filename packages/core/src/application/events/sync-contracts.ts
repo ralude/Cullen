@@ -560,6 +560,50 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   consumers: ['COMMERCIAL_PROJECTION'],
   dependencies: (payload) => reference('Sale', payload, 'saleId')
 }, {
+  /**
+   * Versión 2: añade el `eventId` de la `SaleCompleted` que causó la salida y
+   * las líneas de restitución tomadas de esa salida ya aplicada por el
+   * coordinador (ADR-0026 D3). La v1 sigue siendo válida y se conserva intacta
+   * con sus fixtures; un hecho v1 solo alimenta la proyección comercial y no
+   * restituye stock, porque no transporta lote ni costo original.
+   */
+  eventType: 'SaleReturned',
+  contractVersion: 2,
+  aggregateType: 'SaleReturn',
+  direction: 'TERMINAL_TO_COORDINATOR',
+  fields: {
+    saleId: identifier(),
+    saleEventId: identifier(),
+    originalDocumentId: identifier(),
+    creditNoteId: identifier(),
+    shiftId: identifier(),
+    terminalId: identifier(),
+    refundMinorUnits: integer(),
+    currencyCode: { kind: 'currency' },
+    paymentMethodCode: identifier(),
+    reason: text(),
+    lineCount: integer(1),
+    lines: array(object({
+      lineId: identifier(),
+      saleItemId: identifier(),
+      productId: identifier(),
+      stockItemId: identifier(),
+      batchId: identifier(true),
+      quantityScaled: integer(1),
+      quantityScale: integer(0),
+      /** `null` es costo desconocido explícito de la salida original. */
+      unitCost: object({
+        minorUnits: integer(),
+        currencyCode: { kind: 'currency' }
+      }, true)
+    }))
+  },
+  payloadOriginField: null,
+  payloadTerminalField: 'terminalId',
+  intendedConsumer: 'inventario autoritativo y consolidacion comercial del coordinador',
+  consumers: ['INVENTORY_AUTHORITY', 'COMMERCIAL_PROJECTION'],
+  dependencies: (payload) => reference('Sale', payload, 'saleId')
+}, {
   eventType: 'ShiftOpened',
   contractVersion: 1,
   aggregateType: 'Shift',
