@@ -409,8 +409,16 @@ describe('catálogo de contratos de integración v1', () => {
       'OperatorGrantPublished.v1:CATALOG_REFERENCE',
       'StockAvailabilityPublished.v1:CATALOG_REFERENCE',
       'ProductPublished.v1:CATALOG_REFERENCE',
-      'SaleCompleted.v1:INVENTORY_AUTHORITY',
-      'SaleCompleted.v2:INVENTORY_AUTHORITY'
+      'SaleCompleted.v1:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
+      'SaleCompleted.v2:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
+      'SaleReturned.v1:COMMERCIAL_PROJECTION',
+      'ShiftOpened.v1:COMMERCIAL_PROJECTION',
+      'CashMovementRegistered.v1:COMMERCIAL_PROJECTION',
+      'ShiftClosed.v1:COMMERCIAL_PROJECTION',
+      'FiscalDocumentIssued.v1:COMMERCIAL_PROJECTION',
+      'FiscalDocumentFailed.v1:COMMERCIAL_PROJECTION',
+      'FiscalXReportIssued.v1:COMMERCIAL_PROJECTION',
+      'FiscalZReportIssued.v1:COMMERCIAL_PROJECTION'
     ]);
   });
 
@@ -469,7 +477,6 @@ describe('catálogo de contratos de integración v1', () => {
       'StockAvailabilityPublished->Product:product-001',
       'SaleCompleted->Shift:shift-001',
       'SaleReturned->Sale:sale-001',
-      'CashMovementRegistered->Sale:sale-001',
       'FiscalDocumentIssued->Sale:sale-001'
     ]);
   });

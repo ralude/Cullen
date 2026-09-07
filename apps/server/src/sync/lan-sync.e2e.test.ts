@@ -21,6 +21,7 @@ import {
   DrizzleStockItemRepository,
   DrizzleSyncInboxWorkStore,
   DrizzleSyncReceptionStore,
+  SqliteCommercialProjection,
   openDatabase,
   SqliteSyncNodeRegistry,
   SqliteUnitOfWork,
@@ -208,13 +209,19 @@ const startCoordinator = async (
     workStore,
     processor: new application.ProcessSyncInbox(
       workStore,
-      new Map([['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(
-        new application.ApplySaleCompletedToInventory(
-          stockItems, ids, ids, application.ambientUnitOfWork,
-          new DrizzleBusinessEventStore(handle), new DrizzleAuditWriter(handle),
-          'SYNCED_SNAPSHOT'
-        )
-      )]]),
+      /** Los dos consumidores del coordinador, como los compone el nodo real. */
+      new Map<string, application.SyncConsumer>([
+        ['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(
+          new application.ApplySaleCompletedToInventory(
+            stockItems, ids, ids, application.ambientUnitOfWork,
+            new DrizzleBusinessEventStore(handle), new DrizzleAuditWriter(handle),
+            'SYNCED_SNAPSHOT'
+          )
+        )],
+        ['COMMERCIAL_PROJECTION', new application.CommercialProjectionConsumer(
+          new SqliteCommercialProjection(handle)
+        )]
+      ]),
       unitOfWork,
       clock,
       ids
@@ -361,6 +368,8 @@ describe('LAN de una tienda con coordinador y dos terminales', () => {
     await relay.runBatch();
     await relay.runBatch();
     await coordinator.processor.runBatch();
+    moment = new Date('2026-09-06T12:10:00.000Z');
+    await coordinator.processor.runBatch();
 
     expect(deliveries(terminal)).toMatchObject([
       { event_id: 'event-sale-terminal-001', status: 'PUBLISHED' },
@@ -409,6 +418,9 @@ describe('LAN de una tienda con coordinador y dos terminales', () => {
     await recovered.runBatch();
     await recovered.runBatch();
     await coordinator.processor.runBatch();
+    moment = new Date('2026-09-06T12:15:00.000Z');
+    await coordinator.processor.runBatch();
+    moment = new Date('2026-09-06T12:20:00.000Z');
     await coordinator.processor.runBatch();
 
     expect(deliveries(terminal)).toMatchObject([
@@ -474,8 +486,11 @@ describe('LAN de una tienda con coordinador y dos terminales', () => {
       await relay.runBatch();
       await relay.runBatch();
     }
-    await coordinator.processor.runBatch();
-    await coordinator.processor.runBatch();
+    /** Un ciclo por vuelta: los turnos primero, las ventas cuando ya dependen de ellos. */
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      await coordinator.processor.runBatch();
+      moment = new Date(moment.getTime() + 300_000);
+    }
 
     expect(coordinator.handle.sqlite.prepare('select count(*) from sync_inbox_event')
       .pluck().get()).toBe(4);

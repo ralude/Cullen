@@ -111,8 +111,9 @@ describe('recepción durable de sincronización', () => {
 
     expect(receipt).toMatchObject({ status: 'ACCEPTED', application: 'PENDING_CONSUMER' });
     expect(handle.sqlite.prepare(
-      'select consumer, state, attempts from sync_inbox_work where event_id = ?'
+      'select consumer, state, attempts from sync_inbox_work where event_id = ? order by consumer'
     ).all('event-001')).toEqual([
+      { consumer: 'COMMERCIAL_PROJECTION', state: 'PENDING', attempts: 0 },
       { consumer: 'INVENTORY_AUTHORITY', state: 'PENDING', attempts: 0 }
     ]);
     handle.close();
@@ -180,7 +181,7 @@ describe('recepción durable de sincronización', () => {
     expect(receipts.every((entry) => 'application' in entry &&
       entry.application === 'PENDING_DEPENDENCY')).toBe(true);
     expect(handle.sqlite.prepare('select count(*) from sync_inbox_event').pluck().get()).toBe(1);
-    expect(handle.sqlite.prepare('select count(*) from sync_inbox_work').pluck().get()).toBe(1);
+    expect(handle.sqlite.prepare('select count(*) from sync_inbox_work').pluck().get()).toBe(2);
     handle.close();
   });
 
@@ -259,7 +260,7 @@ describe('recepción durable de sincronización', () => {
 
     expect(accepted).toMatchObject({ status: 'ACCEPTED', application: 'PENDING_DEPENDENCY' });
     expect(repeated).toMatchObject({ status: 'DUPLICATE', application: 'PENDING_DEPENDENCY' });
-    expect(reopened.sqlite.prepare('select count(*) from sync_inbox_work').pluck().get()).toBe(1);
+    expect(reopened.sqlite.prepare('select count(*) from sync_inbox_work').pluck().get()).toBe(2);
     reopened.close();
     rmSync(directory, { recursive: true, force: true });
   });

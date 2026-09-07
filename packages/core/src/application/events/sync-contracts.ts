@@ -11,13 +11,18 @@ export type SyncContractDirection = 'TERMINAL_TO_COORDINATOR' | 'COORDINATOR_TO_
  * Consumidores implementados del receptor. Cada uno confirma su efecto y su
  * progreso en la misma transacción; recibir un hecho no equivale a aplicarlo.
  */
-export const SYNC_CONSUMERS_V1 = ['INVENTORY_AUTHORITY', 'CATALOG_REFERENCE'] as const;
+export const SYNC_CONSUMERS_V1 = [
+  'INVENTORY_AUTHORITY',
+  'CATALOG_REFERENCE',
+  'COMMERCIAL_PROJECTION'
+] as const;
 export type SyncConsumerId = (typeof SYNC_CONSUMERS_V1)[number];
 
 /** Nombres de los consumidores, para no depender de su posición en la lista. */
 export const SYNC_CONSUMERS = {
   inventoryAuthority: 'INVENTORY_AUTHORITY',
-  catalogReference: 'CATALOG_REFERENCE'
+  catalogReference: 'CATALOG_REFERENCE',
+  commercialProjection: 'COMMERCIAL_PROJECTION'
 } as const satisfies Record<string, SyncConsumerId>;
 
 export type SyncAggregateRef = {
@@ -404,7 +409,7 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: null,
   payloadTerminalField: 'terminalId',
   intendedConsumer: 'caja e inventario autoritativos del coordinador',
-  consumers: ['INVENTORY_AUTHORITY'],
+  consumers: ['INVENTORY_AUTHORITY', 'COMMERCIAL_PROJECTION'],
   dependencies: (payload) => reference('Shift', payload, 'shiftId')
 }, {
   /**
@@ -445,7 +450,7 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: null,
   payloadTerminalField: 'terminalId',
   intendedConsumer: 'caja e inventario autoritativos del coordinador',
-  consumers: ['INVENTORY_AUTHORITY'],
+  consumers: ['INVENTORY_AUTHORITY', 'COMMERCIAL_PROJECTION'],
   dependencies: (payload) => reference('Shift', payload, 'shiftId')
 }, {
   eventType: 'SaleReturned',
@@ -465,7 +470,7 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: null,
   payloadTerminalField: null,
   intendedConsumer: 'consolidacion comercial del coordinador',
-  consumers: [],
+  consumers: ['COMMERCIAL_PROJECTION'],
   dependencies: (payload) => reference('Sale', payload, 'saleId')
 }, {
   eventType: 'ShiftOpened',
@@ -482,7 +487,7 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: 'originNodeId',
   payloadTerminalField: 'terminalId',
   intendedConsumer: 'proyeccion de caja del coordinador',
-  consumers: [],
+  consumers: ['COMMERCIAL_PROJECTION'],
   dependencies: noDependencies
 }, {
   eventType: 'CashMovementRegistered',
@@ -504,13 +509,14 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: null,
   payloadTerminalField: null,
   intendedConsumer: 'proyeccion de caja del coordinador',
-  consumers: [],
-  dependencies: (payload) => {
-    const movementReference = payload.reference ?? null;
-    return isPlainObject(movementReference)
-      ? reference('Sale', movementReference, 'sourceId')
-      : [];
-  }
+  consumers: ['COMMERCIAL_PROJECTION'],
+  /**
+   * Un movimiento de caja es un hecho **del turno** que referencia una venta,
+   * no un hecho que dependa de ella: la referencia viaja en el payload y se
+   * proyecta tal cual. Declararla como dependencia crearía un ciclo, porque la
+   * venta sí depende de su turno y el movimiento pertenece a ese mismo turno.
+   */
+  dependencies: noDependencies
 }, {
   eventType: 'ShiftClosed',
   contractVersion: 1,
@@ -528,7 +534,7 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: null,
   payloadTerminalField: null,
   intendedConsumer: 'cierre consolidado de caja del coordinador',
-  consumers: [],
+  consumers: ['COMMERCIAL_PROJECTION'],
   dependencies: noDependencies
 }, {
   eventType: 'FiscalDocumentIssued',
@@ -539,7 +545,7 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: null,
   payloadTerminalField: null,
   intendedConsumer: 'consolidacion fiscal del coordinador',
-  consumers: [],
+  consumers: ['COMMERCIAL_PROJECTION'],
   dependencies: (payload) => reference('Sale', payload, 'referenceId')
 }, {
   eventType: 'FiscalDocumentFailed',
@@ -550,7 +556,7 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: null,
   payloadTerminalField: null,
   intendedConsumer: 'consolidacion fiscal del coordinador',
-  consumers: [],
+  consumers: ['COMMERCIAL_PROJECTION'],
   dependencies: noDependencies
 }, {
   eventType: 'FiscalXReportIssued',
@@ -561,7 +567,7 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: null,
   payloadTerminalField: null,
   intendedConsumer: 'consolidacion fiscal del coordinador',
-  consumers: [],
+  consumers: ['COMMERCIAL_PROJECTION'],
   dependencies: noDependencies
 }, {
   eventType: 'FiscalZReportIssued',
@@ -572,7 +578,7 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   payloadOriginField: null,
   payloadTerminalField: null,
   intendedConsumer: 'consolidacion fiscal del coordinador',
-  consumers: [],
+  consumers: ['COMMERCIAL_PROJECTION'],
   dependencies: noDependencies
 }];
 

@@ -3,6 +3,7 @@ import { application, StockItem, type SyncSenderContext } from '@supermarket/cor
 import { Money, Quantity, type SyncEnvelopeV1 } from '@supermarket/shared';
 import { openDatabase, type DatabaseHandle } from './connection.js';
 import { applyMigrations } from './migrations.js';
+import { SqliteCommercialProjection } from './commercial-projection.js';
 import { DrizzleAuditWriter } from './audit-writer.js';
 import { DrizzleBusinessEventStore } from './business-event-store.js';
 import { DrizzleStockItemRepository } from './repositories.js';
@@ -156,7 +157,13 @@ const fixture = async (available: number): Promise<Fixture> => {
     ),
     processor: new application.ProcessSyncInbox(
       workStore,
-      new Map([['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(inventory)]]),
+      /** Los dos consumidores reales de `SaleCompleted`, como los compone el nodo. */
+      new Map<string, application.SyncConsumer>([
+        ['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(inventory)],
+        ['COMMERCIAL_PROJECTION', new application.CommercialProjectionConsumer(
+          new SqliteCommercialProjection(handle)
+        )]
+      ]),
       unitOfWork,
       clock,
       ids
@@ -164,9 +171,10 @@ const fixture = async (available: number): Promise<Fixture> => {
   };
 };
 
-const workState = (handle: DatabaseHandle): unknown[] => handle.sqlite.prepare(
-  'select consumer, state, attempts, last_error from sync_inbox_work order by event_id'
-).all();
+const workState = (handle: DatabaseHandle): unknown[] => handle.sqlite.prepare(`
+  select consumer, state, attempts, last_error from sync_inbox_work
+  order by event_id, consumer
+`).all();
 
 const balanceOf = async (handle: DatabaseHandle): Promise<number> => {
   const item = await new DrizzleStockItemRepository(handle).findByProductId('product-1');
@@ -183,11 +191,20 @@ describe('aplicación recuperable del receptor', () => {
     await receive.execute(shiftEnvelope(), sender);
     await receive.execute(saleEnvelope(), sender);
 
-    expect(await processor.runBatch()).toBe(1);
+    /**
+     * El primer ciclo proyecta el turno y deja esperando a la venta: su
+     * dependencia se aplicó en este mismo lote, así que el segundo la aplica.
+     */
+    expect(await processor.runBatch()).toBe(3);
+    moment = new Date('2026-09-06T12:05:00.000Z');
+    expect(await processor.runBatch()).toBe(2);
 
     expect(workState(handle)).toEqual([
-      { consumer: 'INVENTORY_AUTHORITY', state: 'APPLIED', attempts: 1, last_error: null }
+      { consumer: 'COMMERCIAL_PROJECTION', state: 'APPLIED', attempts: 2, last_error: null },
+      { consumer: 'INVENTORY_AUTHORITY', state: 'APPLIED', attempts: 2, last_error: null },
+      { consumer: 'COMMERCIAL_PROJECTION', state: 'APPLIED', attempts: 1, last_error: null }
     ]);
+    moment = new Date('2026-09-06T12:00:00.000Z');
     expect(saleIssues(handle)).toBe(1);
     expect(await balanceOf(handle)).toBe(8);
     handle.close();
@@ -199,10 +216,13 @@ describe('aplicación recuperable del receptor', () => {
     await receive.execute(saleEnvelope(), sender);
 
     await processor.runBatch();
+    moment = new Date('2026-09-06T12:05:00.000Z');
+    await processor.runBatch();
 
     expect(handle.sqlite.prepare(
       "select unit_cost_minor_units from stock_movements where type = 'SALE_ISSUE'"
     ).pluck().get()).toBeNull();
+    moment = new Date('2026-09-06T12:00:00.000Z');
     handle.close();
   });
 
@@ -210,9 +230,17 @@ describe('aplicación recuperable del receptor', () => {
     const { handle, receive, processor } = await fixture(10);
     await receive.execute(saleEnvelope(), sender);
 
-    expect(await processor.runBatch()).toBe(1);
+    /** Ninguno de los dos consumidores aplica sin su dependencia aplicada. */
+    expect(await processor.runBatch()).toBe(2);
+    expect(handle.sqlite.prepare('select count(*) from sync_sale_projection').pluck().get())
+      .toBe(0);
 
     expect(workState(handle)).toEqual([{
+      consumer: 'COMMERCIAL_PROJECTION',
+      state: 'PENDING',
+      attempts: 1,
+      last_error: 'SYNC_DEPENDENCY_NOT_APPLIED'
+    }, {
       consumer: 'INVENTORY_AUTHORITY',
       state: 'PENDING',
       attempts: 1,
@@ -227,12 +255,17 @@ describe('aplicación recuperable del receptor', () => {
     await receive.execute(shiftEnvelope(), sender);
     await receive.execute(saleEnvelope(), sender);
     await processor.runBatch();
+    moment = new Date('2026-09-06T12:05:00.000Z');
+    await processor.runBatch();
 
     await receive.execute(saleEnvelope(), sender);
-    moment = new Date('2026-09-06T12:05:00.000Z');
+    moment = new Date('2026-09-06T12:10:00.000Z');
     const second = await processor.runBatch();
 
     expect(second).toBe(0);
+    /** Tampoco duplica la fila proyectada de la venta. */
+    expect(handle.sqlite.prepare('select count(*) from sync_sale_projection').pluck().get())
+      .toBe(1);
     expect(saleIssues(handle)).toBe(1);
     expect(handle.sqlite.prepare(
       "select count(*) from audit_log where action = 'SALE_STOCK_ISSUED'"
@@ -247,13 +280,29 @@ describe('aplicación recuperable del receptor', () => {
     await receive.execute(saleEnvelope({}, 5), sender);
 
     await processor.runBatch();
+    moment = new Date('2026-09-06T12:05:00.000Z');
+    await processor.runBatch();
 
     expect(workState(handle)).toEqual([{
+      consumer: 'COMMERCIAL_PROJECTION',
+      state: 'APPLIED',
+      attempts: 2,
+      last_error: null
+    }, {
       consumer: 'INVENTORY_AUTHORITY',
       state: 'DISCREPANCY',
-      attempts: 1,
+      attempts: 2,
       last_error: 'STOCK_INSUFFICIENT'
+    }, {
+      consumer: 'COMMERCIAL_PROJECTION',
+      state: 'APPLIED',
+      attempts: 1,
+      last_error: null
     }]);
+    /** La venta se conserva y se consolida; lo que falta es su efecto de stock. */
+    expect(handle.sqlite.prepare('select count(*) from sync_sale_projection').pluck().get())
+      .toBe(1);
+    moment = new Date('2026-09-06T12:00:00.000Z');
     expect(saleIssues(handle)).toBe(0);
     expect(await balanceOf(handle)).toBe(1);
     expect(handle.sqlite.prepare(
@@ -273,6 +322,9 @@ describe('aplicación recuperable del receptor', () => {
     await receive.execute(shiftEnvelope(), sender);
     await receive.execute(saleEnvelope({}, 5), sender);
     await processor.runBatch();
+    moment = new Date('2026-09-06T12:05:00.000Z');
+    await processor.runBatch();
+    moment = new Date('2026-09-06T12:00:00.000Z');
     const [open] = await workStore.listDiscrepancies('OPEN');
     const resolve = new application.ResolveSyncDiscrepancy(
       workStore, authorization, clock, unitOfWork, ids, new DrizzleAuditWriter(handle)
@@ -303,6 +355,9 @@ describe('aplicación recuperable del receptor', () => {
     await receive.execute(shiftEnvelope(), sender);
     await receive.execute(saleEnvelope({}, 5), sender);
     await processor.runBatch();
+    moment = new Date('2026-09-06T12:05:00.000Z');
+    await processor.runBatch();
+    moment = new Date('2026-09-06T12:00:00.000Z');
     const [open] = await workStore.listDiscrepancies('OPEN');
     const discrepancyId = open?.discrepancyId as string;
 
@@ -351,10 +406,15 @@ describe('aplicación recuperable del receptor', () => {
     moment = new Date('2026-09-06T12:01:00.000Z');
     const recovered = await stalled.runBatch();
 
-    expect(recovered).toBe(1);
+    /** El turno y los dos consumidores de la venta retoman su trabajo reclamado. */
+    expect(recovered).toBe(3);
+    /** La venta espera a que su turno quede proyectado y aplica en el ciclo siguiente. */
+    moment = new Date('2026-09-06T12:06:00.000Z');
+    await stalled.runBatch();
+
     expect(handle.sqlite.prepare(
       "select attempts from sync_inbox_work where consumer = 'INVENTORY_AUTHORITY'"
-    ).pluck().get()).toBe(2);
+    ).pluck().get()).toBe(3);
     expect(saleIssues(handle)).toBe(1);
     moment = new Date('2026-09-06T12:00:00.000Z');
     handle.close();
@@ -377,7 +437,12 @@ const fixtureProcessor = async (
   );
   return new application.ProcessSyncInbox(
     workStore,
-    new Map([['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(inventory)]]),
+    new Map<string, application.SyncConsumer>([
+      ['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(inventory)],
+      ['COMMERCIAL_PROJECTION', new application.CommercialProjectionConsumer(
+        new SqliteCommercialProjection(handle)
+      )]
+    ]),
     unitOfWork,
     clock,
     ids

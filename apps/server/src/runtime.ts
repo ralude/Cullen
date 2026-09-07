@@ -25,6 +25,7 @@ import {
   DrizzleSyncInboxWorkStore,
   SqliteCatalogReferenceProjection,
   SqliteCatalogReferenceSource,
+  SqliteCommercialProjection,
   SqliteCoordinatedOperationStore,
   SqliteOperatorGrantSource,
   SqliteSaleCostSnapshotProvider,
@@ -259,11 +260,19 @@ export const createSecurityRuntime = (
             )
           )],
           /**
+           * Consolidacion comercial: ventas, caja y fiscalidad de las
+           * terminales, para leer. No importa sus agregados ni reejecuta sus
+           * efectos, y no toca las tablas operativas de este nodo.
+           */
+          ['COMMERCIAL_PROJECTION', new application.CommercialProjectionConsumer(
+            new SqliteCommercialProjection(handle)
+          )],
+          /**
            * Proyeccion local del catalogo que publica el coordinador. No pasa
            * por los casos de uso de administracion ni encola nada en la salida.
            */
           ['CATALOG_REFERENCE', new application.CatalogReferenceConsumer(
-            new SqliteCatalogReferenceProjection(handle)
+            referenceProjection
           )]
         ]),
         unitOfWork,

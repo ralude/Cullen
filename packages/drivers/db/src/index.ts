@@ -51,3 +51,4 @@ export {
 } from './repositories.js';
 export { SqliteSaleCostSnapshotProvider } from './sale-cost-snapshot-provider.js';
 export { SqliteCoordinatedOperationStore } from './coordinated-operation-store.js';
+export { SqliteCommercialProjection } from './commercial-projection.js';

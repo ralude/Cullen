@@ -165,3 +165,14 @@ export type {
   RemoteApplicationProbe,
   RemoteApplicationState
 } from './application/ports/index.js';
+export type {
+  CommercialProjection,
+  ProjectedCashMovement,
+  ProjectedFiscalEntry,
+  ProjectedMoney,
+  ProjectedSale,
+  ProjectedSaleReturn,
+  ProjectedShiftBalance,
+  ProjectedShiftClosure,
+  ProjectedShiftOpening
+} from './application/ports/index.js';

@@ -63,3 +63,4 @@ export type {
   CoordinatedOperationDto,
   CoordinatedOperationStepDto
 } from './coordinated-stock-operations.js';
+export { CommercialProjectionConsumer } from './commercial-projection-consumer.js';

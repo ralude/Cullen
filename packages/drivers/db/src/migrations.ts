@@ -49,6 +49,7 @@ import { exchangeRateReferenceVersionSql } from './migrations/0035-exchange-rate
 import { operatorGrantsAndAvailabilitySql } from './migrations/0036-operator-grants-and-availability.js';
 import { saleCostSnapshotSql } from './migrations/0037-sale-cost-snapshot.js';
 import { coordinatedOperationsSql } from './migrations/0038-coordinated-operations.js';
+import { commercialProjectionSql } from './migrations/0039-commercial-projection.js';
 
 export type Migration = {
   readonly version: number;
@@ -208,6 +209,10 @@ export const migrations: readonly Migration[] = [{
   version: 38,
   name: 'coordinated_operations',
   sql: coordinatedOperationsSql
+}, {
+  version: 39,
+  name: 'commercial_projection',
+  sql: commercialProjectionSql
 }];
 
 const checksum = (migration: Migration): string => createHash('sha256')

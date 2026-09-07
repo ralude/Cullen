@@ -127,3 +127,14 @@ export type {
   RemoteApplicationProbe,
   RemoteApplicationState
 } from './coordinator-link.js';
+export type {
+  CommercialProjection,
+  ProjectedCashMovement,
+  ProjectedFiscalEntry,
+  ProjectedMoney,
+  ProjectedSale,
+  ProjectedSaleReturn,
+  ProjectedShiftBalance,
+  ProjectedShiftClosure,
+  ProjectedShiftOpening
+} from './commercial-projection.js';

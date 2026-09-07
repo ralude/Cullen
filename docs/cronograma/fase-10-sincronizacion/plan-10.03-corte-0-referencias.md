@@ -548,3 +548,56 @@ un costo ausente en cero y no se revaloriza ninguna salida histórica.
   más caro entre la venta y su recepción.
 - [ ] Un costo con procedencia ajena no se acepta y no se sustituye por el promedio local.
 - [ ] Un hecho `SaleCompleted.v1` sigue siendo aceptado y se aplica con costo desconocido.
+
+## Consumidores de ventas, caja y fiscalidad en el coordinador
+
+Último consumidor pendiente del corte 3. Los ocho contratos restantes tenían custodia sin
+aplicación: sus hechos quedaban recibidos y explícitamente **no** aplicados.
+
+### Qué hace y qué no
+
+El coordinador consolida para **leer**. No importa los agregados operativos de la terminal ni
+vuelve a ejecutar sus efectos:
+
+- **No** invoca `CompleteSale`, `ReturnSale`, apertura o cierre de turno, ni la impresora. Un
+  hecho remoto nunca emite ni reimprime un documento fiscal.
+- **No** escribe en `sales`, `shifts`, `cash_movements` ni `fiscal_documents`: esas tablas son
+  de los agregados que el coordinador posee, y mezclarlas duplicaría totales.
+- **No** crea la caja ni el turno de la terminal en el coordinador: la autoridad de esos
+  agregados sigue siendo la terminal, conforme ADR-0026 D3.
+
+Escribe cuatro proyecciones propias, con el prefijo `sync_`, que existen solo para consultar
+lo que ocurrió en las terminales.
+
+### Contratos y proyecciones
+
+| Contrato | Proyección | Identidad |
+|---|---|---|
+| `SaleCompleted.v1` y `.v2` | `sync_sale_projection` | `saleId` |
+| `SaleReturned.v1` | marca la devolución sobre la venta proyectada | `saleId` |
+| `ShiftOpened.v1`, `ShiftClosed.v1` | `sync_shift_projection` | `shiftId` |
+| `CashMovementRegistered.v1` | `sync_cash_movement_projection` | `movementId` |
+| `FiscalDocumentIssued.v1`, `FiscalDocumentFailed.v1` | `sync_fiscal_projection` | `documentId` |
+| `FiscalXReportIssued.v1`, `FiscalZReportIssued.v1` | `sync_fiscal_projection` | `reportId` |
+
+Cada fila conserva la terminal y el nodo de origen del hecho: la consolidación no mezcla lo
+que hizo cada terminal, y el coordinador no aparece como autor de una venta ajena.
+
+`SaleReturned` declara `Sale` como dependencia, así que una devolución que llegue antes que su
+venta espera a que esté aplicada en lugar de crear una venta fantasma.
+
+### Idempotencia
+
+Cada proyección es un upsert por la identidad del agregado, condicionado a que el hecho sea
+posterior: una reentrega no duplica filas ni totales, y un hecho atrasado no retrocede la
+proyección. La marca de devolución no borra la venta ni cambia sus totales originales.
+
+Una representación fiscal proyectada conserva su rótulo `SIMULACION`, como el original.
+
+### Criterios
+
+- [ ] Los ocho contratos declaran consumidor implementado y su hecho pasa a `APPLIED`.
+- [ ] Reentregar cualquiera de ellos no duplica filas ni totales de la proyección.
+- [ ] Una devolución entregada antes que su venta espera y se aplica al resolverse.
+- [ ] El coordinador no escribe `sales`, `shifts`, `cash_movements` ni `fiscal_documents` al
+  aplicar un hecho remoto, y no emite ni reimprime ningún documento fiscal.

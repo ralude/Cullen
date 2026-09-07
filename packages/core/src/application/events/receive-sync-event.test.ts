@@ -355,8 +355,9 @@ describe('ReceiveSyncEvent', () => {
 
     await service.execute(saleEnvelope(), terminalSender);
 
-    expect(store.work.get('event-001')).toEqual(['INVENTORY_AUTHORITY']);
-    expect(store.work.get('event-shift')).toEqual([]);
+    expect(store.work.get('event-001'))
+      .toEqual(['INVENTORY_AUTHORITY', 'COMMERCIAL_PROJECTION']);
+    expect(store.work.get('event-shift')).toEqual(['COMMERCIAL_PROJECTION']);
   });
 
   it('deduplica por eventId y admite varios hechos distintos de la misma versión', async () => {
