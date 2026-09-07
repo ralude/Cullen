@@ -308,6 +308,6 @@ Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
 ### Verificación de cierre del 2026-09-07
 
 `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck` (diez paquetes) y
-`git diff --check` pasan. La suite completa ejecutó **903 pruebas en 148 archivos, todas
+`git diff --check` pasan. La suite completa ejecutó **915 pruebas en 150 archivos, todas
 verdes**, y las pruebas arquitectónicas de fronteras también pasan. Migraciones 0036–0042
 tienen cobertura de upgrade y reapertura.

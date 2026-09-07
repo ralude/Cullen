@@ -2,7 +2,8 @@
 
 ## Respaldo actual
 
-**Implementado al 2026-09-07 salvo la compensación explícita; no habilitado como piloto.**
+**Implementado y cerrado con la Fase 10 el 2026-09-07 salvo la compensación explícita; no
+habilitado como piloto.**
 [ADR-0026, D3](../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) aprueba
 conexión inicial para compras, aprobación de conteos y devoluciones, e intención pendiente
 de conciliación ante interrupción. Existen intención durable, estado por paso, restricción de

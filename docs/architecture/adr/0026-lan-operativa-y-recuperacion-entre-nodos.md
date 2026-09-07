@@ -1,14 +1,16 @@
 # ADR-0026: LAN operativa y recuperación entre nodos
 
-- Estado: **Aceptado para el MVP de referencia no certificado; implementado parcialmente al
-  2026-09-07**. D1, D2 y D4–D6 están implementadas y probadas. D3 tiene intención durable,
+- Estado: **Aceptado para el MVP de referencia no certificado; implementado al 2026-09-07**
+  salvo la compensación explícita, que conserva su gate propio. D1, D2 y D4–D6 están
+  implementadas y probadas. D3 tiene intención durable,
   estado por paso, restricción de enlace, consulta de progreso, efectos remotos autoritativos
   de compra, conteo y devolución, y conciliación de `APPLIED`, `DISCREPANCY` y estados
   desconocidos. La compensación explícita de un rechazo definitivo con efectos previos conserva
   su gate propio.
 - Fecha: 2026-09-06.
 - Complementa: ADR-0008, 0011, 0012, 0016, 0017, 0019, 0022 y 0023.
-- Ejecución: Fase 10, secuencia 10.03 → 10.04. No habilita piloto ni producción.
+- Ejecución: Fase 10, secuencia 10.03 → 10.04, cerrada el 2026-09-07. No habilita piloto ni
+  producción.
 
 ## Contexto y aprobación
 

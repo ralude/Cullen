@@ -1,6 +1,7 @@
 # Fase 11: Seguridad
 
-- **Estado:** Pendiente (corte mínimo 11.01–11.03 adelantado y completado)
+- **Estado:** Habilitada el 2026-09-07 al cerrar la Fase 10; sin iniciar (corte mínimo
+  11.01–11.03 adelantado y completado)
 - **Indice:** [Cronograma](../README.md)
 
 ## Proposito

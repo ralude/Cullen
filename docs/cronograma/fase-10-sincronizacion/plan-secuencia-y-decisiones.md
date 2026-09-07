@@ -1,10 +1,10 @@
 # Fase 10: secuencia restante y decisiones de activación
 
 - Fecha: 2026-09-06.
-- Estado: **planificación completada; ejecución parcial**.
+- Estado: **planificación y ejecución completadas el 2026-09-07**.
 - Implementación: 10.03 → 10.04 ejecuta los pasos remotos autoritativos de compra, conteo y
-  devolución, con conciliación y cortes probados entre cada frontera. 10.03 quedó cerrada;
-  10.04 espera la verificación manual de interfaz de CA-04-11.
+  devolución, con conciliación y cortes probados entre cada frontera. Ambas sub-fases cerraron
+  el 2026-09-07 y habilitan la Fase 11.
 - Autoridad: [AGENTS.md](../../../AGENTS.md), arquitectura y ADRs aceptados.
 - Decisión normativa: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md).
 
@@ -102,8 +102,8 @@ Estos puntos son trabajo planificado, no solicitudes de respuesta pendientes:
 - [x] ~~Resolver D4–D6, coordinación interrumpida, costo y D8 con preguntas concretas.~~
 - [x] ~~Registrar ADR-0026 y enlazar las decisiones normativas y escenarios afectados.~~
 - [x] ~~Planificar 10.03 y 10.04 con cortes secuenciales y criterios verificables.~~
-- [ ] Ejecutar la secuencia completa y cerrar los gates CA-03 y CA-04. CA-03 quedó cerrado por
-  completo; de CA-04 solo falta la verificación manual de interfaz de CA-04-11.
+- [x] ~~Ejecutar la secuencia completa y cerrar los gates CA-03 y CA-04.~~ CA-03 y CA-04
+  quedaron cerrados el 2026-09-07.
 
 Verificación del árbol de trabajo el 2026-09-06: `pnpm install --frozen-lockfile` aprobado;
 `pnpm test`: 667 pruebas en 124 archivos; `pnpm typecheck`: diez paquetes; `pnpm lint`
@@ -120,8 +120,8 @@ El conjunto completo de referencias, los tres consumidores, el snapshot de costo
 concesiones aplicadas en backend y la presentación en `apps/desktop` están implementados. La
 coordinación conserva intención, estado por paso y consulta de progreso, y ejecuta compra,
 conteo y devolución autoritativos con su conciliación de `APPLIED`, `DISCREPANCY` y estados
-desconocidos. 10.03 cerró el 2026-09-07; Fase 10 permanece abierta solo por la verificación
-manual de interfaz de CA-04-11.
+desconocidos. 10.03 y 10.04 cerraron el 2026-09-07, con la interacción de la interfaz
+automatizada sobre `jsdom`.
 
 De los gates de ejecución que permanecían:
 

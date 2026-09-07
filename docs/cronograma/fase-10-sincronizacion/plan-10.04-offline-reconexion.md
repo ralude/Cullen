@@ -1,8 +1,8 @@
 # Plan de ejecución 10.04: operación offline y reconexión
 
 - Fecha: 2026-09-06.
-- Estado: **en progreso**. Cortes 1–4 implementados, incluido el escenario 11; quedan los
-  gates de verificación final CA-04-11 y CA-04-12.
+- Estado: **completado el 2026-09-07**. Cortes 1–4 implementados, incluido el escenario 11 y
+  la interacción automatizada de la interfaz. CA-04-01 a CA-04-12 quedan cerrados.
 - Decisiones: [secuencia y registro D1–D8](./plan-secuencia-y-decisiones.md).
 - ADR: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado.
 - Alcance: LAN operativa del MVP de referencia no certificado; no sincronización cloud.
@@ -161,14 +161,13 @@ Hardware fiscal continúa fake y toda representación fiscal mantiene `SIMULACIO
   mismo `eventId`.
 - [x] ~~CA-04-10~~: referencias llegan a dos terminales sin confundir ACKs; no se duplica inventario
   del coordinador al sumar proyecciones POS ni se omiten efectos locales de caja.
-- [ ] CA-04-11: `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
-  y `git diff --check` **aprobados**; interacción UI automatizada donde exista infraestructura y
-  verificación manual documentada donde no la haya, sin afirmar cobertura DOM inexistente.
-  Falta esa verificación manual: el repositorio no tiene infraestructura de interacción DOM.
-- [ ] CA-04-12: escenarios de fallo e índices actualizados con evidencia; 10.03/10.04 se
-  tachan solo al cumplir el alcance, y Fase 11 permanece pendiente hasta ese cierre. FS-011,
-  el índice de escenarios y el cronograma ya reflejan lo probado; 10.04 y Fase 11 esperan a
-  CA-04-11.
+- [x] ~~CA-04-11~~: `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
+  y `git diff --check` aprobados; la interacción de la pantalla de sincronización y del shell
+  está automatizada sobre `jsdom` con el arnés de `src/renderer/src/testing/dom.ts`. No se
+  afirma cobertura del proceso principal de Electron, que no forma parte de esta sub-fase.
+- [x] ~~CA-04-12~~: escenarios de fallo e índices actualizados con evidencia. FS-011, el índice
+  de escenarios y el cronograma reflejan lo probado; 10.03 y 10.04 se tachan al cumplir su
+  alcance y Fase 11 queda habilitada.
 
 ## Superficies y límites
 
@@ -246,17 +245,18 @@ Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
 - Las **acciones** de reanudación de entregas y de resolución de discrepancias siguen
   disponibles solo por la API local autenticada; la interfaz las **muestra** pero no las
   ejecuta.
-- La cobertura de UI es de **render estático**: no hay infraestructura de interacción DOM en
-  este repositorio y no se afirma una cobertura que no existe.
+- El **proceso principal de Electron** sigue sin cobertura automatizada: el arnés de
+  interacción cubre el renderer, no el arranque de la ventana ni el preload.
 
 ### Verificación de cierre del 2026-09-07
 
 `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck` (diez paquetes) y
-`git diff --check` pasan. La suite completa ejecutó **903 pruebas en 148 archivos, todas
+`git diff --check` pasan. La suite completa ejecutó **915 pruebas en 150 archivos, todas
 verdes**, y las pruebas arquitectónicas de fronteras también pasan. Los once escenarios LAN
 usan tres SQLite independientes, listeners reales y autenticación mutua.
 
-**Falta para CA-04-11:** la verificación manual de la interfaz. Este repositorio no tiene
-infraestructura de interacción DOM, así que la mitad automatizada del criterio se cumple con
-la cobertura de render estático y la mitad manual sigue pendiente de ejecutarse y documentarse.
-No se afirma una cobertura DOM que no existe.
+**Interacción de interfaz:** el paquete del renderer corre sobre `jsdom` y
+`src/renderer/src/testing/dom.ts` monta los componentes con `createRoot` dentro de `act`. La
+pantalla de sincronización y el shell tienen pruebas de interacción real —efectos, eventos,
+estado ocupado y fallos con su correlación—, además de las de render estático. El proceso
+principal de Electron sigue sin cobertura automatizada y no se afirma que la tenga.

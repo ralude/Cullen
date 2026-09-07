@@ -1,10 +1,10 @@
 # Fase 10: Sincronizacion
 
-- **Estado:** En progreso — 10.01, 10.02 y 10.03 cerradas; 10.04 solo espera la verificación
-  manual de interfaz de CA-04-11
+- **Estado:** ~~Completada 2026-09-07~~ — las cuatro sub-fases cerradas con sus criterios de
+  aceptación verificados
 - **Indice:** [Cronograma](../README.md)
 - **Precedida por:** [Fase 9B - Perfiles operativos](../fase-09b-perfiles/README.md), insertada por la [replanificacion del 2026-09-04](../replanificacion-fase-09b.md)
-- **Siguiente:** [Fase 11 - Seguridad](../fase-11-seguridad/README.md), bloqueada hasta cerrar
+- **Siguiente:** [Fase 11 - Seguridad](../fase-11-seguridad/README.md), habilitada al cerrar
   10.04
 
 ## Proposito
@@ -16,8 +16,7 @@ Permitir operacion offline-first entre terminales autonomas y el nodo coordinado
 - [~~10.01 Sync queue~~](./10.01-sync-queue.md) — **completada 2026-09-05**
 - [~~10.02 Protocolo de eventos~~](./10.02-protocolo-eventos.md) — **completada 2026-09-06**
 - [~~10.03 Servidor receptor~~](./10.03-servidor-receptor.md) — **completada 2026-09-07**
-- [10.04 Offline y reconexion](./10.04-offline-reconexion.md) — **en progreso**: falta la
-  verificación manual de interfaz de CA-04-11
+- [~~10.04 Offline y reconexion~~](./10.04-offline-reconexion.md) — **completada 2026-09-07**
 
 ## Ejecución
 
@@ -61,9 +60,9 @@ ejecutó entre el 2026-09-06 y el 2026-09-07 según los planes de
 - **Operación offline.** Concesiones de ocho horas, retry con pausa durable y reanudación
   autorizada, y estado visible con la antigüedad real de cada referencia.
 
-## Lo que falta para cerrar la fase
+## Lo que queda fuera del alcance cerrado
 
-No se presenta como disponible:
+La fase cerró con su criterio de salida cumplido. No se presenta como disponible:
 
 - La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos:
   la operación queda `NEEDS_REVIEW` con la evidencia de cada paso.

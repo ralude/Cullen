@@ -17,8 +17,8 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 8 | Integracion serial | Suspendida por dependencia externa |
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | Perfiles 9B.14–9B.18 y configuración 9B.10 completados 2026-09-05; 9B.08 diferida y 9B.09 trasladada a Fase 11 |
-| 10 | Sincronizacion | En progreso; 10.01 y 10.02 completadas; 10.03 cerrada salvo su verificación final y 10.04 abierta en la verificación manual de UI |
-| 11 | Seguridad | Pendiente; bloqueada hasta cerrar Fase 10 |
+| 10 | Sincronizacion | ~~Completada~~ |
+| 11 | Seguridad | Pendiente; habilitada al cerrar Fase 10 |
 | 12 | Optimizacion | Pendiente |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
@@ -27,8 +27,9 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 16B | [Sistema de diseño propio](./fase-16b-sistema-diseno/README.md) | Planificada; post-MVP, sin iniciar |
 | 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
-**Fase actual:** Fase 10 - Sincronización
-**Trabajo actual:** 10.01 entregó el outbox
+**Fase actual:** Fase 11 - Seguridad, habilitada el 2026-09-07 al cerrar la Fase 10 y todavía
+sin iniciar.
+**Fase 10, completada el 2026-09-07:** 10.01 entregó el outbox
 durable ordenado por agregado con claims generacionales; 10.02 el protocolo de eventos de
 [ADR-0023](../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md); 10.03 el servidor
 receptor y la base operativa LAN; y 10.04 la operación offline con reconexión.
@@ -42,14 +43,15 @@ concesiones de operador y disponibilidad informativa; el costo conocido al vende
 `SaleCompleted.v2`; la infraestructura durable de intención, paso y consulta de progreso; y el
 estado visible con la antigüedad real de cada referencia; los efectos remotos autoritativos de
 compra, conteo y devolución con su conciliación de `APPLIED`, `DISCREPANCY` y estados
-desconocidos; y los once escenarios de corte. Migraciones 0028–0042.
+desconocidos; los once escenarios de corte; y la interacción automatizada de la pantalla de
+sincronización sobre `jsdom`. Migraciones 0028–0042.
 
-10.03 y 10.04 siguen abiertas solo en su verificación final: `pnpm install --frozen-lockfile`,
-`pnpm test`, `pnpm typecheck`, `pnpm lint` y `git diff --check` pasan, pero falta la
-verificación manual de la interfaz que CA-04-11 exige donde no hay infraestructura de
-interacción DOM. La compensación explícita de un rechazo definitivo conserva un gate separado.
-Tampoco se adelantan la administración de usuarios y roles de 11.02, tiendas con historia,
-piloto ni producción.
+Verificación de cierre: `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck`,
+`pnpm test` (915 pruebas en 150 archivos, verdes) y `git diff --check` aprobados. Quedan fuera
+del alcance cerrado la compensación explícita de un rechazo definitivo, que conserva un gate
+separado, la administración de usuarios y roles de 11.02, las tiendas con historia y cualquier
+piloto o producción; el hardware fiscal sigue siendo fake y toda representación conserva
+`SIMULACION`.
 
 El 2026-09-06 se planificó la secuencia restante **10.03 → 10.04** en el
 [registro de decisiones y gates](./fase-10-sincronizacion/plan-secuencia-y-decisiones.md),
@@ -160,7 +162,7 @@ sub-fases 9B.03, 9B.06, 9B.07 y 9B.11 se marcaron completadas el 2026-09-04. La 
 total simulada con restauración de inventario, reintegro en el turno, nota recuperable y
 auditoría, sin declarar cumplimiento fiscal. La Fase 9 cerró sus sub-fases y
 la Fase 8 permanece suspendida: su validación de hardware y cumplimiento solo es requisito del
-piloto o la producción. La Fase 10 conserva sus cuatro sub-fases y no ha iniciado.
+piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 
 ## Fases
 
@@ -175,7 +177,7 @@ piloto o la producción. La Fase 10 conserva sus cuatro sub-fases y no ha inicia
 - [Fase 8 - Integracion serial](./fase-08-integracion-serial/README.md)
 - [~~Fase 9 - UI~~](./fase-09-ui/README.md)
 - [Fase 9B - Perfiles operativos](./fase-09b-perfiles/README.md)
-- [Fase 10 - Sincronizacion](./fase-10-sincronizacion/README.md)
+- [~~Fase 10 - Sincronizacion~~](./fase-10-sincronizacion/README.md)
 - [Fase 11 - Seguridad](./fase-11-seguridad/README.md)
 - [Fase 12 - Optimizacion](./fase-12-optimizacion/README.md)
 
