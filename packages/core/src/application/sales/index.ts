@@ -1,6 +1,6 @@
 export { AddItemToSale } from './add-item-to-sale.js';
 export { ApplyDiscountToSale } from './apply-discount-to-sale.js';
-export { CompleteSale } from './complete-sale.js';
+export { CompleteSale, type SaleCompletedCashApplication } from './complete-sale.js';
 export { RemoveItemFromSale } from './remove-item-from-sale.js';
 export { RegisterMixedPayment } from './register-mixed-payment.js';
 export { SetSaleRecipient } from './set-sale-recipient.js';

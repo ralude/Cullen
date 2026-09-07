@@ -373,8 +373,19 @@ export const createSecurityRuntime = (
           saleRepository, paymentMethodRepository, exchangeRateRepository,
           taxPolicyProvider, ids, ids, clock, unitOfWork, eventStore, idempotencyStore
         ),
+        /**
+         * El turno pertenece a esta terminal, así que el cobro se asienta en
+         * la misma transacción que completa la venta: `ambientUnitOfWork` une
+         * al consumidor a esa transacción y un turno cerrado o ajeno revierte
+         * la venta entera en lugar de dejar dinero fuera del arqueo.
+         */
         completeSale: new application.CompleteSale(
-          saleRepository, ids, clock, unitOfWork, eventStore, outboxStore, idempotencyStore
+          saleRepository, ids, clock,
+          new application.ApplySaleCompletedToShift(
+            shiftRepository, paymentMethodRepository, ids, ids,
+            application.ambientUnitOfWork, eventStore, outboxStore, auditWriter
+          ),
+          unitOfWork, eventStore, outboxStore, idempotencyStore
         ),
         voidSale: new application.VoidSale(
           saleRepository, authorization, ids, clock, unitOfWork,
