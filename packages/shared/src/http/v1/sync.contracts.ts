@@ -142,6 +142,31 @@ export type SyncStatusResponse =
   | 'SYNCED'
   | 'ATTENTION_REQUIRED';
 
+export type SyncReferenceEntryResponse = {
+  readonly publishedBy: string | null;
+  readonly publishedAt: string | null;
+  readonly version: number | null;
+  readonly count: number;
+  readonly ageMilliseconds: number | null;
+};
+
+/**
+ * Antigüedad de las referencias recibidas. `null` significa nunca recibida, no
+ * vacía: un ping o un ACK de otro tipo no la actualizan.
+ */
+export type SyncReferenceFreshnessResponse = {
+  readonly catalog: SyncReferenceEntryResponse;
+  readonly exchangeRate: SyncReferenceEntryResponse & {
+    readonly validUntil: string | null;
+    readonly expired: boolean;
+  };
+  readonly operatorGrants: SyncReferenceEntryResponse & {
+    readonly expiresAt: string | null;
+    readonly expired: boolean;
+  };
+  readonly stockAvailability: SyncReferenceEntryResponse;
+};
+
 export type SyncDestinationStatusResponse = {
   readonly destinationNodeId: string;
   readonly status: SyncStatusResponse;
@@ -153,6 +178,7 @@ export type SyncDestinationStatusResponse = {
   readonly openDiscrepancies: number;
   readonly referencesUsable: boolean;
   readonly pendingReferences: number;
+  readonly references: SyncReferenceFreshnessResponse;
   readonly lastPublishedAt: string | null;
   readonly lastError: string | null;
   readonly observedAt: string;
@@ -162,13 +188,47 @@ export type ResumeSyncDeliveryRequest = { readonly reason: string };
 
 export type SyncDiscrepancyActionRequest = { readonly reason: string };
 
+const referenceEntrySchema = (extra: Record<string, unknown> = {}) => ({
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'publishedBy', 'publishedAt', 'version', 'count', 'ageMilliseconds', ...Object.keys(extra)
+  ],
+  properties: {
+    publishedBy: { type: ['string', 'null'] },
+    publishedAt: { type: ['string', 'null'] },
+    version: { type: ['integer', 'null'] },
+    count: { type: 'integer' },
+    ageMilliseconds: { type: ['integer', 'null'] },
+    ...extra
+  }
+} as const);
+
+const referenceFreshnessSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['catalog', 'exchangeRate', 'operatorGrants', 'stockAvailability'],
+  properties: {
+    catalog: referenceEntrySchema(),
+    exchangeRate: referenceEntrySchema({
+      validUntil: { type: ['string', 'null'] },
+      expired: { type: 'boolean' }
+    }),
+    operatorGrants: referenceEntrySchema({
+      expiresAt: { type: ['string', 'null'] },
+      expired: { type: 'boolean' }
+    }),
+    stockAvailability: referenceEntrySchema()
+  }
+} as const;
+
 const syncStatusResponseSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
     'destinationNodeId', 'status', 'connectivity', 'pendingDeliveries', 'pausedDeliveries',
     'blockedDeliveries', 'pendingApplications', 'openDiscrepancies', 'referencesUsable',
-    'pendingReferences', 'lastPublishedAt', 'lastError', 'observedAt'
+    'pendingReferences', 'references', 'lastPublishedAt', 'lastError', 'observedAt'
   ],
   properties: {
     destinationNodeId: { type: 'string' },
@@ -184,6 +244,7 @@ const syncStatusResponseSchema = {
     openDiscrepancies: { type: 'integer' },
     referencesUsable: { type: 'boolean' },
     pendingReferences: { type: 'integer' },
+    references: referenceFreshnessSchema,
     lastPublishedAt: { type: ['string', 'null'] },
     lastError: { type: ['string', 'null'] },
     observedAt: { type: 'string' }

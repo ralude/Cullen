@@ -65,9 +65,44 @@ export class PublishOperatorGrants {
       ));
     }
 
+    return ok(await this.publish(input.reason.trim(), context, 'SYNC_OPERATOR_GRANTS_PUBLISHED'));
+  }
+
+  /**
+   * Reemite las concesiones cuando a la vigente le queda menos de la mitad de
+   * su ventana, o cuando algún operador todavía no tiene una. Así una terminal
+   * conectada conserva siempre ocho horas por delante y, al cortarse la LAN,
+   * sigue operando dentro de esa ventana.
+   *
+   * No exige permiso humano y no puede conceder nada nuevo: publica el mismo
+   * conjunto de autorización que un actor ya aprobó y solo renueva su vigencia.
+   * La auditoría identifica al nodo como actor, con su motivo explícito.
+   *
+   * Devuelve `null` cuando no había nada que reemitir.
+   */
+  async renewIfDue(
+    context: ExecutionContext
+  ): Promise<Result<OperatorGrantsPublishedDto | null, AppError>> {
+    const earliest = await this.source.earliestGrantExpiry();
+    const now = this.clock.now();
+    if (earliest !== null && earliest.getTime() - now.getTime() > OPERATOR_GRANT_RENEWAL_MS) {
+      return ok(null);
+    }
+    return ok(await this.publish(
+      'Renovación programada de concesiones por el nodo coordinador.',
+      context,
+      'SYNC_OPERATOR_GRANTS_RENEWED'
+    ));
+  }
+
+  private async publish(
+    reason: string,
+    context: ExecutionContext,
+    action: string
+  ): Promise<OperatorGrantsPublishedDto> {
     const now = this.clock.now();
     const expiresAt = new Date(now.getTime() + OPERATOR_GRANT_VALIDITY_MS);
-    return ok(await this.unitOfWork.execute(async () => {
+    return this.unitOfWork.execute(async () => {
       const operators = await this.source.listOperators();
       const publications: DomainEventLike[] = [];
       for (const operator of operators) {
@@ -82,7 +117,7 @@ export class PublishOperatorGrants {
         auditId: this.ids.generate(),
         actorId: context.actorId,
         actorRoleCodes: context.actorRoleCodes ?? [],
-        action: 'SYNC_OPERATOR_GRANTS_PUBLISHED',
+        action,
         entityType: 'SyncReference',
         entityId: 'operator-grants',
         before: null,
@@ -91,7 +126,7 @@ export class PublishOperatorGrants {
           operators: operators.length,
           expiresAt: expiresAt.toISOString()
         } as unknown as JsonValue,
-        reason: input.reason.trim(),
+        reason,
         terminalId: context.terminalId,
         originNodeId: context.originNodeId,
         occurredAt: now,
@@ -103,25 +138,6 @@ export class PublishOperatorGrants {
         expiresAt: expiresAt.toISOString(),
         publishedAt: now.toISOString()
       };
-    }));
-  }
-
-  /**
-   * Reemite las concesiones cuando a la vigente le queda menos de la mitad de
-   * su ventana, o cuando algún operador todavía no tiene una. Así una terminal
-   * conectada conserva siempre ocho horas por delante y, al cortarse la LAN,
-   * sigue operando dentro de esa ventana.
-   *
-   * Devuelve `null` cuando no había nada que reemitir.
-   */
-  async renewIfDue(
-    context: ExecutionContext
-  ): Promise<Result<OperatorGrantsPublishedDto | null, AppError>> {
-    const earliest = await this.source.earliestGrantExpiry();
-    const now = this.clock.now();
-    if (earliest !== null && earliest.getTime() - now.getTime() > OPERATOR_GRANT_RENEWAL_MS) {
-      return ok(null);
-    }
-    return this.execute({ reason: 'Renovación programada de concesiones.' }, context);
+    });
   }
 }

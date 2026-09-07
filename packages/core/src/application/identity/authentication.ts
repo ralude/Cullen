@@ -144,14 +144,6 @@ export class AuthenticateOperator {
       ? await this.store.operatorGrantState(operatorCode, now)
       : { governed: false } as const;
     if (grant.governed && !grant.usable) {
-      await this.store.completeAttempt({
-        userId: record.userId,
-        credentialVersion: record.credentialVersion,
-        pinVerified: true,
-        terminalId: input.terminalId,
-        originNodeId: input.originNodeId,
-        now
-      });
       return err(new ApplicationError(
         'AUTH_GRANT_UNAVAILABLE',
         'The operator grant issued by the coordinator is expired or revoked.'

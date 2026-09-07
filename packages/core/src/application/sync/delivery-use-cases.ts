@@ -9,6 +9,8 @@ import type {
   Clock,
   IdGenerator,
   OutboxStore,
+  ReferenceEntryFreshness,
+  ReferenceFreshness,
   SyncInboxWorkStore,
   UnitOfWork
 } from '../ports/index.js';
@@ -36,6 +38,30 @@ export type SyncStatusV1 =
   | 'SYNCED'
   | 'ATTENTION_REQUIRED';
 
+export type SyncReferenceEntryDto = {
+  readonly publishedBy: string | null;
+  readonly publishedAt: string | null;
+  readonly version: number | null;
+  readonly count: number;
+  /** Milisegundos desde la emisión; `null` cuando nunca se recibió. */
+  readonly ageMilliseconds: number | null;
+};
+
+export type SyncReferenceFreshnessDto = {
+  readonly catalog: SyncReferenceEntryDto;
+  readonly exchangeRate: SyncReferenceEntryDto & {
+    readonly validUntil: string | null;
+    /** Una tasa vencida no se presenta como vigente por haber reconectado. */
+    readonly expired: boolean;
+  };
+  readonly operatorGrants: SyncReferenceEntryDto & {
+    readonly expiresAt: string | null;
+    readonly expired: boolean;
+  };
+  /** Informativa: no reserva existencias ni se suma al saldo del coordinador. */
+  readonly stockAvailability: SyncReferenceEntryDto;
+};
+
 export type SyncDestinationStatusDto = {
   readonly destinationNodeId: string;
   readonly status: SyncStatusV1;
@@ -53,6 +79,11 @@ export type SyncDestinationStatusDto = {
    */
   readonly referencesUsable: boolean;
   readonly pendingReferences: number;
+  /**
+   * Antigüedad de las referencias recibidas. `null` significa nunca recibida:
+   * un ping, un reintento fallido o un ACK de otro tipo no la actualizan.
+   */
+  readonly references: SyncReferenceFreshnessDto;
   /** Última entrega confirmada por este destino; `null` significa nunca. */
   readonly lastPublishedAt: string | null;
   readonly lastError: string | null;
@@ -98,8 +129,17 @@ export class GetSyncStatus {
     const pendingReferences = await this.inbox.countPendingFor(SYNC_CONSUMERS.catalogReference);
     const appliedReferences = this.references ? await this.references.countApplied() : 0;
     const referencesUsable = pendingReferences === 0 && appliedReferences > 0;
+    const observedAt = this.clock.now();
+    const freshness = this.references === undefined
+      ? emptyFreshness()
+      : toFreshnessDto(await this.references.referenceFreshness(), observedAt);
 
-    const attention = summary.paused > 0 || summary.blocked > 0 || openDiscrepancies > 0;
+    /**
+     * Una concesión vencida exige intervención: sin ella la terminal no puede
+     * autenticar ni autorizar, aunque su cola esté vacía (ADR-0026 D5).
+     */
+    const attention = summary.paused > 0 || summary.blocked > 0 || openDiscrepancies > 0
+      || freshness.operatorGrants.expired;
     const working = summary.pending > 0 || pendingApplications > 0 || !referencesUsable;
     const status: SyncStatusV1 = attention
       ? 'ATTENTION_REQUIRED'
@@ -122,11 +162,12 @@ export class GetSyncStatus {
       openDiscrepancies,
       referencesUsable,
       pendingReferences,
+      references: freshness,
       lastPublishedAt: summary.lastPublishedAt === null
         ? null
         : summary.lastPublishedAt.toISOString(),
       lastError: summary.lastError,
-      observedAt: this.clock.now().toISOString()
+      observedAt: observedAt.toISOString()
     });
   }
 }
@@ -223,3 +264,57 @@ export class ResumeSyncDelivery {
     });
   }
 }
+
+const EMPTY_ENTRY: SyncReferenceEntryDto = {
+  publishedBy: null,
+  publishedAt: null,
+  version: null,
+  count: 0,
+  ageMilliseconds: null
+};
+
+/** Sin proyección compuesta no hay referencia recibida, no una referencia vacía. */
+const emptyFreshness = (): SyncReferenceFreshnessDto => ({
+  catalog: EMPTY_ENTRY,
+  exchangeRate: { ...EMPTY_ENTRY, validUntil: null, expired: false },
+  operatorGrants: { ...EMPTY_ENTRY, expiresAt: null, expired: false },
+  stockAvailability: EMPTY_ENTRY
+});
+
+const toEntryDto = (
+  entry: ReferenceEntryFreshness,
+  observedAt: Date
+): SyncReferenceEntryDto => ({
+  publishedBy: entry.publishedBy,
+  publishedAt: entry.publishedAt?.toISOString() ?? null,
+  version: entry.version,
+  count: entry.count,
+  ageMilliseconds: entry.publishedAt === null
+    ? null
+    : Math.max(0, observedAt.getTime() - entry.publishedAt.getTime())
+});
+
+/**
+ * Traduce la antigüedad proyectada. Una vigencia terminada se informa como
+ * vencida y nunca como vigente: un dato ausente tampoco se presenta como
+ * utilizable, para eso está `count: 0` con todo en `null`.
+ */
+const toFreshnessDto = (
+  freshness: ReferenceFreshness,
+  observedAt: Date
+): SyncReferenceFreshnessDto => ({
+  catalog: toEntryDto(freshness.catalog, observedAt),
+  exchangeRate: {
+    ...toEntryDto(freshness.exchangeRate, observedAt),
+    validUntil: freshness.exchangeRate.validUntil?.toISOString() ?? null,
+    expired: freshness.exchangeRate.validUntil !== null
+      && freshness.exchangeRate.validUntil.getTime() <= observedAt.getTime()
+  },
+  operatorGrants: {
+    ...toEntryDto(freshness.operatorGrants, observedAt),
+    expiresAt: freshness.operatorGrants.expiresAt?.toISOString() ?? null,
+    expired: freshness.operatorGrants.expiresAt !== null
+      && freshness.operatorGrants.expiresAt.getTime() <= observedAt.getTime()
+  },
+  stockAvailability: toEntryDto(freshness.stockAvailability, observedAt)
+});

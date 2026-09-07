@@ -106,6 +106,8 @@ export type SecurityRuntime = {
     readonly connectivity: ObservedSyncConnectivity;
     readonly nodeRegistry: SyncNodeRegistry;
     readonly processInbox: application.ProcessSyncInbox;
+    /** Reemisión de concesiones del coordinador antes de cada ciclo de entrega. */
+    readonly renewOperatorGrants: application.PublishOperatorGrants;
   };
 };
 
@@ -206,6 +208,10 @@ export const createSecurityRuntime = (
       clock,
       connectivity: syncConnectivity,
       nodeRegistry: syncNodeRegistry,
+      renewOperatorGrants: new application.PublishOperatorGrants(
+        new SqliteOperatorGrantSource(handle), outboxStore, authorization,
+        clock, unitOfWork, ids, auditWriter
+      ),
       /**
        * El consumidor autoritativo del coordinador se une a la transaccion del
        * procesador y conserva el costo del origen: un hecho sincronizado no se
@@ -217,7 +223,7 @@ export const createSecurityRuntime = (
           ['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(
             new application.ApplySaleCompletedToInventory(
               stockItemRepository, ids, ids, application.ambientUnitOfWork,
-              eventStore, auditWriter, 'SYNCED_SNAPSHOT'
+              eventStore, auditWriter, 'SYNCED_SNAPSHOT', outboxStore
             )
           )],
           /**
@@ -336,11 +342,12 @@ export const createSecurityRuntime = (
       inventory: {
         receivePurchase: new application.ReceivePurchase(
           stockItemRepository, supplierRepository, productRepository, authorization,
-          ids, ids, ids, ids, ids, clock, unitOfWork, eventStore, auditWriter, idempotencyStore
+          ids, ids, ids, ids, ids, clock, unitOfWork, eventStore, auditWriter, idempotencyStore,
+          outboxStore
         ),
         registerStockAdjustment: new application.RegisterStockAdjustment(
           stockItemRepository, authorization, ids, ids, ids, clock,
-          unitOfWork, eventStore, auditWriter, idempotencyStore
+          unitOfWork, eventStore, auditWriter, idempotencyStore, outboxStore
         ),
         getKardex: new application.GetKardex(stockItemRepository, authorization)
       },
@@ -358,7 +365,7 @@ export const createSecurityRuntime = (
         ),
         approve: new application.ApproveStockCount(
           stockCountRepository, stockItemRepository, authorization, ids, ids, ids,
-          clock, unitOfWork, eventStore, auditWriter, idempotencyStore
+          clock, unitOfWork, eventStore, auditWriter, idempotencyStore, outboxStore
         ),
         reject: new application.RejectStockCount(
           stockCountRepository, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore

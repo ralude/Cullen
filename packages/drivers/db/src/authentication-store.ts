@@ -227,7 +227,26 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
     return this.grantState(operatorCode, now.getTime());
   }
 
-  private grantState(operatorCode: string, now: number): OperatorGrantState {
+  /**
+   * Instante durable más alto que este nodo ya observó: la última vez que se
+   * vio una sesión y la aplicación de la concesión más reciente.
+   *
+   * Atrasar el reloj del equipo no puede ampliar una concesión (ADR-0026 D5),
+   * así que la vigencia se evalúa contra este máximo y no contra un reloj que
+   * pudo retroceder. Adelantarlo tampoco la extiende: solo la vence antes.
+   */
+  private observedInstant(now: number): number {
+    const watermark = this.handle.sqlite.prepare(`
+      select max(instant) from (
+        select max(last_seen_at) as instant from auth_sessions
+        union all select max(applied_at) as instant from identity_operator_grant
+      )
+    `).pluck().get() as number | null;
+    return watermark === null ? now : Math.max(now, watermark);
+  }
+
+  private grantState(operatorCode: string, wallClock: number): OperatorGrantState {
+    const now = this.observedInstant(wallClock);
     const row = this.handle.sqlite.prepare(`
       select role_codes as roleCodes, permission_codes as permissionCodes,
         is_active as isActive, expires_at as expiresAt

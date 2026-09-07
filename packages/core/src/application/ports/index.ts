@@ -65,6 +65,8 @@ export type {
   ProjectedStockAvailabilityReference,
   ProductReference,
   ReferenceApplication,
+  ReferenceEntryFreshness,
+  ReferenceFreshness,
   UnitOfMeasureReference
 } from './catalog-reference-projection.js';
 export type {

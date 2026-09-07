@@ -8,10 +8,14 @@ import type {
   ProjectedStockAvailabilityReference,
   ProductReference,
   ReferenceApplication,
+  ReferenceFreshness,
   UnitOfMeasureReference
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
 import { mapDatabaseError, requireTransaction } from './unit-of-work.js';
+
+const instant = (value: number | null): Date | null =>
+  value === null ? null : new Date(value);
 
 /**
  * Proyección local del catálogo que publica el coordinador.
@@ -35,6 +39,86 @@ export class SqliteCatalogReferenceProjection implements CatalogReferenceProject
           + (select count(*) from operational_policy_versions where is_active = 1)
           + (select count(*) from exchange_rates)
       `).pluck().get() as number;
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  /**
+   * Antigüedad real de cada referencia. Lee la evidencia proyectada, no una
+   * marca que se refresque con un ping o un ACK de otro tipo: sin filas, cada
+   * campo es `null` y significa **nunca recibida**.
+   */
+  async referenceFreshness(): Promise<ReferenceFreshness> {
+    try {
+      const catalog = this.handle.sqlite.prepare(`
+        select recorded_by as publishedBy, max(recorded_at) as publishedAt
+        from product_price_history where id like '%:published'
+      `).get() as { publishedBy: string | null; publishedAt: number | null };
+      const catalogCount = this.handle.sqlite
+        .prepare('select count(*) from products').pluck().get() as number;
+      const catalogVersion = this.handle.sqlite
+        .prepare('select max(version) from products').pluck().get() as number | null;
+
+      const rate = this.handle.sqlite.prepare(`
+        select registered_by as publishedBy, valid_from as publishedAt,
+          valid_until as validUntil, version
+        from exchange_rates order by version desc limit 1
+      `).get() as {
+        publishedBy: string; publishedAt: number; validUntil: number | null; version: number;
+      } | undefined;
+      const rateCount = this.handle.sqlite
+        .prepare('select count(*) from exchange_rates').pluck().get() as number;
+
+      const grant = this.handle.sqlite.prepare(`
+        select published_by as publishedBy, max(published_at) as publishedAt,
+          max(version) as version, min(expires_at) as expiresAt
+        from identity_operator_grant
+      `).get() as {
+        publishedBy: string | null; publishedAt: number | null;
+        version: number | null; expiresAt: number | null;
+      };
+      const grantCount = this.handle.sqlite
+        .prepare('select count(*) from identity_operator_grant').pluck().get() as number;
+
+      const availability = this.handle.sqlite.prepare(`
+        select published_by as publishedBy, max(published_at) as publishedAt,
+          max(version) as version
+        from stock_availability_reference
+      `).get() as {
+        publishedBy: string | null; publishedAt: number | null; version: number | null;
+      };
+      const availabilityCount = this.handle.sqlite
+        .prepare('select count(*) from stock_availability_reference').pluck().get() as number;
+
+      return {
+        catalog: {
+          publishedBy: catalogCount === 0 ? null : catalog.publishedBy,
+          publishedAt: instant(catalogCount === 0 ? null : catalog.publishedAt),
+          version: catalogCount === 0 ? null : catalogVersion,
+          count: catalogCount
+        },
+        exchangeRate: {
+          publishedBy: rate?.publishedBy ?? null,
+          publishedAt: instant(rate?.publishedAt ?? null),
+          version: rate?.version ?? null,
+          validUntil: instant(rate?.validUntil ?? null),
+          count: rateCount
+        },
+        operatorGrants: {
+          publishedBy: grantCount === 0 ? null : grant.publishedBy,
+          publishedAt: instant(grantCount === 0 ? null : grant.publishedAt),
+          version: grantCount === 0 ? null : grant.version,
+          expiresAt: instant(grantCount === 0 ? null : grant.expiresAt),
+          count: grantCount
+        },
+        stockAvailability: {
+          publishedBy: availabilityCount === 0 ? null : availability.publishedBy,
+          publishedAt: instant(availabilityCount === 0 ? null : availability.publishedAt),
+          version: availabilityCount === 0 ? null : availability.version,
+          count: availabilityCount
+        }
+      };
     } catch (error) {
       throw mapDatabaseError(error);
     }

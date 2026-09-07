@@ -9,6 +9,7 @@ import type {
   ProjectedStockAvailabilityReference,
   ProductReference,
   ReferenceApplication,
+  ReferenceFreshness,
   UnitOfMeasureReference
 } from '../ports/index.js';
 import { CatalogReferenceConsumer } from './catalog-reference-consumer.js';
@@ -72,6 +73,16 @@ class RecordingProjection implements CatalogReferenceProjection {
   ): Promise<ReferenceApplication> {
     this.stockAvailability.push(reference);
     return this.outcome;
+  }
+
+  async referenceFreshness(): Promise<ReferenceFreshness> {
+    const empty = { publishedBy: null, publishedAt: null, version: null, count: 0 };
+    return {
+      catalog: empty,
+      exchangeRate: { ...empty, validUntil: null },
+      operatorGrants: { ...empty, expiresAt: null },
+      stockAvailability: empty
+    };
   }
 
   async countApplied(): Promise<number> {

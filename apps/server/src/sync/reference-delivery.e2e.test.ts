@@ -547,4 +547,107 @@ describe('distribución de referencias a las terminales', () => {
       "select status, last_error from sync_delivery where event_id = 'event-forged'"
     ).get()).toEqual({ status: 'BLOCKED', last_error: 'SYNC_AGGREGATE_OWNER_UNRESOLVED' });
   });
+
+  it('entrega concesiones y disponibilidad, y la terminal las aplica con su antigüedad', async () => {
+    const joining = terminals.get('node-terminal-1') as Node;
+    const issuedAt = new Date('2026-09-06T09:00:00.000Z');
+    const expiresAt = new Date(issuedAt.getTime() + 8 * 60 * 60 * 1000);
+
+    await seedCoordinatorCatalog();
+    await enqueue([
+      ...catalogPublications(),
+      publication(
+        'event-grant-1', 'OperatorGrantPublished', 'OperatorGrant', 'user-coordinator-001', 1,
+        {
+          operatorCode: 'CAJA01',
+          displayName: 'Cajera 1',
+          roleCodes: ['CASHIER'],
+          permissionCodes: ['sales.complete'],
+          isActive: 'ACTIVE',
+          expiresAt: expiresAt.toISOString()
+        }
+      ),
+      publication(
+        'event-availability-1', 'StockAvailabilityPublished', 'StockAvailability',
+        'product-001', 3, { quantityScaled: 12, quantityScale: 0 }
+      )
+    ]);
+
+    await distribute(coordinatorWorker());
+
+    expect(joining.handle.sqlite.prepare(`
+      select operator_code as operatorCode, permission_codes as permissionCodes,
+        is_active as isActive, expires_at as expiresAt
+      from identity_operator_grant
+    `).get()).toEqual({
+      operatorCode: 'CAJA01',
+      permissionCodes: '["sales.complete"]',
+      isActive: 1,
+      expiresAt: expiresAt.getTime()
+    });
+    expect(joining.handle.sqlite.prepare(`
+      select product_id as productId, quantity_scaled as quantityScaled, version
+      from stock_availability_reference
+    `).get()).toEqual({ productId: 'product-001', quantityScaled: 12, version: 3 });
+
+    /** La disponibilidad es informativa: no crea ni toca inventario local. */
+    expect(joining.handle.sqlite.prepare('select count(*) from stock_items').pluck().get())
+      .toBe(0);
+    /** Y la terminal no reenvía nada de lo recibido. */
+    expect(joining.handle.sqlite.prepare('select count(*) from outbox_event').pluck().get())
+      .toBe(0);
+
+    const status = await referencesUsable(joining) as {
+      references: {
+        catalog: { count: number; ageMilliseconds: number | null };
+        operatorGrants: { count: number; expiresAt: string | null; expired: boolean };
+        stockAvailability: { count: number; version: number | null };
+        exchangeRate: { count: number; publishedAt: string | null };
+      };
+    };
+    expect(status.references.operatorGrants).toMatchObject({
+      count: 1, expiresAt: expiresAt.toISOString(), expired: false
+    });
+    expect(status.references.stockAvailability).toMatchObject({ count: 1, version: 3 });
+    expect(status.references.catalog.count).toBe(1);
+    expect(status.references.catalog.ageMilliseconds).toBeGreaterThan(0);
+    /** Nunca recibida no es lo mismo que vacía: sin tasas, todo queda en `null`. */
+    expect(status.references.exchangeRate).toMatchObject({ count: 0, publishedAt: null });
+  });
+
+  it('marca atención cuando la concesión proyectada ya venció', async () => {
+    const joining = terminals.get('node-terminal-1') as Node;
+    /** Emitida ocho horas antes del reloj actual: vencida al llegar. */
+    const staleIssue = new Date(moment.getTime() - 9 * 60 * 60 * 1000);
+
+    await seedCoordinatorCatalog();
+    await enqueue([
+      ...catalogPublications(),
+      {
+        ...publication(
+          'event-grant-stale', 'OperatorGrantPublished', 'OperatorGrant',
+          'user-coordinator-001', 1,
+          {
+            operatorCode: 'CAJA01',
+            displayName: 'Cajera 1',
+            roleCodes: ['CASHIER'],
+            permissionCodes: ['sales.complete'],
+            isActive: 'ACTIVE',
+            expiresAt: new Date(staleIssue.getTime() + 8 * 60 * 60 * 1000).toISOString()
+          }
+        ),
+        occurredAt: staleIssue
+      }
+    ]);
+
+    await distribute(coordinatorWorker());
+
+    const status = await referencesUsable(joining) as {
+      status: string;
+      references: { operatorGrants: { expired: boolean } };
+    };
+    expect(status.references.operatorGrants.expired).toBe(true);
+    /** Atención prevalece sobre el rótulo general aunque no quede cola. */
+    expect(status.status).toBe('ATTENTION_REQUIRED');
+  });
 });

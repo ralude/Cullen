@@ -92,6 +92,36 @@ export type ProjectedStockAvailabilityReference = {
 };
 
 /**
+ * Antigüedad de una referencia proyectada. `null` en cualquier campo significa
+ * que nunca se recibió una publicación de ese tipo; un cero sería un dato
+ * conocido y no es lo mismo.
+ */
+export type ReferenceEntryFreshness = {
+  /** Nodo que la publicó; identifica su fuente sin repetir la configuración. */
+  readonly publishedBy: string | null;
+  /** Momento de emisión del coordinador, no el de aplicación local. */
+  readonly publishedAt: Date | null;
+  readonly version: number | null;
+  readonly count: number;
+};
+
+export type ReferenceFreshness = {
+  readonly catalog: ReferenceEntryFreshness;
+  readonly exchangeRate: ReferenceEntryFreshness & {
+    /**
+     * Vigencia de la tasa aplicable. Una tasa vencida no se presenta como
+     * vigente porque el nodo haya vuelto a conectarse.
+     */
+    readonly validUntil: Date | null;
+  };
+  readonly operatorGrants: ReferenceEntryFreshness & {
+    /** Vencimiento más próximo entre las concesiones proyectadas. */
+    readonly expiresAt: Date | null;
+  };
+  readonly stockAvailability: ReferenceEntryFreshness;
+};
+
+/**
  * Resultado de aplicar una referencia. `STALE` no es un fallo: significa que la
  * proyección ya conserva una versión igual o posterior, así que la publicación
  * no tiene nada que aplicar y no debe reintentarse.
@@ -125,4 +155,10 @@ export interface CatalogReferenceProjection {
    * cero aplicadas no significa que la referencia sea utilizable.
    */
   countApplied(): Promise<number>;
+  /**
+   * Antigüedad de cada referencia aplicada, para presentarla al operador.
+   * `null` significa **nunca recibida**, no vacía ni cero: la lectura no
+   * convierte un dato ausente en uno vigente.
+   */
+  referenceFreshness(): Promise<ReferenceFreshness>;
 }

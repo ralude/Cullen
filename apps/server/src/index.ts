@@ -79,6 +79,23 @@ const worker = destinationCycles
   ? new SyncWorker(destinationCycles, {
     intervalMilliseconds: readSyncWorkerInterval(),
     inbox: runtime.syncDelivery.processInbox,
+    /**
+     * Solo el coordinador reemite concesiones: es la autoridad de
+     * autorización de la LAN. Un nodo que solo entrega a un destino fijo es
+     * una terminal y no emite ninguna.
+     */
+    ...(syncConfiguration ? {
+      grants: {
+        publisher: runtime.syncDelivery.renewOperatorGrants,
+        context: {
+          actorId: nodeIdentity.originNodeId,
+          actorRoleCodes: [],
+          terminalId: nodeIdentity.terminalId,
+          originNodeId: nodeIdentity.originNodeId,
+          correlationId: 'sync-worker-grant-renewal'
+        }
+      }
+    } : {}),
     onError: (error, destinationNodeId) => {
       app.log.error({
         service: 'supermarket-server',

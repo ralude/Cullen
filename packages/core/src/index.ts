@@ -78,6 +78,8 @@ export type {
   ProjectedStockAvailabilityReference,
   ProductReference,
   ReferenceApplication,
+  ReferenceEntryFreshness,
+  ReferenceFreshness,
   UnitOfMeasureReference,
   CategoryRepository,
   Clock,

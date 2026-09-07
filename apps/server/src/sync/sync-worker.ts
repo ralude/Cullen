@@ -1,4 +1,4 @@
-import type { application } from '@supermarket/core';
+import type { application, ExecutionContext } from '@supermarket/core';
 
 export type SyncWorkerCycle = {
   /** Un ciclo por destino; cada uno conserva su claim y su progreso. */
@@ -18,6 +18,16 @@ export type SyncWorkerOptions = {
   readonly batchLimit?: number;
   /** Procesamiento del inbox del receptor; ausente en una terminal pura. */
   readonly inbox?: application.ProcessSyncInbox;
+  /**
+   * Reemisión de concesiones del coordinador. Se ejecuta **antes** de entregar
+   * para que la terminal conectada conserve siempre ocho horas por delante y,
+   * al cortarse la LAN, siga operando dentro de esa ventana. Ausente en una
+   * terminal, que no emite concesiones.
+   */
+  readonly grants?: {
+    readonly publisher: application.PublishOperatorGrants;
+    readonly context: ExecutionContext;
+  };
   readonly onError?: (error: unknown, destinationNodeId: string | null) => void;
 };
 
@@ -61,6 +71,17 @@ export class SyncWorker {
     } catch (error) {
       this.options.onError?.(error, null);
       return 0;
+    }
+    /**
+     * La reemisión precede a la entrega para que la concesión renovada viaje
+     * en este mismo ciclo. Un fallo aquí no cancela las entregas pendientes.
+     */
+    if (!this.stopped && this.options.grants) {
+      try {
+        await this.options.grants.publisher.renewIfDue(this.options.grants.context);
+      } catch (error) {
+        this.options.onError?.(error, null);
+      }
     }
     for (const cycle of destinations) {
       if (this.stopped) break;

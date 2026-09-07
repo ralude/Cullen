@@ -50,3 +50,7 @@ export type {
 } from './dtos.js';
 export { PublishOperatorGrants } from './publish-operator-grants.js';
 export type { OperatorGrantsPublishedDto } from './publish-operator-grants.js';
+export type {
+  SyncReferenceEntryDto,
+  SyncReferenceFreshnessDto
+} from './delivery-use-cases.js';
