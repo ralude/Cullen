@@ -72,6 +72,34 @@ de datos o semántica de fallos requieren la decisión normativa correspondiente
 - Actualiza cronograma, documentación o ADR solo cuando cambie el estado, contrato o decisión que
   gobiernan.
 
+## Commits semánticos y handoff
+
+En trabajos largos o multi-etapa, crea un commit cuando exista un hito semánticamente completo y
+verificable: una capacidad, migración, bloque de pruebas, integración UI, refactor local o criterio
+de aceptación independiente. No hagas commits por archivo, cantidad de líneas o tiempo transcurrido,
+ni esperes necesariamente al final de una tarea grande.
+
+Antes de cada commit:
+
+1. revisa `git status` y `git diff`;
+2. ejecuta lint relevante, typecheck, tests directamente relacionados y tests arquitectónicos si
+   cambian fronteras;
+3. confirma que el hito no introduce fallos conocidos y que cualquier fallo previo no relacionado
+   está documentado;
+4. stagea únicamente archivos o hunks del hito con rutas explícitas; no uses `git add -A` a ciegas;
+5. revisa `git diff --cached` y verifica que no incluya trabajo ajeno.
+
+Usa Conventional Commits y describe el resultado en imperativo, con scope cuando aporte contexto:
+`feat(sync): expose synchronization status`, `fix(inventory): preserve adjustment idempotency`,
+`refactor(agents): localize repository instructions`. Evita `changes`, `update stuff`, `refactor` o
+`wip`. Mantén cada commit atómico y no mezcles cambios no relacionados.
+
+Los commits son checkpoints de handoff entre agentes. Un agente nuevo debe poder reconstruir lo
+completado con `git log --oneline`, `git show <commit>` y el diff pendiente, sin depender del historial
+del chat. Si una sesión puede interrumpirse, deja un checkpoint limpio cuando el hito ya sea válido.
+Si el bloque aún no funciona o no pasó sus checks, conserva el working tree intacto y describe el
+estado pendiente; no crees un commit roto solo para guardar progreso.
+
 ## Validación global
 
 Ejecuta primero los checks directamente relacionados y expande solo si la dependencia real lo
