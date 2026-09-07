@@ -50,6 +50,7 @@ import { operatorGrantsAndAvailabilitySql } from './migrations/0036-operator-gra
 import { saleCostSnapshotSql } from './migrations/0037-sale-cost-snapshot.js';
 import { coordinatedOperationsSql } from './migrations/0038-coordinated-operations.js';
 import { commercialProjectionSql } from './migrations/0039-commercial-projection.js';
+import { stockAvailabilityBatchesSql } from './migrations/0040-stock-availability-batches.js';
 
 export type Migration = {
   readonly version: number;
@@ -213,6 +214,10 @@ export const migrations: readonly Migration[] = [{
   version: 39,
   name: 'commercial_projection',
   sql: commercialProjectionSql
+}, {
+  version: 40,
+  name: 'stock_availability_batches',
+  sql: stockAvailabilityBatchesSql
 }];
 
 const checksum = (migration: Migration): string => createHash('sha256')

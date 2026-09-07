@@ -31,6 +31,59 @@ const instant = (value: number | null): Date | null =>
 export class SqliteCatalogReferenceProjection implements CatalogReferenceProjection {
   constructor(private readonly handle: DatabaseHandle) {}
 
+  async findStockAvailability(
+    productId: string
+  ): Promise<ProjectedStockAvailabilityReference | null> {
+    try {
+      const row = this.handle.sqlite.prepare(`
+        select product_id as productId, stock_item_id as stockItemId, unit_code as unitCode,
+          quantity_scaled as quantityScaled, quantity_scale as quantityScale,
+          tracks_batches as tracksBatches, version,
+          cost_unit_minor_units as costMinorUnits, cost_currency_code as costCurrencyCode,
+          published_by as publishedBy, published_at as publishedAt
+        from stock_availability_reference where product_id = ?
+      `).get(productId) as {
+        productId: string; stockItemId: string | null; unitCode: string | null;
+        quantityScaled: number; quantityScale: number; tracksBatches: number | null;
+        version: number; costMinorUnits: number | null; costCurrencyCode: string | null;
+        publishedBy: string; publishedAt: number;
+      } | undefined;
+      if (!row) return null;
+      const hasMetadata = row.stockItemId !== null && row.unitCode !== null && row.tracksBatches !== null;
+      const batches = hasMetadata ? this.handle.sqlite.prepare(`
+        select batch_id as batchId, lot_number as lotNumber, expires_at as expiresAt,
+          quantity_scaled as quantityScaled
+        from stock_batch_availability_reference where product_id = ?
+        order by lot_number, batch_id
+      `).all(productId).map((value) => {
+        const batch = value as {
+          batchId: string; lotNumber: string; expiresAt: number | null; quantityScaled: number;
+        };
+        return {
+          ...batch,
+          expiresAt: batch.expiresAt === null ? null : new Date(batch.expiresAt)
+        };
+      }) : null;
+      return {
+        productId: row.productId,
+        stockItemId: row.stockItemId,
+        unitCode: row.unitCode,
+        quantityScaled: row.quantityScaled,
+        quantityScale: row.quantityScale,
+        tracksBatches: row.tracksBatches === null ? null : row.tracksBatches === 1,
+        batches,
+        unitCost: row.costMinorUnits === null || row.costCurrencyCode === null
+          ? null
+          : { minorUnits: row.costMinorUnits, currencyCode: row.costCurrencyCode },
+        version: row.version,
+        publishedBy: row.publishedBy,
+        publishedAt: new Date(row.publishedAt)
+      };
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
   async countApplied(): Promise<number> {
     try {
       return this.handle.sqlite.prepare(`
@@ -410,14 +463,18 @@ export class SqliteCatalogReferenceProjection implements CatalogReferenceProject
         insert into stock_availability_reference (
           product_id, quantity_scaled, quantity_scale, version,
           cost_unit_minor_units, cost_currency_code,
+          stock_item_id, unit_code, tracks_batches,
           published_by, published_at, applied_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         on conflict(product_id) do update set
           quantity_scaled = excluded.quantity_scaled,
           quantity_scale = excluded.quantity_scale,
           version = excluded.version,
           cost_unit_minor_units = excluded.cost_unit_minor_units,
           cost_currency_code = excluded.cost_currency_code,
+          stock_item_id = coalesce(excluded.stock_item_id, stock_availability_reference.stock_item_id),
+          unit_code = coalesce(excluded.unit_code, stock_availability_reference.unit_code),
+          tracks_batches = coalesce(excluded.tracks_batches, stock_availability_reference.tracks_batches),
           published_by = excluded.published_by,
           published_at = excluded.published_at,
           applied_at = excluded.applied_at
@@ -429,11 +486,34 @@ export class SqliteCatalogReferenceProjection implements CatalogReferenceProject
         reference.version,
         reference.unitCost?.minorUnits ?? null,
         reference.unitCost?.currencyCode ?? null,
+        reference.stockItemId,
+        reference.unitCode,
+        reference.tracksBatches === null ? null : reference.tracksBatches ? 1 : 0,
         reference.publishedBy,
         reference.publishedAt.getTime(),
         reference.publishedAt.getTime()
       ).changes;
-      return changes === 1 ? 'APPLIED' : 'STALE';
+      if (changes !== 1) return 'STALE';
+      if (reference.batches !== null) {
+        this.handle.sqlite.prepare(
+          'delete from stock_batch_availability_reference where product_id = ?'
+        ).run(reference.productId);
+        const insert = this.handle.sqlite.prepare(`
+          insert into stock_batch_availability_reference (
+            product_id, batch_id, lot_number, expires_at, quantity_scaled
+          ) values (?, ?, ?, ?, ?)
+        `);
+        for (const batch of reference.batches) {
+          insert.run(
+            reference.productId,
+            batch.batchId,
+            batch.lotNumber,
+            batch.expiresAt?.getTime() ?? null,
+            batch.quantityScaled
+          );
+        }
+      }
+      return 'APPLIED';
     } catch (error) {
       throw mapDatabaseError(error);
     }

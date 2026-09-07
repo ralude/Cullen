@@ -86,12 +86,18 @@ const availableStockItem = (): StockItem => {
     productId: 'product-001',
     unitCode: 'UNIT',
     quantityScale: 0,
-    tracksBatches: false
+    tracksBatches: true
+  });
+  item.registerBatch({
+    id: 'batch-001',
+    lotNumber: 'LOT-001',
+    expiresAt: at(60)
   });
   item.registerMovement({
     id: 'movement-001',
     type: 'PURCHASE_RECEIPT',
     quantity: Quantity.fromScaled(12, 0),
+    batchId: 'batch-001',
     actorId: 'user-001',
     reason: 'Recepción inicial',
     referenceId: 'receipt-001',
@@ -386,7 +392,7 @@ describe('catálogo de contratos de integración v1', () => {
       'ProductCreated', 'PriceChanged', 'CategoryPublished', 'UnitOfMeasurePublished',
       'DiscountPolicyPublished', 'FinancialTransactionTaxPolicyPublished',
       'ExchangeRateUpdated', 'PaymentMethodPublished', 'OperatorGrantPublished',
-      'StockAvailabilityPublished', 'ProductPublished',
+      'StockAvailabilityPublished', 'StockAvailabilityPublished', 'ProductPublished',
       'SaleCompleted', 'SaleCompleted', 'SaleReturned', 'ShiftOpened',
       'CashMovementRegistered', 'ShiftClosed', 'FiscalDocumentIssued', 'FiscalDocumentFailed',
       'FiscalXReportIssued', 'FiscalZReportIssued'
@@ -408,6 +414,7 @@ describe('catálogo de contratos de integración v1', () => {
       'PaymentMethodPublished.v1:CATALOG_REFERENCE',
       'OperatorGrantPublished.v1:CATALOG_REFERENCE',
       'StockAvailabilityPublished.v1:CATALOG_REFERENCE',
+      'StockAvailabilityPublished.v2:CATALOG_REFERENCE',
       'ProductPublished.v1:CATALOG_REFERENCE',
       'SaleCompleted.v1:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
       'SaleCompleted.v2:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
@@ -435,6 +442,7 @@ describe('catálogo de contratos de integración v1', () => {
       'PaymentMethodPublished.v1:PaymentMethod:COORDINATOR_TO_TERMINAL',
       'OperatorGrantPublished.v1:OperatorGrant:COORDINATOR_TO_TERMINAL',
       'StockAvailabilityPublished.v1:StockAvailability:COORDINATOR_TO_TERMINAL',
+      'StockAvailabilityPublished.v2:StockAvailability:COORDINATOR_TO_TERMINAL',
       'ProductPublished.v1:Product:COORDINATOR_TO_TERMINAL',
       'SaleCompleted.v1:Sale:TERMINAL_TO_COORDINATOR',
       'SaleCompleted.v2:Sale:TERMINAL_TO_COORDINATOR',
@@ -503,6 +511,30 @@ describe('catálogo de contratos de integración v1', () => {
           { barcodeId: 'barcode-001', code: '1234', isActive: 'ACTIVE' },
           { barcodeId: 'barcode-002', code: '5678', isActive: 'INACTIVE' }
         ]
+      }
+    });
+  });
+
+  it('publica disponibilidad v2 con identidad autoritativa y saldos por lote', () => {
+    const published = producedIntegrationEvents
+      .find(({ eventType }) => eventType === 'StockAvailabilityPublished');
+
+    expect(published).toMatchObject({
+      contractVersion: 2,
+      aggregateId: 'product-001',
+      payload: {
+        stockItemId: 'stock-item-001',
+        unitCode: 'UNIT',
+        quantityScaled: 12,
+        quantityScale: 0,
+        batchTracking: 'TRACKED',
+        batches: [{
+          batchId: 'batch-001',
+          lotNumber: 'LOT-001',
+          expiresAt: at(60).toISOString(),
+          quantityScaled: 12
+        }],
+        unitCost: null
       }
     });
   });

@@ -144,8 +144,8 @@ segundo plano, su política de backoff y su arranque automático pertenecen a 10
 La secuencia normativa está en ADR-0026 D3. Se implementa en unidades verticales y en este
 orden, sin mezclar sus commits:
 
-1. referencia de inventario v2 con identidades y saldos de lotes, más lectura local que no
-   consulta `stock_items` en una terminal;
+1. [completado] referencia de inventario v2 con identidades y saldos de lotes, más lectura local
+   que no consulta `stock_items` en una terminal;
 2. `PurchaseReceiptCompleted.v1`, productor local sin movimiento POS y consumidor
    autoritativo idempotente;
 3. `StockCountApproved.v1`, conservando el delta congelado del cierre y aplicándolo en el

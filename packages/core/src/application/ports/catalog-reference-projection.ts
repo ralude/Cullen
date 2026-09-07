@@ -84,8 +84,21 @@ export type ProjectedOperatorGrantReference = OperatorGrantReference & {
  */
 export type ProjectedStockAvailabilityReference = {
   readonly productId: string;
+  /** Ausente solo al recibir el contrato histórico v1. */
+  readonly stockItemId: string | null;
+  /** Ausente solo al recibir el contrato histórico v1. */
+  readonly unitCode: string | null;
   readonly quantityScaled: number;
   readonly quantityScale: number;
+  /** Ausente solo al recibir el contrato histórico v1. */
+  readonly tracksBatches: boolean | null;
+  /** Ausente solo al recibir el contrato histórico v1. */
+  readonly batches: readonly {
+    readonly batchId: string;
+    readonly lotNumber: string;
+    readonly expiresAt: Date | null;
+    readonly quantityScaled: number;
+  }[] | null;
   /** Costo unitario observado; `null` es desconocido, nunca cero. */
   readonly unitCost: { readonly minorUnits: number; readonly currencyCode: string } | null;
   readonly version: number;
@@ -151,6 +164,8 @@ export interface CatalogReferenceProjection {
   applyStockAvailability(
     reference: ProjectedStockAvailabilityReference
   ): Promise<ReferenceApplication>;
+  /** Lectura local de la proyección; nunca consulta `stock_items` del POS. */
+  findStockAvailability(productId: string): Promise<ProjectedStockAvailabilityReference | null>;
   /**
    * Referencias ya aplicadas. Distingue una terminal a la que nunca se le
    * publicó el catálogo de una que ya lo tiene: sin publicaciones pendientes,

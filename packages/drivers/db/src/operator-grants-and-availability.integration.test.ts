@@ -120,6 +120,27 @@ const availabilityEnvelope = (version: number, quantityScaled: number): SyncEnve
     payload: { quantityScaled, quantityScale: 0, unitCost: null }
   });
 
+const batchAvailabilityEnvelope = (): SyncEnvelopeV1 => envelope({
+  eventId: 'event-availability-batches',
+  eventType: 'StockAvailabilityPublished',
+  contractVersion: 2,
+  aggregateId: 'product-001',
+  aggregateType: 'StockAvailability',
+  aggregateVersion: 6,
+  payload: {
+    stockItemId: 'stock-item-001',
+    unitCode: 'UNIT',
+    quantityScaled: 9,
+    quantityScale: 0,
+    batchTracking: 'TRACKED',
+    batches: [{
+      batchId: 'batch-001', lotNumber: 'LOT-001',
+      expiresAt: '2027-01-01T00:00:00.000Z', quantityScaled: 9
+    }],
+    unitCost: { minorUnits: 250, currencyCode: 'USD' }
+  }
+});
+
 type Terminal = {
   readonly handle: DatabaseHandle;
   readonly receive: application.ReceiveSyncEvent;
@@ -331,6 +352,50 @@ describe('disponibilidad informativa en la terminal', () => {
     expect(node.handle.sqlite.prepare('select count(*) from stock_items').pluck().get()).toBe(0);
     expect(node.handle.sqlite.prepare('select count(*) from stock_movements').pluck().get())
       .toBe(0);
+    node.handle.close();
+  });
+
+  it('proyecta las identidades y lotes de v2 fuera del inventario local', async () => {
+    const node = terminal();
+    await node.receive.execute(categoryEnvelope(), coordinator);
+    await node.receive.execute(unitEnvelope(), coordinator);
+    await node.receive.execute(productEnvelope(), coordinator);
+    await node.receive.execute(batchAvailabilityEnvelope(), coordinator);
+    await drain(node);
+
+    expect(node.handle.sqlite.prepare(`
+      select stock_item_id as stockItemId, unit_code as unitCode,
+        tracks_batches as tracksBatches
+      from stock_availability_reference where product_id = 'product-001'
+    `).get()).toEqual({ stockItemId: 'stock-item-001', unitCode: 'UNIT', tracksBatches: 1 });
+    expect(node.handle.sqlite.prepare(`
+      select batch_id as batchId, lot_number as lotNumber, expires_at as expiresAt,
+        quantity_scaled as quantityScaled
+      from stock_batch_availability_reference where product_id = 'product-001'
+    `).all()).toEqual([{
+      batchId: 'batch-001', lotNumber: 'LOT-001',
+      expiresAt: new Date('2027-01-01T00:00:00.000Z').getTime(), quantityScaled: 9
+    }]);
+    expect(node.handle.sqlite.prepare('select count(*) from stock_items').pluck().get()).toBe(0);
+    await expect(new SqliteCatalogReferenceProjection(node.handle)
+      .findStockAvailability('product-001')).resolves.toEqual({
+        productId: 'product-001',
+        stockItemId: 'stock-item-001',
+        unitCode: 'UNIT',
+        quantityScaled: 9,
+        quantityScale: 0,
+        tracksBatches: true,
+        batches: [{
+          batchId: 'batch-001',
+          lotNumber: 'LOT-001',
+          expiresAt: new Date('2027-01-01T00:00:00.000Z'),
+          quantityScaled: 9
+        }],
+        unitCost: { minorUnits: 250, currencyCode: 'USD' },
+        version: 6,
+        publishedBy: 'node-coordinator',
+        publishedAt: new Date(ISSUED_AT)
+      });
     node.handle.close();
   });
 });

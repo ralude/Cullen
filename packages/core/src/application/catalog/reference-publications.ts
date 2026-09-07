@@ -225,8 +225,17 @@ export const toStockAvailabilityPublication = (
   aggregateVersion: availability.version,
   occurredAt: props.occurredAt,
   payload: {
+    stockItemId: availability.stockItemId,
+    unitCode: availability.unitCode,
     quantityScaled: availability.quantityScaled,
     quantityScale: availability.quantityScale,
+    batchTracking: availability.tracksBatches ? 'TRACKED' : 'NOT_TRACKED',
+    batches: availability.batches.map((batch) => ({
+      batchId: batch.batchId,
+      lotNumber: batch.lotNumber,
+      expiresAt: batch.expiresAt?.toISOString() ?? null,
+      quantityScaled: batch.quantityScaled
+    })),
     unitCost: availability.unitCost
   }
 });

@@ -62,9 +62,10 @@ movimientos de esas operaciones.
 
 **Brecha de implementación:** compra y conteo todavía registran hechos locales que no se
 transportan al coordinador, y `SaleReturned.v1` solo actualiza la proyección comercial. Los
-contratos/consumidores anteriores y la disponibilidad v2 aún deben implementarse. Un rechazo
-comercial definitivo después de efectos previos queda `NEEDS_REVIEW`; la compensación
-explícita tampoco está automatizada.
+contratos/consumidores anteriores aún deben implementarse; la disponibilidad v2 ya distribuye
+identidades autoritativas y saldos por lote sin poblar `stock_items` del POS. Un rechazo comercial
+definitivo después de efectos previos queda `NEEDS_REVIEW`; la compensación explícita tampoco está
+automatizada.
 
 ## Retry
 

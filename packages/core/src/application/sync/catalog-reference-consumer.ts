@@ -25,6 +25,7 @@ import type {
   CatalogReferenceProjection,
   ExchangeRateReference,
   PaymentMethodReference,
+  ProjectedStockAvailabilityReference,
   ProductReference,
   ReferenceApplication
 } from '../ports/index.js';
@@ -51,6 +52,38 @@ const instant = (value: string | null): Date | null => {
   if (value === null) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const stockBatches = (
+  value: JsonValue | undefined,
+  quantityScaled: number,
+  tracksBatches: boolean
+): ProjectedStockAvailabilityReference['batches'] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const parsed: NonNullable<ProjectedStockAvailabilityReference['batches']>[number][] = [];
+  const ids = new Set<string>();
+  const lots = new Set<string>();
+  for (const entry of value) {
+    if (!isObject(entry)) return undefined;
+    const batchId = text(entry.batchId);
+    const lotNumber = text(entry.lotNumber);
+    const expiresAtText = entry.expiresAt === null ? null : text(entry.expiresAt);
+    const expiresAt = instant(expiresAtText);
+    const batchQuantity = integer(entry.quantityScaled);
+    if (batchId === null || batchId.trim().length === 0 ||
+      lotNumber === null || lotNumber.trim().length === 0 ||
+      (entry.expiresAt !== null && expiresAt === null) ||
+      batchQuantity === null || batchQuantity < 0 ||
+      ids.has(batchId) || lots.has(lotNumber)) return undefined;
+    ids.add(batchId);
+    lots.add(lotNumber);
+    parsed.push({ batchId, lotNumber, expiresAt, quantityScaled: batchQuantity });
+  }
+  if ((!tracksBatches && parsed.length > 0) ||
+    (tracksBatches && parsed.reduce((total, batch) => total + batch.quantityScaled, 0) !== quantityScaled)) {
+    return undefined;
+  }
+  return parsed;
 };
 
 const barcodes = (
@@ -249,10 +282,31 @@ export class CatalogReferenceConsumer implements SyncConsumer {
           costCurrency === null || !/^[A-Z]{3}$/.test(costCurrency)))) {
         return this.invalid(envelope);
       }
+      const isV2 = envelope.contractVersion === 2;
+      const stockItemId = isV2 ? text(payload.stockItemId) : null;
+      const unitCode = isV2 ? text(payload.unitCode) : null;
+      const batchTracking = isV2 ? text(payload.batchTracking) : null;
+      const tracksBatches = batchTracking === null
+        ? null
+        : batchTracking === 'TRACKED' ? true : batchTracking === 'NOT_TRACKED' ? false : undefined;
+      const batches = tracksBatches === null
+        ? null
+        : tracksBatches === undefined
+          ? undefined
+          : stockBatches(payload.batches, quantityScaled, tracksBatches);
+      if (isV2 && (stockItemId === null || stockItemId.trim().length === 0 ||
+        unitCode === null || unitCode.trim().length === 0 ||
+        tracksBatches === undefined || batches === undefined)) {
+        return this.invalid(envelope);
+      }
       return ok(await this.projection.applyStockAvailability({
         productId: envelope.aggregateId,
+        stockItemId,
+        unitCode,
         quantityScaled,
         quantityScale,
+        tracksBatches: tracksBatches ?? null,
+        batches: batches ?? null,
         unitCost: cost === null
           ? null
           : { minorUnits: costMinorUnits as number, currencyCode: costCurrency as string },

@@ -75,6 +75,12 @@ class RecordingProjection implements CatalogReferenceProjection {
     return this.outcome;
   }
 
+  async findStockAvailability(
+    productId: string
+  ): Promise<ProjectedStockAvailabilityReference | null> {
+    return this.stockAvailability.find((reference) => reference.productId === productId) ?? null;
+  }
+
   async referenceFreshness(): Promise<ReferenceFreshness> {
     const empty = { publishedBy: null, publishedAt: null, version: null, count: 0 };
     return {
@@ -280,6 +286,47 @@ describe('CatalogReferenceConsumer', () => {
       rateValue: 36500, rateScale: 3, source: 'BCV',
       validFrom: new Date('2026-09-06T00:00:00.000Z'), validUntil: null,
       registeredBy: 'operator-001', version: 4
+    }]);
+  });
+
+  it('aplica disponibilidad v2 con identidades y saldos por lote', async () => {
+    const projection = new RecordingProjection();
+
+    await new CatalogReferenceConsumer(projection).apply(envelope({
+      eventType: 'StockAvailabilityPublished',
+      contractVersion: 2,
+      aggregateType: 'StockAvailability',
+      aggregateId: 'product-001',
+      aggregateVersion: 8,
+      payload: {
+        stockItemId: 'stock-item-001',
+        unitCode: 'KG',
+        quantityScaled: 1250,
+        quantityScale: 3,
+        batchTracking: 'TRACKED',
+        batches: [{
+          batchId: 'batch-001', lotNumber: 'LOT-001',
+          expiresAt: '2027-01-01T00:00:00.000Z', quantityScaled: 1250
+        }],
+        unitCost: { minorUnits: 300, currencyCode: 'USD' }
+      }
+    }));
+
+    expect(projection.stockAvailability).toEqual([{
+      productId: 'product-001',
+      stockItemId: 'stock-item-001',
+      unitCode: 'KG',
+      quantityScaled: 1250,
+      quantityScale: 3,
+      tracksBatches: true,
+      batches: [{
+        batchId: 'batch-001', lotNumber: 'LOT-001',
+        expiresAt: new Date('2027-01-01T00:00:00.000Z'), quantityScaled: 1250
+      }],
+      unitCost: { minorUnits: 300, currencyCode: 'USD' },
+      version: 8,
+      publishedBy: 'node-coordinator',
+      publishedAt: new Date('2026-09-06T10:00:00.000Z')
     }]);
   });
 

@@ -20,9 +20,18 @@ export const toStockAvailabilityPublications = (
   ids: IdGenerator,
   occurredAt: Date
 ): readonly DomainEventLike[] => [...items].map((item) => toStockAvailabilityPublication({
+  stockItemId: item.id,
   productId: item.productId,
+  unitCode: item.unitCode,
   quantityScaled: item.balance.scaledValue,
   quantityScale: item.quantityScale,
+  tracksBatches: item.tracksBatches,
+  batches: item.batches.map((batch) => ({
+    batchId: batch.id,
+    lotNumber: batch.lotNumber,
+    expiresAt: batch.expiresAt,
+    quantityScaled: item.balanceForBatch(batch.id).scaledValue
+  })),
   unitCost: item.averageUnitCost === null ? null : {
     minorUnits: item.averageUnitCost.minorUnits,
     currencyCode: item.averageUnitCost.currency

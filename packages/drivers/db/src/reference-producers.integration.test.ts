@@ -204,7 +204,15 @@ describe('disponibilidad informativa del coordinador', () => {
       aggregateType: 'StockAvailability',
       /** Dos movimientos: la versión es su cuenta más uno. */
       aggregateVersion: 3,
-      payload: { quantityScaled: 10, quantityScale: 0, unitCost: null }
+      payload: {
+        stockItemId: 'stock-item-001',
+        unitCode: 'UNIT',
+        quantityScaled: 10,
+        quantityScale: 0,
+        batchTracking: 'NOT_TRACKED',
+        batches: [],
+        unitCost: null
+      }
     });
     /** Derivar dos veces el mismo estado produce la misma versión y saldo. */
     expect(second[0]).toMatchObject({ aggregateVersion: 3, payload: { quantityScaled: 10 } });
@@ -225,14 +233,49 @@ describe('disponibilidad informativa del coordinador', () => {
 
     expect(availability).toEqual([
       {
-        productId: 'product-001', quantityScaled: 10, quantityScale: 0,
-        unitCost: null, version: 3
+        stockItemId: 'stock-item-001', productId: 'product-001', unitCode: 'UNIT',
+        quantityScaled: 10, quantityScale: 0, tracksBatches: false,
+        batches: [], unitCost: null, version: 3
       },
       {
-        productId: 'product-002', quantityScaled: 0, quantityScale: 0,
-        unitCost: null, version: 1
+        stockItemId: 'stock-item-002', productId: 'product-002', unitCode: 'UNIT',
+        quantityScaled: 0, quantityScale: 0, tracksBatches: false,
+        batches: [], unitCost: null, version: 1
       }
     ]);
+    handle.close();
+  });
+
+  it('deriva identidades y saldos por lote desde el inventario autoritativo', async () => {
+    const handle = migrated();
+    const repository = new DrizzleStockItemRepository(handle);
+    const item = StockItem.create({
+      id: 'stock-item-001', productId: 'product-001',
+      unitCode: 'UNIT', quantityScale: 0, tracksBatches: true
+    });
+    item.registerBatch({
+      id: 'batch-001', lotNumber: 'LOT-001',
+      expiresAt: new Date('2027-01-01T00:00:00.000Z')
+    });
+    item.registerMovement({
+      id: 'movement-001', type: 'PURCHASE_RECEIPT',
+      quantity: Quantity.fromScaled(7, 0), batchId: 'batch-001',
+      actorId: 'operator-001', reason: 'Recepción', referenceId: 'receipt-001',
+      occurredAt: ISSUED_AT, eventId: 'event-movement-001'
+    });
+    await new SqliteUnitOfWork(handle.sqlite).execute(() => repository.save(item));
+
+    await expect(new SqliteCatalogReferenceSource(handle).listStockAvailability())
+      .resolves.toEqual([{
+        stockItemId: 'stock-item-001', productId: 'product-001', unitCode: 'UNIT',
+        quantityScaled: 7, quantityScale: 0, tracksBatches: true,
+        batches: [{
+          batchId: 'batch-001', lotNumber: 'LOT-001',
+          expiresAt: new Date('2027-01-01T00:00:00.000Z'), quantityScaled: 7
+        }],
+        unitCost: null,
+        version: 2
+      }]);
     handle.close();
   });
 });

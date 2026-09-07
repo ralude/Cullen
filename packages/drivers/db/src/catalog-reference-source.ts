@@ -219,7 +219,8 @@ export class SqliteCatalogReferenceSource implements CatalogReferenceSource {
   async listStockAvailability(): Promise<readonly StockAvailabilityReference[]> {
     try {
       const rows = this.handle.sqlite.prepare(`
-        select i.product_id as productId, i.quantity_scale as quantityScale,
+        select i.id as stockItemId, i.product_id as productId, i.unit_code as unitCode,
+          i.quantity_scale as quantityScale, i.tracks_batches as tracksBatches,
           coalesce(sum(case when m.direction = 'IN' then m.quantity_scaled
             else -m.quantity_scaled end), 0) as quantityScaled,
           count(m.id) + 1 as version,
@@ -232,7 +233,8 @@ export class SqliteCatalogReferenceSource implements CatalogReferenceSource {
         group by i.id
         order by i.product_id
       `).all() as {
-        productId: string; quantityScale: number; quantityScaled: number; version: number;
+        stockItemId: string; productId: string; unitCode: string; quantityScale: number;
+        tracksBatches: number; quantityScaled: number; version: number;
         currencyCode: string | null; valueScaled: number | null;
       }[];
       return rows.map((row) => {
@@ -248,10 +250,31 @@ export class SqliteCatalogReferenceSource implements CatalogReferenceSource {
             minorUnits: Math.round(row.valueScaled / balance),
             currencyCode: row.currencyCode
           };
+        const batches = this.handle.sqlite.prepare(`
+          select b.id as batchId, b.lot_number as lotNumber, b.expires_at as expiresAt,
+            coalesce(sum(case when m.direction = 'IN' then m.quantity_scaled
+              else -m.quantity_scaled end), 0) as quantityScaled
+          from stock_batches b
+          left join stock_movements m on m.batch_id = b.id
+          where b.stock_item_id = ?
+          group by b.id
+          order by b.lot_number, b.id
+        `).all(row.stockItemId) as {
+          batchId: string; lotNumber: string; expiresAt: number | null; quantityScaled: number;
+        }[];
         return {
+          stockItemId: row.stockItemId,
           productId: row.productId,
+          unitCode: row.unitCode,
           quantityScaled: balance,
           quantityScale: row.quantityScale,
+          tracksBatches: row.tracksBatches === 1,
+          batches: batches.map((batch) => ({
+            batchId: batch.batchId,
+            lotNumber: batch.lotNumber,
+            expiresAt: batch.expiresAt === null ? null : new Date(batch.expiresAt),
+            quantityScaled: Math.max(0, batch.quantityScaled)
+          })),
           unitCost,
           version: row.version
         };

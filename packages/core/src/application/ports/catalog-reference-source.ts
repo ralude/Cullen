@@ -91,9 +91,18 @@ export type OperatorGrantReference = {
  * saldo conocido.
  */
 export type StockAvailabilityReference = {
+  readonly stockItemId: string;
   readonly productId: string;
+  readonly unitCode: string;
   readonly quantityScaled: number;
   readonly quantityScale: number;
+  readonly tracksBatches: boolean;
+  readonly batches: readonly {
+    readonly batchId: string;
+    readonly lotNumber: string;
+    readonly expiresAt: Date | null;
+    readonly quantityScaled: number;
+  }[];
   /**
    * Costo unitario promedio observado. `null` es costo desconocido, nunca cero:
    * es lo que la terminal congelará al vender (ADR-0026 D4).

@@ -352,6 +352,34 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   /** Un saldo de un producto que la terminal no conoce no es utilizable. */
   dependencies: (_payload, aggregateId) => [{ aggregateType: 'Product', aggregateId }]
 }, {
+  /**
+   * Versión 2: añade identidades autoritativas y saldos por lote para que una
+   * terminal pueda preparar compras y conteos sin leer ni duplicar StockItem.
+   */
+  eventType: 'StockAvailabilityPublished',
+  contractVersion: 2,
+  aggregateType: 'StockAvailability',
+  direction: 'COORDINATOR_TO_TERMINAL',
+  fields: {
+    stockItemId: identifier(),
+    unitCode: identifier(),
+    quantityScaled: integer(0),
+    quantityScale: integer(0),
+    batchTracking: { kind: 'enum', values: ['TRACKED', 'NOT_TRACKED'] },
+    batches: array(object({
+      batchId: identifier(),
+      lotNumber: text(),
+      expiresAt: text(true),
+      quantityScaled: integer(0)
+    })),
+    unitCost: object({ minorUnits: integer(0), currencyCode: { kind: 'currency' } }, true)
+  },
+  payloadOriginField: null,
+  payloadTerminalField: null,
+  intendedConsumer: 'disponibilidad y lotes informativos de cada terminal',
+  consumers: ['CATALOG_REFERENCE'],
+  dependencies: (_payload, aggregateId) => [{ aggregateType: 'Product', aggregateId }]
+}, {
   eventType: 'ProductPublished',
   contractVersion: 1,
   aggregateType: 'Product',
