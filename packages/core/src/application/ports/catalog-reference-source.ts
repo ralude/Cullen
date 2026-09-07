@@ -94,5 +94,10 @@ export type StockAvailabilityReference = {
   readonly productId: string;
   readonly quantityScaled: number;
   readonly quantityScale: number;
+  /**
+   * Costo unitario promedio observado. `null` es costo desconocido, nunca cero:
+   * es lo que la terminal congelará al vender (ADR-0026 D4).
+   */
+  readonly unitCost: { readonly minorUnits: number; readonly currencyCode: string } | null;
   readonly version: number;
 };

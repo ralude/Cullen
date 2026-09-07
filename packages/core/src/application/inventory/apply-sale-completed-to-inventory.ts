@@ -1,4 +1,4 @@
-import { ApplicationError, DomainError, err, Quantity, ok, type AppError, type Result } from '@supermarket/shared';
+import { ApplicationError, DomainError, err, Money, Quantity, ok, type AppError, type Result } from '@supermarket/shared';
 import type { StockItem } from '../../domain/inventory/index.js';
 import type { ExecutionContext } from '../execution-context.js';
 import type { BusinessEventV1, JsonValue } from '../events/index.js';
@@ -8,10 +8,45 @@ import { toStockAvailabilityPublications } from './stock-availability-publicatio
 import type { StockItemDto } from './dtos.js';
 import { toStockItemDto } from './mappers.js';
 
-type SaleItemPayload = { itemId: string; productId: string; quantityScaled: number; quantityScale: number };
+type CostSnapshotPayload = {
+  unitCost: Money;
+  version: number;
+  source: string;
+};
+type SaleItemPayload = {
+  itemId: string; productId: string; quantityScaled: number; quantityScale: number;
+  costSnapshot: CostSnapshotPayload | null;
+};
 type SalePayload = { terminalId: string; items: SaleItemPayload[] };
 const record = (value: JsonValue): Record<string, JsonValue> | null =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, JsonValue> : null;
+
+/**
+ * Lee el snapshot de costo que transporta `SaleCompleted.v2`.
+ *
+ * `undefined` es una forma incompatible; `null` es costo desconocido, que es un
+ * dato válido y se conserva como tal. La v1 no lo transporta y por eso llega
+ * como ausente, no como cero.
+ */
+const costSnapshotOf = (value: JsonValue | undefined): CostSnapshotPayload | null | undefined => {
+  if (value === undefined || value === null) return null;
+  const snapshot = record(value);
+  if (!snapshot) return undefined;
+  const cost = record(snapshot.unitCost ?? null);
+  if (!cost || typeof cost.minorUnits !== 'number' || !Number.isSafeInteger(cost.minorUnits) ||
+    cost.minorUnits < 0 || typeof cost.currencyCode !== 'string' ||
+    typeof snapshot.version !== 'number' || !Number.isSafeInteger(snapshot.version) ||
+    snapshot.version < 1 || typeof snapshot.source !== 'string' ||
+    snapshot.source.trim().length === 0) {
+    return undefined;
+  }
+  return {
+    unitCost: Money.fromMinorUnits(cost.minorUnits, cost.currencyCode),
+    version: snapshot.version,
+    source: snapshot.source
+  };
+};
+
 const payloadOf = (event: BusinessEventV1): SalePayload | null => {
   const payload = record(event.payload);
   if (!payload || typeof payload.terminalId !== 'string' || !Array.isArray(payload.items)) return null;
@@ -21,8 +56,10 @@ const payloadOf = (event: BusinessEventV1): SalePayload | null => {
     if (!item || typeof item.itemId !== 'string' || typeof item.productId !== 'string' ||
       typeof item.quantityScaled !== 'number' || !Number.isSafeInteger(item.quantityScaled) ||
       item.quantityScaled <= 0 || typeof item.quantityScale !== 'number' || !Number.isInteger(item.quantityScale)) return null;
+    const costSnapshot = costSnapshotOf(item.costSnapshot);
+    if (costSnapshot === undefined) return null;
     items.push({ itemId: item.itemId, productId: item.productId,
-      quantityScaled: item.quantityScaled, quantityScale: item.quantityScale });
+      quantityScaled: item.quantityScaled, quantityScale: item.quantityScale, costSnapshot });
   }
   return payload.terminalId.length > 0 && items.length > 0 ? { terminalId: payload.terminalId, items } : null;
 };
@@ -35,9 +72,9 @@ const payloadOf = (event: BusinessEventV1): SalePayload | null => {
  *
  * `SYNCED_SNAPSHOT` es la excepción explícita de ADR-0026 D4 para un hecho
  * recibido de otra terminal: el costo debe ser el snapshot que esa terminal
- * conoció al vender. Los once contratos v1 no lo transportan, así que la salida
- * queda con costo desconocido y visible como tal; no se completa con el
- * promedio del coordinador en el momento de recibir el evento.
+ * conoció al vender. Un hecho v1 no lo transporta y por eso queda con costo
+ * desconocido y visible como tal; no se completa con el promedio del
+ * coordinador en el momento de recibir el evento.
  */
 export type SaleIssueCostSource = 'LOCAL_AVERAGE' | 'SYNCED_SNAPSHOT';
 
@@ -55,15 +92,29 @@ export class ApplySaleCompletedToInventory {
      * autoritativo, así que publica la disponibilidad de los ítems tocados en
      * la misma transacción del efecto.
      */
-    private readonly outbox?: OutboxStore
+    private readonly outbox?: OutboxStore,
+    /**
+     * Nodo cuya publicación de costo este receptor reconoce como autoridad.
+     * Sin él, un snapshot recibido no se acepta y el costo queda desconocido.
+     */
+    private readonly authoritativeCostSource?: string
   ) {}
+
+  /** Un snapshot con otra procedencia no vale como costo: se ignora. */
+  private acceptedCost(snapshot: CostSnapshotPayload | null): Money | undefined {
+    if (snapshot === null) return undefined;
+    return this.authoritativeCostSource !== undefined &&
+      snapshot.source === this.authoritativeCostSource
+      ? snapshot.unitCost
+      : undefined;
+  }
 
   async execute(event: BusinessEventV1): Promise<Result<StockItemDto[], AppError>> {
     if (event.eventType !== 'SaleCompleted' || event.aggregateType !== 'Sale') {
-      return err(new ApplicationError('INVENTORY_SALE_EVENT_UNSUPPORTED', 'Inventory only consumes SaleCompleted.v1.'));
+      return err(new ApplicationError('INVENTORY_SALE_EVENT_UNSUPPORTED', 'Inventory only consumes SaleCompleted.'));
     }
     const payload = payloadOf(event);
-    if (!payload) return err(new ApplicationError('INVENTORY_SALE_EVENT_INVALID', 'SaleCompleted.v1 payload is invalid.'));
+    if (!payload) return err(new ApplicationError('INVENTORY_SALE_EVENT_INVALID', 'SaleCompleted payload is invalid.'));
     const context: ExecutionContext = { actorId: event.actorId, actorRoleCodes: [], terminalId: payload.terminalId,
       originNodeId: event.originNodeId, correlationId: event.correlationId };
     try {
@@ -93,12 +144,18 @@ export class ApplySaleCompletedToInventory {
           /**
            * El costo de la salida se congela en el promedio ponderado vigente
            * al momento de la venta (ADR-0016); una recepción posterior no
-           * revaloriza esta salida. Un hecho sincronizado conserva en cambio el
-           * snapshot de su origen: sin esa evidencia el costo queda desconocido.
+           * revaloriza esta salida.
+           *
+           * Un hecho sincronizado usa en cambio el snapshot que su origen
+           * congeló, y solo si su procedencia es la autoridad de costo de este
+           * nodo: un costo con otra procedencia no se acepta y la salida queda
+           * con costo desconocido, que sigue siendo visible como tal. Cambiar el
+           * costo del coordinador entre la venta y su recepción no altera esta
+           * salida (ADR-0026 D4).
            */
           const unitCostAtIssue = this.costSource === 'LOCAL_AVERAGE'
             ? item.averageUnitCost
-            : undefined;
+            : this.acceptedCost(line.costSnapshot);
           allocations.forEach((allocation, index) => item.registerMovement({
             id: `${event.eventId}:${line.itemId}:${index}`, type: 'SALE_ISSUE', quantity: allocation.quantity,
             ...(allocation.batchId ? { batchId: allocation.batchId } : {}), actorId: event.actorId,

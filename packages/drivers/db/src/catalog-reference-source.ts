@@ -222,20 +222,40 @@ export class SqliteCatalogReferenceSource implements CatalogReferenceSource {
         select i.product_id as productId, i.quantity_scale as quantityScale,
           coalesce(sum(case when m.direction = 'IN' then m.quantity_scaled
             else -m.quantity_scaled end), 0) as quantityScaled,
-          count(m.id) + 1 as version
+          count(m.id) + 1 as version,
+          i.valuation_currency_code as currencyCode,
+          sum(case when m.unit_cost_minor_units is null then null
+            when m.direction = 'IN' then m.unit_cost_minor_units * m.quantity_scaled
+            else -m.unit_cost_minor_units * m.quantity_scaled end) as valueScaled
         from stock_items i
         left join stock_movements m on m.stock_item_id = i.id
         group by i.id
         order by i.product_id
       `).all() as {
         productId: string; quantityScale: number; quantityScaled: number; version: number;
+        currencyCode: string | null; valueScaled: number | null;
       }[];
-      return rows.map((row) => ({
-        productId: row.productId,
-        quantityScaled: Math.max(0, row.quantityScaled),
-        quantityScale: row.quantityScale,
-        version: row.version
-      }));
+      return rows.map((row) => {
+        const balance = Math.max(0, row.quantityScaled);
+        /**
+         * Promedio ponderado vigente, la misma cuenta que hace el agregado. Sin
+         * saldo, sin moneda de valuación o sin costos históricos el resultado es
+         * costo **desconocido**, que viaja como `null` y no como cero.
+         */
+        const unitCost = row.currencyCode === null || row.valueScaled === null || balance === 0
+          ? null
+          : {
+            minorUnits: Math.round(row.valueScaled / balance),
+            currencyCode: row.currencyCode
+          };
+        return {
+          productId: row.productId,
+          quantityScaled: balance,
+          quantityScale: row.quantityScale,
+          unitCost,
+          version: row.version
+        };
+      });
     } catch (error) {
       throw mapDatabaseError(error);
     }

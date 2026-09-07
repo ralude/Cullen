@@ -8,6 +8,7 @@ export {
   type ProductProps
 } from './product.js';
 export { ProductSnapshot, type ProductSnapshotProps } from './product-snapshot.js';
+export { CostSnapshot, type CostSnapshotProps } from './cost-snapshot.js';
 export type {
   PriceChangedEvent,
   ProductCreatedEvent,

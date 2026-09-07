@@ -291,7 +291,13 @@ export const saleItems = sqliteTable('sale_items', {
   unitCode: text('unit_code').notNull(),
   unitScale: integer('unit_scale').notNull(),
   quantityScaled: integer('quantity_scaled').notNull(),
-  quantityScale: integer('quantity_scale').notNull()
+  quantityScale: integer('quantity_scale').notNull(),
+  /** Costo congelado al vender; los cinco campos van juntos o ninguno. */
+  costUnitMinorUnits: integer('cost_unit_minor_units'),
+  costCurrencyCode: text('cost_currency_code'),
+  costVersion: integer('cost_version'),
+  costSource: text('cost_source'),
+  costObservedAt: integer('cost_observed_at')
 });
 
 export const saleDiscounts = sqliteTable('sale_discounts', {

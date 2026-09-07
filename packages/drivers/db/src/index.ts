@@ -49,3 +49,4 @@ export {
   DrizzleStockItemRepository,
   DrizzleUnitOfMeasureRepository
 } from './repositories.js';
+export { SqliteSaleCostSnapshotProvider } from './sale-cost-snapshot-provider.js';

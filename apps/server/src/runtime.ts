@@ -25,6 +25,7 @@ import {
   SqliteCatalogReferenceProjection,
   SqliteCatalogReferenceSource,
   SqliteOperatorGrantSource,
+  SqliteSaleCostSnapshotProvider,
   DrizzleAggregateAuthorityRegistry,
   SqliteSyncNodeRegistry,
   DrizzlePaymentMethodRepository,
@@ -223,7 +224,8 @@ export const createSecurityRuntime = (
           ['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(
             new application.ApplySaleCompletedToInventory(
               stockItemRepository, ids, ids, application.ambientUnitOfWork,
-              eventStore, auditWriter, 'SYNCED_SNAPSHOT', outboxStore
+              eventStore, auditWriter, 'SYNCED_SNAPSHOT', outboxStore,
+              nodeIdentity.originNodeId
             )
           )],
           /**
@@ -290,7 +292,8 @@ export const createSecurityRuntime = (
         getSale: new application.GetSale(saleRepository),
         addItemToSale: new application.AddItemToSale(
           saleRepository, productSnapshotProvider, ids, ids, clock,
-          unitOfWork, eventStore, idempotencyStore
+          unitOfWork, eventStore, idempotencyStore,
+          new SqliteSaleCostSnapshotProvider(handle, nodeIdentity.originNodeId)
         ),
         removeItemFromSale: new application.RemoveItemFromSale(
           saleRepository, ids, clock, unitOfWork, eventStore, idempotencyStore

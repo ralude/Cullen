@@ -385,7 +385,7 @@ describe('outbox delivery', () => {
         "update outbox_event set status = 'BLOCKED'"
       ).run()).toThrow();
 
-      expect(applyMigrations(handle.sqlite)).toEqual([27, 28, 29, 30, 31, 32, 33, 34, 35, 36]);
+      expect(applyMigrations(handle.sqlite)).toEqual([27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37]);
       expect(handle.sqlite.prepare(
         'select event_id, status, attempts, last_error from outbox_event'
       ).all()).toEqual([{

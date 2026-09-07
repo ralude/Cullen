@@ -226,6 +226,7 @@ export const toStockAvailabilityPublication = (
   occurredAt: props.occurredAt,
   payload: {
     quantityScaled: availability.quantityScaled,
-    quantityScale: availability.quantityScale
+    quantityScale: availability.quantityScale,
+    unitCost: availability.unitCost
   }
 });

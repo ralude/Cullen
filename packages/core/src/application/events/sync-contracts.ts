@@ -105,7 +105,12 @@ export const withinDepth = (value: JsonValue, remaining: number): boolean => {
 
 export type SyncEventContractV1 = {
   readonly eventType: string;
-  readonly contractVersion: 1;
+  /**
+   * Versión del contrato. El catálogo se indexa por `(eventType,
+   * contractVersion)`: una versión nueva se **añade**, nunca reemplaza a la
+   * anterior, para que un emisor que todavía publica v1 siga siendo aceptado.
+   */
+  readonly contractVersion: number;
   readonly aggregateType: string;
   readonly direction: SyncContractDirection;
   readonly fields: ObjectFields;
@@ -328,7 +333,12 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
    */
   fields: {
     quantityScaled: integer(0),
-    quantityScale: integer(0)
+    quantityScale: integer(0),
+    /**
+     * Costo unitario promedio observado, con el que la terminal congela el
+     * costo al vender. `null` es costo desconocido, no cero.
+     */
+    unitCost: object({ minorUnits: integer(0), currencyCode: { kind: 'currency' } }, true)
   },
   payloadOriginField: null,
   payloadTerminalField: null,
@@ -389,6 +399,47 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
       productId: identifier(),
       quantityScaled: integer(),
       quantityScale: integer(0)
+    }))
+  },
+  payloadOriginField: null,
+  payloadTerminalField: 'terminalId',
+  intendedConsumer: 'caja e inventario autoritativos del coordinador',
+  consumers: ['INVENTORY_AUTHORITY'],
+  dependencies: (payload) => reference('Shift', payload, 'shiftId')
+}, {
+  /**
+   * Versión 2: añade el snapshot de costo por línea, con su procedencia
+   * (ADR-0026 D4). La v1 sigue siendo válida y se conserva intacta con sus
+   * fixtures; un hecho v1 se aplica con costo desconocido, no con el promedio
+   * que el coordinador tenga al recibirlo.
+   */
+  eventType: 'SaleCompleted',
+  contractVersion: 2,
+  aggregateType: 'Sale',
+  direction: 'TERMINAL_TO_COORDINATOR',
+  fields: {
+    shiftId: identifier(),
+    terminalId: identifier(),
+    total: money,
+    paidTotal: money,
+    payments: array(object({
+      paymentId: identifier(),
+      methodCode: identifier(),
+      currencyCode: { kind: 'currency' },
+      amountMinorUnits: integer()
+    })),
+    items: array(object({
+      itemId: identifier(),
+      productId: identifier(),
+      quantityScaled: integer(),
+      quantityScale: integer(0),
+      /** `null` es costo desconocido explícito, no cero. */
+      costSnapshot: object({
+        unitCost: money,
+        version: integer(1),
+        source: identifier(),
+        observedAt: text()
+      }, true)
     }))
   },
   payloadOriginField: null,
@@ -525,8 +576,28 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   dependencies: noDependencies
 }];
 
-export const findSyncContract = (eventType: string): SyncEventContractV1 | undefined =>
-  SYNC_EVENT_CONTRACTS_V1.find((contract) => contract.eventType === eventType);
+/**
+ * Busca un contrato. Sin `contractVersion` devuelve la versión más alta
+ * publicada del tipo, que es la que emiten los productores; con ella devuelve
+ * exactamente esa, para que el receptor valide contra el contrato declarado.
+ */
+export const findSyncContract = (
+  eventType: string,
+  contractVersion?: number
+): SyncEventContractV1 | undefined => {
+  const candidates = SYNC_EVENT_CONTRACTS_V1
+    .filter((contract) => contract.eventType === eventType);
+  if (contractVersion !== undefined) {
+    return candidates.find((contract) => contract.contractVersion === contractVersion);
+  }
+  return candidates.reduce<SyncEventContractV1 | undefined>(
+    (highest, contract) =>
+      highest === undefined || contract.contractVersion > highest.contractVersion
+        ? contract
+        : highest,
+    undefined
+  );
+};
 
 export const SYNC_INTEGRATION_EVENT_TYPES: readonly string[] =
-  SYNC_EVENT_CONTRACTS_V1.map(({ eventType }) => eventType);
+  [...new Set(SYNC_EVENT_CONTRACTS_V1.map(({ eventType }) => eventType))];

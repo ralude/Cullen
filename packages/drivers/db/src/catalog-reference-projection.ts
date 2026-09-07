@@ -409,12 +409,15 @@ export class SqliteCatalogReferenceProjection implements CatalogReferenceProject
       const changes = this.handle.sqlite.prepare(`
         insert into stock_availability_reference (
           product_id, quantity_scaled, quantity_scale, version,
+          cost_unit_minor_units, cost_currency_code,
           published_by, published_at, applied_at
-        ) values (?, ?, ?, ?, ?, ?, ?)
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
         on conflict(product_id) do update set
           quantity_scaled = excluded.quantity_scaled,
           quantity_scale = excluded.quantity_scale,
           version = excluded.version,
+          cost_unit_minor_units = excluded.cost_unit_minor_units,
+          cost_currency_code = excluded.cost_currency_code,
           published_by = excluded.published_by,
           published_at = excluded.published_at,
           applied_at = excluded.applied_at
@@ -424,6 +427,8 @@ export class SqliteCatalogReferenceProjection implements CatalogReferenceProject
         reference.quantityScaled,
         reference.quantityScale,
         reference.version,
+        reference.unitCost?.minorUnits ?? null,
+        reference.unitCost?.currencyCode ?? null,
         reference.publishedBy,
         reference.publishedAt.getTime(),
         reference.publishedAt.getTime()

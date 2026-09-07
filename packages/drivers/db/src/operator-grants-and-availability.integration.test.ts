@@ -117,7 +117,7 @@ const availabilityEnvelope = (version: number, quantityScaled: number): SyncEnve
     aggregateId: 'product-001',
     aggregateType: 'StockAvailability',
     aggregateVersion: version,
-    payload: { quantityScaled, quantityScale: 0 }
+    payload: { quantityScaled, quantityScale: 0, unitCost: null }
   });
 
 type Terminal = {

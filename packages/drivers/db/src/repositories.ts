@@ -10,6 +10,7 @@ import {
   PaymentMethod,
   PriceHistory,
   Product,
+  CostSnapshot,
   ProductSnapshot,
   Sale,
   SaleItem,
@@ -425,7 +426,12 @@ export class DrizzleSaleRepository implements SaleRepository {
         unitCode: item.snapshot.unitCode,
         unitScale: item.snapshot.unitScale,
         quantityScaled: item.quantity.scaledValue,
-        quantityScale: item.quantity.scale
+        quantityScale: item.quantity.scale,
+        costUnitMinorUnits: item.snapshot.costSnapshot?.unitCost.minorUnits ?? null,
+        costCurrencyCode: item.snapshot.costSnapshot?.unitCost.currency ?? null,
+        costVersion: item.snapshot.costSnapshot?.version ?? null,
+        costSource: item.snapshot.costSnapshot?.source ?? null,
+        costObservedAt: item.snapshot.costSnapshot?.observedAt.getTime() ?? null
       }))).run();
       const discounts = sale.items.flatMap((item) => item.discount ? [{
         id: item.discount.id,
@@ -485,7 +491,17 @@ export class DrizzleSaleRepository implements SaleRepository {
             price: Money.fromMinorUnits(item.priceMinorUnits, item.currencyCode),
             taxRate: TaxRate.fromBasisPoints(item.taxRateBasisPoints),
             unitCode: item.unitCode,
-            unitScale: item.unitScale
+            unitScale: item.unitScale,
+            costSnapshot: item.costUnitMinorUnits === null || item.costCurrencyCode === null ||
+              item.costVersion === null || item.costSource === null ||
+              item.costObservedAt === null
+              ? null
+              : CostSnapshot.create({
+                unitCost: Money.fromMinorUnits(item.costUnitMinorUnits, item.costCurrencyCode),
+                version: item.costVersion,
+                source: item.costSource,
+                observedAt: new Date(item.costObservedAt)
+              })
           }),
           quantity: Quantity.fromScaled(item.quantityScaled, item.quantityScale),
           discount: discount ? Discount.create({

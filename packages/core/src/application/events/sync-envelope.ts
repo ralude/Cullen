@@ -112,11 +112,16 @@ export const validateSyncEnvelope = (input: unknown): SyncEnvelopeValidation => 
     return reject('SYNC_ENVELOPE_INVALID');
   }
 
-  const contract = findSyncContract(input.eventType as string);
-  if (!contract) return reject('SYNC_EVENT_TYPE_UNKNOWN');
-  if (input.contractVersion !== contract.contractVersion) {
-    return reject('SYNC_CONTRACT_VERSION_UNSUPPORTED');
+  /**
+   * El catálogo se indexa por `(eventType, contractVersion)`. Un tipo conocido
+   * en una versión que este receptor no publica es un rechazo de versión, no de
+   * tipo: distinguirlos permite que el emisor sepa qué corregir.
+   */
+  if (findSyncContract(input.eventType as string) === undefined) {
+    return reject('SYNC_EVENT_TYPE_UNKNOWN');
   }
+  const contract = findSyncContract(input.eventType as string, input.contractVersion);
+  if (!contract) return reject('SYNC_CONTRACT_VERSION_UNSUPPORTED');
   if (input.aggregateType !== contract.aggregateType) {
     return reject('SYNC_AGGREGATE_TYPE_MISMATCH');
   }

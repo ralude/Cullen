@@ -204,7 +204,7 @@ describe('disponibilidad informativa del coordinador', () => {
       aggregateType: 'StockAvailability',
       /** Dos movimientos: la versión es su cuenta más uno. */
       aggregateVersion: 3,
-      payload: { quantityScaled: 10, quantityScale: 0 }
+      payload: { quantityScaled: 10, quantityScale: 0, unitCost: null }
     });
     /** Derivar dos veces el mismo estado produce la misma versión y saldo. */
     expect(second[0]).toMatchObject({ aggregateVersion: 3, payload: { quantityScaled: 10 } });
@@ -224,8 +224,14 @@ describe('disponibilidad informativa del coordinador', () => {
     const availability = await new SqliteCatalogReferenceSource(handle).listStockAvailability();
 
     expect(availability).toEqual([
-      { productId: 'product-001', quantityScaled: 10, quantityScale: 0, version: 3 },
-      { productId: 'product-002', quantityScaled: 0, quantityScale: 0, version: 1 }
+      {
+        productId: 'product-001', quantityScaled: 10, quantityScale: 0,
+        unitCost: null, version: 3
+      },
+      {
+        productId: 'product-002', quantityScaled: 0, quantityScale: 0,
+        unitCost: null, version: 1
+      }
     ]);
     handle.close();
   });

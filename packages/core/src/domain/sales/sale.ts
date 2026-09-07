@@ -428,7 +428,18 @@ export class Sale {
           itemId: item.id,
           productId: item.snapshot.productId,
           quantityScaled: item.quantity.scaledValue,
-          quantityScale: item.quantity.scale
+          quantityScale: item.quantity.scale,
+          /**
+           * Costo congelado al vender, con su procedencia. `null` es costo
+           * desconocido y así viaja: el receptor no lo completa con su
+           * promedio del momento de aplicar (ADR-0026 D4).
+           */
+          costSnapshot: item.snapshot.costSnapshot === null ? null : {
+            unitCost: item.snapshot.costSnapshot.unitCost,
+            version: item.snapshot.costSnapshot.version,
+            source: item.snapshot.costSnapshot.source,
+            observedAt: item.snapshot.costSnapshot.observedAt.toISOString()
+          }
         }))
       }
     });

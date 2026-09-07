@@ -52,6 +52,12 @@ export type SaleCompletedEvent = SaleEventBase & {
       productId: string;
       quantityScaled: number;
       quantityScale: number;
+      costSnapshot: {
+        unitCost: Money;
+        version: number;
+        source: string;
+        observedAt: string;
+      } | null;
     }>;
   };
 };

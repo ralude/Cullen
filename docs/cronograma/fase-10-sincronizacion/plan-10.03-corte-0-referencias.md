@@ -494,3 +494,57 @@ de publicación.
   disponibilidad nunca impide completar una venta offline.
 - [ ] El bootstrap publica el saldo de todos los ítems, incluido el saldo cero con versión uno, y una
   interrupción antes del commit no deja un corte parcial.
+
+## Costo conocido al vender
+
+Cierra D4 de ADR-0026. El costo es lo único del stock que la venta necesita congelar, y
+viaja por dos piezas: la disponibilidad lo publica y `SaleCompleted.v2` lo devuelve.
+
+### Quién publica el costo
+
+`StockAvailabilityPublished.v1` transporta, junto al saldo, un `unitCost` de tipo `money`
+**anulable**. Es el promedio ponderado vigente del ítem en el coordinador. `null` significa
+costo desconocido —sin saldo, sin moneda de valuación o sin costos históricos— y nunca cero.
+
+La procedencia del snapshot no necesita campos nuevos: es `originNodeId` del sobre, su versión
+es `aggregateVersion` y su fecha es `occurredAt`. La terminal proyecta esos tres junto al
+costo, de modo que puede devolverlos intactos al vender.
+
+### Cuándo se congela
+
+Al **agregar la línea**, en el mismo instante y por la misma razón que el precio y el
+impuesto: `ProductSnapshot` gana un `costSnapshot` anulable. Una compra posterior del
+coordinador no revaloriza esa línea, ni siquiera si llega antes de aplicar la salida.
+
+El costo procede de la proyección de disponibilidad; en un nodo standalone, del promedio
+ponderado de su propio inventario, con ese nodo como procedencia. Nunca llega desde el
+renderer: el caso de uso lo obtiene de su propio nodo y el contrato HTTP no lo acepta.
+
+### `SaleCompleted.v2`
+
+La v1 **permanece intacta y válida**, con sus fixtures, y el catálogo pasa a indexarse por
+`(eventType, contractVersion)`: un emisor que todavía publique v1 sigue siendo aceptado y sus
+líneas se aplican con costo desconocido. Un tipo conocido en una versión que el receptor no
+publica se rechaza como versión incompatible, no como tipo desconocido.
+
+La v2 añade a cada línea `costSnapshot`, un objeto anulable con `unitCost`, `version`,
+`source` y `observedAt`.
+
+### Qué valida el receptor
+
+El coordinador acepta el costo transportado **solo si su `source` es el nodo que reconoce
+como autoridad de costo**, que es él mismo: un snapshot con otra procedencia se ignora y la
+salida queda con costo desconocido, visible como tal. La venta sigue siendo válida en ambos
+casos; el costo no es una condición de aplicación.
+
+No se completa una salida antigua con el promedio del momento de recepción, no se convierte
+un costo ausente en cero y no se revaloriza ninguna salida histórica.
+
+### Criterios
+
+- [ ] La terminal congela el costo publicado por su coordinador, con versión, procedencia y
+  fecha; sin disponibilidad publicada usa su promedio local y sin evidencia queda en `null`.
+- [ ] El coordinador aplica el costo recibido y no su promedio vigente, aunque haya comprado
+  más caro entre la venta y su recepción.
+- [ ] Un costo con procedencia ajena no se acepta y no se sustituye por el promedio local.
+- [ ] Un hecho `SaleCompleted.v1` sigue siendo aceptado y se aplica con costo desconocido.

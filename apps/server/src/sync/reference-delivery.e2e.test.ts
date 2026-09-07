@@ -569,7 +569,7 @@ describe('distribución de referencias a las terminales', () => {
       ),
       publication(
         'event-availability-1', 'StockAvailabilityPublished', 'StockAvailability',
-        'product-001', 3, { quantityScaled: 12, quantityScale: 0 }
+        'product-001', 3, { quantityScaled: 12, quantityScale: 0, unitCost: null }
       )
     ]);
 

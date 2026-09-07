@@ -111,6 +111,7 @@ export type {
   OutboxStore,
   PaymentMethodRepository,
   ProductSnapshotProvider,
+  SaleCostSnapshotProvider,
   ProductRepository,
   SaleRepository,
   SaleReturnRepository,

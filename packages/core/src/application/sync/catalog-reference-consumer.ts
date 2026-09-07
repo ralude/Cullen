@@ -236,14 +236,26 @@ export class CatalogReferenceConsumer implements SyncConsumer {
     if (envelope.eventType === STOCK_AVAILABILITY_PUBLISHED) {
       const quantityScaled = integer(payload.quantityScaled);
       const quantityScale = integer(payload.quantityScale);
+      const cost = payload.unitCost === null ? null : isObject(payload.unitCost)
+        ? payload.unitCost
+        : undefined;
+      const costMinorUnits = cost === null || cost === undefined
+        ? null
+        : integer(cost.minorUnits);
+      const costCurrency = cost === null || cost === undefined ? null : text(cost.currencyCode);
       if (quantityScaled === null || quantityScaled < 0 ||
-        quantityScale === null || quantityScale < 0) {
+        quantityScale === null || quantityScale < 0 || cost === undefined ||
+        (cost !== null && (costMinorUnits === null || costMinorUnits < 0 ||
+          costCurrency === null || !/^[A-Z]{3}$/.test(costCurrency)))) {
         return this.invalid(envelope);
       }
       return ok(await this.projection.applyStockAvailability({
         productId: envelope.aggregateId,
         quantityScaled,
         quantityScale,
+        unitCost: cost === null
+          ? null
+          : { minorUnits: costMinorUnits as number, currencyCode: costCurrency as string },
         version,
         publishedBy: envelope.originNodeId,
         publishedAt: new Date(envelope.occurredAt)

@@ -1,5 +1,6 @@
 import type { JsonValue } from '@supermarket/shared';
 import type { ExecutionContext } from '../execution-context.js';
+import { findSyncContract } from './sync-contracts.js';
 
 export type { JsonValue };
 
@@ -16,7 +17,11 @@ export type DomainEventLike = {
 export type BusinessEventV1 = {
   readonly eventId: string;
   readonly eventType: string;
-  readonly contractVersion: 1;
+  /**
+   * Versión del contrato de integración del payload. La fija el catálogo
+   * cerrado; un tipo que no distribuye conserva `1`.
+   */
+  readonly contractVersion: number;
   readonly aggregateId: string;
   readonly aggregateType: string;
   readonly aggregateVersion: number;
@@ -54,7 +59,7 @@ export const toBusinessEvents = (
 ): BusinessEventV1[] => events.map((event) => ({
   eventId: event.eventId,
   eventType: event.type,
-  contractVersion: 1,
+  contractVersion: findSyncContract(event.type)?.contractVersion ?? 1,
   aggregateId: event.aggregateId,
   aggregateType: event.aggregateType,
   aggregateVersion: event.aggregateVersion,

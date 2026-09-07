@@ -23,5 +23,9 @@ export const toStockAvailabilityPublications = (
   productId: item.productId,
   quantityScaled: item.balance.scaledValue,
   quantityScale: item.quantityScale,
+  unitCost: item.averageUnitCost === null ? null : {
+    minorUnits: item.averageUnitCost.minorUnits,
+    currencyCode: item.averageUnitCost.currency
+  },
   version: item.movements.length + 1
 }, { eventId: ids.generate(), occurredAt }));

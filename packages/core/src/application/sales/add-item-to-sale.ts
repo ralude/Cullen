@@ -13,6 +13,7 @@ import type {
   Clock,
   IdGenerator,
   ProductSnapshotProvider,
+  SaleCostSnapshotProvider,
   SaleRepository,
   BusinessEventStore,
   UnitOfWork,
@@ -32,7 +33,13 @@ export class AddItemToSale {
     private readonly clock: Clock,
     private readonly unitOfWork?: UnitOfWork,
     private readonly eventStore?: BusinessEventStore,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    /**
+     * Costo conocido al vender. Ausente —o sin dato— la línea conserva costo
+     * desconocido explícito, que es lo correcto en un nodo que todavía no
+     * recibió la disponibilidad de su coordinador.
+     */
+    private readonly costSnapshots?: SaleCostSnapshotProvider
   ) {}
 
   async execute(input: AddItemToSaleInput, context: ExecutionContext): Promise<Result<SaleDto, AppError>> {
@@ -53,10 +60,17 @@ export class AddItemToSale {
           if (snapshot === null) {
             return err(new ApplicationError('PRODUCT_NOT_FOUND', 'Product was not found.'));
           }
+          /**
+           * El costo se congela junto al precio y al impuesto, en el mismo
+           * instante y por la misma razón: una compra posterior no revaloriza
+           * esta línea (ADR-0016, ADR-0026 D4).
+           */
+          const costSnapshot = await this.costSnapshots?.findByProductId(snapshot.productId)
+            ?? null;
           sale.addItem({
             id: this.itemIdGenerator.generate(),
             eventId: this.eventIdGenerator.generate(),
-            snapshot,
+            snapshot: snapshot.withCostSnapshot(costSnapshot),
             quantity: Quantity.fromScaled(input.quantityScaled, input.quantityScale),
             occurredAt: this.clock.now()
           });

@@ -16,6 +16,7 @@ export type {
 export type { PaymentMethodRepository } from './payment-method-repository.js';
 export type { OperationalMasterDataStore } from './operational-master-data-store.js';
 export type { ProductSnapshotProvider } from './product-snapshot-provider.js';
+export type { SaleCostSnapshotProvider } from './sale-cost-snapshot-provider.js';
 export type { SaleRepository } from './sale-repository.js';
 export type { SaleReturnRepository } from './sale-return-repository.js';
 export type { CashRegisterRepository } from './cash-register-repository.js';

@@ -86,6 +86,8 @@ export type ProjectedStockAvailabilityReference = {
   readonly productId: string;
   readonly quantityScaled: number;
   readonly quantityScale: number;
+  /** Costo unitario observado; `null` es desconocido, nunca cero. */
+  readonly unitCost: { readonly minorUnits: number; readonly currencyCode: string } | null;
   readonly version: number;
   readonly publishedBy: string;
   readonly publishedAt: Date;

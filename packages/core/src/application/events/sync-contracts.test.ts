@@ -387,7 +387,7 @@ describe('catálogo de contratos de integración v1', () => {
       'DiscountPolicyPublished', 'FinancialTransactionTaxPolicyPublished',
       'ExchangeRateUpdated', 'PaymentMethodPublished', 'OperatorGrantPublished',
       'StockAvailabilityPublished', 'ProductPublished',
-      'SaleCompleted', 'SaleReturned', 'ShiftOpened',
+      'SaleCompleted', 'SaleCompleted', 'SaleReturned', 'ShiftOpened',
       'CashMovementRegistered', 'ShiftClosed', 'FiscalDocumentIssued', 'FiscalDocumentFailed',
       'FiscalXReportIssued', 'FiscalZReportIssued'
     ]);
@@ -398,43 +398,46 @@ describe('catálogo de contratos de integración v1', () => {
   it('declara consumidor implementado solo donde existe', () => {
     expect(SYNC_EVENT_CONTRACTS_V1
       .filter(({ consumers }) => consumers.length > 0)
-      .map(({ eventType, consumers }) => `${eventType}:${consumers.join(',')}`)).toEqual([
-      'CategoryPublished:CATALOG_REFERENCE',
-      'UnitOfMeasurePublished:CATALOG_REFERENCE',
-      'DiscountPolicyPublished:CATALOG_REFERENCE',
-      'FinancialTransactionTaxPolicyPublished:CATALOG_REFERENCE',
-      'ExchangeRateUpdated:CATALOG_REFERENCE',
-      'PaymentMethodPublished:CATALOG_REFERENCE',
-      'OperatorGrantPublished:CATALOG_REFERENCE',
-      'StockAvailabilityPublished:CATALOG_REFERENCE',
-      'ProductPublished:CATALOG_REFERENCE',
-      'SaleCompleted:INVENTORY_AUTHORITY'
+      .map(({ eventType, contractVersion, consumers }) =>
+        `${eventType}.v${contractVersion}:${consumers.join(',')}`)).toEqual([
+      'CategoryPublished.v1:CATALOG_REFERENCE',
+      'UnitOfMeasurePublished.v1:CATALOG_REFERENCE',
+      'DiscountPolicyPublished.v1:CATALOG_REFERENCE',
+      'FinancialTransactionTaxPolicyPublished.v1:CATALOG_REFERENCE',
+      'ExchangeRateUpdated.v1:CATALOG_REFERENCE',
+      'PaymentMethodPublished.v1:CATALOG_REFERENCE',
+      'OperatorGrantPublished.v1:CATALOG_REFERENCE',
+      'StockAvailabilityPublished.v1:CATALOG_REFERENCE',
+      'ProductPublished.v1:CATALOG_REFERENCE',
+      'SaleCompleted.v1:INVENTORY_AUTHORITY',
+      'SaleCompleted.v2:INVENTORY_AUTHORITY'
     ]);
   });
 
   it('liga cada contrato al agregado dueño del hecho', () => {
-    expect(SYNC_EVENT_CONTRACTS_V1.map(({ eventType, aggregateType, direction }) =>
-      `${eventType}:${aggregateType}:${direction}`)).toEqual([
-      'ProductCreated:Product:COORDINATOR_TO_TERMINAL',
-      'PriceChanged:Product:COORDINATOR_TO_TERMINAL',
-      'CategoryPublished:Category:COORDINATOR_TO_TERMINAL',
-      'UnitOfMeasurePublished:UnitOfMeasure:COORDINATOR_TO_TERMINAL',
-      'DiscountPolicyPublished:OperationalPolicy:COORDINATOR_TO_TERMINAL',
-      'FinancialTransactionTaxPolicyPublished:OperationalPolicy:COORDINATOR_TO_TERMINAL',
-      'ExchangeRateUpdated:ExchangeRate:COORDINATOR_TO_TERMINAL',
-      'PaymentMethodPublished:PaymentMethod:COORDINATOR_TO_TERMINAL',
-      'OperatorGrantPublished:OperatorGrant:COORDINATOR_TO_TERMINAL',
-      'StockAvailabilityPublished:StockAvailability:COORDINATOR_TO_TERMINAL',
-      'ProductPublished:Product:COORDINATOR_TO_TERMINAL',
-      'SaleCompleted:Sale:TERMINAL_TO_COORDINATOR',
-      'SaleReturned:SaleReturn:TERMINAL_TO_COORDINATOR',
-      'ShiftOpened:Shift:TERMINAL_TO_COORDINATOR',
-      'CashMovementRegistered:Shift:TERMINAL_TO_COORDINATOR',
-      'ShiftClosed:Shift:TERMINAL_TO_COORDINATOR',
-      'FiscalDocumentIssued:FiscalDocument:TERMINAL_TO_COORDINATOR',
-      'FiscalDocumentFailed:FiscalDocument:TERMINAL_TO_COORDINATOR',
-      'FiscalXReportIssued:FiscalDay:TERMINAL_TO_COORDINATOR',
-      'FiscalZReportIssued:FiscalDay:TERMINAL_TO_COORDINATOR'
+    expect(SYNC_EVENT_CONTRACTS_V1.map(({ eventType, contractVersion, aggregateType, direction }) =>
+      `${eventType}.v${contractVersion}:${aggregateType}:${direction}`)).toEqual([
+      'ProductCreated.v1:Product:COORDINATOR_TO_TERMINAL',
+      'PriceChanged.v1:Product:COORDINATOR_TO_TERMINAL',
+      'CategoryPublished.v1:Category:COORDINATOR_TO_TERMINAL',
+      'UnitOfMeasurePublished.v1:UnitOfMeasure:COORDINATOR_TO_TERMINAL',
+      'DiscountPolicyPublished.v1:OperationalPolicy:COORDINATOR_TO_TERMINAL',
+      'FinancialTransactionTaxPolicyPublished.v1:OperationalPolicy:COORDINATOR_TO_TERMINAL',
+      'ExchangeRateUpdated.v1:ExchangeRate:COORDINATOR_TO_TERMINAL',
+      'PaymentMethodPublished.v1:PaymentMethod:COORDINATOR_TO_TERMINAL',
+      'OperatorGrantPublished.v1:OperatorGrant:COORDINATOR_TO_TERMINAL',
+      'StockAvailabilityPublished.v1:StockAvailability:COORDINATOR_TO_TERMINAL',
+      'ProductPublished.v1:Product:COORDINATOR_TO_TERMINAL',
+      'SaleCompleted.v1:Sale:TERMINAL_TO_COORDINATOR',
+      'SaleCompleted.v2:Sale:TERMINAL_TO_COORDINATOR',
+      'SaleReturned.v1:SaleReturn:TERMINAL_TO_COORDINATOR',
+      'ShiftOpened.v1:Shift:TERMINAL_TO_COORDINATOR',
+      'CashMovementRegistered.v1:Shift:TERMINAL_TO_COORDINATOR',
+      'ShiftClosed.v1:Shift:TERMINAL_TO_COORDINATOR',
+      'FiscalDocumentIssued.v1:FiscalDocument:TERMINAL_TO_COORDINATOR',
+      'FiscalDocumentFailed.v1:FiscalDocument:TERMINAL_TO_COORDINATOR',
+      'FiscalXReportIssued.v1:FiscalDay:TERMINAL_TO_COORDINATOR',
+      'FiscalZReportIssued.v1:FiscalDay:TERMINAL_TO_COORDINATOR'
     ]);
   });
 
