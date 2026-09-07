@@ -8,6 +8,13 @@ que excedan disponibilidad y aplica `SaleCompleted.v1` de forma idempotente.
 ADR-0008 y la especificación de ownership reconocen que dos terminales
 desconectadas no pueden garantizar simultáneamente stock global no negativo.
 
+Desde el 2026-09-07 el nodo que es autoridad de inventario —standalone o
+coordinador sobre sus propias ventas— aplica esa salida en la misma transacción
+que completa la venta, con el promedio ponderado local vigente (ADR-0016). Una
+terminal con coordinador no la aplica: su hecho lo consume el nodo autoritativo
+al recibirlo. La composición local que faltaba en Fases 4/5/6 queda cubierta
+para la salida por venta.
+
 ## Riesgo
 
 ### Precisión LAN: coordinador implementado, UI pendiente
@@ -67,6 +74,11 @@ iguales pero desactualizadas.
   referencia produce `STOCK_SALE_ISSUE_CONFLICT`.
 - El commit conserva juntos movimientos, ledger y auditoría; un error revierte
   la unidad de trabajo.
+- En el nodo autoritativo, un rechazo de negocio de la salida —`STOCK_ITEM_NOT_FOUND`
+  o saldo insuficiente— conserva la venta completada y su cobro ya asentado en
+  el turno, y deja auditoría `SALE_STOCK_ISSUE_REJECTED` con la venta y el
+  código. Una falla de infraestructura sí revierte la unidad de trabajo, según
+  [FS-004](./FS-004-sqlite-busy-concurrency-conflict.md).
 - Si la segunda venta nació offline y ya es comercialmente válida, el
   coordinador no inventa stock: registra una discrepancia operativa auditable
   para resolución humana según la política arquitectónica actual.
@@ -106,7 +118,9 @@ no debe asumirse como contrato vigente.
 - Código `STOCK_INSUFFICIENT` o `STOCK_SALE_ISSUE_CONFLICT` con correlación,
   venta, línea, producto, terminal y nodo.
 - Ledger `StockMovementRegistered` para la salida ganadora.
-- Auditoría `SALE_STOCK_ISSUED` con saldo antes/después, venta y línea.
+- Auditoría `SALE_STOCK_ISSUED` con saldo antes/después, venta y línea, o
+  `SALE_STOCK_ISSUE_REJECTED` con la venta y el código cuando la salida no pudo
+  aplicarse y la venta se conservó.
 - La discrepancia offline debe ser auditable y visible como
   `ATTENTION_REQUIRED`; su implementación pertenece a Fase 10.
 
@@ -133,6 +147,12 @@ proyección y no presentar disponibilidad local como garantía global.
   invariantes de saldo no negativo, lote y movimientos.
 - [`repositories.test.ts`](../../packages/drivers/db/src/repositories.test.ts):
   persistencia y rehidratación de movimientos append-only.
+- [`complete-sale.test.ts`](../../packages/core/src/application/sales/complete-sale.test.ts):
+  `issues the sold stock in the same transaction that completes the sale` y
+  `keeps the completed sale and audits the rejection when stock cannot be issued`.
+- [`sales.contract.test.ts`](../../apps/server/src/routes/sales.contract.test.ts):
+  `issues the sold stock when the node owns the inventory` y
+  `keeps the completed sale when the sold product has no stock item`.
 - Brecha explícita: falta una prueba integrada con dos consumos distintos sobre
   saldo `1` y la prueba de discrepancia multi-terminal pertenece a Fase 10.
 

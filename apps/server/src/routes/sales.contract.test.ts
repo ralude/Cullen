@@ -158,6 +158,114 @@ describe('sales HTTP contracts', () => {
     expect(replay.json()).toEqual(completed.json());
   });
 
+  it('issues the sold stock when the node owns the inventory', async () => {
+    const { app, runtime, cookie } = await setup();
+    const stock = StockItem.create({
+      id: 'stock-coffee', productId: 'product-coffee', unitCode: 'UNIT',
+      quantityScale: 0, tracksBatches: false
+    });
+    stock.registerMovement({
+      id: 'stock-coffee-receipt', type: 'PURCHASE_RECEIPT', quantity: Quantity.fromScaled(20, 0),
+      actorId: 'seed-user', reason: 'Fixture', referenceId: 'receipt-coffee',
+      occurredAt: new Date('2026-09-01T08:00:00.000Z'), eventId: 'stock-coffee-receipt-event',
+      unitCost: Money.fromMinorUnits(500, 'USD')
+    });
+    await new SqliteUnitOfWork(runtime.handle.sqlite).execute(async () => {
+      await new DrizzleStockItemRepository(runtime.handle).save(stock);
+    });
+
+    const started = await app.inject({
+      method: 'POST', url: '/api/v1/sales',
+      headers: { cookie, 'idempotency-key': 'issue-sale-start' },
+      payload: { currencyCode: 'USD', shiftId: 'shift-001' }
+    });
+    expect(started.statusCode).toBe(201);
+    const saleId = started.json<{ id: string }>().id;
+    const item = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/items`,
+      headers: { cookie, 'idempotency-key': 'issue-sale-item' },
+      payload: { barcode: '759000000001', quantityScaled: 2, quantityScale: 0 }
+    });
+    expect(item.statusCode).toBe(200);
+    const paid = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/payments`,
+      headers: { cookie, 'idempotency-key': 'issue-sale-payment' },
+      payload: {
+        payments: [{
+          methodCode: 'CASH_USD', currencyCode: 'USD',
+          amountMinorUnits: item.json<SaleResponse>().totalMinorUnits
+        }]
+      }
+    });
+    expect(paid.statusCode).toBe(200);
+
+    const completionHeaders = { cookie, 'idempotency-key': 'issue-sale-complete' };
+    const completed = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/complete`, headers: completionHeaders
+    });
+    expect(completed.statusCode).toBe(200);
+
+    const kardex = await app.inject({
+      method: 'GET', url: '/api/v1/inventory/products/product-coffee/kardex', headers: { cookie }
+    });
+    expect(kardex.statusCode).toBe(200);
+    const balance = kardex.json<{
+      currentBalanceScaled: number;
+      movements: readonly { type: string; direction: string; quantityScaled: number }[];
+    }>();
+    expect(balance.currentBalanceScaled).toBe(18);
+    expect(balance.movements).toContainEqual(expect.objectContaining({
+      type: 'SALE_ISSUE', direction: 'OUT', quantityScaled: 2
+    }));
+
+    // La repetición de la misma intención no vuelve a descontar.
+    const replay = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/complete`, headers: completionHeaders
+    });
+    expect(replay.statusCode).toBe(200);
+    const afterReplay = await app.inject({
+      method: 'GET', url: '/api/v1/inventory/products/product-coffee/kardex', headers: { cookie }
+    });
+    expect(afterReplay.json<{ currentBalanceScaled: number }>().currentBalanceScaled).toBe(18);
+  });
+
+  /**
+   * FS-005: un rechazo de inventario no revierte la venta comercial. El
+   * producto vendido no tiene artículo de inventario y aun así la venta cierra.
+   */
+  it('keeps the completed sale when the sold product has no stock item', async () => {
+    const { app, cookie } = await setup();
+    const started = await app.inject({
+      method: 'POST', url: '/api/v1/sales',
+      headers: { cookie, 'idempotency-key': 'no-stock-start' },
+      payload: { currencyCode: 'USD', shiftId: 'shift-001' }
+    });
+    const saleId = started.json<{ id: string }>().id;
+    const item = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/items`,
+      headers: { cookie, 'idempotency-key': 'no-stock-item' },
+      payload: { barcode: '759000000001', quantityScaled: 1, quantityScale: 0 }
+    });
+    await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/payments`,
+      headers: { cookie, 'idempotency-key': 'no-stock-payment' },
+      payload: {
+        payments: [{
+          methodCode: 'CASH_USD', currencyCode: 'USD',
+          amountMinorUnits: item.json<SaleResponse>().totalMinorUnits
+        }]
+      }
+    });
+
+    const completed = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/complete`,
+      headers: { cookie, 'idempotency-key': 'no-stock-complete' }
+    });
+
+    expect(completed.statusCode).toBe(200);
+    expect(completed.json()).toMatchObject({ id: saleId, status: 'COMPLETED' });
+  });
+
   it('does not expose sale recovery without a session', async () => {
     const { app } = await setup();
     const response = await app.inject({ method: 'GET', url: '/api/v1/sales/sale-unknown' });

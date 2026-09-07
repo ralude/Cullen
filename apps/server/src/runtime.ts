@@ -387,7 +387,23 @@ export const createSecurityRuntime = (
             shiftRepository, paymentMethodRepository, ids, ids,
             application.ambientUnitOfWork, eventStore, outboxStore, auditWriter
           ),
-          unitOfWork, eventStore, outboxStore, idempotencyStore
+          unitOfWork, eventStore, outboxStore, idempotencyStore,
+          /**
+           * La salida de stock solo la aplica quien es autoridad de inventario:
+           * un nodo standalone o el coordinador sobre sus propias ventas. Una
+           * terminal con coordinador no la compone, porque su hecho lo aplica
+           * el nodo autoritativo al recibirlo y su devolución consulta esa
+           * evidencia remota (ADR-0026 D3). El costo se congela en el promedio
+           * ponderado local vigente al vender (ADR-0016).
+           */
+          coordinatorNodeId === null ? {
+            application: new application.ApplySaleCompletedToInventory(
+              stockItemRepository, ids, ids, application.ambientUnitOfWork,
+              eventStore, auditWriter, 'LOCAL_AVERAGE', outboxStore
+            ),
+            auditWriter,
+            auditIdGenerator: ids
+          } : undefined
         ),
         voidSale: new application.VoidSale(
           saleRepository, authorization, ids, clock, unitOfWork,

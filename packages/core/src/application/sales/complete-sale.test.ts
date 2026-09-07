@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Money, Quantity, TaxRate } from '@supermarket/shared';
+import {
+  ApplicationError, err, Money, ok, Quantity, TaxRate, type AppError, type Result
+} from '@supermarket/shared';
 import { CashRegister, Shift } from '../../domain/cash/index.js';
 import { ProductSnapshot } from '../../domain/catalog/index.js';
 import { PaymentMethod } from '../../domain/currency/index.js';
@@ -118,6 +120,27 @@ const cashApplicationOf = (
   );
 };
 
+/**
+ * Doble de la salida de inventario del mismo nodo. Conserva el sobre recibido
+ * para verificar que se consume el mismo hecho que se anexó al ledger.
+ */
+const inventoryRelayOf = (
+  outcome: Result<unknown, AppError>,
+  received: BusinessEventV1[],
+  audit: AuditEntry[]
+) => ({
+  application: {
+    execute: async (event: BusinessEventV1): Promise<Result<unknown, AppError>> => {
+      received.push(event);
+      return outcome;
+    }
+  },
+  auditWriter: {
+    append: async (entries: readonly AuditEntry[]) => { audit.push(...entries); }
+  } satisfies AuditWriter,
+  auditIdGenerator: { generate: () => 'inventory-audit-001' }
+});
+
 describe('CompleteSale', () => {
   it('completes exactly once for an idempotency key and books the payment in the shift', async () => {
     const repository = new FakeSaleRepository();
@@ -167,6 +190,85 @@ describe('CompleteSale', () => {
 
     const conflict = await useCase.execute({ saleId: 'sale-002' }, context);
     expect(conflict).toMatchObject({ ok: false, error: { code: 'IDEMPOTENCY_KEY_CONFLICT' } });
+  });
+
+  it('issues the sold stock in the same transaction that completes the sale', async () => {
+    const repository = new FakeSaleRepository();
+    const enqueued: BusinessEventV1[] = [];
+    const ledger: string[] = [];
+    const received: BusinessEventV1[] = [];
+    const audit: AuditEntry[] = [];
+    const rollback = { rolledBack: false };
+    const useCase = new CompleteSale(
+      repository,
+      { generate: () => 'event-004' },
+      { now: () => new Date('2026-08-15T10:02:00.000Z') },
+      cashApplicationOf(openShift(), { ledger, outbox: enqueued, audit: [] }, { count: 0 }),
+      trackingUnitOfWork(rollback),
+      eventStoreOf(ledger),
+      outboxStoreOf(enqueued),
+      { find: async () => null, save: async () => undefined } satisfies IdempotencyStore,
+      inventoryRelayOf(ok([]), received, audit)
+    );
+
+    const result = await useCase.execute({ saleId: 'sale-001' }, context);
+
+    expect(result.ok).toBe(true);
+    expect(repository.stored.status).toBe('COMPLETED');
+    expect(rollback.rolledBack).toBe(false);
+    // Consume el mismo sobre que se anexó al ledger, no una lectura de tablas.
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({ eventType: 'SaleCompleted', aggregateId: 'sale-001' });
+    // Una salida aplicada no deja rastro de rechazo.
+    expect(audit).toEqual([]);
+  });
+
+  /**
+   * FS-005 prohíbe revertir la venta comercial por un rechazo posterior de
+   * inventario: esa atomicidad entre agregados no está definida. El cobro ya
+   * está en el turno y el cliente ya pagó, así que la venta se conserva y el
+   * rechazo queda auditado para resolución humana.
+   */
+  it('keeps the completed sale and audits the rejection when stock cannot be issued', async () => {
+    const repository = new FakeSaleRepository();
+    const shift = openShift();
+    const enqueued: BusinessEventV1[] = [];
+    const ledger: string[] = [];
+    const received: BusinessEventV1[] = [];
+    const audit: AuditEntry[] = [];
+    const shiftSaves = { count: 0 };
+    const rollback = { rolledBack: false };
+    const useCase = new CompleteSale(
+      repository,
+      { generate: () => 'event-004' },
+      { now: () => new Date('2026-08-15T10:02:00.000Z') },
+      cashApplicationOf(shift, { ledger, outbox: enqueued, audit: [] }, shiftSaves),
+      trackingUnitOfWork(rollback),
+      eventStoreOf(ledger),
+      outboxStoreOf(enqueued),
+      { find: async () => null, save: async () => undefined } satisfies IdempotencyStore,
+      inventoryRelayOf(
+        err(new ApplicationError('STOCK_ITEM_NOT_FOUND', 'Stock item was not found.')),
+        received, audit
+      )
+    );
+
+    const result = await useCase.execute({ saleId: 'sale-001' }, context);
+
+    expect(result.ok).toBe(true);
+    expect(repository.stored.status).toBe('COMPLETED');
+    expect(rollback.rolledBack).toBe(false);
+    // El cobro sigue asentado: el rechazo de inventario no devuelve el dinero.
+    expect(shift.movements).toHaveLength(1);
+    expect(shiftSaves.count).toBe(1);
+    expect(audit).toMatchObject([{
+      action: 'SALE_STOCK_ISSUE_REJECTED',
+      entityType: 'Sale',
+      entityId: 'sale-001',
+      after: { errorCode: 'STOCK_ITEM_NOT_FOUND' },
+      terminalId: 'terminal-001',
+      originNodeId: 'node-001'
+    }]);
   });
 
   it('reverts the completion when the shift cannot take the payment', async () => {

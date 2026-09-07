@@ -8,6 +8,7 @@ import {
 } from '../events/index.js';
 import { executeIdempotentCommand } from '../idempotency/index.js';
 import type {
+  AuditWriter,
   BusinessEventStore,
   Clock,
   IdGenerator,
@@ -30,6 +31,27 @@ export type SaleCompletedCashApplication = {
   execute(event: BusinessEventV1): Promise<Result<unknown, AppError>>;
 };
 
+/**
+ * Salida de inventario del hecho de venta cuando este nodo es la autoridad de
+ * stock: standalone o coordinador. Una terminal con coordinador no compone este
+ * relevo, porque su salida la aplica el nodo autoritativo al recibir el hecho
+ * (`docs/architecture/12-sincronizacion-y-ownership.md`).
+ *
+ * A diferencia del turno, un rechazo **no** revierte la venta:
+ * [FS-005](../../../../../docs/failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md)
+ * declara que esa atomicidad entre agregados no está definida, y una existencia
+ * desfasada no puede negarle el cobro a un cliente que ya pagó. El rechazo se
+ * audita con su código para resolución humana. `ApplySaleCompletedToInventory`
+ * satisface este contrato.
+ */
+export type SaleCompletedInventoryRelay = {
+  readonly application: {
+    execute(event: BusinessEventV1): Promise<Result<unknown, AppError>>;
+  };
+  readonly auditWriter: AuditWriter;
+  readonly auditIdGenerator: IdGenerator;
+};
+
 export class CompleteSale {
   constructor(
     private readonly repository: SaleRepository,
@@ -39,7 +61,8 @@ export class CompleteSale {
     private readonly unitOfWork?: UnitOfWork,
     private readonly eventStore?: BusinessEventStore,
     private readonly outboxStore?: OutboxStore,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    private readonly inventoryRelay?: SaleCompletedInventoryRelay
   ) {}
 
   async execute(input: CompleteSaleInput, context: ExecutionContext): Promise<Result<SaleDto, AppError>> {
@@ -84,6 +107,7 @@ export class CompleteSale {
             failure.error = applied.error;
             throw applied.error;
           }
+          await this.issueSoldStock(completed, context);
           return ok(toSaleDto(sale));
         },
         serialize: (output) => JSON.parse(JSON.stringify(output)) as JsonValue,
@@ -98,6 +122,35 @@ export class CompleteSale {
       if (error instanceof DomainError) return err(error);
       throw error;
     }
+  }
+
+  /**
+   * Aplica la salida de stock dentro de la transacción que completa la venta,
+   * porque el `StockItem` de este nodo es una escritura local y no una entrega.
+   * Un rechazo de negocio conserva la venta y deja auditoría; una falla de
+   * infraestructura sí propaga y revierte, según FS-004.
+   */
+  private async issueSoldStock(
+    completed: BusinessEventV1, context: ExecutionContext
+  ): Promise<void> {
+    if (this.inventoryRelay === undefined) return;
+    const issued = await this.inventoryRelay.application.execute(completed);
+    if (issued.ok) return;
+    await this.inventoryRelay.auditWriter.append([{
+      auditId: this.inventoryRelay.auditIdGenerator.generate(),
+      actorId: context.actorId,
+      actorRoleCodes: context.actorRoleCodes ?? [],
+      action: 'SALE_STOCK_ISSUE_REJECTED',
+      entityType: 'Sale',
+      entityId: completed.aggregateId,
+      before: null,
+      after: { errorCode: issued.error.code },
+      reason: 'Completed sale could not be issued from inventory.',
+      terminalId: context.terminalId,
+      originNodeId: context.originNodeId,
+      occurredAt: completed.occurredAt,
+      correlationId: context.correlationId
+    }]);
   }
 
   private restoreResult(value: JsonValue): SaleDto {
