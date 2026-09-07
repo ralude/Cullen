@@ -49,7 +49,8 @@ export {
 } from './screens/stock-counts.js';
 export { ConfigScreen, canManageConfig, DEVICE_TYPE_LABELS } from './screens/config.js';
 export {
-  ReportsScreen, loadOperationalReports, toCsv, toReportQuery, type OperationalReports
+  ReportsScreen, loadOperationalReports, shiftOptionLabel, toCsv, toReportQuery,
+  type OperationalReports
 } from './screens/reports.js';
 export {
   SyncScreen, canReviewSync, referenceAge, referenceRows, validityLabel,

@@ -242,6 +242,21 @@ const Inventory = ({ report, products }: {
     </>}
 </section>;
 
+/**
+ * Identidad legible de un turno cerrado: su apertura y su cierre. El supervisor
+ * reconoce la jornada, no el UUID que el arqueo pedía escribir a mano.
+ */
+export const shiftOptionLabel = (closure: CashClosureReportResponse): string => {
+  const opened = new Date(closure.openedAt);
+  const stamp = Number.isNaN(opened.getTime())
+    ? closure.openedAt
+    : opened.toLocaleString('es-VE', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+    });
+  return stamp + ' · ' + (closure.closedAt ? 'cerrado' : 'abierto')
+    + ' · ' + closure.shiftId.slice(0, 8);
+};
+
 export const ReportsScreen = ({
   api, capabilities, permissionCodes
 }: ScreenProps): React.JSX.Element => {
@@ -251,6 +266,8 @@ export const ReportsScreen = ({
   });
   const [reports, setReports] = useState<OperationalReports | null>(null);
   const products = useProductCatalog(api);
+  /** Turnos que el período consultado ya devolvió: alimentan el selector del arqueo. */
+  const closedShifts = reports?.closures?.ok ? reports.closures.value : [];
   const [shiftId, setShiftId] = useState('');
   const [reviewedShift, setReviewedShift] = useState<ShiftResponse | null>(null);
   const [saleId, setSaleId] = useState('');
@@ -324,7 +341,21 @@ export const ReportsScreen = ({
     {canReviewShift && <section className="panel">
       <p className="eyebrow">Supervisión de caja</p><h3>Consultar arqueo</h3>
       <form className="inline-form" onSubmit={reviewShift}>
-        <label className="grow">Turno<input value={shiftId} onChange={(event) => setShiftId(event.target.value)} required /></label>
+        {closedShifts.length > 0
+          ? <label className="grow">Turno
+            <select value={shiftId} onChange={(event) => setShiftId(event.target.value)} required>
+              <option value="">Selecciona un turno del período</option>
+              {closedShifts.map((closure) => (
+                <option key={closure.shiftId} value={closure.shiftId}>
+                  {shiftOptionLabel(closure)}
+                </option>
+              ))}
+            </select>
+          </label>
+          : <label className="grow">Turno
+            <input value={shiftId} onChange={(event) => setShiftId(event.target.value)}
+              placeholder="Consulta el período para elegirlo de la lista" required />
+          </label>}
         <ActionButton type="submit" busy={loading} disabled={loading || !shiftId.trim()}>Consultar arqueo</ActionButton>
       </form>
       {reviewedShift && <><dl className="detail-grid">
@@ -344,7 +375,7 @@ export const ReportsScreen = ({
     {canReviewSale && <section className="panel">
       <p className="eyebrow">Revisión de venta</p><h3>Revisar historia</h3>
       <form className="inline-form" onSubmit={reviewSale}>
-        <label className="grow">Venta<input value={saleId} onChange={(event) => setSaleId(event.target.value)} required /></label>
+        <label className="grow">Venta<input value={saleId} onChange={(event) => setSaleId(event.target.value)} placeholder="Identificador que muestra la pantalla de Venta al cerrar" required /></label>
         <ActionButton type="submit" busy={loading} disabled={loading || !saleId.trim()}>Revisar historia</ActionButton>
       </form>
       {saleHistory && (saleHistory.length === 0
