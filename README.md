@@ -209,12 +209,19 @@ pnpm pipeline
 
 # Nodo servidor (Fastify + SQLite)
 pnpm --filter @supermarket/server bootstrap-admin:dev   # provisiona el administrador inicial
-pnpm --filter @supermarket/server seed:products         # datos de ejemplo
 pnpm --filter @supermarket/server dev
+
+# Catálogo de ejemplo para probar (opcional). Las tres opciones son obligatorias:
+pnpm --filter @supermarket/server seed:products \
+  --database ./supermarket-node.sqlite --currency USD --tax-rate-basis-points 1600
 
 # Terminal de escritorio (Electron + React)
 pnpm --filter @supermarket/desktop dev
 ```
+
+Qué siembra ese catálogo, por qué se puede repetir y qué **no** hace —existencias, usuarios ni
+distribución automática a las terminales— está en
+[la guía de la seed](./docs/operacion/seed-de-catalogo-de-ejemplo.md).
 
 Requiere Node.js 20.6+ (los scripts usan `--env-file` e `--import`; probado en Node 24) y pnpm 11.
 
