@@ -37,8 +37,11 @@ su especificación y criterio de aceptación, no copies reglas desde el backend.
 - Mantén `contextIsolation: true`, `nodeIntegration: false` y `sandbox: true` salvo ADR explícito.
 - Traduce códigos de error estables a mensajes en español y representa estados pendientes,
   desconocidos o vencidos sin presentarlos como éxito.
-- Prueba la salida observable. Los tests actuales renderizan estático; no afirmes interacción DOM si
-  la infraestructura no existe.
+- Prueba la salida observable. Hay dos niveles: el render estático con `renderToStaticMarkup`, para
+  presentación pura, y la interacción real sobre `jsdom` con `src/renderer/src/testing/dom.ts`,
+  que monta el componente con `createRoot` y envuelve cada cambio en `act`. Usa el segundo
+  cuando lo que verificas depende de efectos, eventos o estado; no afirmes cobertura que la
+  prueba no ejerza.
 
 ## Validación
 
