@@ -11,7 +11,10 @@ import {
   type SyncNodeRegistration
 } from '@supermarket/core';
 import { Money, Quantity, type SyncEnvelopeV1 } from '@supermarket/shared';
-import { HttpsSyncEventPublisher } from '@supermarket/driver-security';
+import {
+  HttpsRemoteApplicationProbe,
+  HttpsSyncEventPublisher
+} from '@supermarket/driver-security';
 import { UnavailableExchangeRateProvider } from '@supermarket/driver-exchange-rate';
 import {
   applyMigrations,
@@ -22,6 +25,7 @@ import {
   DrizzleStockItemRepository,
   DrizzleSyncInboxWorkStore,
   DrizzleSyncReceptionStore,
+  SqliteCoordinatedOperationStore,
   SqliteCommercialProjection,
   openDatabase,
   SqliteSyncNodeRegistry,
@@ -96,6 +100,29 @@ const saleEvent = (
   actorId: 'user-001',
   occurredAt: new Date('2026-09-06T10:00:00.000Z'),
   payload: salePayload(terminalId, quantityScaled)
+});
+
+const saleReturnedEvent = (nodeId: string, terminalId: string): BusinessEventV1 => ({
+  eventId: `event-return-${terminalId}`,
+  eventType: 'SaleReturned',
+  contractVersion: 1,
+  aggregateId: `return-${terminalId}`,
+  aggregateType: 'SaleReturn',
+  aggregateVersion: 1,
+  originNodeId: nodeId,
+  correlationId: `correlation-return-${terminalId}`,
+  actorId: 'user-001',
+  occurredAt: new Date('2026-09-06T11:00:00.000Z'),
+  payload: {
+    saleId: `sale-${terminalId}`,
+    originalDocumentId: `document-${terminalId}`,
+    creditNoteId: `credit-${terminalId}`,
+    shiftId: `shift-${terminalId}`,
+    refundMinorUnits: 1000,
+    currencyCode: 'USD',
+    paymentMethodCode: 'CASH_USD',
+    lineCount: 1
+  }
 });
 
 type Coordinator = {
@@ -193,6 +220,8 @@ const startCoordinator = async (
     registerOwnedAggregate: new application.RegisterOwnedAggregate(
       authorities, clock, unitOfWork, ids, new DrizzleAuditWriter(handle)
     ),
+    /** Progreso de aplicación: la lectura con la que el origen concilia. */
+    applicationProgress: (eventId) => workStore.applicationProgress(eventId),
     https: {
       key: coordinatorCertificate.privateKeyPem,
       cert: coordinatorCertificate.certificatePem,
@@ -651,5 +680,78 @@ describe('LAN de una tienda con coordinador y dos terminales', () => {
     /** La salida de la terminal no volvió a enviar: la custodia ya era suya. */
     expect(deliveries(terminal).map((entry) => (entry as { status: string }).status))
       .toEqual(['PUBLISHED', 'PUBLISHED']);
+  });
+
+  /**
+   * Escenario 11 del plan de 10.04: la reconciliación de una operación
+   * distribuida consulta el progreso del coordinador por transporte real. Es
+   * una lectura autenticada como cualquier otra: no reenvía el hecho.
+   */
+  it('concilia consultando el progreso real del coordinador, sin reenviar el hecho', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+    await terminal.unitOfWork.execute(() => terminal.outbox.enqueue([
+      saleReturnedEvent(terminal.nodeId, terminal.terminalId)
+    ]));
+    await grantAuthority(terminal);
+    await claimAuthority(terminal, 'SaleReturn', `return-${terminal.terminalId}`);
+
+    const operationStore = new SqliteCoordinatedOperationStore(terminal.handle);
+    const coordinated = new application.CoordinatedStockOperations(
+      operationStore,
+      { coordinatorNodeId: COORDINATOR, isReachable: async () => true },
+      clock,
+      terminal.unitOfWork,
+      ids
+    );
+    const started = await coordinated.begin({
+      kind: 'SALE_RETURN',
+      fingerprint: `return-${terminal.terminalId}`,
+      reason: 'Devolución de prueba durante reconexión.'
+    }, {
+      actorId: 'user-001',
+      actorRoleCodes: ['ADMIN'],
+      terminalId: terminal.terminalId,
+      originNodeId: terminal.nodeId,
+      correlationId: `correlation-return-${terminal.terminalId}`
+    });
+    if (!started.ok) throw new Error('the coordinated operation should have started');
+    await coordinated.recordLocalEffect(
+      started.value.operationId,
+      [`event-return-${terminal.terminalId}`],
+      terminal.nodeId
+    );
+
+    const relay = relayFor(terminal);
+    await relay.runBatch();
+
+    const probe = new HttpsRemoteApplicationProbe({
+      host: 'localhost',
+      port: coordinator.port,
+      destinationNodeId: COORDINATOR,
+      key: (terminalCertificates[terminal.nodeId] as NodeCertificate).privateKeyPem,
+      cert: (terminalCertificates[terminal.nodeId] as NodeCertificate).certificatePem,
+      ca: [coordinatorCertificate.certificatePem],
+      timeoutMilliseconds: 2_000
+    });
+
+    /** Con custodia y trabajo pendiente la intención sigue sin cerrar. */
+    expect((await coordinated.reconcile(probe))[0]?.status).toBe('PENDING_RECONCILIATION');
+    /** Un evento que este nodo no conoce nunca responde aplicado. */
+    await expect(probe.applicationOf('event-que-no-existe')).resolves.toBe('PENDING');
+
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      moment = new Date(moment.getTime() + 300_000);
+      await coordinator.processor.runBatch();
+    }
+
+    expect((await coordinated.reconcile(probe))[0]?.status).toBe('COMPLETED');
+    expect((await operationStore.findById(started.value.operationId))?.status).toBe('COMPLETED');
+    /** La consulta no reenvió nada ni cambió la salida de la terminal. */
+    expect(deliveries(terminal)).toHaveLength(3);
+    expect(deliveries(terminal).every(
+      (entry) => (entry as { status: string }).status === 'PUBLISHED'
+    )).toBe(true);
+    expect(saleIssues()).toBe(1);
   });
 });
