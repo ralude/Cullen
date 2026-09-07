@@ -12,6 +12,7 @@ import {
 } from '@supermarket/core';
 import { Money, Quantity, type SyncEnvelopeV1 } from '@supermarket/shared';
 import { HttpsSyncEventPublisher } from '@supermarket/driver-security';
+import { UnavailableExchangeRateProvider } from '@supermarket/driver-exchange-rate';
 import {
   applyMigrations,
   DrizzleAggregateAuthorityRegistry,
@@ -573,5 +574,82 @@ describe('LAN de una tienda con coordinador y dos terminales', () => {
     ).pluck().all()).toEqual([
       'SYNC_AGGREGATE_OWNER_UNRESOLVED', 'SYNC_AGGREGATE_OWNER_UNRESOLVED'
     ]);
+  });
+
+  /**
+   * Escenario 10 del plan de 10.04: Internet y LAN se cortan por separado y no
+   * son lo mismo. Internet es el proveedor externo de tasas; la LAN es el
+   * enlace con el coordinador de la tienda.
+   */
+  it('distingue el corte de Internet del corte de LAN', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+    await grantAuthority(terminal);
+
+    /**
+     * Internet caído: el proveedor externo falla cerrado y no sugiere nada.
+     * La entrega a la tienda no depende de él y sigue funcionando.
+     */
+    const offlineInternet = new UnavailableExchangeRateProvider();
+    await expect(offlineInternet.getSuggestedRate('USD', 'VES')).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'EXCHANGE_RATE_PROVIDER_NOT_CONFIGURED' }
+    });
+
+    expect(await relayFor(terminal).runBatch()).toBe(2);
+    expect(deliveries(terminal).map((entry) => (entry as { status: string }).status))
+      .toEqual(['PUBLISHED', 'PUBLISHED']);
+
+    /**
+     * LAN caída con Internet disponible: la operación local continúa —la salida
+     * acepta el hecho— y la cola espera al coordinador sin perderlo.
+     */
+    const neighbour = second();
+    await enqueueSale(neighbour, 1);
+    const unreachablePort = coordinator.port + 1;
+
+    expect(await relayFor(neighbour, unreachablePort).runBatch()).toBe(2);
+
+    expect(deliveries(neighbour).map((entry) => (entry as { status: string }).status))
+      .toEqual(['PENDING', 'PENDING']);
+    expect(neighbour.handle.sqlite.prepare('select count(*) from outbox_event')
+      .pluck().get()).toBe(2);
+  });
+
+  /**
+   * Escenario 4 del plan de 10.04: detener al consumidor durante su aplicación.
+   * La custodia ya está tomada, así que el emisor no repite nada; el receptor
+   * retoma su trabajo sin duplicar el efecto.
+   */
+  it('retoma la aplicación interrumpida sin duplicar el efecto ni la auditoría', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+    await grantAuthority(terminal);
+    const relay = relayFor(terminal);
+    await relay.runBatch();
+    await relay.runBatch();
+
+    /** El ciclo reclama el trabajo y el proceso cae antes de aplicarlo. */
+    await coordinator.unitOfWork.execute(() => coordinator.workStore.claimPending(
+      clock.now(), new Date(clock.now().getTime() + 30_000), 10
+    ));
+    expect(saleIssues()).toBe(0);
+
+    /** Al vencer el lease, otro ciclo retoma esas mismas tareas. */
+    moment = new Date('2026-09-06T12:30:00.000Z');
+    await coordinator.processor.runBatch();
+    moment = new Date('2026-09-06T12:35:00.000Z');
+    await coordinator.processor.runBatch();
+    moment = new Date('2026-09-06T12:40:00.000Z');
+    await coordinator.processor.runBatch();
+
+    expect(saleIssues()).toBe(1);
+    expect(await balance()).toBe(8);
+    expect(coordinator.handle.sqlite.prepare(
+      "select count(*) from audit_log where action = 'SALE_STOCK_ISSUED'"
+    ).pluck().get()).toBe(1);
+    /** La salida de la terminal no volvió a enviar: la custodia ya era suya. */
+    expect(deliveries(terminal).map((entry) => (entry as { status: string }).status))
+      .toEqual(['PUBLISHED', 'PUBLISHED']);
   });
 });
