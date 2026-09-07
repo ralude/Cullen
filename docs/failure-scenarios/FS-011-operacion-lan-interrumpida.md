@@ -54,11 +54,17 @@ reinicio y solo se cierran al consultar evidencia `APPLIED`; no se promete commi
 dos bases. Standalone mantiene la atomicidad local vigente de FS-006 y de los documentos de
 compra/conteo.
 
-**Brecha:** compra y conteo registran hechos locales que no se transportan al coordinador, y
-`SaleReturned.v1` solo actualiza la proyección comercial. Falta definir e implementar el orden
-exacto de los efectos locales/remotos y su idempotencia por operación. Un rechazo comercial
-definitivo después de efectos previos queda `NEEDS_REVIEW`; la compensación explícita tampoco
-está automatizada.
+El orden exacto ya está decidido en ADR-0026 D3: intención, commit local con un único hecho de
+integración, aplicación autoritativa y conciliación por ese `eventId`. Compra usa
+`PurchaseReceiptCompleted.v1`; conteo, `StockCountApproved.v1`; devolución,
+`SaleReturned.v2`, después de obtener del coordinador la salida aplicada. El POS no registra
+movimientos de esas operaciones.
+
+**Brecha de implementación:** compra y conteo todavía registran hechos locales que no se
+transportan al coordinador, y `SaleReturned.v1` solo actualiza la proyección comercial. Los
+contratos/consumidores anteriores y la disponibilidad v2 aún deben implementarse. Un rechazo
+comercial definitivo después de efectos previos queda `NEEDS_REVIEW`; la compensación
+explícita tampoco está automatizada.
 
 ## Retry
 
@@ -102,6 +108,8 @@ renderer y `FiscalPrinterFake`.
 - Devolución antes de salida aplicada y venta con discrepancia; no restituir stock inventado.
 - Costo cambiado entre venta y recepción; conservar snapshot y costo desconocido explícito.
 - Pendiente visible, recuperación autorizada y ausencia de doble stock/reintegro/impresión.
+- Evidencia local limitada al único hecho consumible de la operación; ningún
+  `StockMovementRegistered` local ni disponibilidad informativa sirve como ACK remoto.
 
 La persistencia y reconciliación genéricas están cubiertas por
 `packages/drivers/db/src/coordinated-operations.integration.test.ts`; el transporte real de la

@@ -139,6 +139,28 @@ segundo plano, su política de backoff y su arranque automático pertenecen a 10
    tiene procedencia propia y correlación al hecho que lo causó. No atribuir su ownership a
    la terminal ni reenviar hechos ajenos como si fueran propios.
 
+### Corte 3A: contrato local-first aprobado el 2026-09-07
+
+La secuencia normativa está en ADR-0026 D3. Se implementa en unidades verticales y en este
+orden, sin mezclar sus commits:
+
+1. referencia de inventario v2 con identidades y saldos de lotes, más lectura local que no
+   consulta `stock_items` en una terminal;
+2. `PurchaseReceiptCompleted.v1`, productor local sin movimiento POS y consumidor
+   autoritativo idempotente;
+3. `StockCountApproved.v1`, conservando el delta congelado del cierre y aplicándolo en el
+   coordinador sin recálculo;
+4. lectura autenticada de la salida aplicada y `SaleReturned.v2`, con restitución validada de
+   lote/costo original y sin reimpresión por sync;
+5. conciliación de `APPLIED`, `DISCREPANCY` y estados desconocidos, y cortes/reinicios reales
+   en cada frontera.
+
+Cada productor confirma documento, evento de integración, outbox y `LOCAL_EFFECT` en la
+misma transacción. La evidencia de conciliación contiene un único `eventId` aplicable por
+operación. Cada consumidor confirma movimiento, auditoría, disponibilidad y progreso del
+inbox en la transacción del coordinador. Ningún handler remoto invoca el caso de uso local ni
+escribe el agregado cuyo dueño permanece en la terminal.
+
 ## Corte 4: referencias, bootstrap y múltiples terminales
 
 Implementar productores y consumidores explícitos para el conjunto cerrado en el corte 0.
@@ -186,6 +208,8 @@ LAN; no puede depender del publisher de red para completar un efecto local oblig
   duplicar efectos. La intención, el estado y la consulta de progreso están implementados,
   pero no el efecto autoritativo remoto de los tres flujos. El snapshot de costo sí está
   probado; la compensación explícita de un rechazo definitivo tampoco está implementada.
+  Para cerrarlo deben pasar por separado la referencia v2, compra, conteo, devolución y
+  conciliación descritos en el corte 3A, además del escenario 11 extremo a extremo.
 - [x] ~~CA-03-11~~: cada referencia necesaria tiene productor/contrato/consumidor probado; las
   versiones v1 publicadas siguen aceptando las fixtures originales.
 - [x] ~~CA-03-12~~: bootstrap interrumpido y cambios durante el corte no dejan referencias

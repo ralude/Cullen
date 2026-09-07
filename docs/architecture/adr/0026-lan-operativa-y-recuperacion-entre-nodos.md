@@ -149,9 +149,50 @@ Esta decisión complementa la atomicidad de ADR-0017, ADR-0019 y los conteos **s
 hay transacciones locales y recuperación de la intención distribuida, no commit atómico
 global. En standalone se conserva la atomicidad existente dentro de una sola DB.
 
-El corte contractual de 10.03 especifica por cada operación el orden exacto de pasos,
-transiciones, permisos y compensaciones admisibles, con pruebas de caída en cada frontera.
-No puede habilitarse esa operación mientras falte dicha especificación y cobertura.
+### Corte contractual local-first de 10.03
+
+El 2026-09-07 se aprobó el flujo local-first basado en hechos. Las tres operaciones siguen
+esta secuencia, sin mantener una transacción abierta durante red:
+
+1. el origen valida permiso, registra la intención durable y comprueba que el coordinador es
+   alcanzable antes del primer efecto;
+2. una sola transacción local confirma el documento —y, en la devolución, caja y estado
+   fiscal inicial—, el ledger, un único hecho de integración y el paso `LOCAL_EFFECT`;
+3. el POS **no** escribe movimientos en `StockItem`; el outbox entrega ese mismo `eventId` al
+   coordinador con política al menos una vez;
+4. `INVENTORY_AUTHORITY` valida la evidencia y confirma en una transacción el movimiento
+   autoritativo, su auditoría, la disponibilidad publicada y el progreso del inbox;
+5. el origen consulta la aplicación de ese `eventId` y solo entonces confirma
+   `COORDINATOR_EFFECT`. Un estado remoto de discrepancia lleva la intención a
+   `NEEDS_REVIEW`; un timeout o estado desconocido permanece `PENDING_RECONCILIATION`.
+
+El hecho que prueba `LOCAL_EFFECT` es exclusivamente el hecho de integración que solicita el
+efecto autoritativo, no los eventos locales de `StockMovementRegistered` ni una publicación
+de disponibilidad. Un duplicado conserva el mismo `eventId`, fingerprint y referencias.
+
+Los contratos y efectos mínimos son:
+
+- `PurchaseReceiptCompleted.v1`: identifica la recepción y transporta por línea producto,
+  unidad/escala, cantidad, política y evidencia de lote, costo de valoración y moneda. La
+  terminal completa `PurchaseReceipt` sin crear movimientos locales; el coordinador resuelve
+  o crea su `StockItem`/lote y registra una entrada por `eventId + lineId`.
+- `StockCountApproved.v1`: transporta las diferencias **congeladas al cerrar** —esperado,
+  contado y delta— junto con las identidades autoritativas de artículo/lote y la versión de
+  disponibilidad observada. El coordinador aplica exactamente el delta con signo por
+  `eventId + lineId`; no recalcula lo contado contra un saldo posterior. Para que el POS no
+  lea `stock_items`, `StockAvailabilityPublished.v2` distribuye artículo, política de lotes y
+  saldos/identidades por lote como referencia informativa versionada.
+- `SaleReturned.v2`: conserva intacta la v1 comercial y añade el `eventId` de
+  `SaleCompleted` más las líneas de restitución obtenidas de la salida ya aplicada por el
+  coordinador: artículo, lote, cantidad y costo original —incluido `null` explícito—. La
+  consulta de esa evidencia ocurre después de registrar la intención y antes de efectos
+  locales, fuera de una transacción SQLite. El coordinador vuelve a validarla contra sus
+  movimientos `SALE_ISSUE` y registra la restitución una vez por `eventId + lineId`. Si la
+  salida aún no está aplicada o está en discrepancia, no se crea devolución local ni stock.
+
+En standalone no se publican estos pasos remotos y se conserva la transacción local existente.
+La compensación posterior a un rechazo definitivo no se automatiza: requiere un caso de uso
+explícito, permiso, motivo y nueva evidencia append-only.
 
 ## D4. Costo y discrepancia de inventario
 

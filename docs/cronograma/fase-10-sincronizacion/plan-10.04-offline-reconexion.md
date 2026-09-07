@@ -128,6 +128,13 @@ Escenarios mínimos:
     conservar pendiente visible y recuperar la misma intención conforme FS-011. Cambiar
     el costo del coordinador entre venta offline y recepción no modifica su snapshot.
 
+El escenario 11 usa los hechos normativos de ADR-0026 D3, no eventos locales elegidos por
+conveniencia. En cada flujo debe probar: intención sin efecto, commit local antes de entrega,
+commit remoto antes de ACK, reinicio de ambos nodos, reentrega del mismo `eventId`, consulta
+de aplicación y discrepancia definitiva que deja `NEEDS_REVIEW`. Para devolución se añade la
+frontera previa de consulta de la salida original: si falta, no hay reintegro, nota ni
+restitución; después del commit local, sync nunca vuelve a imprimir.
+
 No simular pérdida de red borrando eventos ni deshabilitando la validación del transporte.
 Hardware fiscal continúa fake y toda representación fiscal mantiene `SIMULACION`.
 
