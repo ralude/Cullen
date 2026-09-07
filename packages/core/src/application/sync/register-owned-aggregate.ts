@@ -11,12 +11,13 @@ import type {
 
 /**
  * Tipos cuya alta puede delegarse a una terminal ya autorizada: los agregados
- * que crea por su propia competencia. Catálogo, tasas, stock, compras y conteos
- * quedan fuera; su autoridad no se concede por reconectar.
+ * que crea por su propia competencia. Catálogo, tasas, stock y conteos quedan
+ * fuera; su autoridad no se concede por reconectar.
  */
 export const DELEGATED_AUTHORITY_TYPES = [
   'Sale',
   'SaleReturn',
+  'PurchaseReceipt',
   'Shift',
   'FiscalDocument',
   'FiscalDay'

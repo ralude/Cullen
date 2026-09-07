@@ -1,5 +1,8 @@
 import type { AppError, Result, SyncEnvelopeV1 } from '@supermarket/shared';
-import type { ApplySaleCompletedToInventory } from '../inventory/index.js';
+import type {
+  ApplyPurchaseReceiptCompletedToInventory,
+  ApplySaleCompletedToInventory
+} from '../inventory/index.js';
 import type { BusinessEventV1, JsonValue } from '../events/index.js';
 import type { UnitOfWork } from '../ports/index.js';
 import type { SyncConsumer } from './process-sync-inbox.js';
@@ -22,8 +25,7 @@ export const ambientUnitOfWork: UnitOfWork = { execute: (work) => work() };
 export const toBusinessEventFromEnvelope = (envelope: SyncEnvelopeV1): BusinessEventV1 => ({
   eventId: envelope.eventId,
   eventType: envelope.eventType,
-  /** El catálogo cerrado solo publica v1; una versión nueva exige su contrato. */
-  contractVersion: 1,
+  contractVersion: envelope.contractVersion,
   aggregateId: envelope.aggregateId,
   aggregateType: envelope.aggregateType,
   aggregateVersion: envelope.aggregateVersion,
@@ -35,14 +37,20 @@ export const toBusinessEventFromEnvelope = (envelope: SyncEnvelopeV1): BusinessE
 });
 
 /**
- * Aplica la salida autoritativa de inventario del coordinador a partir de una
- * venta recibida. El consumidor de inventario ya es idempotente por
- * evento/línea: una reentrega no duplica movimientos ni auditoría.
+ * Enruta cada hecho recibido al efecto autoritativo de inventario del
+ * coordinador. Los casos de uso son idempotentes por evento/línea: una
+ * reentrega no duplica movimientos ni auditoría.
  */
 export class InventoryAuthorityConsumer implements SyncConsumer {
-  constructor(private readonly inventory: ApplySaleCompletedToInventory) {}
+  constructor(
+    private readonly sales: ApplySaleCompletedToInventory,
+    private readonly purchases?: ApplyPurchaseReceiptCompletedToInventory
+  ) {}
 
   apply(envelope: SyncEnvelopeV1): Promise<Result<unknown, AppError>> {
-    return this.inventory.execute(toBusinessEventFromEnvelope(envelope));
+    const event = toBusinessEventFromEnvelope(envelope);
+    return envelope.eventType === 'PurchaseReceiptCompleted' && this.purchases
+      ? this.purchases.execute(event)
+      : this.sales.execute(event);
   }
 }

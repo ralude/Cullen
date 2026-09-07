@@ -5,6 +5,7 @@ import { CashRegister, Shift } from '../../domain/cash/index.js';
 import { ExchangeRate, PaymentMethod } from '../../domain/currency/index.js';
 import { FiscalDay, FiscalDocument } from '../../domain/fiscal/index.js';
 import { StockItem } from '../../domain/inventory/index.js';
+import { PurchaseReceipt } from '../../domain/purchasing/index.js';
 import { Payment, Sale, SaleReturn } from '../../domain/sales/index.js';
 import {
   toCategoryPublication,
@@ -43,6 +44,32 @@ const committedEvidence = {
   fiscalCommit: 'COMMITTED',
   printDelivery: 'COMPLETE'
 } as const;
+
+const purchaseReceiptEvents = (): readonly DomainEventLike[] => {
+  const receipt = PurchaseReceipt.start({
+    id: 'receipt-001', supplierId: 'supplier-001', supplierSnapshot: {
+      legalName: 'Supplier', tradeName: null,
+      taxIdentity: { country: 'US', type: 'OTHER', value: 'SUP-001', normalizedValue: 'SUP001' },
+      fiscalAddress: null
+    },
+    sourceDocument: { type: 'INVOICE', number: 'INV-001', series: null,
+      controlNumber: null, issuedAt: at(1) },
+    effectiveAt: at(2), createdBy: 'user-001', originNodeId: 'node-001', createdAt: at(2),
+    replacesReceiptId: null,
+    lines: [{
+      id: 'line-001', productId: 'product-001', stockItemId: 'stock-item-001',
+      unitCode: 'UNIT', tracksBatches: true, quantity: Quantity.fromScaled(4, 0),
+      batchId: 'batch-001', batchLotNumber: 'LOT-001', batchExpiresAt: at(60),
+      purchaseUnitCost: Money.fromMinorUnits(90, 'USD'),
+      valuationUnitCost: Money.fromMinorUnits(100, 'USD'), exchangeRate: null
+    }]
+  });
+  receipt.complete({
+    actorId: 'user-001', terminalId: 'terminal-001', reason: 'Received purchase',
+    occurredAt: at(3), eventId: 'event-purchase-completed'
+  });
+  return receipt.domainEvents;
+};
 
 const noCommitEvidence = {
   dispatchState: 'RESULT_RECEIVED',
@@ -379,6 +406,7 @@ const fiscalDayEvents = (): readonly DomainEventLike[] => {
 const producedIntegrationEvents = toBusinessEvents([
   ...catalogEvents(),
   ...catalogReferenceEvents(),
+  ...purchaseReceiptEvents(),
   ...saleEvents(),
   ...saleReturnEvents(),
   ...shiftEvents(),
@@ -393,6 +421,7 @@ describe('catálogo de contratos de integración v1', () => {
       'DiscountPolicyPublished', 'FinancialTransactionTaxPolicyPublished',
       'ExchangeRateUpdated', 'PaymentMethodPublished', 'OperatorGrantPublished',
       'StockAvailabilityPublished', 'StockAvailabilityPublished', 'ProductPublished',
+      'PurchaseReceiptCompleted',
       'SaleCompleted', 'SaleCompleted', 'SaleReturned', 'ShiftOpened',
       'CashMovementRegistered', 'ShiftClosed', 'FiscalDocumentIssued', 'FiscalDocumentFailed',
       'FiscalXReportIssued', 'FiscalZReportIssued'
@@ -416,6 +445,7 @@ describe('catálogo de contratos de integración v1', () => {
       'StockAvailabilityPublished.v1:CATALOG_REFERENCE',
       'StockAvailabilityPublished.v2:CATALOG_REFERENCE',
       'ProductPublished.v1:CATALOG_REFERENCE',
+      'PurchaseReceiptCompleted.v1:INVENTORY_AUTHORITY',
       'SaleCompleted.v1:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
       'SaleCompleted.v2:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
       'SaleReturned.v1:COMMERCIAL_PROJECTION',
@@ -444,6 +474,7 @@ describe('catálogo de contratos de integración v1', () => {
       'StockAvailabilityPublished.v1:StockAvailability:COORDINATOR_TO_TERMINAL',
       'StockAvailabilityPublished.v2:StockAvailability:COORDINATOR_TO_TERMINAL',
       'ProductPublished.v1:Product:COORDINATOR_TO_TERMINAL',
+      'PurchaseReceiptCompleted.v1:PurchaseReceipt:TERMINAL_TO_COORDINATOR',
       'SaleCompleted.v1:Sale:TERMINAL_TO_COORDINATOR',
       'SaleCompleted.v2:Sale:TERMINAL_TO_COORDINATOR',
       'SaleReturned.v1:SaleReturn:TERMINAL_TO_COORDINATOR',

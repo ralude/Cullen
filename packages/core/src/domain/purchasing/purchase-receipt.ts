@@ -154,14 +154,42 @@ export class PurchaseReceipt {
   get reversalReason(): string | null { return this.currentReversalReason; }
   get domainEvents(): readonly PurchaseReceiptEvent[] { return [...this.events]; }
 
-  complete(props: { actorId: string; occurredAt: Date; eventId: string }): void {
+  complete(props: {
+    actorId: string; terminalId: string; reason: string; occurredAt: Date; eventId: string;
+  }): void {
     if (this.currentStatus !== 'DRAFT') throw new DomainError('PURCHASE_RECEIPT_INVALID_STATE', 'Only a draft receipt can be completed.');
+    required(props.actorId, 'PURCHASE_RECEIPT_ACTOR_REQUIRED');
+    const terminalId = required(props.terminalId, 'PURCHASE_RECEIPT_TERMINAL_REQUIRED');
+    const reason = required(props.reason, 'PURCHASE_RECEIPT_REASON_REQUIRED');
+    const eventId = required(props.eventId, 'PURCHASE_RECEIPT_EVENT_ID_REQUIRED');
+    const completedAt = validDate(props.occurredAt, 'PURCHASE_RECEIPT_TIMESTAMP_INVALID');
     this.currentStatus = 'COMPLETED'; this.currentVersion += 1;
-    this.currentCompletedAt = validDate(props.occurredAt, 'PURCHASE_RECEIPT_TIMESTAMP_INVALID');
-    this.events.push({ type: 'PurchaseReceiptCompleted', eventId: required(props.eventId, 'PURCHASE_RECEIPT_EVENT_ID_REQUIRED'),
+    this.currentCompletedAt = completedAt;
+    this.events.push({ type: 'PurchaseReceiptCompleted', eventId,
       aggregateId: this.id, aggregateType: 'PurchaseReceipt', aggregateVersion: this.currentVersion,
       occurredAt: this.currentCompletedAt, payload: { supplierId: this.supplierId, sourceType: this.sourceDocument.type,
-        sourceNumber: this.sourceDocument.number, lineCount: this.lines.length } });
+        sourceNumber: this.sourceDocument.number,
+        terminalId,
+        reason,
+        lineCount: this.lines.length,
+        lines: this.lines.map((line) => ({
+          lineId: line.id,
+          productId: line.productId,
+          stockItemId: line.stockItemId,
+          unitCode: line.unitCode,
+          quantityScaled: line.quantity.scaledValue,
+          quantityScale: line.quantity.scale,
+          batchTracking: line.tracksBatches ? 'TRACKED' : 'NOT_TRACKED',
+          batch: line.batchId === null ? null : {
+            batchId: line.batchId,
+            lotNumber: line.batchLotNumber,
+            expiresAt: line.batchExpiresAt?.toISOString() ?? null
+          },
+          valuationUnitCost: {
+            minorUnits: line.valuationUnitCost.minorUnits,
+            currencyCode: line.valuationUnitCost.currency
+          }
+        })) } });
   }
 
   reverse(props: { actorId: string; reason: string; occurredAt: Date; eventId: string }): void {

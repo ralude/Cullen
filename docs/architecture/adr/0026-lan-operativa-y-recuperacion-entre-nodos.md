@@ -44,11 +44,11 @@ consolidación de solo lectura del coordinador; la infraestructura genérica de 
 resultado por paso; y el contrato que transporta el snapshot de costo, `SaleCompleted.v2`, con
 la v1 intacta y aceptada.
 
-D3 no está cerrada: compra y conteo registran como evidencia hechos que no se transportan, y
-`SaleReturned.v1` solo alimenta una proyección comercial; ninguno ejecuta todavía el efecto de
-stock autoritativo del coordinador. Definir el orden de pasos por operación precede a esa
-implementación. La **compensación explícita** de un rechazo definitivo tampoco está
-implementada; una operación rechazada queda `NEEDS_REVIEW` con la evidencia disponible.
+D3 no está cerrada: compra ya transporta un único `PurchaseReceiptCompleted.v1` y aplica su
+movimiento autoritativo; conteo aún conserva evidencia local que no se transporta y
+`SaleReturned.v1` solo alimenta una proyección comercial. La **compensación explícita** de un
+rechazo definitivo tampoco está implementada; una operación rechazada queda `NEEDS_REVIEW` con
+la evidencia disponible.
 
 ## D1. Topología, confianza y alta
 

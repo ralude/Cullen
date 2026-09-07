@@ -146,7 +146,7 @@ orden, sin mezclar sus commits:
 
 1. [completado] referencia de inventario v2 con identidades y saldos de lotes, más lectura local
    que no consulta `stock_items` en una terminal;
-2. `PurchaseReceiptCompleted.v1`, productor local sin movimiento POS y consumidor
+2. [completado] `PurchaseReceiptCompleted.v1`, productor local sin movimiento POS y consumidor
    autoritativo idempotente;
 3. `StockCountApproved.v1`, conservando el delta congelado del cierre y aplicándolo en el
    coordinador sin recálculo;
@@ -206,8 +206,8 @@ LAN; no puede depender del publisher de red para completar un efecto local oblig
 - [ ] CA-03-10: devoluciones y operaciones de stock cumplen D5/ADR-0026, incluidos lote/costo
   original, conexión inicial, estado pendiente visible y recuperación entre cada paso sin
   duplicar efectos. La intención, el estado y la consulta de progreso están implementados,
-  pero no el efecto autoritativo remoto de los tres flujos. El snapshot de costo sí está
-  probado; la compensación explícita de un rechazo definitivo tampoco está implementada.
+  pero no el efecto autoritativo remoto de conteo y devolución. La compra y el snapshot de costo
+  sí están probados; la compensación explícita de un rechazo definitivo tampoco está implementada.
   Para cerrarlo deben pasar por separado la referencia v2, compra, conteo, devolución y
   conciliación descritos en el corte 3A, además del escenario 11 extremo a extremo.
 - [x] ~~CA-03-11~~: cada referencia necesaria tiene productor/contrato/consumidor probado; las

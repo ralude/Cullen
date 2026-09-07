@@ -60,12 +60,12 @@ integración, aplicación autoritativa y conciliación por ese `eventId`. Compra
 `SaleReturned.v2`, después de obtener del coordinador la salida aplicada. El POS no registra
 movimientos de esas operaciones.
 
-**Brecha de implementación:** compra y conteo todavía registran hechos locales que no se
-transportan al coordinador, y `SaleReturned.v1` solo actualiza la proyección comercial. Los
-contratos/consumidores anteriores aún deben implementarse; la disponibilidad v2 ya distribuye
-identidades autoritativas y saldos por lote sin poblar `stock_items` del POS. Un rechazo comercial
-definitivo después de efectos previos queda `NEEDS_REVIEW`; la compensación explícita tampoco está
-automatizada.
+**Brecha de implementación:** conteo todavía registra hechos locales que no se transportan al
+coordinador, y `SaleReturned.v1` solo actualiza la proyección comercial. Compra ya transporta un
+único `PurchaseReceiptCompleted.v1` y aplica el movimiento autoritativo de forma idempotente; la
+disponibilidad v2 distribuye identidades y saldos por lote sin poblar `stock_items` del POS. Un
+rechazo comercial definitivo después de efectos previos queda `NEEDS_REVIEW`; la compensación
+explícita tampoco está automatizada.
 
 ## Retry
 

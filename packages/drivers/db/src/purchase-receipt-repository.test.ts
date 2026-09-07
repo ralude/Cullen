@@ -60,7 +60,10 @@ describe('DrizzlePurchaseReceiptRepository', () => {
     expect(loadedDraft).toMatchObject({ status: 'DRAFT', version: 1 });
     expect(loadedDraft?.lines[0]?.exchangeRate).toMatchObject({ id: 'rate-1', baseCurrency: 'USD' });
 
-    receipt.complete({ actorId: 'user-1', occurredAt: new Date('2026-09-04T11:00:00Z'), eventId: 'event-completed' });
+    receipt.complete({
+      actorId: 'user-1', terminalId: 'terminal-1', reason: 'Recepción confirmada',
+      occurredAt: new Date('2026-09-04T11:00:00Z'), eventId: 'event-completed'
+    });
     await uow.execute(() => repository.save(receipt));
 
     const completed = await repository.findById('receipt-1');

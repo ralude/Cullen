@@ -412,6 +412,39 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
     ...reference('UnitOfMeasure', payload, 'unitId')
   ]
 }, {
+  eventType: 'PurchaseReceiptCompleted',
+  contractVersion: 1,
+  aggregateType: 'PurchaseReceipt',
+  direction: 'TERMINAL_TO_COORDINATOR',
+  fields: {
+    supplierId: identifier(),
+    sourceType: { kind: 'enum', values: ['INVOICE', 'DELIVERY_NOTE'] },
+    sourceNumber: text(),
+    terminalId: identifier(),
+    reason: text(),
+    lineCount: integer(1),
+    lines: array(object({
+      lineId: identifier(),
+      productId: identifier(),
+      stockItemId: identifier(),
+      unitCode: identifier(),
+      quantityScaled: integer(1),
+      quantityScale: integer(0),
+      batchTracking: { kind: 'enum', values: ['TRACKED', 'NOT_TRACKED'] },
+      batch: object({
+        batchId: identifier(),
+        lotNumber: text(),
+        expiresAt: text(true)
+      }, true),
+      valuationUnitCost: money
+    }))
+  },
+  payloadOriginField: null,
+  payloadTerminalField: 'terminalId',
+  intendedConsumer: 'inventario autoritativo del coordinador',
+  consumers: ['INVENTORY_AUTHORITY'],
+  dependencies: () => []
+}, {
   eventType: 'SaleCompleted',
   contractVersion: 1,
   aggregateType: 'Sale',

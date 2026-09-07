@@ -257,6 +257,10 @@ export const createSecurityRuntime = (
               stockItemRepository, ids, ids, application.ambientUnitOfWork,
               eventStore, auditWriter, 'SYNCED_SNAPSHOT', outboxStore,
               nodeIdentity.originNodeId
+            ),
+            new application.ApplyPurchaseReceiptCompletedToInventory(
+              stockItemRepository, ids, ids, ids, application.ambientUnitOfWork,
+              eventStore, auditWriter, outboxStore
             )
           )],
           /**
@@ -484,7 +488,8 @@ export const createSecurityRuntime = (
         start: new application.StartPurchaseReceipt(
           purchaseReceiptRepository, supplierRepository, productRepository, stockItemRepository,
           exchangeRateRepository, authorization, ids, ids, ids, ids, ids, clock, unitOfWork,
-          auditWriter, idempotencyStore
+          auditWriter, idempotencyStore,
+          coordinatorNodeId === null ? undefined : referenceProjection
         ),
         complete: new application.CompletePurchaseReceipt(
           purchaseReceiptRepository, supplierRepository, stockItemRepository, authorization,

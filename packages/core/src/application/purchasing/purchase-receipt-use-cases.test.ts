@@ -6,9 +6,11 @@ import { StockItem } from '../../domain/inventory/index.js';
 import { PurchaseReceipt, Supplier, type SupplierStatus } from '../../domain/purchasing/index.js';
 import type { ExecutionContext } from '../execution-context.js';
 import type {
-  AuditEntry, AuditWriter, BusinessEventStore, ExchangeRateRepository, IdGenerator, ProductRepository,
-  PurchaseReceiptRepository, StockItemRepository, SupplierRepository, UnitOfWork
+  AuditEntry, AuditWriter, BusinessEventStore, CatalogReferenceProjection, ExchangeRateRepository,
+  IdGenerator, OutboxStore, ProductRepository, PurchaseReceiptRepository, StockItemRepository,
+  SupplierRepository, UnitOfWork
 } from '../ports/index.js';
+import type { CoordinatedStockOperations } from '../sync/index.js';
 import { CompletePurchaseReceipt } from './purchase-receipt-use-cases.js';
 import { ReversePurchaseReceipt } from './purchase-receipt-use-cases.js';
 import { StartPurchaseReceipt } from './purchase-receipt-use-cases.js';
@@ -107,6 +109,7 @@ const allow = (...permissions: string[]) => ({
 const startService = (options: {
   receipts?: FakePurchaseReceipts; suppliers?: FakeSuppliers; products?: FakeProducts;
   stockItems?: FakeStockItems; exchangeRates?: FakeExchangeRates;
+  references?: CatalogReferenceProjection;
   authorize?: (context: ExecutionContext, permission: string) => Promise<boolean>;
 } = {}): StartPurchaseReceipt => new StartPurchaseReceipt(
   options.receipts ?? new FakePurchaseReceipts(), options.suppliers ?? new FakeSuppliers(),
@@ -114,10 +117,91 @@ const startService = (options: {
   options.exchangeRates ?? new FakeExchangeRates(),
   { authorize: options.authorize ?? (async () => true) },
   sequence('receipt'), sequence('line'), sequence('stock'), sequence('batch'), sequence('audit'),
-  clock, unitOfWork, auditWriter([])
+  clock, unitOfWork, auditWriter([]), undefined, options.references
 );
 
+const outboxStore = (events: Parameters<OutboxStore['enqueue']>[0][number][]): OutboxStore => ({
+  enqueue: async (enqueued) => { events.push(...enqueued); },
+  claimAvailable: async () => [], isClaimActive: async () => false,
+  markPublished: async () => false, markFailed: async () => false,
+  markBlocked: async () => false, markPaused: async () => false,
+  resumeDelivery: async () => false,
+  summarize: async (destinationNodeId) => ({ destinationNodeId, pending: 0, paused: 0, blocked: 0,
+    lastPublishedAt: null, lastError: null }),
+  listPaused: async () => []
+});
+
 describe('purchase receipt use cases', () => {
+  it('completa en LAN con un solo hecho y sin escribir inventario local', async () => {
+    const receipts = new FakePurchaseReceipts();
+    const suppliers = new FakeSuppliers();
+    const stockItems = new FakeStockItems();
+    const recorded = evidence();
+    const enqueued: Parameters<OutboxStore['enqueue']>[0][number][] = [];
+    const localEvidence: string[][] = [];
+    const references = {
+      findStockAvailability: async () => ({
+        productId: 'product-001', stockItemId: 'stock-authority-001', unitCode: 'KG',
+        quantityScaled: 5, quantityScale: 0, tracksBatches: true,
+        batches: [{
+          batchId: 'batch-authority-001', lotNumber: 'LOT-001', expiresAt: null,
+          quantityScaled: 5
+        }],
+        unitCost: { minorUnits: 80, currencyCode: 'USD' }, version: 2,
+        publishedBy: 'node-coordinator', publishedAt: clock.now()
+      })
+    } as unknown as CatalogReferenceProjection;
+    const coordination = {
+      begin: async () => ({ ok: true, value: {
+        operationId: 'operation-001', kind: 'PURCHASE_RECEIPT_COMPLETION',
+        fingerprint: 'receipt-1', coordinatorNodeId: 'node-coordinator',
+        actorId: context.actorId, terminalId: context.terminalId,
+        originNodeId: context.originNodeId, correlationId: context.correlationId,
+        reason: 'Recepción confirmada', status: 'PENDING_RECONCILIATION',
+        startedAt: clock.now(), updatedAt: clock.now(), steps: []
+      } }),
+      recordLocalEffect: async (_operationId: string, eventIds: readonly string[]) => {
+        localEvidence.push([...eventIds]);
+        return {};
+      }
+    } as unknown as CoordinatedStockOperations;
+    const start = startService({ receipts, suppliers, stockItems, references });
+    const draft = await start.execute({
+      supplierId: 'supplier-001', reason: 'Compra por lote',
+      sourceDocument: { type: 'INVOICE', number: 'FAC-LAN-001' },
+      effectiveAt: new Date('2026-09-04T09:00:00Z'),
+      lines: [{
+        productId: 'product-001', quantity: '3', purchaseUnitCostMinorUnits: 100,
+        purchaseCurrency: 'USD', lot: { lotNumber: 'lot-001' }
+      }]
+    }, context);
+    expect(draft).toMatchObject({ ok: true, value: { lines: [{
+      stockItemId: 'stock-authority-001', batchId: 'batch-authority-001'
+    }] } });
+
+    const complete = new CompletePurchaseReceipt(
+      receipts, suppliers, stockItems, allow(PURCHASE_RECEIPT_PERMISSIONS.COMPLETE),
+      sequence('movement'), sequence('event'), sequence('audit'), clock, unitOfWork,
+      eventStore(recorded.ledger), auditWriter(recorded.audit), undefined,
+      outboxStore(enqueued), coordination
+    );
+    await expect(complete.execute({
+      receiptId: 'receipt-1', reason: 'Recepción confirmada'
+    }, context)).resolves.toMatchObject({ ok: true, value: { status: 'COMPLETED' } });
+
+    expect(stockItems.values.size).toBe(0);
+    expect(recorded.ledger).toEqual(['PurchaseReceiptCompleted']);
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]).toMatchObject({
+      eventId: 'event-1', eventType: 'PurchaseReceiptCompleted', contractVersion: 1,
+      payload: { terminalId: 'terminal-001', lines: [{
+        lineId: 'line-1', stockItemId: 'stock-authority-001',
+        batch: { batchId: 'batch-authority-001', lotNumber: 'LOT-001' }
+      }] }
+    });
+    expect(localEvidence).toEqual([['event-1']]);
+  });
+
   it('starts a draft, completes it and derives the moving weighted cost on a second receipt', async () => {
     const receipts = new FakePurchaseReceipts();
     const suppliers = new FakeSuppliers();

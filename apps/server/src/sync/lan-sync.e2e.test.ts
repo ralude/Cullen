@@ -125,6 +125,33 @@ const saleReturnedEvent = (nodeId: string, terminalId: string): BusinessEventV1 
   }
 });
 
+const purchaseReceiptEvent = (nodeId: string, terminalId: string): BusinessEventV1 => ({
+  eventId: `event-purchase-${terminalId}`,
+  eventType: 'PurchaseReceiptCompleted',
+  contractVersion: 1,
+  aggregateId: `purchase-${terminalId}`,
+  aggregateType: 'PurchaseReceipt',
+  aggregateVersion: 2,
+  originNodeId: nodeId,
+  correlationId: `correlation-purchase-${terminalId}`,
+  actorId: 'user-001',
+  occurredAt: new Date('2026-09-06T11:30:00.000Z'),
+  payload: {
+    supplierId: 'supplier-001',
+    sourceType: 'INVOICE',
+    sourceNumber: 'FAC-LAN-001',
+    terminalId,
+    reason: 'Recepción confirmada',
+    lineCount: 1,
+    lines: [{
+      lineId: 'purchase-line-001', productId: 'product-1', stockItemId: 'stock-1',
+      unitCode: 'UND', quantityScaled: 3, quantityScale: 0,
+      batchTracking: 'NOT_TRACKED', batch: null,
+      valuationUnitCost: { minorUnits: 600, currencyCode: 'USD' }
+    }]
+  }
+});
+
 type Coordinator = {
   readonly handle: DatabaseHandle;
   readonly app: FastifyInstance;
@@ -246,6 +273,11 @@ const startCoordinator = async (
             stockItems, ids, ids, application.ambientUnitOfWork,
             new DrizzleBusinessEventStore(handle), new DrizzleAuditWriter(handle),
             'SYNCED_SNAPSHOT'
+          ),
+          new application.ApplyPurchaseReceiptCompletedToInventory(
+            stockItems, ids, ids, ids, application.ambientUnitOfWork,
+            new DrizzleBusinessEventStore(handle), new DrizzleAuditWriter(handle),
+            new DrizzleOutboxStore(handle)
           )
         )],
         ['COMMERCIAL_PROJECTION', new application.CommercialProjectionConsumer(
@@ -380,6 +412,33 @@ const first = (): Terminal => terminals.get('node-terminal-1') as Terminal;
 const second = (): Terminal => terminals.get('node-terminal-2') as Terminal;
 
 describe('LAN de una tienda con coordinador y dos terminales', () => {
+  it('aplica una recepción en el coordinador sin inventario POS duplicado', async () => {
+    const terminal = first();
+    const purchase = purchaseReceiptEvent(terminal.nodeId, terminal.terminalId);
+    await terminal.unitOfWork.execute(() => terminal.outbox.enqueue([purchase]));
+    await claimAuthority(terminal, 'PurchaseReceipt', purchase.aggregateId);
+
+    expect(await relayFor(terminal).runBatch()).toBe(1);
+    await coordinator.processor.runBatch();
+
+    expect(await balance()).toBe(13);
+    expect(terminal.handle.sqlite.prepare('select count(*) from stock_items').pluck().get()).toBe(0);
+    expect(coordinator.handle.sqlite.prepare(`
+      select reference_id as referenceId, unit_cost_minor_units as unitCost
+      from stock_movements where reference_id = ?
+    `).get(`${purchase.eventId}:purchase-line-001`)).toEqual({
+      referenceId: `${purchase.eventId}:purchase-line-001`, unitCost: 600
+    });
+    expect(coordinator.handle.sqlite.prepare(
+      "select count(*) from audit_log where action = 'PURCHASE_STOCK_RECEIVED'"
+    ).pluck().get()).toBe(1);
+    await expect(coordinator.workStore.applicationProgress(purchase.eventId))
+      .resolves.toBe('APPLIED');
+    expect(coordinator.handle.sqlite.prepare(`
+      select count(*) from outbox_event where event_type = 'StockAvailabilityPublished'
+    `).pluck().get()).toBe(1);
+  });
+
   it('entrega una venta acumulada durante el corte y la aplica una sola vez', async () => {
     const terminal = first();
     await enqueueSale(terminal, 2);

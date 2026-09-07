@@ -27,11 +27,32 @@ describe('PurchaseReceipt', () => {
     const receipt = start();
     expect(receipt.status).toBe('DRAFT');
 
-    receipt.complete({ actorId: 'actor-001', occurredAt: new Date('2026-09-04T10:01:00.000Z'),
-      eventId: 'event-completed' });
+    receipt.complete({
+      actorId: 'actor-001', terminalId: 'terminal-001', reason: 'Recepción confirmada',
+      occurredAt: new Date('2026-09-04T10:01:00.000Z'), eventId: 'event-completed'
+    });
     expect(receipt.status).toBe('COMPLETED');
-    expect(receipt.domainEvents.at(-1)?.type).toBe('PurchaseReceiptCompleted');
-    expect(() => receipt.complete({ actorId: 'actor-001', occurredAt: new Date(), eventId: 'again' }))
+    expect(receipt.domainEvents.at(-1)).toMatchObject({
+      type: 'PurchaseReceiptCompleted',
+      payload: {
+        supplierId: 'supplier-001',
+        sourceType: 'INVOICE',
+        sourceNumber: 'FAC-001',
+        terminalId: 'terminal-001',
+        reason: 'Recepción confirmada',
+        lineCount: 1,
+        lines: [{
+          lineId: 'line-001', productId: 'product-001', stockItemId: 'stock-001',
+          unitCode: 'UNIT', quantityScaled: 10, quantityScale: 0,
+          batchTracking: 'NOT_TRACKED', batch: null,
+          valuationUnitCost: { minorUnits: 100, currencyCode: 'USD' }
+        }]
+      }
+    });
+    expect(() => receipt.complete({
+      actorId: 'actor-001', terminalId: 'terminal-001', reason: 'Otra recepción',
+      occurredAt: new Date(), eventId: 'again'
+    }))
       .toThrowError(expect.objectContaining({ code: 'PURCHASE_RECEIPT_INVALID_STATE' }));
 
     receipt.reverse({ actorId: 'actor-002', reason: 'Documento duplicado',
@@ -59,5 +80,16 @@ describe('PurchaseReceipt', () => {
         purchaseUnitCost: Money.fromMinorUnits(100, 'USD'),
         valuationUnitCost: Money.fromMinorUnits(100, 'USD'), exchangeRate: null }]
     })).toThrowError(expect.objectContaining({ code: 'PURCHASE_RECEIPT_FISCAL_ADDRESS_REQUIRED' }));
+  });
+
+  it('no cambia de estado cuando falta evidencia requerida del cierre', () => {
+    const receipt = start();
+
+    expect(() => receipt.complete({
+      actorId: 'actor-001', terminalId: 'terminal-001', reason: ' ',
+      occurredAt: new Date('2026-09-04T10:01:00.000Z'), eventId: 'event-completed'
+    })).toThrowError(expect.objectContaining({ code: 'PURCHASE_RECEIPT_REASON_REQUIRED' }));
+    expect(receipt.status).toBe('DRAFT');
+    expect(receipt.domainEvents).toEqual([]);
   });
 });

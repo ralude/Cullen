@@ -7,9 +7,9 @@ import type { JsonValue, DomainEventLike } from '../events/index.js';
 import { persistBusinessChange } from '../events/index.js';
 import { executeIdempotentCommand } from '../idempotency/index.js';
 import type {
-  AuditEntry, AuditWriter, AuthorizationService, BusinessEventStore, Clock, ExchangeRateRepository, IdGenerator,
-  IdempotencyStore, OutboxStore, ProductRepository, PurchaseReceiptRepository, StockItemRepository,
-  SupplierRepository, UnitOfWork
+  AuditEntry, AuditWriter, AuthorizationService, BusinessEventStore, CatalogReferenceProjection, Clock,
+  ExchangeRateRepository, IdGenerator, IdempotencyStore, OutboxStore, ProductRepository,
+  PurchaseReceiptRepository, StockItemRepository, SupplierRepository, UnitOfWork
 } from '../ports/index.js';
 import { toStockAvailabilityPublications } from '../inventory/index.js';
 import type { CoordinatedStockOperations } from '../sync/coordinated-stock-operations.js';
@@ -60,12 +60,10 @@ export const toPurchaseReceiptDto = (receipt: PurchaseReceipt): PurchaseReceiptD
 });
 
 /**
- * Crea o corrige (mientras siga DRAFT) una recepción de compra. Resuelve o
- * crea el `StockItem` y el lote de cada línea igual que la recepción rápida
- * existente: la aplicación deriva unidad y escala del catálogo, nunca el
- * cliente. La moneda de valoración de un artículo es la de su primer costo
- * recibido; una línea en otra moneda exige el snapshot de una tasa existente
- * (ADR-0016). No se consulta una tasa implícita.
+ * Crea o corrige (mientras siga DRAFT) una recepción de compra. En standalone
+ * resuelve el `StockItem`; en una terminal LAN usa exclusivamente la referencia
+ * informativa v2. La aplicación deriva unidad y escala, nunca el cliente. Una
+ * línea en otra moneda exige el snapshot de una tasa existente (ADR-0016).
  */
 export class StartPurchaseReceipt {
   constructor(
@@ -83,7 +81,9 @@ export class StartPurchaseReceipt {
     private readonly clock: Clock,
     private readonly unitOfWork: UnitOfWork,
     private readonly auditWriter: AuditWriter,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    /** Referencia informativa v2 usada solo por una terminal LAN. */
+    private readonly stockReferences?: CatalogReferenceProjection
   ) {}
 
   async execute(input: StartPurchaseReceiptInput, context: ExecutionContext): Promise<Result<PurchaseReceiptDto, AppError>> {
@@ -110,19 +110,48 @@ export class StartPurchaseReceipt {
           if (!supplier) return err(new ApplicationError('SUPPLIER_NOT_FOUND', 'Supplier was not found.'));
 
           const lines: PurchaseReceiptLine[] = [];
-          const resolvedItems = new Map<string, StockItem>();
+          const resolvedItems = new Map<string, {
+            readonly id: string; readonly unitCode: string; readonly quantityScale: number;
+            readonly tracksBatches: boolean; readonly valuationCurrency: string | null;
+            readonly batches: readonly { readonly id: string; readonly lotNumber: string;
+              readonly expiresAt: Date | null }[];
+          }>();
           const plannedBatches = new Map<string, { id: string; lotNumber: string; expiresAt: Date | null }>();
           for (const lineInput of input.lines) {
-            let item: StockItem | null = resolvedItems.get(lineInput.productId)
-              ?? await this.stockItemRepository.findByProductId(lineInput.productId);
+            let item = resolvedItems.get(lineInput.productId) ?? null;
+            if (item === null && this.stockReferences) {
+              const reference = await this.stockReferences.findStockAvailability(lineInput.productId);
+              if (reference !== null && (reference.stockItemId === null || reference.unitCode === null ||
+                reference.tracksBatches === null || reference.batches === null)) {
+                return err(new ApplicationError(
+                  'STOCK_AVAILABILITY_REFERENCE_INCOMPLETE',
+                  'The stock availability reference does not contain authoritative identities.'
+                ));
+              }
+              if (reference !== null) {
+                item = {
+                  id: reference.stockItemId as string,
+                  unitCode: reference.unitCode as string,
+                  quantityScale: reference.quantityScale,
+                  tracksBatches: reference.tracksBatches as boolean,
+                  valuationCurrency: reference.unitCost?.currencyCode ?? null,
+                  batches: (reference.batches ?? []).map((batch) => ({
+                    id: batch.batchId, lotNumber: batch.lotNumber, expiresAt: batch.expiresAt
+                  }))
+                };
+              }
+            }
+            if (item === null && !this.stockReferences) {
+              item = await this.stockItemRepository.findByProductId(lineInput.productId);
+            }
             if (item === null) {
               const product = await this.productRepository.findById(lineInput.productId);
               if (!product) return err(new ApplicationError('PRODUCT_NOT_FOUND', 'Product was not found in the catalog.'));
-              item = StockItem.create({
-                id: this.stockItemIdGenerator.generate(), productId: lineInput.productId,
+              item = {
+                id: this.stockItemIdGenerator.generate(),
                 unitCode: product.unitOfMeasure.code, quantityScale: product.unitOfMeasure.quantityScale,
-                tracksBatches: lineInput.lot !== undefined
-              });
+                tracksBatches: lineInput.lot !== undefined, valuationCurrency: null, batches: []
+              };
             }
             resolvedItems.set(lineInput.productId, item);
             let batchId: string | null = null;
@@ -214,11 +243,10 @@ export class StartPurchaseReceipt {
 }
 
 /**
- * Completa una recepción en borrador: exige proveedor activo, unicidad del
- * documento entre recepciones completadas y registra en una sola transacción
- * el movimiento de inventario con el costo aplicado por línea (que recalcula
- * el promedio ponderado móvil del artículo), el ledger, el outbox y la
- * auditoría.
+ * Completa una recepción en borrador. Standalone conserva el movimiento local
+ * y su costo; una terminal LAN confirma en cambio un solo hecho de integración
+ * y no escribe inventario. Ambos caminos conservan documento, ledger, outbox y
+ * auditoría en su transacción local.
  */
 export class CompletePurchaseReceipt {
   constructor(
@@ -293,9 +321,11 @@ export class CompletePurchaseReceipt {
           }
 
           const before = toPurchaseReceiptDto(receipt);
+          const lanOperation = started !== undefined && started.ok &&
+            started.value.coordinatorNodeId !== null;
           const items = new Map<string, StockItem>();
           const allEvents: DomainEventLike[] = [];
-          for (const line of receipt.lines) {
+          for (const line of lanOperation ? [] : receipt.lines) {
             let item = items.get(line.stockItemId) ?? await this.stockItemRepository.findById(line.stockItemId);
             if (!item) {
               item = StockItem.create({
@@ -323,8 +353,13 @@ export class CompletePurchaseReceipt {
             allEvents.push(...item.domainEvents.slice(beforeEventCount));
           }
 
-          receipt.complete({ actorId: context.actorId, occurredAt: now, eventId: this.eventIdGenerator.generate() });
+          receipt.complete({
+            actorId: context.actorId, terminalId: context.terminalId, reason: input.reason,
+            occurredAt: now, eventId: this.eventIdGenerator.generate()
+          });
           allEvents.push(...receipt.domainEvents);
+          const completionEvent = receipt.domainEvents.find(({ type }) =>
+            type === 'PurchaseReceiptCompleted');
 
           const audits: AuditEntry[] = [{
             auditId: this.auditIdGenerator.generate(), actorId: context.actorId, actorRoleCodes: context.actorRoleCodes ?? [],
@@ -338,8 +373,9 @@ export class CompletePurchaseReceipt {
               await this.receiptRepository.save(receipt);
               for (const item of items.values()) await this.stockItemRepository.save(item);
             },
-            allEvents, context, undefined, this.eventStore, this.outbox, [], this.auditWriter, audits,
-            toStockAvailabilityPublications(items.values(), this.eventIdGenerator, now)
+            allEvents, context, undefined, this.eventStore, this.outbox,
+            lanOperation ? ['PurchaseReceiptCompleted'] : [], this.auditWriter, audits,
+            lanOperation ? [] : toStockAvailabilityPublications(items.values(), this.eventIdGenerator, now)
           );
           /**
            * La evidencia local se confirma en la misma transacción que los
@@ -349,7 +385,7 @@ export class CompletePurchaseReceipt {
           if (started !== undefined && started.ok) {
             await this.coordination?.recordLocalEffect(
               started.value.operationId,
-              allEvents.map(({ eventId }) => eventId),
+              completionEvent === undefined ? [] : [completionEvent.eventId],
               context.originNodeId
             );
           }
