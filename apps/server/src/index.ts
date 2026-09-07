@@ -1,6 +1,10 @@
 import { buildApp } from './app.ts';
 import { application } from '@supermarket/core';
-import { HttpsSyncEventPublisher, loadNodeIdentity } from '@supermarket/driver-security';
+import {
+  HttpsRemoteApplicationProbe,
+  HttpsSyncEventPublisher,
+  loadNodeIdentity
+} from '@supermarket/driver-security';
 import { createSecurityRuntime } from './runtime.ts';
 import { createDestinationRelays, fixedDestination } from './sync/destination-relays.ts';
 import { readSyncClientConfiguration, readSyncWorkerInterval } from './sync/lan-client.ts';
@@ -11,6 +15,7 @@ import { SyncWorker } from './sync/sync-worker.ts';
 const host = process.env.SERVER_HOST ?? '127.0.0.1';
 const port = Number.parseInt(process.env.SERVER_PORT ?? '3000', 10);
 const nodeIdentity = loadNodeIdentity(process.env.NODE_IDENTITY_PATH);
+const clientConfiguration = readSyncClientConfiguration();
 const runtime = createSecurityRuntime(
   process.env.DATABASE_PATH ?? 'supermarket-node.sqlite',
   nodeIdentity,
@@ -21,7 +26,8 @@ const runtime = createSecurityRuntime(
     ...(process.env.FISCAL_SIMULATED_REPORT_CONSENT
       ? { reportConsent: process.env.FISCAL_SIMULATED_REPORT_CONSENT }
       : {})
-  }
+  },
+  clientConfiguration?.destinationNodeId ?? null
 );
 const app = buildApp(runtime.dependencies);
 
@@ -32,7 +38,14 @@ const app = buildApp(runtime.dependencies);
  */
 const syncConfiguration = readSyncListenerConfiguration();
 const syncApp = syncConfiguration
-  ? buildSyncApp(toTransportDependencies(runtime.syncReception, syncConfiguration))
+  ? buildSyncApp(toTransportDependencies({
+    ...runtime.syncReception,
+    /**
+     * Solo el nodo que aplica hechos ajenos reporta progreso: es la lectura
+     * con la que el origen de una operación distribuida concilia su intención.
+     */
+    applicationProgress: runtime.syncDelivery.applicationProgress
+  }, syncConfiguration))
   : null;
 
 /**
@@ -41,8 +54,6 @@ const syncApp = syncConfiguration
  * venta no lo espera: la salida local ya está confirmada cuando el worker
  * arranca su ciclo.
  */
-const clientConfiguration = readSyncClientConfiguration();
-
 /**
  * Un nodo que escucha en LAN entrega además a los destinos que su registro
  * confiable declara, reutilizando su propia identidad de transporte y las
@@ -79,6 +90,16 @@ const worker = destinationCycles
   ? new SyncWorker(destinationCycles, {
     intervalMilliseconds: readSyncWorkerInterval(),
     inbox: runtime.syncDelivery.processInbox,
+    /**
+     * Una terminal concilia sus operaciones distribuidas contra su
+     * coordinador. Un nodo sin coordinador no tiene paso remoto que esperar.
+     */
+    ...(clientConfiguration ? {
+      reconciliation: {
+        operations: runtime.coordinatedOperations,
+        probe: new HttpsRemoteApplicationProbe(clientConfiguration)
+      }
+    } : {}),
     /**
      * Solo el coordinador reemite concesiones: es la autoridad de
      * autorización de la LAN. Un nodo que solo entrega a un destino fijo es

@@ -8,9 +8,11 @@ import { persistBusinessChange } from '../events/index.js';
 import { executeIdempotentCommand } from '../idempotency/index.js';
 import type {
   AuditEntry, AuditWriter, AuthorizationService, BusinessEventStore, Clock, ExchangeRateRepository, IdGenerator,
-  IdempotencyStore, ProductRepository, PurchaseReceiptRepository, StockItemRepository, SupplierRepository,
-  UnitOfWork
+  IdempotencyStore, OutboxStore, ProductRepository, PurchaseReceiptRepository, StockItemRepository,
+  SupplierRepository, UnitOfWork
 } from '../ports/index.js';
+import { toStockAvailabilityPublications } from '../inventory/index.js';
+import type { CoordinatedStockOperations } from '../sync/coordinated-stock-operations.js';
 import type {
   CompletePurchaseReceiptInput, PurchaseReceiptDto, PurchaseReceiptLineDto, ReversePurchaseReceiptInput,
   StartPurchaseReceiptInput
@@ -231,7 +233,18 @@ export class CompletePurchaseReceipt {
     private readonly unitOfWork: UnitOfWork,
     private readonly eventStore: BusinessEventStore,
     private readonly auditWriter: AuditWriter,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    /**
+     * Salida del coordinador: la recepción cambia el saldo autoritativo, así
+     * que publica la disponibilidad de los ítems tocados.
+     */
+    private readonly outbox?: OutboxStore,
+    /**
+     * Coordinación LAN. Presente en una terminal con coordinador, exige enlace
+     * antes del primer efecto y deja la intención pendiente de conciliación
+     * hasta tener evidencia de todos los pasos (ADR-0026 D3).
+     */
+    private readonly coordination?: CoordinatedStockOperations
   ) {}
 
   async execute(input: CompletePurchaseReceiptInput, context: ExecutionContext): Promise<Result<PurchaseReceiptDto, AppError>> {
@@ -239,6 +252,17 @@ export class CompletePurchaseReceipt {
       return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to complete a purchase receipt.'));
     }
     const now = this.clock.now();
+    /**
+     * La intención se registra antes del primer efecto y exige enlace: sin
+     * coordinador alcanzable no se toca nada, en lugar de dejar una operación
+     * a medias que después haya que compensar.
+     */
+    const started = await this.coordination?.begin({
+      kind: 'PURCHASE_RECEIPT_COMPLETION',
+      fingerprint: input.receiptId,
+      reason: input.reason
+    }, context);
+    if (started !== undefined && !started.ok) return err(started.error);
     try {
       return await executeIdempotentCommand({
         operation: 'CompletePurchaseReceipt', input, context, now, unitOfWork: this.unitOfWork,
@@ -314,8 +338,21 @@ export class CompletePurchaseReceipt {
               await this.receiptRepository.save(receipt);
               for (const item of items.values()) await this.stockItemRepository.save(item);
             },
-            allEvents, context, undefined, this.eventStore, undefined, [], this.auditWriter, audits
+            allEvents, context, undefined, this.eventStore, this.outbox, [], this.auditWriter, audits,
+            toStockAvailabilityPublications(items.values(), this.eventIdGenerator, now)
           );
+          /**
+           * La evidencia local se confirma en la misma transacción que los
+           * efectos: si el proceso cae aquí, la operación conserva su
+           * intención y la recuperación concilia esa misma, sin repetirla.
+           */
+          if (started !== undefined && started.ok) {
+            await this.coordination?.recordLocalEffect(
+              started.value.operationId,
+              allEvents.map(({ eventId }) => eventId),
+              context.originNodeId
+            );
+          }
           return ok(toPurchaseReceiptDto(receipt));
         },
         serialize, restore

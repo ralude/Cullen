@@ -90,4 +90,18 @@ export interface SyncInboxWorkStore {
   countPending(): Promise<number>;
   /** Trabajo sin aplicar de un consumidor concreto. */
   countPendingFor(consumer: string): Promise<number>;
+  /**
+   * Progreso de aplicación de un hecho. Es la lectura separada que ADR-0026 D2
+   * exige: el ACK de recepción conserva su resultado inmutable y el progreso
+   * comercial se consulta aparte. Un hecho sin consumidor implementado queda
+   * `APPLIED` en cuanto tiene custodia, porque no hay efecto que esperar.
+   */
+  applicationProgress(eventId: string): Promise<SyncApplicationProgress>;
 }
+
+/**
+ * Progreso de aplicación de un hecho ya recibido. `NONE` significa que este
+ * receptor no tiene custodia del evento; nunca se responde `APPLIED` por
+ * desconocerlo.
+ */
+export type SyncApplicationProgress = 'APPLIED' | 'PENDING' | 'NONE';

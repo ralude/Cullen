@@ -1,4 +1,5 @@
 import type {
+  SyncApplicationProgress,
   SyncDiscrepancyInput,
   SyncDiscrepancyRecord,
   SyncInboxWorkItem,
@@ -295,6 +296,27 @@ export class DrizzleSyncInboxWorkStore implements SyncInboxWorkStore {
       `).run(
         resolvedAt.getTime(), resolvedBy, reason, resolvedAt.getTime(), discrepancyId
       ).changes === 1;
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  /**
+   * Progreso de aplicación de un hecho. Sin custodia responde `NONE`: no
+   * conocerlo nunca equivale a haberlo aplicado. Con custodia y sin trabajo
+   * pendiente responde `APPLIED`, que también cubre a los contratos sin
+   * consumidor implementado, donde no hay efecto que esperar.
+   */
+  async applicationProgress(eventId: string): Promise<SyncApplicationProgress> {
+    try {
+      const custody = this.handle.sqlite.prepare(
+        'select count(*) from sync_inbox_event where event_id = ?'
+      ).pluck().get(eventId) as number;
+      if (custody === 0) return 'NONE';
+      const pending = this.handle.sqlite.prepare(
+        "select count(*) from sync_inbox_work where event_id = ? and state <> 'APPLIED'"
+      ).pluck().get(eventId) as number;
+      return pending === 0 ? 'APPLIED' : 'PENDING';
     } catch (error) {
       throw mapDatabaseError(error);
     }

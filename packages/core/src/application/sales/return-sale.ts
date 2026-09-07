@@ -32,6 +32,7 @@ import type {
   StockItemRepository,
   UnitOfWork
 } from '../ports/index.js';
+import type { CoordinatedStockOperations } from '../sync/coordinated-stock-operations.js';
 import type { ReturnSaleInput, SaleReturnDto } from './dtos.js';
 import { toSaleReturnDto } from './mappers.js';
 import { SALE_PERMISSIONS } from './permissions.js';
@@ -70,7 +71,13 @@ export class ReturnSale {
     private readonly eventStore: BusinessEventStore,
     private readonly outboxStore: OutboxStore,
     private readonly auditWriter: AuditWriter,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    /**
+     * Coordinación LAN. Procesar una devolución exige enlace con el
+     * coordinador antes del primer efecto (ADR-0026 D3); la nota sigue su
+     * flujo fiscal recuperable local y conserva `SIMULACION`.
+     */
+    private readonly coordination?: CoordinatedStockOperations
   ) {}
 
   async execute(
@@ -84,6 +91,12 @@ export class ReturnSale {
     if (!reason) {
       return err(new ApplicationError('SALE_RETURN_REASON_REQUIRED', 'Sale return reason is required.'));
     }
+    const started = await this.coordination?.begin({
+      kind: 'SALE_RETURN',
+      fingerprint: input.saleId,
+      reason
+    }, context);
+    if (started !== undefined && !started.ok) return err(started.error);
     try {
       /**
        * La intención comercial, la caja, el inventario, el ledger, el outbox,
@@ -98,7 +111,7 @@ export class ReturnSale {
         now: this.clock.now(),
         unitOfWork: this.unitOfWork,
         ...(this.idempotencyStore ? { idempotencyStore: this.idempotencyStore } : {}),
-        execute: () => this.registerReturn(input, reason, context),
+        execute: () => this.registerReturn(input, reason, context, started?.ok === true ? started.value.operationId : null),
         serialize: (output) => JSON.parse(JSON.stringify(output)) as JsonValue,
         restore: (value) => {
           const dto = value as unknown as SaleReturnDto & { occurredAt: string };
@@ -116,7 +129,8 @@ export class ReturnSale {
   private async registerReturn(
     input: ReturnSaleInput,
     reason: string,
-    context: ExecutionContext
+    context: ExecutionContext,
+    operationId: string | null
   ): Promise<Result<SaleReturnDto, AppError>> {
     const sale = await this.saleRepository.findById(input.saleId);
     if (sale === null || sale.terminalId !== context.terminalId ||
@@ -289,6 +303,18 @@ export class ReturnSale {
       this.auditWriter,
       [audit]
     );
+    /**
+     * La evidencia local se confirma con los efectos comerciales. Si el
+     * proceso cae aquí, la operación conserva su intención y la recuperación
+     * concilia esa misma sin reembolsar dos veces.
+     */
+    if (operationId !== null) {
+      await this.coordination?.recordLocalEffect(
+        operationId,
+        saleReturn.domainEvents.map(({ eventId }) => eventId),
+        context.originNodeId
+      );
+    }
     return ok(toSaleReturnDto(saleReturn, creditNote));
   }
 

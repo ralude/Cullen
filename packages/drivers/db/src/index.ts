@@ -50,3 +50,4 @@ export {
   DrizzleUnitOfMeasureRepository
 } from './repositories.js';
 export { SqliteSaleCostSnapshotProvider } from './sale-cost-snapshot-provider.js';
+export { SqliteCoordinatedOperationStore } from './coordinated-operation-store.js';

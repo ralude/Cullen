@@ -54,3 +54,12 @@ export type {
   SyncReferenceEntryDto,
   SyncReferenceFreshnessDto
 } from './delivery-use-cases.js';
+export { CoordinatedStockOperations } from './coordinated-stock-operations.js';
+export {
+  ListCoordinatedOperations,
+  toCoordinatedOperationDto
+} from './coordinated-stock-operations.js';
+export type {
+  CoordinatedOperationDto,
+  CoordinatedOperationStepDto
+} from './coordinated-stock-operations.js';

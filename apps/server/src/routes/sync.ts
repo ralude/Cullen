@@ -4,6 +4,7 @@ import {
   listPausedDeliveriesContract,
   listSyncDiscrepanciesContract,
   listSyncNodesContract,
+  listCoordinatedOperationsContract,
   publishCatalogBootstrapContract,
   publishOperatorGrantsContract,
   registerSyncNodeContract,
@@ -108,6 +109,21 @@ export const registerSyncRoutes = (
       ? reply.send(result.value)
       : sendProblem(reply, request, result.error.code, result.error.message);
   });
+
+  app.get<{ Params: { status: 'PENDING_RECONCILIATION' | 'COMPLETED' | 'NEEDS_REVIEW' } }>(
+    listCoordinatedOperationsContract.path, {
+      schema: listCoordinatedOperationsContract.schema as FastifySchema
+    }, async (request, reply) => {
+      const principal = await requirePrincipal(request, reply, dependencies);
+      if (!principal) return;
+      const result = await sync.listCoordinatedOperations.execute(
+        request.params.status,
+        createExecutionContext(request, principal, dependencies)
+      );
+      return result.ok
+        ? reply.send(result.value)
+        : sendProblem(reply, request, result.error.code, result.error.message);
+    });
 
   app.get<{ Params: { destinationNodeId: string } }>(getSyncStatusContract.path, {
     schema: getSyncStatusContract.schema as FastifySchema

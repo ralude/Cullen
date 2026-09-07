@@ -142,6 +142,7 @@ export type {
   SyncDiscrepancyInput,
   SyncDiscrepancyRecord,
   SyncInboxWorkItem,
+  SyncApplicationProgress,
   SyncInboxWorkStore,
   SyncNodeRegistration,
   SyncNodeRegistry,
@@ -149,4 +150,18 @@ export type {
   SyncQuarantineEntry,
   SyncReceptionStore,
   SyncSenderContext
+} from './application/ports/index.js';
+export { COORDINATED_OPERATION_KINDS } from './application/ports/index.js';
+export type {
+  BeginCoordinatedOperationInput,
+  CoordinatedOperationKind,
+  CoordinatedOperationRecord,
+  CoordinatedOperationStatus,
+  CoordinatedOperationStore,
+  CoordinatedStepName,
+  CoordinatedStepRecord,
+  CoordinatedStepState,
+  CoordinatorLink,
+  RemoteApplicationProbe,
+  RemoteApplicationState
 } from './application/ports/index.js';

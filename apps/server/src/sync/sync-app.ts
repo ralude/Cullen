@@ -6,7 +6,11 @@ import Fastify, {
   type FastifyReply,
   type FastifyRequest
 } from 'fastify';
-import type { application, SyncSenderContext } from '@supermarket/core';
+import type {
+  application,
+  SyncApplicationProgress,
+  SyncSenderContext
+} from '@supermarket/core';
 import {
   SYNC_LIMITS_V1,
   type ProblemDetails,
@@ -15,6 +19,7 @@ import {
 
 export const SYNC_EVENTS_ROUTE = '/sync/v1/events';
 export const SYNC_AGGREGATES_ROUTE = '/sync/v1/aggregates';
+export const SYNC_APPLICATIONS_ROUTE = '/sync/v1/applications';
 export const SYNC_DESTINATION_HEADER = 'x-sync-destination-node-id';
 
 export type SyncTransportDependencies = {
@@ -23,6 +28,12 @@ export type SyncTransportDependencies = {
   readonly resolveSender: application.ResolveSyncSender;
   readonly receiveSyncEvent: application.ReceiveSyncEvent;
   readonly registerOwnedAggregate: application.RegisterOwnedAggregate;
+  /**
+   * Progreso de aplicación, para que el origen de una operación distribuida
+   * concilie su intención consultando resultados en vez de repetir efectos.
+   * Ausente en una terminal, que no aplica hechos de otros nodos.
+   */
+  readonly applicationProgress?: (eventId: string) => Promise<SyncApplicationProgress>;
   readonly https?: {
     readonly key: string;
     readonly cert: string;
@@ -188,6 +199,34 @@ export const buildSyncApp = (dependencies: SyncTransportDependencies): FastifyIn
       .type('application/json')
       .send(result.value);
   });
+
+  /**
+   * Progreso de aplicación de un hecho ya recibido. Es la lectura separada que
+   * ADR-0026 D2 exige: el ACK v1 conserva su resultado de recepción inmutable y
+   * el progreso comercial se consulta aparte.
+   *
+   * Es de solo lectura: no reenvía el hecho ni confirma custodia, y un evento
+   * que este nodo no conoce responde `NONE`, nunca `APPLIED`. Se autentica como
+   * cualquier otra ruta: conocer un `eventId` no autoriza a consultarlo.
+   */
+  app.get<{ Params: { eventId: string } }>(
+    `${SYNC_APPLICATIONS_ROUTE}/:eventId`,
+    async (request, reply) => {
+      const sender = await authenticate(request, reply);
+      if (!sender) return reply;
+      if (!dependencies.applicationProgress) {
+        return sendProblem(reply, request, 'SYNC_ROUTE_NOT_FOUND',
+          'This node does not report application progress.', 404);
+      }
+      const eventId = request.params.eventId;
+      if (!/^[A-Za-z0-9_:.-]{1,128}$/.test(eventId)) {
+        return sendProblem(reply, request, 'SYNC_REQUEST_INVALID',
+          'The event identifier is malformed.', 400);
+      }
+      const progress = await dependencies.applicationProgress(eventId);
+      return reply.code(200).type('application/json').send({ eventId, progress });
+    }
+  );
 
   app.post(SYNC_EVENTS_ROUTE, async (request, reply) => {
     const sender = await authenticate(request, reply);

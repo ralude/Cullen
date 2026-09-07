@@ -1,4 +1,8 @@
-import type { application, ExecutionContext } from '@supermarket/core';
+import type {
+  application,
+  ExecutionContext,
+  RemoteApplicationProbe
+} from '@supermarket/core';
 
 export type SyncWorkerCycle = {
   /** Un ciclo por destino; cada uno conserva su claim y su progreso. */
@@ -27,6 +31,15 @@ export type SyncWorkerOptions = {
   readonly grants?: {
     readonly publisher: application.PublishOperatorGrants;
     readonly context: ExecutionContext;
+  };
+  /**
+   * Conciliación de las operaciones distribuidas del origen. Consulta al
+   * coordinador si ya aplicó los hechos del paso local; nunca reenvía nada, que
+   * es trabajo del relay y su política de retry.
+   */
+  readonly reconciliation?: {
+    readonly operations: application.CoordinatedStockOperations;
+    readonly probe: RemoteApplicationProbe;
   };
   readonly onError?: (error: unknown, destinationNodeId: string | null) => void;
 };
@@ -94,6 +107,18 @@ export class SyncWorker {
     if (!this.stopped && this.options.inbox) {
       try {
         processed += await this.options.inbox.runBatch(limit);
+      } catch (error) {
+        this.options.onError?.(error, null);
+      }
+    }
+    /**
+     * La conciliación va al final: si el ciclo acaba de entregar los hechos del
+     * paso local, la consulta ya puede encontrarlos aplicados.
+     */
+    if (!this.stopped && this.options.reconciliation) {
+      try {
+        await this.options.reconciliation.operations
+          .reconcile(this.options.reconciliation.probe);
       } catch (error) {
         this.options.onError?.(error, null);
       }

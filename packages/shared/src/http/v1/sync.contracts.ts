@@ -524,3 +524,97 @@ export const listSyncNodesContract = {
   },
   errorCodes: ['UNAUTHORIZED', 'FORBIDDEN', 'DATABASE_BUSY']
 } as const satisfies HttpContractV1;
+
+export type CoordinatedOperationStatusResponse =
+  | 'PENDING_RECONCILIATION'
+  | 'COMPLETED'
+  | 'NEEDS_REVIEW';
+
+export type CoordinatedOperationResponse = {
+  readonly operationId: string;
+  readonly kind: 'PURCHASE_RECEIPT_COMPLETION' | 'STOCK_COUNT_APPROVAL' | 'SALE_RETURN';
+  readonly status: CoordinatedOperationStatusResponse;
+  readonly fingerprint: string;
+  readonly coordinatorNodeId: string | null;
+  readonly reason: string;
+  readonly startedAt: string;
+  readonly updatedAt: string;
+  readonly steps: readonly {
+    readonly step: 'LOCAL_EFFECT' | 'COORDINATOR_EFFECT';
+    readonly state: 'PENDING' | 'APPLIED' | 'REJECTED';
+    readonly nodeId: string;
+    readonly recordedAt: string;
+  }[];
+};
+
+const coordinatedOperationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'operationId', 'kind', 'status', 'fingerprint', 'coordinatorNodeId', 'reason',
+    'startedAt', 'updatedAt', 'steps'
+  ],
+  properties: {
+    operationId: { type: 'string' },
+    kind: {
+      type: 'string',
+      enum: ['PURCHASE_RECEIPT_COMPLETION', 'STOCK_COUNT_APPROVAL', 'SALE_RETURN']
+    },
+    status: {
+      type: 'string',
+      enum: ['PENDING_RECONCILIATION', 'COMPLETED', 'NEEDS_REVIEW']
+    },
+    fingerprint: { type: 'string' },
+    coordinatorNodeId: { type: ['string', 'null'] },
+    reason: { type: 'string' },
+    startedAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+    steps: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['step', 'state', 'nodeId', 'recordedAt'],
+        properties: {
+          step: { type: 'string', enum: ['LOCAL_EFFECT', 'COORDINATOR_EFFECT'] },
+          state: { type: 'string', enum: ['PENDING', 'APPLIED', 'REJECTED'] },
+          nodeId: { type: 'string' },
+          recordedAt: { type: 'string' }
+        }
+      }
+    }
+  }
+} as const;
+
+/**
+ * Operaciones distribuidas de stock por estado. Hace visible el «pendiente de
+ * conciliación»: sin evidencia de todos los pasos obligatorios una operación no
+ * se presenta como exitosa, y un timeout nunca la cancela.
+ */
+export const listCoordinatedOperationsContract = {
+  method: 'GET',
+  path: '/api/v1/sync/coordinated-operations/:status',
+  permission: 'sync.reception.review',
+  idempotency: 'NONE',
+  schema: {
+    params: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['PENDING_RECONCILIATION', 'COMPLETED', 'NEEDS_REVIEW']
+        }
+      }
+    },
+    response: {
+      200: { type: 'array', items: coordinatedOperationSchema },
+      400: problemDetailsSchema,
+      401: problemDetailsSchema,
+      403: problemDetailsSchema,
+      503: problemDetailsSchema
+    }
+  },
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'DATABASE_BUSY']
+} as const satisfies HttpContractV1;

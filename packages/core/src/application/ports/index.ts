@@ -71,6 +71,7 @@ export type {
   UnitOfMeasureReference
 } from './catalog-reference-projection.js';
 export type {
+  SyncApplicationProgress,
   SyncDiscrepancyInput,
   SyncDiscrepancyRecord,
   SyncInboxWorkItem,
@@ -110,3 +111,19 @@ export type {
   FiscalPrinterStatus,
   FiscalReportPrintConfirmation
 } from './fiscal-printer-port.js';
+export { COORDINATED_OPERATION_KINDS } from './coordinated-operation-store.js';
+export type {
+  BeginCoordinatedOperationInput,
+  CoordinatedOperationKind,
+  CoordinatedOperationRecord,
+  CoordinatedOperationStatus,
+  CoordinatedOperationStore,
+  CoordinatedStepName,
+  CoordinatedStepRecord,
+  CoordinatedStepState
+} from './coordinated-operation-store.js';
+export type {
+  CoordinatorLink,
+  RemoteApplicationProbe,
+  RemoteApplicationState
+} from './coordinator-link.js';

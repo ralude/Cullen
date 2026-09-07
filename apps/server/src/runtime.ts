@@ -6,6 +6,7 @@ import {
   VerifySession,
   type Clock,
   type OutboxStore,
+  type SyncApplicationProgress,
   type SyncNodeRegistry,
   type UnitOfWork
 } from '@supermarket/core';
@@ -24,6 +25,7 @@ import {
   DrizzleSyncInboxWorkStore,
   SqliteCatalogReferenceProjection,
   SqliteCatalogReferenceSource,
+  SqliteCoordinatedOperationStore,
   SqliteOperatorGrantSource,
   SqliteSaleCostSnapshotProvider,
   DrizzleAggregateAuthorityRegistry,
@@ -69,6 +71,7 @@ import {
   type NodeIdentity
 } from '@supermarket/driver-security';
 import type { ServerDependencies } from './app.ts';
+import { ObservedCoordinatorLink } from './sync/coordinator-link.ts';
 
 export const ADMIN_PERMISSIONS = Object.freeze([
   ...Object.values(application.SALE_PERMISSIONS),
@@ -109,7 +112,11 @@ export type SecurityRuntime = {
     readonly processInbox: application.ProcessSyncInbox;
     /** Reemisión de concesiones del coordinador antes de cada ciclo de entrega. */
     readonly renewOperatorGrants: application.PublishOperatorGrants;
+    /** Progreso de aplicación que este nodo reporta al origen de una operación. */
+    readonly applicationProgress: (eventId: string) => Promise<SyncApplicationProgress>;
   };
+  /** Coordinación LAN de las operaciones que cambian stock. */
+  readonly coordinatedOperations: application.CoordinatedStockOperations;
 };
 
 export const createSecurityRuntime = (
@@ -118,7 +125,13 @@ export const createSecurityRuntime = (
   fiscalConfiguration: {
     readonly executionTarget?: string;
     readonly reportConsent?: string;
-  } = {}
+  } = {},
+  /**
+   * Coordinador de la tienda, si este nodo es una terminal. `null` es
+   * standalone: no se exige enlace y las operaciones conservan su atomicidad
+   * local existente.
+   */
+  coordinatorNodeId: string | null = null
 ): SecurityRuntime => {
   const handle = openDatabase(databasePath);
   applyMigrations(handle.sqlite);
@@ -170,6 +183,21 @@ export const createSecurityRuntime = (
   const aggregateAuthorities = new DrizzleAggregateAuthorityRegistry(handle);
   const syncInboxWork = new DrizzleSyncInboxWorkStore(handle);
   const syncConnectivity = new ObservedSyncConnectivity();
+  const referenceProjection = new SqliteCatalogReferenceProjection(handle);
+  /**
+   * Coordinacion LAN de las operaciones que cambian stock. En un nodo
+   * standalone no exige nada y la operacion queda completa con su paso local;
+   * en una terminal exige enlace antes del primer efecto y deja la intencion
+   * pendiente de conciliacion hasta tener evidencia de todos sus pasos.
+   */
+  const coordinatedOperations = new application.CoordinatedStockOperations(
+    new SqliteCoordinatedOperationStore(handle),
+    new ObservedCoordinatorLink(coordinatorNodeId, syncConnectivity, referenceProjection),
+    clock,
+    unitOfWork,
+    ids,
+    auditWriter
+  );
   const fiscalArguments = [
     fiscalDayRepository,
     fiscalPrinter,
@@ -203,6 +231,7 @@ export const createSecurityRuntime = (
         aggregateAuthorities, clock, unitOfWork, ids, auditWriter
       )
     },
+    coordinatedOperations,
     syncDelivery: {
       outboxStore,
       unitOfWork,
@@ -213,6 +242,7 @@ export const createSecurityRuntime = (
         new SqliteOperatorGrantSource(handle), outboxStore, authorization,
         clock, unitOfWork, ids, auditWriter
       ),
+      applicationProgress: (eventId) => syncInboxWork.applicationProgress(eventId),
       /**
        * El consumidor autoritativo del coordinador se une a la transaccion del
        * procesador y conserva el costo del origen: un hecho sincronizado no se
@@ -316,7 +346,8 @@ export const createSecurityRuntime = (
         returnSale: new application.ReturnSale(
           saleRepository, saleReturnRepository, fiscalDocumentRepository, shiftRepository,
           stockItemRepository, fiscalPrinter, authorization, ids, ids, ids, ids, ids, clock,
-          unitOfWork, eventStore, outboxStore, auditWriter, idempotencyStore
+          unitOfWork, eventStore, outboxStore, auditWriter, idempotencyStore,
+          coordinatedOperations
         ),
         setSaleRecipient: new application.SetSaleRecipient(
           saleRepository, ids, clock, unitOfWork, eventStore, idempotencyStore
@@ -368,7 +399,8 @@ export const createSecurityRuntime = (
         ),
         approve: new application.ApproveStockCount(
           stockCountRepository, stockItemRepository, authorization, ids, ids, ids,
-          clock, unitOfWork, eventStore, auditWriter, idempotencyStore, outboxStore
+          clock, unitOfWork, eventStore, auditWriter, idempotencyStore, outboxStore,
+          coordinatedOperations
         ),
         reject: new application.RejectStockCount(
           stockCountRepository, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
@@ -447,7 +479,8 @@ export const createSecurityRuntime = (
         ),
         complete: new application.CompletePurchaseReceipt(
           purchaseReceiptRepository, supplierRepository, stockItemRepository, authorization,
-          ids, ids, ids, clock, unitOfWork, eventStore, auditWriter, idempotencyStore
+          ids, ids, ids, clock, unitOfWork, eventStore, auditWriter, idempotencyStore,
+          outboxStore, coordinatedOperations
         ),
         reverse: new application.ReversePurchaseReceipt(
           purchaseReceiptRepository, stockItemRepository, authorization,
@@ -509,6 +542,9 @@ export const createSecurityRuntime = (
         listPaused: new application.ListPausedDeliveries(outboxStore, authorization),
         resumeDelivery: new application.ResumeSyncDelivery(
           outboxStore, authorization, clock, unitOfWork, ids, auditWriter
+        ),
+        listCoordinatedOperations: new application.ListCoordinatedOperations(
+          new SqliteCoordinatedOperationStore(handle), authorization
         ),
         listDiscrepancies: new application.ListSyncDiscrepancies(syncInboxWork, authorization),
         retryDiscrepancy: new application.RetrySyncDiscrepancy(

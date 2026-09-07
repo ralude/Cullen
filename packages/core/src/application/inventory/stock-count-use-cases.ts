@@ -16,6 +16,7 @@ import type {
   UnitOfWork
 } from '../ports/index.js';
 import { toStockAvailabilityPublications } from './stock-availability-publications.js';
+import type { CoordinatedStockOperations } from '../sync/coordinated-stock-operations.js';
 import type {
   ApproveStockCountInput,
   CloseStockCountInput,
@@ -253,13 +254,21 @@ export class ApproveStockCount {
     private readonly auditWriter: AuditWriter,
     private readonly idempotencyStore?: IdempotencyStore,
     /** Salida del coordinador: publica la disponibilidad informativa del ítem. */
-    private readonly outbox?: OutboxStore
+    private readonly outbox?: OutboxStore,
+    /** Coordinación LAN: aprobar un conteo exige enlace (ADR-0026 D3). */
+    private readonly coordination?: CoordinatedStockOperations
   ) {}
 
   async execute(input: ApproveStockCountInput, context: ExecutionContext): Promise<Result<StockCountDto, AppError>> {
     if (!(await this.authorization.authorize(context, INVENTORY_PERMISSIONS.APPROVE_COUNT))) {
       return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to approve a stock count.'));
     }
+    const started = await this.coordination?.begin({
+      kind: 'STOCK_COUNT_APPROVAL',
+      fingerprint: input.stockCountId,
+      reason: input.reason
+    }, context);
+    if (started !== undefined && !started.ok) return err(started.error);
     try {
       const occurredAt = this.clock.now();
       return await executeIdempotentCommand({
@@ -274,6 +283,8 @@ export class ApproveStockCount {
           }
           const differences = count.approve(context.actorId, occurredAt);
           let adjustmentsCreated = 0;
+          /** Hechos con los que la reconciliación pregunta al coordinador. */
+          const approvalEventIds: string[] = [];
           for (const difference of differences) {
             if (difference.differenceScaled === 0) continue;
             const item = await this.stockItemRepository.findById(difference.stockItemId);
@@ -301,6 +312,9 @@ export class ApproveStockCount {
               }],
               toStockAvailabilityPublications([item], this.eventIdGenerator, occurredAt)
             );
+            approvalEventIds.push(
+              ...item.domainEvents.slice(previousEventCount).map(({ eventId }) => eventId)
+            );
             adjustmentsCreated += 1;
           }
           await this.repository.save(count);
@@ -314,6 +328,18 @@ export class ApproveStockCount {
             reason: input.reason, terminalId: context.terminalId, originNodeId: context.originNodeId,
             occurredAt, correlationId: context.correlationId
           }]);
+          /**
+           * La evidencia local se confirma con los efectos: si el proceso cae
+           * aquí, la operación conserva su intención y la recuperación concilia
+           * esa misma en lugar de aprobar el conteo dos veces.
+           */
+          if (started !== undefined && started.ok) {
+            await this.coordination?.recordLocalEffect(
+              started.value.operationId,
+              approvalEventIds,
+              context.originNodeId
+            );
+          }
           return ok(dto);
         },
         serialize: serializeStockCountDto,
