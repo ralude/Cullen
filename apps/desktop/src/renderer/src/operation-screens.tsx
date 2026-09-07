@@ -13,6 +13,7 @@ import { SalesScreen } from './screens/sales.js';
 import { SuppliersScreen } from './screens/suppliers.js';
 import { StockCountsScreen } from './screens/stock-counts.js';
 import { ConfigScreen } from './screens/config.js';
+import { SyncScreen } from './screens/sync.js';
 import type { ScreenProps } from './screens/shared.js';
 
 export const routeScreen = (routeId: string, props: ScreenProps): React.JSX.Element | null => {
@@ -25,6 +26,7 @@ export const routeScreen = (routeId: string, props: ScreenProps): React.JSX.Elem
   if (routeId === 'config') return <ConfigScreen {...props} />;
   if (routeId === 'reports') return <ReportsScreen {...props} />;
   if (routeId === 'rates') return <CurrencyScreen {...props} />;
+  if (routeId === 'sync') return <SyncScreen {...props} />;
   return null;
 };
 
@@ -46,6 +48,10 @@ export { ConfigScreen, canManageConfig, DEVICE_TYPE_LABELS } from './screens/con
 export {
   ReportsScreen, loadOperationalReports, toCsv, toReportQuery, type OperationalReports
 } from './screens/reports.js';
+export {
+  SyncScreen, canReviewSync, referenceAge, referenceRows, validityLabel,
+  SYNC_STATUS_HINTS, SYNC_STATUS_LABELS
+} from './screens/sync.js';
 export {
   CurrencyScreen, ageLabel, confirmManualRate, loadCurrentAndHistory, loadSuggestion,
   suggestionToManualForm, type CurrencyPairReads, type ManualRateForm

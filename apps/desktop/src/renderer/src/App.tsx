@@ -25,7 +25,9 @@ import {
   type SessionResponse
 } from '@supermarket/shared';
 import { ApiProblemError, createDesktopApi, type DesktopApi, type OperationApi } from './api-client.js';
-import { canManageConfig, canManageSuppliers, canWorkOnStockCounts, routeScreen } from './operation-screens.js';
+import {
+  canManageConfig, canManageSuppliers, canReviewSync, canWorkOnStockCounts, routeScreen
+} from './operation-screens.js';
 
 export const PRODUCT_NAME = 'Cullen';
 
@@ -128,6 +130,12 @@ const ROUTES: readonly AppRoute[] = [
     isReachable: canManageConfig
   },
   {
+    id: 'sync', hash: '#/sync', label: 'Sync', title: 'Sincronización entre nodos',
+    shortcut: 's',
+    description: 'Estado del enlace, antigüedad de las referencias y operaciones pendientes.',
+    isReachable: canReviewSync
+  },
+  {
     id: 'rates', hash: '#/rates', label: 'Tasas', title: 'Tasas de cambio', shortcut: '9',
     description: 'Tasa vigente, histórico local y confirmación de sugerencias externas.',
     isReachable: (permissionCodes) => isPermissionGranted(
@@ -146,7 +154,7 @@ const NAVIGATION_GROUPS: readonly NavigationGroup[] = [
   { label: 'Caja', routes: ROUTES.filter(({ id }) => ['sales', 'cash', 'catalog'].includes(id)) },
   { label: 'Inventario', routes: ROUTES.filter(({ id }) => ['inventory', 'suppliers', 'counts'].includes(id)) },
   { label: 'Administración', routes: ROUTES.filter(({ id }) => ['config', 'rates'].includes(id)) },
-  { label: 'Supervisión y gerencia', routes: ROUTES.filter(({ id }) => id === 'reports') }
+  { label: 'Supervisión y gerencia', routes: ROUTES.filter(({ id }) => ['reports', 'sync'].includes(id)) }
 ];
 
 export const resolveRoute = (hash: string): AppRoute =>

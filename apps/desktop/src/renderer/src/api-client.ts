@@ -34,6 +34,9 @@ import {
   removeSaleItemContract,
   setSaleRecipientContract,
   listCashRegistersContract,
+  getSyncStatusContract,
+  listSyncNodesContract,
+  listCoordinatedOperationsContract,
   listCategoriesContract,
   listPaymentMethodsContract,
   listUnitsOfMeasureContract,
@@ -143,6 +146,9 @@ import {
   type ActivateTaxPolicyRequest,
   type PolicyActivationResponse,
   type CashRegisterResponse,
+  type CoordinatedOperationResponse,
+  type SyncDestinationStatusResponse,
+  type SyncNodeResponse,
   type CategoryResponse,
   type PaymentMethodResponse,
   type UnitOfMeasureResponse
@@ -541,6 +547,25 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
   ),
   listCashRegisters: (): Promise<readonly CashRegisterResponse[]> => requestJson(
     fetcher, listCashRegistersContract.path, { method: listCashRegistersContract.method }
+  ),
+  /**
+   * Estado de sincronización de un destino y antigüedad de sus referencias. Es
+   * una lectura: consultarla no confirma ninguna entrega.
+   */
+  getSyncStatus: (destinationNodeId: string): Promise<SyncDestinationStatusResponse> => requestJson(
+    fetcher,
+    path(getSyncStatusContract.path, destinationNodeId),
+    { method: getSyncStatusContract.method }
+  ),
+  listSyncNodes: (): Promise<readonly SyncNodeResponse[]> => requestJson(
+    fetcher, listSyncNodesContract.path, { method: listSyncNodesContract.method }
+  ),
+  listCoordinatedOperations: (
+    status: 'PENDING_RECONCILIATION' | 'COMPLETED' | 'NEEDS_REVIEW'
+  ): Promise<readonly CoordinatedOperationResponse[]> => requestJson(
+    fetcher,
+    path(listCoordinatedOperationsContract.path, status),
+    { method: listCoordinatedOperationsContract.method }
   )
 });
 
