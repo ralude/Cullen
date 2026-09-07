@@ -1,7 +1,8 @@
 # 10.03, corte 0: distribución de referencias operativas
 
 - Fecha: 2026-09-06.
-- Estado: **especificación aprobada e implementada el 2026-09-06** en cinco pasos.
+- Estado: **especificación aprobada e implementada**; el conjunto cerrado quedó completo el
+  2026-09-07 con concesiones, disponibilidad, costo y los consumidores comerciales.
 - Autoridad: [AGENTS.md](../../../AGENTS.md),
   [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) y
   [ADR-0023](../../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md).
@@ -420,14 +421,21 @@ renovación son el mismo caso de uso y el mismo contrato.
 
 ### Criterios antes de continuar con disponibilidad
 
-- [ ] Emitir una concesión asigna la versión siguiente del operador y encola exactamente una
-  publicación en la misma transacción; los permisos viajan sin credenciales.
-- [ ] La terminal aplica la concesión, descarta una versión atrasada y recorta un `expiresAt`
-  que exceda las ocho horas de la emisión.
-- [ ] Una concesión vencida deniega sesión nueva y acción protegida aunque la sesión local
-  siga dentro de sus límites de ADR-0011; atrasar el reloj no amplía la ventana.
-- [ ] Una concesión `INACTIVE` deniega igual que una vencida y conserva la fila con su
-  historia; el bootstrap incluye operadores activos e inactivos.
+- [x] ~~Emitir una concesión asigna la versión siguiente del operador y encola exactamente una
+  publicación en la misma transacción; los permisos viajan sin credenciales.~~
+- [x] ~~La terminal aplica la concesión, descarta una versión atrasada y recorta un `expiresAt`
+  que exceda las ocho horas de la emisión.~~
+- [x] ~~Una concesión vencida deniega sesión nueva y acción protegida aunque la sesión local
+  siga dentro de sus límites de ADR-0011; atrasar el reloj no amplía la ventana.~~
+- [x] ~~Una concesión `INACTIVE` deniega igual que una vencida y conserva la fila con su
+  historia; el bootstrap incluye operadores activos e inactivos.~~
+
+**Implementado el 2026-09-07:** migración `0036` con la versión monotónica de concesión por
+operador y la proyección `identity_operator_grant`; `PublishOperatorGrants` como productor y
+como renovación programada del worker; consumidor por la ruta de referencias; y aplicación de
+la vigencia en autenticación, verificación de sesión y autorización. La vigencia se evalúa
+contra el instante durable más alto observado por el nodo, de modo que atrasar el reloj del
+equipo no amplía una concesión.
 
 ## Corte siguiente: disponibilidad informativa
 
@@ -486,14 +494,19 @@ de publicación.
 
 ### Criterios de cierre del conjunto
 
-- [ ] Recepción, ajuste, conteo aprobado y venta sincronizada publican exactamente una
-  disponibilidad por ítem afectado, en la transacción del cambio.
-- [ ] La terminal proyecta el saldo en una tabla propia, con su versión y antigüedad; una
-  publicación atrasada no lo retrocede y una reentrega no lo duplica.
-- [ ] La proyección no altera `stock_items` ni participa en ningún saldo local, y una
-  disponibilidad nunca impide completar una venta offline.
-- [ ] El bootstrap publica el saldo de todos los ítems, incluido el saldo cero con versión uno, y una
-  interrupción antes del commit no deja un corte parcial.
+- [x] ~~Recepción, ajuste, conteo aprobado y venta sincronizada publican exactamente una
+  disponibilidad por ítem afectado, en la transacción del cambio.~~
+- [x] ~~La terminal proyecta el saldo en una tabla propia, con su versión y antigüedad; una
+  publicación atrasada no lo retrocede y una reentrega no lo duplica.~~
+- [x] ~~La proyección no altera `stock_items` ni participa en ningún saldo local, y una
+  disponibilidad nunca impide completar una venta offline.~~
+- [x] ~~El bootstrap publica el saldo de todos los ítems, incluido el saldo cero con versión uno, y una
+  interrupción antes del commit no deja un corte parcial.~~
+
+**Implementado el 2026-09-07:** contrato con dependencia de `Product`, productor en los cuatro
+caminos de movimiento del coordinador —recepción, ajuste, conteo aprobado y venta
+sincronizada—, proyección `stock_availability_reference` con versión y antigüedad, y bootstrap
+incluido en el corte inicial. Con esto el conjunto cerrado del corte 0 queda completo.
 
 ## Costo conocido al vender
 
@@ -542,12 +555,17 @@ un costo ausente en cero y no se revaloriza ninguna salida histórica.
 
 ### Criterios
 
-- [ ] La terminal congela el costo publicado por su coordinador, con versión, procedencia y
-  fecha; sin disponibilidad publicada usa su promedio local y sin evidencia queda en `null`.
-- [ ] El coordinador aplica el costo recibido y no su promedio vigente, aunque haya comprado
-  más caro entre la venta y su recepción.
-- [ ] Un costo con procedencia ajena no se acepta y no se sustituye por el promedio local.
-- [ ] Un hecho `SaleCompleted.v1` sigue siendo aceptado y se aplica con costo desconocido.
+- [x] ~~La terminal congela el costo publicado por su coordinador, con versión, procedencia y
+  fecha; sin disponibilidad publicada usa su promedio local y sin evidencia queda en `null`.~~
+- [x] ~~El coordinador aplica el costo recibido y no su promedio vigente, aunque haya comprado
+  más caro entre la venta y su recepción.~~
+- [x] ~~Un costo con procedencia ajena no se acepta y no se sustituye por el promedio local.~~
+- [x] ~~Un hecho `SaleCompleted.v1` sigue siendo aceptado y se aplica con costo desconocido.~~
+
+**Implementado el 2026-09-07:** migración `0037` con el snapshot por línea de venta y el costo
+en la disponibilidad proyectada; `ProductSnapshot` congela el costo al agregar la línea;
+`SaleCompleted.v2` lo transporta y la v1 permanece intacta y aceptada; el receptor solo acepta
+un costo cuya procedencia es su autoridad de costo.
 
 ## Consumidores de ventas, caja y fiscalidad en el coordinador
 
@@ -596,8 +614,22 @@ Una representación fiscal proyectada conserva su rótulo `SIMULACION`, como el 
 
 ### Criterios
 
-- [ ] Los ocho contratos declaran consumidor implementado y su hecho pasa a `APPLIED`.
-- [ ] Reentregar cualquiera de ellos no duplica filas ni totales de la proyección.
-- [ ] Una devolución entregada antes que su venta espera y se aplica al resolverse.
-- [ ] El coordinador no escribe `sales`, `shifts`, `cash_movements` ni `fiscal_documents` al
-  aplicar un hecho remoto, y no emite ni reimprime ningún documento fiscal.
+- [x] ~~Los ocho contratos declaran consumidor implementado y su hecho pasa a `APPLIED`.~~
+- [x] ~~Reentregar cualquiera de ellos no duplica filas ni totales de la proyección.~~
+- [x] ~~Una devolución entregada antes que su venta espera y se aplica al resolverse.~~
+- [x] ~~El coordinador no escribe `sales`, `shifts`, `cash_movements` ni `fiscal_documents` al
+  aplicar un hecho remoto, y no emite ni reimprime ningún documento fiscal.~~
+
+**Implementado el 2026-09-07:** migración `0039` con las cuatro proyecciones `sync_*`,
+consumidor `COMMERCIAL_PROJECTION` compuesto en el coordinador y pruebas de idempotencia,
+dependencia y aislamiento respecto de las tablas operativas.
+
+Dos correcciones aparecieron al darles consumidor y quedan registradas aquí porque cambian
+una decisión previa:
+
+- `CashMovementRegistered` **deja de declarar `Sale` como dependencia**. Un movimiento de caja
+  es un hecho del turno que referencia una venta, y la venta depende de ese mismo turno:
+  declararlo creaba un ciclo en el que ambos esperaban indefinidamente. La referencia sigue
+  viajando en el payload y se proyecta tal cual.
+- Un cierre de turno que llega antes que su apertura **ya no se descarta en silencio**: informa
+  que falta la apertura y espera, en lugar de darse por proyectado y perder el cierre.

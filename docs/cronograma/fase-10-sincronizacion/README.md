@@ -1,8 +1,11 @@
 # Fase 10: Sincronizacion
 
-- **Estado:** En progreso — 10.01 y 10.02 completadas; 10.03 y 10.04 con implementación parcial desde el 2026-09-06
+- **Estado:** En progreso — 10.01 y 10.02 cerradas; 10.03 y 10.04 abiertas en la coordinación
+  remota de compra, conteo y devolución
 - **Indice:** [Cronograma](../README.md)
 - **Precedida por:** [Fase 9B - Perfiles operativos](../fase-09b-perfiles/README.md), insertada por la [replanificacion del 2026-09-04](../replanificacion-fase-09b.md)
+- **Siguiente:** [Fase 11 - Seguridad](../fase-11-seguridad/README.md), bloqueada hasta cerrar
+  10.03 y 10.04
 
 ## Proposito
 
@@ -12,13 +15,10 @@ Permitir operacion offline-first entre terminales autonomas y el nodo coordinado
 
 - [~~10.01 Sync queue~~](./10.01-sync-queue.md) — **completada 2026-09-05**
 - [~~10.02 Protocolo de eventos~~](./10.02-protocolo-eventos.md) — **completada 2026-09-06**
-- [10.03 Servidor receptor](./10.03-servidor-receptor.md) — **en progreso**: recepción durable,
-  transporte autenticado, aplicación de inventario con discrepancias, entrega por destino y el
-  vertical de catálogo, métodos de pago, políticas y tasas con su corte inicial implementados;
-  concesiones y disponibilidad siguen abiertas
-- [10.04 Offline y reconexion](./10.04-offline-reconexion.md) — **en progreso**: cliente,
-  worker, retry/pausa/reanudación y lectura de estado implementados; antigüedad de
-  referencias, UI y parte de los escenarios de corte abiertos
+- [10.03 Servidor receptor](./10.03-servidor-receptor.md) — **en progreso**: falta el efecto
+  remoto autoritativo de compra, conteo y devolución
+- [10.04 Offline y reconexion](./10.04-offline-reconexion.md) — **en progreso**: falta probar
+  el escenario 11 sobre esos pasos reales
 
 ## Ejecución
 
@@ -28,52 +28,56 @@ al menos una vez.
 
 El [plan de 10.02](./plan-10.02-protocolo-eventos.md) se ejecutó el 2026-09-06 y sus decisiones
 quedaron aceptadas en [ADR-0023](../../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md):
-sobre versionado, catálogo cerrado de los once contratos existentes, ownership verificado,
-deduplicación por `eventId`, clasificación de confirmaciones y aislamiento durable `BLOCKED` de
-la salida local. Todo se probó con fixtures de productores reales, estado receptor fake y SQLite
-real; no se abrieron conexiones ni se aplicaron efectos comerciales remotos. La siguiente
-sub-fase es 10.03, servidor receptor.
+versionado, catálogo cerrado de contratos, ownership verificado, deduplicación por `eventId`,
+clasificación de confirmaciones y aislamiento durable `BLOCKED` de la salida local.
 
-### Planificación restante, 2026-09-06
+La [secuencia 10.03 → 10.04](./plan-secuencia-y-decisiones.md) se planificó el 2026-09-06 con
+las decisiones D1–D8 registradas en
+[ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), y se
+ejecutó entre el 2026-09-06 y el 2026-09-07 según los planes de
+[10.03](./plan-10.03-servidor-receptor.md), su
+[corte 0 de referencias](./plan-10.03-corte-0-referencias.md) y
+[10.04](./plan-10.04-offline-reconexion.md).
 
-La secuencia es **10.03 → 10.04**, con criterios de aceptación y cortes fuera de implementación:
+## Lo que la fase entrega
 
-- [Decisiones y gates de activación](./plan-secuencia-y-decisiones.md).
-- [Plan 10.03: receptor y base operativa LAN](./plan-10.03-servidor-receptor.md).
-- [Plan 10.04: operación offline y reconexión](./plan-10.04-offline-reconexion.md).
+- **Confianza y transporte.** Registro confiable de nodos con alta y revocación auditadas;
+  HTTPS con autenticación mutua y TLS 1.3 en un listener técnico separado, dentro del proceso
+  dueño de SQLite. La API de operadores conserva loopback y sus sesiones.
+- **Custodia durable.** Deduplicación por `eventId`, autoridad de agregado verificada antes de
+  responder incluso a un duplicado, cuarentena de entradas incompatibles y ACK solo después
+  del commit.
+- **Aplicación recuperable.** Tres consumidores compuestos —inventario autoritativo,
+  referencias y consolidación comercial—, con efecto y progreso en la misma transacción,
+  dependencias realmente aplicadas y discrepancia única por evento y consumidor.
+- **Referencias operativas.** Conjunto cerrado completo: catálogo con precios e impuestos,
+  categorías, unidades, métodos de pago, políticas operativas, tasas confirmadas, concesiones
+  de operador y disponibilidad informativa, cada una con contrato, productor transaccional,
+  consumidor y corte inicial reanudable.
+- **Infraestructura de operación distribuida de stock.** Compras completadas, conteos aprobados
+  y devoluciones registran su intención antes del primer efecto y exigen enlace con el
+  coordinador; sin evidencia de todos sus pasos quedan pendientes de conciliación y visibles.
+- **Costo conocido al vender.** Se congela junto al precio y al impuesto y viaja en
+  `SaleCompleted.v2` con su procedencia; una compra posterior del coordinador no lo revaloriza.
+- **Operación offline.** Concesiones de ocho horas, retry con pausa durable y reanudación
+  autorizada, y estado visible con la antigüedad real de cada referencia.
 
-El usuario confirmó LAN operativa completa, nodos nuevos de prueba y alta manual auditable
-de confianza. Se incorporan explícitamente contratos/productores faltantes, consumidores,
-bootstrap y entrega independiente por terminal; la migración de tiendas existentes queda
-como gate separado. Las preguntas de negocio quedaron resueltas y registradas en
-[ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md): operaciones
-de stock conectadas y recuperables, concesiones de ocho horas, costo conocido al vender y
-pausa con reanudación manual tras diez intentos. El corte 0 desarrolla sus contratos de detalle.
-No se adelanta Fase 11.
+## Lo que falta para cerrar la fase
 
-### Implementación del 2026-09-06
+No se presenta como disponible:
 
-Se ejecutaron los cortes 1–4 de 10.03 —recepción durable, transporte autenticado, aplicación
-de inventario con discrepancias, entrega por destino y el vertical completo de catálogo con su
-corte inicial, métodos de pago, políticas operativas y tasas confirmadas— y los cortes 1–2 de
-10.04 con parte de
-los cortes 3–4.
-Migraciones 0028–0035,
-transporte HTTPS con autenticación mutua real en pruebas, coordinador y dos terminales con
-SQLite independiente y listener propio.
-
-Sigue **abierto** y no debe presentarse como listo para operar:
-
-- contratos, productores y consumidores de las referencias que faltan —concesiones y
-  disponibilidad—; catálogo, categorías, unidades, métodos de pago, políticas operativas y
-  tasas confirmadas ya se distribuyen con corte inicial reanudable;
-- consumidores de caja, fiscalidad y ventas del coordinador;
-- coordinación LAN de compras, aprobaciones de conteo y devoluciones;
-- concesiones offline de ocho horas y sus restricciones en backend;
-- `SaleCompleted` con snapshot de costo: los v1 recibidos conservan costo desconocido en
-  lugar de tomar el promedio del coordinador;
-- presentación de estado y antigüedad en `apps/desktop`;
-- cinco de los once escenarios de corte del plan de 10.04.
+- Los **efectos remotos autoritativos** de compra, conteo y devolución. La infraestructura de
+  intención y conciliación existe, pero los hechos que compra/conteo guardan como evidencia no
+  se transportan y `SaleReturned.v1` solo alimenta la proyección comercial. Debe especificarse
+  primero el orden de pasos por operación.
+- La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos:
+  la operación queda `NEEDS_REVIEW` con la evidencia de cada paso.
+- La **administración de usuarios y roles**, que pertenece a 11.02. Las concesiones distribuyen
+  la autorización existente; no la editan.
+- La **incorporación de tiendas con historia**, que necesita su plan de migración y
+  conciliación.
+- El **piloto o la producción**: el hardware fiscal sigue siendo fake y toda representación
+  fiscal conserva `SIMULACION`.
 
 ## Criterio de salida
 

@@ -17,8 +17,8 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 8 | Integracion serial | Suspendida por dependencia externa |
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | Perfiles 9B.14–9B.18 y configuración 9B.10 completados 2026-09-05; 9B.08 diferida y 9B.09 trasladada a Fase 11 |
-| 10 | Sincronizacion | En progreso; 10.01 y 10.02 completadas; 10.03 y 10.04 parciales (2026-09-06) |
-| 11 | Seguridad | Pendiente (corte minimo pre-UI adelantado) |
+| 10 | Sincronizacion | En progreso; 10.01 y 10.02 completadas; 10.03/10.04 abiertas en la coordinación remota de stock |
+| 11 | Seguridad | Pendiente; bloqueada hasta cerrar Fase 10 |
 | 12 | Optimizacion | Pendiente |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
@@ -28,26 +28,25 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
 **Fase actual:** Fase 10 - Sincronización
-**Trabajo actual:** 10.01 quedó completada el 2026-09-05 con outbox durable ordenado por
-agregado, claims generacionales y recuperación tras reinicio. 10.02 quedó completada el
-2026-09-06 según su [plan](./fase-10-sincronizacion/plan-10.02-protocolo-eventos.md) y
-[ADR-0023](../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md): sobre versionado,
-catálogo cerrado de los once contratos existentes, ownership verificado, deduplicación por
-`eventId`, clasificación de confirmaciones y aislamiento durable de la salida local.
+**Trabajo actual:** 10.01 entregó el outbox
+durable ordenado por agregado con claims generacionales; 10.02 el protocolo de eventos de
+[ADR-0023](../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md); 10.03 el servidor
+receptor y la base operativa LAN; y 10.04 la operación offline con reconexión.
 
-El 2026-09-06 se implementaron además los cortes 1–4 de 10.03 y los cortes 1–2 de 10.04:
-recepción durable con custodia y trabajo transaccionales, registro confiable de nodos,
-transporte `POST /sync/v1/events` sobre HTTPS con autenticación mutua, alta delegada de
-agregados creados sin conexión, aplicación recuperable de inventario con discrepancias
-auditables, entrega con estado por destino, worker con retry acotado, pausa durable y
-reanudación autorizada, lectura de estado de sincronización y la distribución del catálogo
-con su corte inicial reanudable, incluidos métodos de pago y políticas operativas. Migraciones
-0028–0035; las tasas confirmadas también tienen publicación, proyección y bootstrap por par.
-**10.03 y 10.04 siguen abiertas**: faltan las referencias restantes —concesiones y
-disponibilidad—, los consumidores de
-caja/fiscalidad/ventas, la coordinación LAN de compras, conteos y devoluciones, las
-concesiones offline, la presentación en UI y cinco de los once escenarios de corte.
-Fase 11 permanece pendiente.
+El cierre incluye: registro confiable de nodos con alta y revocación auditadas; transporte
+HTTPS con autenticación mutua en un listener técnico separado; custodia durable con
+deduplicación, cuarentena y ACK posterior al commit; tres consumidores compuestos —inventario
+autoritativo, referencias y consolidación comercial—; el conjunto cerrado de referencias con
+catálogo, categorías, unidades, métodos de pago, políticas operativas, tasas confirmadas,
+concesiones de operador y disponibilidad informativa; el costo conocido al vender con
+`SaleCompleted.v2`; la infraestructura durable de intención, paso y consulta de progreso; y el
+estado visible con la antigüedad real de cada referencia. Migraciones 0028–0039.
+
+10.03 y 10.04 siguen abiertas: faltan los efectos remotos autoritativos de compra, conteo y
+devolución y el escenario de caída entre sus pasos reales. La implementación actual registra
+evidencia que el coordinador no recibe, por lo que esas intenciones no pueden completarse. La
+compensación explícita de un rechazo definitivo conserva un gate separado. Tampoco se adelantan
+la administración de usuarios y roles de 11.02, tiendas con historia, piloto ni producción.
 
 El 2026-09-06 se planificó la secuencia restante **10.03 → 10.04** en el
 [registro de decisiones y gates](./fase-10-sincronizacion/plan-secuencia-y-decisiones.md),
@@ -55,7 +54,8 @@ con planes de [receptor LAN](./fase-10-sincronizacion/plan-10.03-servidor-recept
 [operación offline/reconexión](./fase-10-sincronizacion/plan-10.04-offline-reconexion.md).
 El usuario confirmó LAN operativa completa, nodos nuevos de prueba y alta manual auditable
 de confianza. La planificación incorpora las brechas de referencias, bootstrap y entrega
-por terminal de ADR-0023; no declara código implementado ni habilita Fase 11.
+por terminal de ADR-0023. Esa planificación se ejecutó salvo el flujo remoto de D3, reabierto
+por la auditoría del 2026-09-07.
 Las preguntas de negocio se resolvieron en la misma sesión y quedaron en
 [ADR-0026](../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado para
 el MVP de prueba: operaciones de stock conectadas con conciliación recuperable, concesiones

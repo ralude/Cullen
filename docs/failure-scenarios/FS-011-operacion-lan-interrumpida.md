@@ -2,12 +2,12 @@
 
 ## Respaldo actual
 
-**Decidido, pendiente de implementación e integración.**
+**Implementado parcialmente al 2026-09-07; no habilitado como flujo LAN completo.**
 [ADR-0026, D3](../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) aprueba
 conexión inicial para compras, aprobación de conteos y devoluciones, e intención pendiente
-de conciliación ante interrupción. Hoy los flujos existentes son locales; no hay pruebas
-de coordinación comercial entre dos SQLite. 10.03 especifica e implementa los pasos y
-10.04 prueba su interrupción en una LAN con nodos independientes.
+de conciliación ante interrupción. Existen intención durable, estado por paso, restricción de
+enlace, lectura visible y consulta autenticada de progreso. Falta implementar el efecto remoto
+autoritativo de cada operación y probar la interrupción en sus fronteras reales.
 
 ## Riesgo
 
@@ -49,12 +49,16 @@ estados fiscales ni habilita emisión legal.
 
 ## Garantía e invariantes
 
-Garantía objetivo aceptada: cada efecto corresponde a una intención/paso durable y puede
-reconciliarse sin duplicación; no se promete commit atómico entre dos bases. Standalone
-mantiene la atomicidad local vigente de FS-006 y de los documentos de compra/conteo.
+Garantía vigente de la infraestructura: una intención y sus pasos registrados sobreviven al
+reinicio y solo se cierran al consultar evidencia `APPLIED`; no se promete commit atómico entre
+dos bases. Standalone mantiene la atomicidad local vigente de FS-006 y de los documentos de
+compra/conteo.
 
-**Brecha:** faltan contratos concretos, estados y pruebas de caída en cada frontera. Esta
-ficha no acredita que la garantía distribuida exista hoy ni permite activar esos flujos.
+**Brecha:** compra y conteo registran hechos locales que no se transportan al coordinador, y
+`SaleReturned.v1` solo actualiza la proyección comercial. Falta definir e implementar el orden
+exacto de los efectos locales/remotos y su idempotencia por operación. Un rechazo comercial
+definitivo después de efectos previos queda `NEEDS_REVIEW`; la compensación explícita tampoco
+está automatizada.
 
 ## Retry
 
@@ -90,7 +94,7 @@ Casos de uso de compra, conteo, devolución, caja e inventario; coordinación de
 puertos de intención/resultado; drivers DB/transporte; outbox/inbox, auditoría, API local,
 renderer y `FiscalPrinterFake`.
 
-## Pruebas requeridas
+## Pruebas
 
 - Caída antes/después de cada commit y antes/después de cada ACK de cada flujo.
 - Reinicio de ambos nodos, reentrega y dos solicitudes de la misma intención.
@@ -99,8 +103,12 @@ renderer y `FiscalPrinterFake`.
 - Costo cambiado entre venta y recepción; conservar snapshot y costo desconocido explícito.
 - Pendiente visible, recuperación autorizada y ausencia de doble stock/reintegro/impresión.
 
-Son criterios de [10.03](../cronograma/fase-10-sincronizacion/plan-10.03-servidor-receptor.md)
-y [10.04](../cronograma/fase-10-sincronizacion/plan-10.04-offline-reconexion.md), todavía sin cobertura.
+La persistencia y reconciliación genéricas están cubiertas por
+`packages/drivers/db/src/coordinated-operations.integration.test.ts`; el transporte real de la
+consulta, por `apps/server/src/sync/lan-sync.e2e.test.ts`. Las pruebas de los pasos remotos de
+compra, conteo y devolución siguen abiertas en
+[10.03](../cronograma/fase-10-sincronizacion/plan-10.03-servidor-receptor.md) y
+[10.04](../cronograma/fase-10-sincronizacion/plan-10.04-offline-reconexion.md).
 
 ## Documentos relacionados
 

@@ -46,7 +46,7 @@ Reglas de la columna `originNodeId`:
 
 ## Política inicial de inventario offline
 
-### Alcance LAN decidido; base implementada el 2026-09-06
+### Alcance LAN implementado entre el 2026-09-06 y el 2026-09-07
 
 [ADR-0026](./adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) concreta la activación de
 10.03–10.04 para nodos nuevos de prueba. Conserva origen fijo de `Branch`, `Device`,
@@ -68,17 +68,17 @@ revocación auditadas, el transporte técnico HTTPS con autenticación mutua exp
 listener de LAN, la custodia durable con deduplicación y cuarentena, el alta delegada de
 agregados propios creados sin conexión, la aplicación recuperable del inventario autoritativo
 con discrepancia única, el estado de entrega por `(eventId, destinationNodeId)` y la política
-de retry con pausa durable y reanudación autorizada.
+de retry con pausa durable y reanudación autorizada. El conjunto cerrado de referencias tiene
+contratos de estado completo, productores transaccionales, corte inicial y proyección local:
+catálogo, métodos de pago, políticas operativas, tasas confirmadas, concesiones de operador y
+disponibilidad informativa.
 
-Del catálogo operativo, los métodos de pago y las políticas operativas están además
-implementados sus contratos de estado completo, productores transaccionales, corte inicial y
-proyección local de la terminal.
-
-Las tasas confirmadas ya usan `ExchangeRateUpdated.v1`, versión monotónica por par y bootstrap
-de filas no vencidas. Siguen **decididos pero no implementados**: el resto del conjunto cerrado
-—concesiones y disponibilidad—, los consumidores de caja, fiscalidad y ventas, la coordinación
-LAN de compras, conteos y devoluciones, y la vigencia de ocho horas de las concesiones.
-Mientras falten, esos flujos no se habilitan y su ausencia no se presenta como garantía.
+También están implementados los consumidores de caja, fiscalidad y ventas como proyecciones de
+solo lectura; la vigencia de ocho horas de las concesiones; `SaleCompleted.v2` con el costo
+conocido en el origen; y la infraestructura durable de intención, pasos y consulta de progreso.
+Los efectos remotos autoritativos de compra, conteo y devolución siguen pendientes: el POS no
+puede sustituirlos escribiendo una segunda autoridad local. Un rechazo definitivo después de
+efectos previos queda `NEEDS_REVIEW`; su compensación explícita tampoco está automatizada.
 
 ### Política de discrepancia
 
@@ -130,8 +130,10 @@ La lectura de aplicación que deriva esos estados existe desde el 2026-09-06 y s
 API local autenticada. `ATTENTION_REQUIRED` prevalece en el rótulo general mientras la
 conectividad se informa aparte, de modo que una caída no oculte una discrepancia. `SYNCED`
 exige un ciclo verificado sin pendientes conocidos de entrega ni de aplicación: una salida
-vacía o un intento de conexión no bastan. La antigüedad de catálogo, tasa y concesiones y su
-presentación en `apps/desktop` siguen pendientes junto con la distribución de referencias.
+vacía o un intento de conexión no bastan. Desde el cierre de 10.04, `apps/desktop` presenta la
+antigüedad de catálogo, tasa, concesiones y disponibilidad, además de las operaciones
+coordinadas pendientes. Reanudar entregas y resolver discrepancias sigue disponible solo por
+la API local autenticada.
 
 ## Consolidación cloud futura
 

@@ -60,15 +60,17 @@ el proveedor que correspondan.
 en standalone y define para LAN conexión inicial obligatoria, transacciones por nodo e
 intención pendiente de conciliación si se interrumpe el flujo. No promete commit global
 entre caja del POS e inventario del coordinador. Mantiene turno/método original, lote/costo,
-documentos inmutables y fiscalidad recuperable. Está decidido, pendiente de implementación
-y de las pruebas de cada paso de 10.03; [FS-011](../../failure-scenarios/FS-011-operacion-lan-interrumpida.md)
-describe esa brecha, mientras FS-006 conserva la garantía local actual.
+documentos inmutables y fiscalidad recuperable. La intención y la consulta de progreso están
+implementadas, pero falta el paso que restituye el stock autoritativo del coordinador y su
+orden respecto del reintegro y la nota. [FS-011](../../failure-scenarios/FS-011-operacion-lan-interrumpida.md)
+describe esa brecha, mientras FS-006 conserva la garantía local.
 
 ## Invariantes
 
 - Un documento emitido no se edita; se corrige mediante un documento compensatorio.
 - En standalone, caja, inventario, ledger, outbox y estado fiscal se confirman juntos o
-  no se confirman. La coordinación LAN sigue el complemento de ADR-0026, aún sin implementar.
+  no se confirman. La coordinación LAN no se habilita hasta especificar y probar el paso remoto
+  autoritativo conforme ADR-0026; no se promete una transacción entre dos SQLite.
 - Toda acción sensible deja actor, terminal, nodo, UTC y motivo.
 - Un fallo de impresión simulada conserva un estado recuperable e idempotente.
 - El saldo esperado puede ser negativo por reintegros y debe mostrarse con su signo.

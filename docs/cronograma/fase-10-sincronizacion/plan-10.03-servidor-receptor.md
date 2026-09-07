@@ -1,7 +1,8 @@
 # Plan de ejecución 10.03: servidor receptor y base operativa LAN
 
 - Fecha: 2026-09-06.
-- Estado: cortes 1, 2 y 3 (inventario) implementados el 2026-09-06; corte 4 parcial; corte 0 abierto.
+- Estado: **en progreso**. Cortes 0, 1, 2 y 4 implementados; corte 3 abierto en los efectos
+  remotos de compra, conteo y devolución. CA-03-10 y CA-03-16 siguen abiertos.
 - Predecesora: 10.02 completada. Sucesora: 10.04, solo tras cerrar esta sub-fase.
 - Decisiones: [secuencia y registro D1–D8](./plan-secuencia-y-decisiones.md).
 - ADR: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado; detalle contractual en el corte 0.
@@ -162,7 +163,7 @@ LAN; no puede depender del publisher de red para completar un efecto local oblig
 
 ## Criterios de aceptación
 
-- [ ] CA-03-01: el ADR y los contratos cubren decisiones de activación; ninguna regla pendiente
+- [x] ~~CA-03-01~~: el ADR y los contratos cubren decisiones de activación; ninguna regla pendiente
   está implementada por suposición.
 - [x] ~~CA-03-02~~: dos entregas concurrentes idénticas generan una custodia durable y el mismo
   resultado; ID con contenido distinto se rechaza sin sobrescritura.
@@ -182,11 +183,12 @@ LAN; no puede depender del publisher de red para completar un efecto local oblig
   no queda negativo y crea una discrepancia única con resolución auditable.
 - [ ] CA-03-10: devoluciones y operaciones de stock cumplen D5/ADR-0026, incluidos lote/costo
   original, conexión inicial, estado pendiente visible y recuperación entre cada paso sin
-  duplicar efectos. El snapshot de costo al vender no cambia por una compra posterior;
-  costo desconocido no se convierte a cero ni se completa al sincronizar.
-- [ ] CA-03-11: cada referencia necesaria tiene productor/contrato/consumidor probado; las
+  duplicar efectos. La intención, el estado y la consulta de progreso están implementados,
+  pero no el efecto autoritativo remoto de los tres flujos. El snapshot de costo sí está
+  probado; la compensación explícita de un rechazo definitivo tampoco está implementada.
+- [x] ~~CA-03-11~~: cada referencia necesaria tiene productor/contrato/consumidor probado; las
   versiones v1 publicadas siguen aceptando las fixtures originales.
-- [ ] CA-03-12: bootstrap interrumpido y cambios durante el corte no dejan referencias
+- [x] ~~CA-03-12~~: bootstrap interrumpido y cambios durante el corte no dejan referencias
   parciales activas ni huecos; una nueva terminal recibe un estado coherente.
 - [x] ~~CA-03-13~~: con coordinador y dos terminales, el ACK de una no confirma la otra y la
   terminal desconectada no bloquea la entrega a su vecina.
@@ -207,8 +209,8 @@ LAN; no puede depender del publisher de red para completar un efecto local oblig
 - Arquitectura, ADR complementario, FS-004–FS-008 y escenario adicional si la coordinación
   aprobada introduce fallos que no caben en las fichas existentes.
 
-No se marca 10.03 completa al terminar solo el endpoint. El corte de referencias y todos
-los criterios del alcance confirmado deben quedar cerrados antes de ejecutar 10.04.
+No se marca 10.03 completa por tener solo intención, estado y endpoint de progreso. Los efectos
+remotos concretos y sus pruebas deben cerrar CA-03-10 antes de dar por terminada la sub-fase.
 
 ## Estado de implementación, 2026-09-06
 
@@ -234,22 +236,49 @@ Implementado y probado:
 - **Corte 4, entrega por destino.** `sync_delivery` (migración 0031) con claim, generación,
   presupuesto de ciclo y resultado independientes por `(eventId, destinationNodeId)`. El
   payload se conserva una vez y `outbox_event.status` deja de ser autoridad de entrega.
-
-No implementado; no debe presentarse como disponible:
-
-- **Corte 0 y corte 4, referencias.** Catálogo, precios, impuestos, categorías, unidades,
-  métodos de pago, políticas operativas y tasas confirmadas ya tienen contrato, productor,
-  consumidor y carga inicial reanudable. Concesiones y disponibilidad siguen abiertas; por
-  eso CA-03-01, CA-03-11 y CA-03-12 no se cierran todavía.
-- **Corte 3, consumidores restantes.** Caja, fiscalidad y ventas del coordinador conservan
-  custodia sin consumidor: sus hechos quedan recibidos y **no** se declaran aplicados.
-- **Corte 3, coordinación LAN de stock.** Compras, aprobaciones de conteo y devoluciones no
-  tienen todavía sus pasos, permisos, estados ni compensaciones implementados, de modo que
-  CA-03-10 permanece abierto y esos flujos no se habilitan.
-- **Costo del corte 3.** `SaleCompleted.v1` no transporta el snapshot de costo del origen. La
-  salida sincronizada se registra con costo **desconocido** en lugar de tomar el promedio
-  vigente del coordinador, conforme D4. La versión de contrato que lo transporte depende de la
-  distribución de referencias de costo, todavía abierta.
 - **CA-03-03 cerrado.** `sync-reception.integration.test.ts` mantiene un segundo writer con
   `BEGIN IMMEDIATE`: la recepción responde `SYNC_RECEIVER_UNAVAILABLE` y deja inbox y trabajo
   vacíos mientras SQLite está ocupado.
+
+## Continuación del 2026-09-07
+
+Avances implementados y probados:
+
+- **Corte 0 y corte 4, referencias.** El conjunto cerrado está completo: concesiones de
+  operador (`OperatorGrantPublished.v1`, migración `0036`) y disponibilidad informativa
+  (`StockAvailabilityPublished.v1`) se suman a catálogo, categorías, unidades, métodos de
+  pago, políticas operativas y tasas. Cada una tiene contrato, productor transaccional,
+  consumidor y corte inicial reanudable.
+- **Corte 3, consumidores restantes.** `COMMERCIAL_PROJECTION` (migración `0039`) consolida
+  ventas, caja y fiscalidad de las terminales en cuatro proyecciones `sync_*` de solo lectura.
+  No invoca casos de uso comerciales, no toca las tablas operativas del coordinador y no emite
+  ni reimprime documentos fiscales.
+- **Corte 3, infraestructura de coordinación LAN.** Compras completadas, conteos aprobados y
+  devoluciones registran su intención durable antes del primer efecto (migración `0038`) y
+  exigen enlace con el coordinador; sin evidencia de todos sus pasos quedan
+  `PENDING_RECONCILIATION` y visibles. La reconciliación consulta
+  `GET /sync/v1/applications/:eventId` en el coordinador en lugar de repetir efectos.
+- **Costo del corte 3.** La disponibilidad transporta el costo promedio del coordinador, la
+  terminal lo congela al agregar la línea y `SaleCompleted.v2` lo devuelve con su procedencia.
+  La v1 permanece intacta y aceptada, y sus líneas se aplican con costo desconocido.
+
+Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
+
+- Los **efectos remotos autoritativos** de compra, conteo y devolución. Hoy compra y conteo
+  conservan como evidencia hechos que no se transportan, y `SaleReturned.v1` solo alimenta la
+  consolidación comercial. Falta especificar el orden exacto por operación antes de
+  implementarlo y probar las caídas de cada frontera.
+- La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos.
+  La operación queda `NEEDS_REVIEW` con la evidencia de cada paso; revertirla es una decisión
+  humana que hoy se ejecuta con los casos de uso existentes, no un paso automático.
+- La **administración de usuarios y roles**, que pertenece a 11.02. Las concesiones distribuyen
+  la autorización que ya existe; no la editan.
+- La **incorporación de tiendas con historia**, que conserva su gate independiente.
+
+### Verificación de la auditoría del 2026-09-07
+
+Las 44 pruebas directamente relacionadas de contratos, coordinación y LAN pasan; `pnpm
+typecheck` (diez paquetes), `pnpm lint` y `git diff --check` pasan. La suite completa ejecutó
+864 pruebas en 144 archivos: 863 pasaron y una regla ESLint agotó su timeout bajo carga; al
+repetir ese archivo aislado pasaron sus 6 pruebas. Falta una ejecución completa verde para
+cerrar CA-03-16. Migraciones 0036–0039 tienen cobertura de upgrade y reapertura.

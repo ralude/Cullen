@@ -169,7 +169,7 @@ const activityFlag: ValueSpec = { kind: 'enum', values: ['ACTIVE', 'INACTIVE'] }
  * reportes X/Z a `FiscalDay`: referenciar otro agregado no cambia la identidad
  * del hecho ni concede autoridad sobre el agregado ajeno.
  *
- * Los tres contratos `*Published` distribuyen referencias operativas hacia las
+ * Los contratos `*Published` distribuyen referencias operativas hacia las
  * terminales con el estado vigente completo del maestro. Su orden y su
  * idempotencia dependen de `aggregateVersion`, no de un campo del payload.
  */

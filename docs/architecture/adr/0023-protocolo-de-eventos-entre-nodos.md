@@ -16,6 +16,9 @@ Esta decisión fija el protocolo de 10.02. No abre conexiones, no publica endpoi
 efectos comerciales remotos: el receptor durable pertenece a 10.03 y la operación de
 reconexión a 10.04.
 
+El cierre posterior de 10.03–10.04 implementó esos consumidores, el receptor y la reconexión
+sin modificar las garantías de este protocolo; su estado vigente se documenta en ADR-0026.
+
 ## Decisión
 
 ### D1. Sobre JSON y catálogo explícito
@@ -56,9 +59,9 @@ niveles de anidamiento. Un hecho que los exceda se rechaza; nunca se recorta par
 
 Dirección: ventas, caja y fiscalidad viajan hacia el coordinador; el catálogo viaja desde el
 coordinador hacia las terminales. Definir las dos direcciones no autoriza fan-out sobre el
-estado de salida único de ADR-0022. Tasas, maestros, inventario e identidad quedan como
-brechas de productores y contratos: no se agregan al outbox ni se declara sincronización
-completa de referencias.
+estado de salida único de ADR-0022. Al cerrar 10.02, tasas, maestros, inventario e identidad
+quedaron como brechas de productores y contratos; 10.03 las cerró con contratos adicionales
+sin reescribir los v1 aprobados aquí.
 
 ### D2. Ownership verificado y contexto independiente del payload
 
@@ -107,8 +110,9 @@ declararse aplicado.
 No se promete orden causal entre agregados. `SaleReturned` puede llegar antes de su venta, un
 resultado fiscal antes de la referencia comercial y un movimiento de caja antes de la venta que
 referencia. La falta de una dependencia no invalida el hecho: la recepción durable se separa de
-la aplicación pendiente. Ningún contrato tiene todavía un consumidor remoto implementado;
-transportar `SaleReturned.v1` no habilita repetir reintegros ni movimientos de inventario.
+la aplicación pendiente. Al cerrar 10.02 ningún contrato tenía todavía un consumidor remoto;
+los consumidores añadidos en 10.03 proyectan el hecho y nunca interpretan
+`SaleReturned.v1` como orden para repetir reintegros ni movimientos de inventario.
 
 ### D4. Confirmación y clasificación de fallos
 
@@ -163,9 +167,9 @@ corregir la compatibilidad, queda para 10.04.
 - Una `contract_version` desconocida deja de abortar el lote completo.
 - El receptor de 10.03 hereda contratos, códigos y resultados ya probados con fakes; probar
   con un fake no demuestra deduplicación persistida ni sincronización operativa.
-- Quedan como gates de activación documentados, sin bloquear 10.02: la cohorte inicial y el
+- Quedaron como gates de activación documentados, sin bloquear 10.02: la cohorte inicial y el
   significado de los `PUBLISHED` históricos, la evidencia de alta y bootstrap de ownership, el
   bootstrap de catálogo y otras referencias, y la distribución a varias terminales, que
-  requeriría estado por destino según ADR-0022.
+  requería estado por destino según ADR-0022. ADR-0026 registra su cierre posterior.
 - Los payloads actuales de `ProductCreated` y `SaleReturned` no bastan para un catálogo remoto
   operativo ni para repetir una restitución: son brechas registradas, no funciones entregadas.

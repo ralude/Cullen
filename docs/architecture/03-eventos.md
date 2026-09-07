@@ -98,22 +98,24 @@ retroceden una proyección.
 
 Desde 10.03 la custodia es durable y el trabajo de aplicación se confirma en su misma
 transacción. Cada contrato declara qué consumidores reciben trabajo al aceptarlo:
-`SaleCompleted.v1` declara `INVENTORY_AUTHORITY`, ya implementado, y las tres publicaciones de
-referencia declaran `CATALOG_REFERENCE`, que proyecta el catálogo local de la terminal.
-Los demás contratos declaran una lista vacía y sus hechos conservan custodia sin aplicación,
-en lugar de presentarse como aplicados. El consumidor comprueba que la dependencia
-esté **aplicada**, no solo recibida, y una falta de stock conserva la venta y abre una
-discrepancia única por evento y consumidor.
+`SaleCompleted.v1` y v2 declaran `INVENTORY_AUTHORITY` y `COMMERCIAL_PROJECTION`; las
+publicaciones de referencias declaran `CATALOG_REFERENCE`; y los hechos de venta, caja y
+fiscalidad seleccionados declaran `COMMERCIAL_PROJECTION`. Ningún contrato seleccionado por
+el outbox queda con custodia sin una ruta de aplicación. El consumidor comprueba que la
+dependencia esté **aplicada**, no solo recibida, y una falta de stock conserva la venta y abre
+una discrepancia única por evento y consumidor.
 
 La publicación local solo se completa con una aceptación o un duplicado durables cuyo ACK
 corresponde al evento y destino de la solicitud. Un contrato local que el catálogo no puede
 entregar, o un rechazo permanente del destino, dejan la fila en `BLOCKED`: conserva payload,
 identidad e intentos, no se reclama de nuevo y sigue bloqueando solo a sus sucesores.
 
-Inventario e identidad siguen sin productor de integración, y el payload de
-`SaleReturned` no basta para repetir una restitución. El catálogo remoto y las tasas confirmadas
-sí tienen productor desde 10.03, con contratos propios de estado completo. Las brechas restantes están registradas
-en [ADR-0023](./adr/0023-protocolo-de-eventos-entre-nodos.md); no son funciones entregadas.
+Inventario e identidad publican referencias, no réplicas de sus tablas:
+`StockAvailabilityPublished.v1` distribuye saldo y costo informativos, y
+`OperatorGrantPublished.v1` distribuye autorización con vigencia sin credenciales. El payload
+de `SaleReturned.v1` alimenta la consolidación comercial; la restitución autoritativa se
+mantiene pendiente de un paso remoto concreto. La intención durable ya existe, pero el evento
+no se interpreta como comando ni repite por sí solo el movimiento de inventario.
 
 ## Fase 0
 
@@ -141,13 +143,13 @@ solapamiento entre el corte y los cambios posteriores lo resuelve la regla de ve
 consumidor. `PaymentMethodPublished.v1`, `DiscountPolicyPublished.v1` y
 `FinancialTransactionTaxPolicyPublished.v1` aplican el mismo mecanismo con versión monotónica.
 `ExchangeRateUpdated.v1` añade la confirmación humana completa, ordenada por versión del par;
-el bootstrap excluye historia vencida y conserva tasas vigentes o futuras. Las **referencias
-restantes** —concesiones y disponibilidad— y el **snapshot
-de costo offline** siguen sin publicarse. Los once v1 originales
-permanecen intactos: mientras `SaleCompleted` no transporte el costo del origen, la
-salida sincronizada se registra con costo desconocido y no se completa con el promedio del
-receptor. No se reescribe ningún v1 ni se declaran implementadas estas capacidades.
+el bootstrap excluye historia vencida y conserva tasas vigentes o futuras.
+`OperatorGrantPublished.v1` y `StockAvailabilityPublished.v1` completan el conjunto cerrado.
+El costo conocido al vender se congela en la línea y viaja con procedencia en
+`SaleCompleted.v2`; la v1 permanece intacta y se aplica con costo desconocido, nunca con el
+promedio vigente del receptor.
 
-Las operaciones distribuidas de compra/conteo/devolución usan intenciones y pasos recuperables
-de aplicación. No convierten los eventos comerciales en comandos ni ejecutan de nuevo caja
-o fiscalidad al recibir un hecho remoto; véase FS-011.
+La infraestructura para operaciones distribuidas de compra/conteo/devolución conserva
+intenciones y pasos recuperables, pero todavía no ejecuta el efecto autoritativo remoto de esos
+tres flujos. No convierte los eventos comerciales en comandos ni ejecuta de nuevo caja o
+fiscalidad al recibir un hecho remoto; la brecha y el orden por decidir están en FS-011.

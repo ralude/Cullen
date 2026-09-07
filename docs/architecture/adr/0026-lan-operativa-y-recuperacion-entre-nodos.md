@@ -1,9 +1,10 @@
 # ADR-0026: LAN operativa y recuperación entre nodos
 
-- Estado: **Aceptado para el MVP de referencia no certificado; implementado parcialmente el
-  2026-09-06**: D1, D2 para catálogo, métodos de pago, políticas operativas y tasas confirmadas,
-  D4 salvo el contrato que transporta el costo, y D6. Disponibilidad, D3 (coordinación LAN de
-  stock) y D5 (concesiones y antigüedad) siguen pendientes.
+- Estado: **Aceptado para el MVP de referencia no certificado; implementado parcialmente al
+  2026-09-07**. D1, D2 y D4–D6 están implementadas y probadas. D3 tiene intención durable,
+  estado por paso, restricción de enlace y consulta de progreso, pero no los efectos remotos
+  autoritativos de compra, conteo y devolución. La compensación explícita de un rechazo
+  definitivo con efectos previos conserva además un gate propio.
 - Fecha: 2026-09-06.
 - Complementa: ADR-0008, 0011, 0012, 0016, 0017, 0019, 0022 y 0023.
 - Ejecución: Fase 10, secuencia 10.03 → 10.04. No habilita piloto ni producción.
@@ -33,12 +34,21 @@ pruebas y contratos detallados se entregan en 10.03–10.04.
 El 2026-09-06 se implementaron y probaron: el registro confiable de nodos y su alta/revocación
 auditadas, el transporte HTTPS con autenticación mutua, el alta delegada de agregados propios,
 la custodia durable con deduplicación y cuarentena, la aplicación recuperable del inventario
-autoritativo con discrepancia única, la entrega con estado por destino y la política de retry
-con pausa durable y reanudación autorizada. Catálogo, métodos de pago, políticas operativas y
-tasas confirmadas ya tienen contratos, productores, proyección y bootstrap probados. **No** se
-implementaron concesiones ni disponibilidad; tampoco los consumidores de caja/fiscalidad/ventas, la
-coordinación LAN de compras, conteos y devoluciones, ni el contrato que transporta el snapshot
-de costo. Esas secciones siguen describiendo decisiones, no garantías vigentes.
+autoritativo con discrepancia única, la entrega con estado por destino, la política de retry
+con pausa durable y reanudación autorizada, y las referencias de catálogo, métodos de pago,
+políticas operativas y tasas confirmadas.
+
+El 2026-09-07 se completaron concesiones de operador y disponibilidad informativa como
+referencias del conjunto cerrado; los consumidores de caja, fiscalidad y ventas como
+consolidación de solo lectura del coordinador; la infraestructura genérica de intención y
+resultado por paso; y el contrato que transporta el snapshot de costo, `SaleCompleted.v2`, con
+la v1 intacta y aceptada.
+
+D3 no está cerrada: compra y conteo registran como evidencia hechos que no se transportan, y
+`SaleReturned.v1` solo alimenta una proyección comercial; ninguno ejecuta todavía el efecto de
+stock autoritativo del coordinador. Definir el orden de pasos por operación precede a esa
+implementación. La **compensación explícita** de un rechazo definitivo tampoco está
+implementada; una operación rechazada queda `NEEDS_REVIEW` con la evidencia disponible.
 
 ## D1. Topología, confianza y alta
 
@@ -211,11 +221,16 @@ obligar al emisor a deshacer un ACK válido. La política no habilita retry fisc
 
 Los criterios CA-03 y CA-04 de los planes de Fase 10 requieren transporte real, SQLite por
 nodo, entrega a dos terminales, alta de agregados creados offline, ACK perdido, corte de
-bootstrap, discrepancias y caída entre cada paso comercial. FS-005–FS-008 y FS-011 distinguen
-estas decisiones de las garantías actuales. La implementación del 2026-09-06 cubre la parte
-declarada arriba; el resto sigue sin implementar y no se presenta como disponible.
+bootstrap, discrepancias y caída entre cada paso comercial. Los escenarios de transporte,
+custodia, referencias y reconciliación genérica están probados con tres archivos SQLite
+independientes, listeners reales y autenticación mutua. **La caída entre los pasos concretos de
+compra, conteo y devolución sigue abierta**; FS-011 conserva esa brecha explícita.
 
-Las especificaciones de detalle del corte 0 que restan (referencias y bootstrap) son trabajo
-secuencial de 10.03, no preguntas de negocio pendientes conocidas. Si descubren una regla
-nueva o contradicción, se registra antes de implementarla. No se adelantan Fase 11,
-almacenes, nube, transferencias o hardware real.
+Las especificaciones de detalle del corte 0 quedaron completas. Durante su implementación
+aparecieron dos correcciones que esta decisión recoge: `CashMovementRegistered` deja de
+declarar `Sale` como dependencia —un movimiento de caja es un hecho del turno que referencia
+una venta, y la venta depende de ese mismo turno, de modo que declararlo creaba un ciclo—, y un
+cierre de turno que llega antes que su apertura espera en lugar de descartarse en silencio.
+
+No se adelantan Fase 11, almacenes, nube, transferencias o hardware real mientras D3 siga
+abierta.

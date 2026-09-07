@@ -68,7 +68,7 @@ Incluye:
 - [ADR-0023: Protocolo de eventos entre nodos](./adr/0023-protocolo-de-eventos-entre-nodos.md) — **aceptado**, sobre versionado, ownership verificado, deduplicación y aislamiento local
 - [ADR-0024: Inventario multi-almacén y consolidación cloud](./adr/0024-inventario-multi-almacen-y-consolidacion-cloud.md) — **aceptado para post-MVP**, implementación y especificaciones de detalle pendientes
 - [ADR-0025: Web interna Next.js y sistema de diseño de Cullen](./adr/0025-web-nextjs-y-sistema-de-diseno.md) — **aceptado para Fases 16 y 16B**, sin implementación
-- [ADR-0026: LAN operativa y recuperación entre nodos](./adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) — **aceptado para Fase 10**, confianza, referencias, coordinación, costo offline y retry; confianza, recepción durable, transporte autenticado, aplicación de inventario, entrega por destino y retry implementados el 2026-09-06; referencias, bootstrap, coordinación de stock y concesiones siguen pendientes
+- [ADR-0026: LAN operativa y recuperación entre nodos](./adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) — **aceptado e implementado parcialmente en Fase 10**; confianza, referencias, costo conocido, retry e infraestructura de conciliación listos; efectos remotos de compra/conteo/devolución y compensación explícita pendientes
 
 ## Alcance del producto
 

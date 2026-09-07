@@ -53,13 +53,13 @@ brecha y no debe interpretarse como comportamiento vigente.
    durable, autenticación mutua entre nodos, cuarentena y alta delegada de agregados
    implementados y probados; el fallo del propio registro de confianza sigue sin prueba.
 
-## Escenario LAN planificado
+## Escenario LAN
 
 La planificación LAN agrega [FS-011: operación comercial LAN interrumpida](./FS-011-operacion-lan-interrumpida.md)
-— decidido por ADR-0026 y **todavía sin implementar**: la coordinación de compras, conteos y
-devoluciones no forma parte de la base LAN entregada el 2026-09-06.
-Compras, conteos y devoluciones coordinados conservan intención pendiente de conciliación;
-no se promete atomicidad entre dos SQLite. El número continúa el catálogo sin renumerar
+— implementado parcialmente en 10.03–10.04: la intención, el resultado durable por paso y la
+consulta de progreso están probados, pero los efectos remotos autoritativos de compra, conteo y
+devolución no existen todavía. No se promete atomicidad entre dos SQLite; el orden de pasos y la
+compensación explícita conservan gates propios. El número continúa el catálogo sin renumerar
 FS-009/FS-010, que siguen siendo post-MVP.
 
 ## Escenarios post-MVP pendientes

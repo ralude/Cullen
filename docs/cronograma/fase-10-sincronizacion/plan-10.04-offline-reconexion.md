@@ -1,7 +1,8 @@
 # Plan de ejecución 10.04: operación offline y reconexión
 
 - Fecha: 2026-09-06.
-- Estado: cortes 1 y 2 implementados el 2026-09-06; cortes 3 y 4 parciales, dependientes de los cortes abiertos de 10.03.
+- Estado: **en progreso**. Cortes 1–3 implementados; corte 4 abierto en el escenario 11 y en
+  los gates que dependen del cierre de 10.03.
 - Decisiones: [secuencia y registro D1–D8](./plan-secuencia-y-decisiones.md).
 - ADR: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado.
 - Alcance: LAN operativa del MVP de referencia no certificado; no sincronización cloud.
@@ -132,23 +133,25 @@ Hardware fiscal continúa fake y toda representación fiscal mantiene `SIMULACIO
 
 ## Criterios de aceptación
 
-- [ ] CA-04-01: 10.03 y D6/D8 están cerradas antes de iniciar implementación.
-- [ ] CA-04-02: venta offline completa con persistencia local; la ruta no espera al destino.
+- [ ] CA-04-01: 10.03 y D6/D8 están cerradas antes de iniciar implementación. D6/D8 están
+  cerradas; 10.03 sigue abierta en CA-03-10.
+- [x] ~~CA-04-02~~: venta offline completa con persistencia local; la ruta no espera al destino.
 - [x] ~~CA-04-03~~: worker único, lotes acotados, arranque/cierre y recuperación de claims probados;
   no hay llamadas de red en transacciones SQLite.
 - [x] ~~CA-04-04~~: únicamente un ACK contractual del destino correcto confirma entrega; pérdida,
   ambigüedad y callbacks obsoletos conservan entrega al menos una vez sin duplicar efectos.
 - [x] ~~CA-04-05~~: backoff, límite por ciclo, pausa y generación sobreviven al reinicio;
   reanudación mantiene identidad, conserva evidencia y exige permiso/motivo.
-- [ ] CA-04-06: los cinco estados reflejan evidencia durable; conectividad y atención pueden
+- [x] ~~CA-04-06~~: los cinco estados reflejan evidencia durable; conectividad y atención pueden
   verse simultáneamente; una salida vacía no es suficiente para declarar `SYNCED`.
-- [ ] CA-04-07: antigüedad/versión/vigencia reales de catálogo, tasa, concesiones e inventario;
+- [x] ~~CA-04-07~~: antigüedad/versión/vigencia reales de catálogo, tasa, concesiones e inventario;
   dato ausente o vencido no se presenta como vigente.
-- [ ] CA-04-08: concesiones vencidas/revocadas y restricciones LAN de D5 se aplican en backend;
+- [x] ~~CA-04-08~~: concesiones vencidas/revocadas y restricciones LAN de D5 se aplican en backend;
   sesiones conservan ADR-0011 y no se comparten credenciales por eventos.
 - [ ] CA-04-09: los once escenarios se prueban con SQLite independiente, transporte real donde
-  corresponda y fallos reproducibles; Internet y LAN se distinguen.
-- [ ] CA-04-10: referencias llegan a dos terminales sin confundir ACKs; no se duplica inventario
+  corresponda y fallos reproducibles; Internet y LAN se distinguen. La consulta de progreso
+  real está probada, pero no los pasos remotos concretos del escenario 11.
+- [x] ~~CA-04-10~~: referencias llegan a dos terminales sin confundir ACKs; no se duplica inventario
   del coordinador al sumar proyecciones POS ni se omiten efectos locales de caja.
 - [ ] CA-04-11: `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
   y `git diff --check` aprobados; interacción UI automatizada donde exista infraestructura y
@@ -193,17 +196,50 @@ Implementado y probado:
   agotamiento, reinicio y reanudación autorizada; agregado creado sin conexión rechazado
   hasta su alta delegada.
 
-No implementado; no debe presentarse como disponible:
+## Continuación del 2026-09-07
 
-- **Antigüedad de referencias.** Catálogo, tasa, concesiones y disponibilidad no se distribuyen
-  todavía, de modo que no hay fuente, versión, vigencia ni último snapshot que mostrar.
-  CA-04-07 y CA-04-10 siguen abiertos.
-- **Concesiones offline.** La vigencia de ocho horas de D6 y las restricciones LAN de D5 no
-  están aplicadas en backend; CA-04-08 sigue abierto.
-- **Presentación.** `apps/desktop` no muestra todavía los estados ni la antigüedad; la lectura
-  existe solo en la API local autenticada. CA-04-06 está cubierto en aplicación, no en UI.
-- **Escenarios restantes.** Faltan el corte de Internet distinguido del corte de LAN, la
-  detención del consumidor a mitad de aplicación, la llegada de referencias a una terminal
-  mientras la otra está desconectada, la entrega de una devolución antes de su referencia y
-  los cortes entre cada paso de compra, conteo y devolución. CA-04-09 y CA-04-01 siguen
-  abiertos, este último porque 10.03 no está cerrada.
+Avances implementados y probados:
+
+- **Antigüedad de referencias.** `GetSyncStatus` informa fuente, versión, vigencia y antigüedad
+  de catálogo, tasa, concesiones y disponibilidad. `null` significa **nunca recibida**, no
+  vacía, y una vigencia terminada se informa como vencida: reconectarse no la habilita. Una
+  concesión vencida eleva el estado general a `ATTENTION_REQUIRED`.
+- **Concesiones offline.** El coordinador emite `OperatorGrantPublished.v1` con ocho horas de
+  vigencia y las reemite en cada ciclo cuando queda menos de la mitad de la ventana. En la
+  terminal, una concesión vencida o revocada deniega la sesión nueva —aunque el PIN sea
+  correcto—, invalida la sesión viva y deniega las acciones protegidas, **además** de los
+  límites idle y absoluto de ADR-0011. La vigencia se evalúa contra el instante durable más
+  alto que el nodo observó, de modo que atrasar el reloj del equipo no la amplía.
+- **Restricciones LAN de D5.** Completar una compra, aprobar un conteo y procesar una
+  devolución exigen enlace con el coordinador antes del primer efecto y fallan sin tocar nada;
+  un nodo standalone conserva su atomicidad local. El efecto remoto posterior sigue abierto.
+- **Presentación.** `apps/desktop` muestra los cinco estados con su significado, la
+  conectividad como dato separado, las pendientes de entrega, aplicación, pausa, bloqueo y
+  discrepancia, la antigüedad de cada referencia y las operaciones distribuidas pendientes de
+  conciliación con el estado de cada paso.
+- **Escenarios añadidos.** Se automatizaron el corte de Internet distinguido del corte de LAN,
+  la detención del consumidor a mitad de aplicación, la llegada de una devolución antes de su
+  venta y la conciliación genérica por transporte real contra
+  `GET /sync/v1/applications/:eventId`. Los cortes entre los pasos reales de compra, conteo y
+  devolución siguen pendientes porque esos efectos remotos aún no existen.
+
+Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
+
+- El escenario 11 con los efectos remotos reales de compra, conteo y devolución, incluido el
+  orden de pasos que la especificación exige decidir antes de implementarlos.
+- La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos:
+  la operación queda `NEEDS_REVIEW` con la evidencia de cada paso y se resuelve con los casos
+  de uso existentes, no con un paso automático.
+- Las **acciones** de reanudación de entregas y de resolución de discrepancias siguen
+  disponibles solo por la API local autenticada; la interfaz las **muestra** pero no las
+  ejecuta.
+- La cobertura de UI es de **render estático**: no hay infraestructura de interacción DOM en
+  este repositorio y no se afirma una cobertura que no existe.
+
+### Verificación de la auditoría del 2026-09-07
+
+Las 44 pruebas directamente relacionadas pasan; `pnpm typecheck` (diez paquetes), `pnpm lint`
+y `git diff --check` pasan. La suite completa ejecutó 864 pruebas en 144 archivos: 863 pasaron
+y una regla ESLint agotó su timeout bajo carga; sus 6 pruebas pasan al ejecutar el archivo
+aislado. Los escenarios LAN existentes usan tres SQLite independientes, listeners reales y
+autenticación mutua.

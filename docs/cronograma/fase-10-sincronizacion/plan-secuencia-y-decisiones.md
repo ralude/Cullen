@@ -1,8 +1,9 @@
 # Fase 10: secuencia restante y decisiones de activación
 
 - Fecha: 2026-09-06.
-- Estado: **planificación completada; decisiones de negocio resueltas con el usuario**.
-- Implementación: pendiente, en secuencia **10.03 → 10.04**.
+- Estado: **planificación completada; ejecución parcial**.
+- Implementación: 10.03 → 10.04 avanzó hasta la infraestructura de coordinación; falta definir
+  y ejecutar el paso remoto autoritativo de compra, conteo y devolución.
 - Autoridad: [AGENTS.md](../../../AGENTS.md), arquitectura y ADRs aceptados.
 - Decisión normativa: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md).
 
@@ -100,6 +101,8 @@ Estos puntos son trabajo planificado, no solicitudes de respuesta pendientes:
 - [x] ~~Resolver D4–D6, coordinación interrumpida, costo y D8 con preguntas concretas.~~
 - [x] ~~Registrar ADR-0026 y enlazar las decisiones normativas y escenarios afectados.~~
 - [x] ~~Planificar 10.03 y 10.04 con cortes secuenciales y criterios verificables.~~
+- [ ] Ejecutar la secuencia completa y cerrar los gates CA-03 y CA-04. CA-03-10 y el escenario
+  11 de CA-04-09 siguen abiertos.
 
 Verificación del árbol de trabajo el 2026-09-06: `pnpm install --frozen-lockfile` aprobado;
 `pnpm test`: 667 pruebas en 124 archivos; `pnpm typecheck`: diez paquetes; `pnpm lint`
@@ -109,3 +112,33 @@ La suite valida la línea base, no las nuevas garantías LAN todavía sin implem
 
 Planes detallados: [10.03](./plan-10.03-servidor-receptor.md) y
 [10.04](./plan-10.04-offline-reconexion.md).
+
+## Estado de la secuencia, 2026-09-07
+
+El conjunto completo de referencias, los tres consumidores, el snapshot de costo, las
+concesiones aplicadas en backend y la presentación en `apps/desktop` están implementados. La
+coordinación conserva intención, estado por paso y consulta de progreso, pero no ejecuta el
+efecto remoto autoritativo de compra, conteo ni devolución; por eso los gates 10.03 y Fase 10
+siguen abiertos.
+
+De los gates de ejecución que permanecían:
+
+- **Antes de endpoints LAN** y **antes de habilitar terminales** quedaron cumplidos y probados.
+- **Antes de efectos comerciales LAN** sigue abierto: falta decidir el orden exacto por flujo y
+  probar cada frontera sin escribir una segunda autoridad en el POS.
+- **Antes del worker** no se respetó como gate secuencial: el worker está compuesto aunque
+  10.03 continúa abierta. Debe revalidarse después de cerrar CA-03-10; su existencia actual no
+  habilita Fase 11.
+- **Antes del piloto** sigue abierto por definición: la validación profesional y fiscal no es
+  trabajo de esta fase, y las ocho horas siguen siendo la decisión del MVP de prueba.
+- **Antes de incorporar bases con historia** sigue abierto y conserva su plan específico de
+  migración, conciliación y respaldo.
+
+Una regla nueva apareció durante la implementación y quedó registrada en ADR-0026 antes de
+cerrar esa unidad: un movimiento de caja no depende de su venta, porque pertenece al turno
+del que la venta ya depende, y declararlo creaba un ciclo de espera.
+
+Verificación de la auditoría del 2026-09-07: las 44 pruebas directamente relacionadas,
+`pnpm typecheck` (diez paquetes), `pnpm lint` y `git diff --check` pasan. La suite completa
+ejecutó 864 pruebas en 144 archivos: 863 pasaron y una regla ESLint agotó su timeout bajo
+carga; al repetir el archivo aislado pasaron sus 6 pruebas. Falta una ejecución completa verde.
