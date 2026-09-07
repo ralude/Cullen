@@ -100,8 +100,16 @@ const dependencies = (recorded: ReturnType<typeof evidence>) => ({
   } satisfies BusinessEventStore,
   outboxStore: {
     enqueue: async (events) => { recorded.outbox.push(...events.map(({ eventType }) => eventType)); },
-    claimAvailable: async () => [], markPublished: async () => undefined,
-    markFailed: async () => undefined
+    claimAvailable: async () => [], isClaimActive: async () => false,
+    markPublished: async () => false, markFailed: async () => false,
+    markBlocked: async () => false,
+    markPaused: async () => false,
+    resumeDelivery: async () => false,
+    summarize: async (destinationNodeId: string) => ({
+      destinationNodeId, pending: 0, paused: 0, blocked: 0,
+      lastPublishedAt: null, lastError: null
+    }),
+    listPaused: async () => []
   } satisfies OutboxStore,
   auditWriter: { append: async (entries: readonly AuditEntry[]) => { recorded.audit.push(...entries); } }
 });

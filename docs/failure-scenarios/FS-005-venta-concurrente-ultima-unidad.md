@@ -10,6 +10,26 @@ desconectadas no pueden garantizar simultáneamente stock global no negativo.
 
 ## Riesgo
 
+### Precisión LAN: coordinador implementado, UI pendiente
+
+[ADR-0026, D3–D4](../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md)
+conserva la venta offline y concreta discrepancia única por evento/consumidor si no puede
+aplicarse la venta completa. Su resolución requiere evidencia de aplicación, permiso y motivo;
+no hay reintento ciego por falta de stock.
+
+Desde el 2026-09-06 esa semántica está implementada y probada en el coordinador: dos ventas
+offline de la última unidad conservan ambas su validez, el saldo autoritativo no queda
+negativo, se registra **una** discrepancia `STOCK_INSUFFICIENT` por evento y consumidor en
+`sync_discrepancy`, y solo evidencia de aplicación permite cerrarla. La prueba usa dos
+terminales con SQLite independiente y transporte real.
+
+Siguen siendo **brechas**: la presentación de la atención en la UI y la vigencia offline de
+las concesiones. El costo de la salida sincronizada queda **desconocido** mientras
+`SaleCompleted` no transporte el snapshot del origen; no se completa con el promedio del
+coordinador ni se revaloriza por una recepción tardía. Logs continúan limitados a IDs/códigos.
+
+### Fallo de disponibilidad
+
 Dos ventas intentan consumir la última unidad. Si ambas deciden sobre el mismo
 snapshot sin coordinación, pueden crear stock negativo, perder un movimiento o
 dar al negocio una promesa falsa de disponibilidad global.

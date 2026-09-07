@@ -66,12 +66,19 @@ const read = async <T>(operation: () => T): Promise<T> => {
 export class DrizzleCategoryRepository implements CategoryRepository {
   constructor(private readonly handle: DatabaseHandle) {}
 
-  async save(category: Category): Promise<void> {
+  /**
+   * Devuelve la versión persistida del maestro. La incrementa el propio
+   * `insert`, así que dos escrituras concurrentes no pueden leer la misma
+   * versión y publicar dos referencias indistinguibles.
+   */
+  async save(category: Category): Promise<number> {
     requireTransaction(this.handle.sqlite);
-    this.handle.db.insert(categories).values(category).onConflictDoUpdate({
-      target: categories.id,
-      set: { name: category.name, isActive: category.isActive }
-    }).run();
+    return this.handle.sqlite.prepare(`
+      insert into categories (id, name, is_active, version) values (?, ?, ?, 1)
+      on conflict(id) do update
+        set name = excluded.name, is_active = excluded.is_active, version = version + 1
+      returning version
+    `).pluck().get(category.id, category.name, category.isActive ? 1 : 0) as number;
   }
 
   findById(id: string): Promise<Category | null> {
@@ -89,17 +96,19 @@ export class DrizzleCategoryRepository implements CategoryRepository {
 export class DrizzleUnitOfMeasureRepository implements UnitOfMeasureRepository {
   constructor(private readonly handle: DatabaseHandle) {}
 
-  async save(unit: UnitOfMeasure): Promise<void> {
+  async save(unit: UnitOfMeasure): Promise<number> {
     requireTransaction(this.handle.sqlite);
-    this.handle.db.insert(unitsOfMeasure).values(unit).onConflictDoUpdate({
-      target: unitsOfMeasure.id,
-      set: {
-        code: unit.code,
-        name: unit.name,
-        quantityScale: unit.quantityScale,
-        isActive: unit.isActive
-      }
-    }).run();
+    return this.handle.sqlite.prepare(`
+      insert into units_of_measure (id, code, name, quantity_scale, is_active, version)
+      values (?, ?, ?, ?, ?, 1)
+      on conflict(id) do update
+        set code = excluded.code, name = excluded.name,
+          quantity_scale = excluded.quantity_scale, is_active = excluded.is_active,
+          version = version + 1
+      returning version
+    `).pluck().get(
+      unit.id, unit.code, unit.name, unit.quantityScale, unit.isActive ? 1 : 0
+    ) as number;
   }
 
   findByCode(code: string): Promise<UnitOfMeasure | null> {
@@ -120,7 +129,7 @@ export class DrizzlePaymentMethodRepository implements PaymentMethodRepository {
 
   async save(method: PaymentMethod): Promise<void> {
     requireTransaction(this.handle.sqlite);
-    this.handle.db.insert(paymentMethods).values(method).onConflictDoUpdate({
+    this.handle.db.insert(paymentMethods).values({ ...method, version: 1 }).onConflictDoUpdate({
       target: paymentMethods.code,
       set: {
         name: method.name,
@@ -177,8 +186,11 @@ export class DrizzleCashRegisterRepository implements CashRegisterRepository {
 export class DrizzleExchangeRateRepository implements ExchangeRateRepository, ExchangeRateHistoryRepository {
   constructor(private readonly handle: DatabaseHandle) {}
 
-  async save(rate: ExchangeRate): Promise<void> {
+  async save(rate: ExchangeRate): Promise<number> {
     requireTransaction(this.handle.sqlite);
+    const version = ((this.handle.sqlite.prepare(`
+      select max(version) from exchange_rates where base_currency = ? and quote_currency = ?
+    `).pluck().get(rate.baseCurrency, rate.quoteCurrency) as number | null) ?? 0) + 1;
     this.handle.db.insert(exchangeRates).values({
       id: rate.id,
       baseCurrency: rate.baseCurrency,
@@ -188,8 +200,10 @@ export class DrizzleExchangeRateRepository implements ExchangeRateRepository, Ex
       source: rate.source,
       validFrom: rate.validFrom.getTime(),
       validUntil: rate.validUntil?.getTime() ?? null,
-      registeredBy: rate.registeredBy
+      registeredBy: rate.registeredBy,
+      version
     }).run();
+    return version;
   }
 
   findById(id: string): Promise<ExchangeRate | null> {

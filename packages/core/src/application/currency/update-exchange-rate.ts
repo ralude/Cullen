@@ -1,12 +1,13 @@
 import { ApplicationError, ok, err, type Result, type AppError, DomainError } from '@supermarket/shared';
 import { ExchangeRate } from '../../domain/currency/index.js';
+import { toExchangeRatePublication } from '../catalog/reference-publications.js';
 import type { ExecutionContext } from '../execution-context.js';
-import type { JsonValue } from '../events/index.js';
+import { toBusinessEvents, type JsonValue } from '../events/index.js';
 import { executeIdempotentCommand } from '../idempotency/index.js';
 import type { IdGenerator } from '../ports/id-generator.js';
 import type { ExchangeRateRepository } from '../ports/exchange-rate-repository.js';
 import type {
-  AuditWriter, AuthorizationService, Clock, IdempotencyStore, UnitOfWork
+  AuditWriter, AuthorizationService, Clock, IdempotencyStore, OutboxStore, UnitOfWork
 } from '../ports/index.js';
 import type { ExchangeRateDto, UpdateExchangeRateInput } from './dtos.js';
 import { CURRENCY_PERMISSIONS } from './permissions.js';
@@ -37,7 +38,8 @@ export class UpdateExchangeRate {
     private readonly clock: Clock,
     private readonly unitOfWork?: UnitOfWork,
     private readonly idempotencyStore?: IdempotencyStore,
-    private readonly auditWriter?: AuditWriter
+    private readonly auditWriter?: AuditWriter,
+    private readonly outboxStore?: OutboxStore
   ) {}
 
   async execute(
@@ -57,7 +59,10 @@ export class UpdateExchangeRate {
       const rate = ExchangeRate.create({
         id: this.idGenerator.generate(), ...input, registeredBy: context.actorId
       });
-      await this.repository.save(rate);
+      const version = await this.repository.save(rate);
+      await this.outboxStore?.enqueue(toBusinessEvents([toExchangeRatePublication(rate, {
+        eventId: this.idGenerator.generate(), occurredAt: now, version
+      })], context));
       const dto = toDto(rate);
       if (this.auditWriter) await this.auditWriter.append([{
         auditId: this.idGenerator.generate(), actorId: context.actorId,

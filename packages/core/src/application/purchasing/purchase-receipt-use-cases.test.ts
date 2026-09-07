@@ -80,7 +80,7 @@ class FakeStockItems implements StockItemRepository {
 
 class FakeExchangeRates implements ExchangeRateRepository {
   constructor(private readonly rates: ExchangeRate[] = []) {}
-  save = async (): Promise<void> => {};
+  save = async (): Promise<number> => 1;
   findCurrentByPair = async (): Promise<ExchangeRate | null> => null;
   findById = async (id: string): Promise<ExchangeRate | null> =>
     this.rates.find((rate) => rate.id === id) ?? null;

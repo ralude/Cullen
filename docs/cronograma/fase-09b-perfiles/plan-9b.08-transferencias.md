@@ -15,15 +15,18 @@ simula con dos ajustes independientes porque perdería trazabilidad.
 ## Alcance vigente
 
 No se agregan tablas, migraciones, permisos, rutas ni pantallas de transferencia. Recepción,
-venta, conteo y ajuste siguen operando sobre la existencia única del nodo. La transferencia
-entre sucursales o nodos pertenece a Fase 10 por cambiar la autoridad de escritura.
+venta, conteo y ajuste siguen operando sobre la existencia única del nodo. Desde la
+aprobación de [ADR-0024](../../architecture/adr/0024-inventario-multi-almacen-y-consolidacion-cloud.md)
+el alcance multi-almacén pertenece a [Fase 13](../fase-13-almacenes/README.md), posterior al
+MVP. Las transferencias entre sucursales o nodos quedan diferidas sin fase asignada.
 
 ## Criterio para reabrir
 
 Un caso de uso real de múltiples ubicaciones, dueño de la decisión operativa y especificación
 aprobada de despacho, tránsito, kardex, ownership, recuperación e idempotencia. Al reabrirse se
 actualizarán `04-entidades.md`, `05-agregados.md`, `06-casos-de-uso.md` y la migración
-forward-only antes de escribir código.
+forward-only antes de escribir código. El caso ya fue aprobado para Fase 13; sus decisiones
+operativas y pruebas siguen pendientes. No se reabre la ejecución de 9B.08 dentro del MVP.
 
 ## Validación actual
 

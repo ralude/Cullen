@@ -12,7 +12,7 @@ describe('SqliteUnitOfWork', () => {
 
     await unitOfWork.execute(async () => {
       requireTransaction(handle.sqlite);
-      handle.sqlite.prepare('insert into categories values (?, ?, ?)')
+      handle.sqlite.prepare('insert into categories (id, name, is_active, version) values (?, ?, ?, 1)')
         .run('category-001', 'Food', 1);
     });
 
@@ -26,7 +26,7 @@ describe('SqliteUnitOfWork', () => {
     const unitOfWork = new SqliteUnitOfWork(handle.sqlite);
 
     await expect(unitOfWork.execute(async () => {
-      handle.sqlite.prepare('insert into categories values (?, ?, ?)')
+      handle.sqlite.prepare('insert into categories (id, name, is_active, version) values (?, ?, ?, 1)')
         .run('category-001', 'Food', 1);
       throw new Error('Injected failure.');
     })).rejects.toMatchObject({ code: 'DATABASE_OPERATION_FAILED' });
@@ -48,14 +48,14 @@ describe('SqliteUnitOfWork', () => {
     applyMigrations(handle.sqlite);
     const unitOfWork = new SqliteUnitOfWork(handle.sqlite);
     await unitOfWork.execute(async () => {
-      handle.sqlite.prepare('insert into categories values (?, ?, ?)')
+      handle.sqlite.prepare('insert into categories (id, name, is_active, version) values (?, ?, ?, 1)')
         .run('category-001', 'Food', 1);
     });
 
     let caught: unknown;
     try {
       await unitOfWork.execute(async () => {
-        handle.sqlite.prepare('insert into categories values (?, ?, ?)')
+        handle.sqlite.prepare('insert into categories (id, name, is_active, version) values (?, ?, ?, 1)')
           .run('category-001', 'Other', 1);
       });
     } catch (error) {

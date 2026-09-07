@@ -52,6 +52,15 @@ FIFO por capas, costo estándar, revalorización posterior, moneda de reporte di
 recepción) y variaciones contables quedan como extensiones. Se incorporan solo con un
 consumidor concreto, criterios de salida y un ADR que cambie explícitamente el default.
 
+## Complemento LAN del 2026-09-06
+
+[ADR-0026, D4](./0026-lan-operativa-y-recuperacion-entre-nodos.md) fija para ventas offline
+el snapshot de costo conocido al vender, con versión/fuente y `null` explícito cuando falta.
+La salida sincronizada y el margen no sustituyen ese costo por el promedio al recibir el
+evento. La devolución conserva el de la salida original. Es una precisión para el flujo
+LAN todavía pendiente de implementación; no cambia recepción ponderada, moneda de escritura
+única ni revaloriza historia existente.
+
 ## Invariantes
 
 - Dinero en unidades menores enteras más código de moneda; nunca `float`.

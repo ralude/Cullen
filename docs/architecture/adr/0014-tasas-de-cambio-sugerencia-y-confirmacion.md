@@ -102,3 +102,16 @@ aplicación ni esta ADR salvo que cambie una de las reglas ya fijadas arriba.
 - La elección real de proveedor queda pendiente de aprobación de negocio y no
   bloquea el resto de 9.07: tasa vigente, histórico y carga manual operan hoy
   sin ella.
+
+## Distribución LAN aprobada el 2026-09-06
+
+Cada par confirmado forma una secuencia monotónica independiente. El agregado de integración
+usa `aggregateType = ExchangeRate`, `aggregateId = BASE/QUOTE` y una versión persistida que
+avanza en cada confirmación del par. `ExchangeRateUpdated.v1` transporta el registro inmutable
+completo: identidad, par, valor entero, escala, fuente, vigencia y actor que lo confirmó.
+
+La terminal conserva esos registros en su repositorio local y aplica solo versiones posteriores
+del par; no confirma sugerencias externas ni escribe una segunda autoridad. El bootstrap publica
+en orden de versión todas las tasas no vencidas en el instante del corte —incluidas las vigentes,
+las futuras y cualquier ventana todavía aplicable— y excluye filas cuyo `validUntil` ya terminó.
+Así preserva la selección temporal de este ADR sin copiar histórico vencido ilimitado.

@@ -11,7 +11,7 @@ import {
   type ProductDetailsChanges
 } from '../../domain/catalog/index.js';
 import type { ExecutionContext } from '../execution-context.js';
-import type { JsonValue } from '../events/index.js';
+import { toBusinessEvents, type JsonValue } from '../events/index.js';
 import { executeIdempotentCommand } from '../idempotency/index.js';
 import type {
   AuditWriter,
@@ -20,12 +20,14 @@ import type {
   CategoryRepository,
   IdGenerator,
   IdempotencyStore,
+  OutboxStore,
   ProductRepository,
   UnitOfWork,
   UnitOfMeasureRepository
 } from '../ports/index.js';
 import type { ProductDto, UpdateProductInput } from './dtos.js';
 import { toProductDto } from './mappers.js';
+import { toProductPublication } from './reference-publications.js';
 import { CATALOG_PERMISSIONS } from './permissions.js';
 
 export class UpdateProduct {
@@ -38,7 +40,9 @@ export class UpdateProduct {
     private readonly authorization: AuthorizationService,
     private readonly unitOfWork?: UnitOfWork,
     private readonly idempotencyStore?: IdempotencyStore,
-    private readonly auditWriter?: AuditWriter
+    private readonly auditWriter?: AuditWriter,
+    /** Salida del coordinador: una actualizacion tambien distribuye el catalogo. */
+    private readonly outboxStore?: OutboxStore
   ) {}
 
   async execute(input: UpdateProductInput, context: ExecutionContext): Promise<Result<ProductDto, AppError>> {
@@ -102,6 +106,9 @@ export class UpdateProduct {
       if (input.isActive !== undefined) changes.isActive = input.isActive;
       product.updateDetails(changes);
       await this.repository.save(product);
+      await this.outboxStore?.enqueue(toBusinessEvents([toProductPublication(product, {
+        eventId: this.idGenerator.generate(), occurredAt: now
+      })], context));
       const dto = toProductDto(product);
       if (this.auditWriter) await this.auditWriter.append([{
         auditId: this.idGenerator.generate(), actorId: context.actorId,

@@ -107,3 +107,10 @@ export const loadNodeIdentity = (path = defaultNodeIdentityPath()): NodeIdentity
   }
 };
 
+
+export {
+  HttpsSyncEventPublisher,
+  ObservedSyncConnectivity,
+  SYNC_DESTINATION_HEADER
+} from './sync-transport.js';
+export type { SyncTransportConfiguration } from './sync-transport.js';

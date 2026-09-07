@@ -14,19 +14,34 @@ class MemoryStore implements OperationalMasterDataStore {
   categories = new Map<string, Category>(); units = new Map<string, UnitOfMeasure>();
   payments = new Map<string, PaymentMethod>(); usedCategories = new Set<string>();
   liveUnits = new Set<string>(); historicUnits = new Set<string>(); livePayments = new Set<string>();
+  versions = new Map<string, number>();
   findCategoryById = async (id: string) => this.categories.get(id) ?? null;
   listCategories = async () => [...this.categories.values()];
-  saveCategory = async (value: Category) => { this.categories.set(value.id, value); };
+  saveCategory = async (value: Category) => {
+    this.categories.set(value.id, value);
+    return this.bump(`category:${value.id}`);
+  };
   isCategoryInUse = async (id: string) => this.usedCategories.has(id);
   findUnitByCode = async (code: string) => this.units.get(code) ?? null;
   listUnits = async () => [...this.units.values()];
-  saveUnit = async (value: UnitOfMeasure) => { this.units.set(value.code, value); };
+  saveUnit = async (value: UnitOfMeasure) => {
+    this.units.set(value.code, value);
+    return this.bump(`unit:${value.id}`);
+  };
   isUnitInUse = async (id: string) => this.liveUnits.has(id);
   hasUnitHistory = async (id: string) => this.historicUnits.has(id);
   findPaymentMethodByCode = async (code: string) => this.payments.get(code) ?? null;
   listPaymentMethods = async () => [...this.payments.values()];
-  savePaymentMethod = async (value: PaymentMethod) => { this.payments.set(value.code, value); };
+  savePaymentMethod = async (value: PaymentMethod) => {
+    this.payments.set(value.code, value);
+    return this.bump(`payment:${value.code}`);
+  };
   isPaymentMethodInUse = async (code: string) => this.livePayments.has(code);
+  private bump(key: string): number {
+    const next = (this.versions.get(key) ?? 0) + 1;
+    this.versions.set(key, next);
+    return next;
+  }
 }
 
 const context: ExecutionContext = {

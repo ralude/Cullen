@@ -4,12 +4,18 @@ import {
 import { Category, UnitOfMeasure } from '../../domain/catalog/index.js';
 import { PaymentMethod } from '../../domain/currency/index.js';
 import { CATALOG_PERMISSIONS } from '../catalog/permissions.js';
+import {
+  toPaymentMethodPublication,
+  toOperationalPolicyPublication,
+  toCategoryPublication,
+  toUnitOfMeasurePublication
+} from '../catalog/reference-publications.js';
 import type { ExecutionContext } from '../execution-context.js';
-import type { JsonValue } from '../events/index.js';
+import { toBusinessEvents, type DomainEventLike, type JsonValue } from '../events/index.js';
 import { executeIdempotentCommand } from '../idempotency/index.js';
 import type {
   AuditWriter, AuthorizationService, Clock, IdGenerator, IdempotencyStore,
-  OperationalMasterDataStore, OperationalPolicyWriter, UnitOfWork
+  OperationalMasterDataStore, OperationalPolicyWriter, OutboxStore, UnitOfWork
 } from '../ports/index.js';
 import type {
   ActivateDiscountPolicyInput, ActivateTaxPolicyInput, CategoryConfigDto,
@@ -37,8 +43,21 @@ abstract class ConfigCommand {
     protected readonly clock: Clock,
     protected readonly unitOfWork: UnitOfWork,
     protected readonly auditWriter?: AuditWriter,
-    protected readonly idempotencyStore?: IdempotencyStore
+    protected readonly idempotencyStore?: IdempotencyStore,
+    /** Salida del coordinador; ausente en un nodo que no distribuye referencias. */
+    protected readonly outboxStore?: OutboxStore
   ) {}
+
+  /**
+   * Encola la publicación de la referencia dentro de la transacción del
+   * comando: el cambio autoritativo y su distribución se confirman juntos.
+   */
+  protected async publish(
+    publication: DomainEventLike,
+    context: ExecutionContext
+  ): Promise<void> {
+    await this.outboxStore?.enqueue(toBusinessEvents([publication], context));
+  }
 
   protected async run<TInput, TOutput>(
     operation: string, input: TInput, context: ExecutionContext, permission: string,
@@ -103,7 +122,10 @@ export class SaveCategory extends ConfigCommand {
         return err(new ApplicationError('CATEGORY_IN_USE', 'Category is used by an active product.'));
       }
       const value = Category.create({ id: existing?.id ?? this.ids.generate(), name: input.name, isActive: input.isActive });
-      await this.store.saveCategory(value);
+      const version = await this.store.saveCategory(value);
+      await this.publish(toCategoryPublication(value, {
+        eventId: this.ids.generate(), occurredAt: now, version
+      }), context);
       const dto = categoryDto(value);
       await this.audit(context, existing ? 'CATEGORY_UPDATED' : 'CATEGORY_CREATED', 'Category', value.id,
         existing ? categoryDto(existing) as unknown as JsonValue : null, dto as unknown as JsonValue, input.reason, now);
@@ -128,7 +150,10 @@ export class SaveUnit extends ConfigCommand {
       }
       const value = UnitOfMeasure.create({ id: existing?.id ?? this.ids.generate(), code, name: input.name,
         quantityScale: input.quantityScale, isActive: input.isActive });
-      await this.store.saveUnit(value);
+      const version = await this.store.saveUnit(value);
+      await this.publish(toUnitOfMeasurePublication(value, {
+        eventId: this.ids.generate(), occurredAt: now, version
+      }), context);
       const dto = unitDto(value);
       await this.audit(context, existing ? 'UNIT_OF_MEASURE_UPDATED' : 'UNIT_OF_MEASURE_CREATED', 'UnitOfMeasure', value.id,
         existing ? unitDto(existing) as unknown as JsonValue : null, dto as unknown as JsonValue, input.reason, now);
@@ -147,7 +172,10 @@ export class SavePaymentMethod extends ConfigCommand {
         return err(new ApplicationError('PAYMENT_METHOD_IN_USE', 'Payment method is used by an open aggregate.'));
       }
       const value = PaymentMethod.create({ ...input, code, currencyCode: input.currencyCode.trim().toUpperCase() });
-      await this.store.savePaymentMethod(value);
+      const version = await this.store.savePaymentMethod(value);
+      await this.publish(toPaymentMethodPublication(value, {
+        eventId: this.ids.generate(), occurredAt: now, version
+      }), context);
       const dto = paymentDto(value);
       await this.audit(context, existing ? 'PAYMENT_METHOD_UPDATED' : 'PAYMENT_METHOD_CREATED', 'PaymentMethod', code,
         existing ? paymentDto(existing) as unknown as JsonValue : null, dto as unknown as JsonValue, input.reason, now);
@@ -163,8 +191,14 @@ export class ActivateDiscountPolicy extends ConfigCommand {
       const maximumBasisPoints = Percentage.fromBasisPoints(input.maximumBasisPoints).basisPoints;
       const value = this.writer.activateDiscountPolicy({ maximumBasisPoints },
         { policyId: this.ids.generate(), createdBy: context.actorId, reason: input.reason.trim(), now });
-      if (value.created) await this.audit(context, 'DISCOUNT_POLICY_ACTIVATED', 'OperationalPolicy', value.policyId,
-        null, { ...value, maximumBasisPoints: input.maximumBasisPoints }, input.reason, now);
+      if (value.created) {
+        await this.publish(toOperationalPolicyPublication({
+          policyType: 'DISCOUNT', policyId: value.policyId,
+          version: value.version, maximumBasisPoints
+        }, { eventId: this.ids.generate(), occurredAt: now }), context);
+        await this.audit(context, 'DISCOUNT_POLICY_ACTIVATED', 'OperationalPolicy', value.policyId,
+          null, { ...value, maximumBasisPoints: input.maximumBasisPoints }, input.reason, now);
+      }
       return ok(value);
     });
   }
@@ -177,8 +211,20 @@ export class ActivateFinancialTransactionTaxPolicy extends ConfigCommand {
       const rateBasisPoints = TaxRate.fromBasisPoints(input.rateBasisPoints).basisPoints;
       const value = this.writer.activateFinancialTransactionTaxPolicy({ ...input, rateBasisPoints },
         { policyId: this.ids.generate(), createdBy: context.actorId, reason: input.reason.trim(), now });
-      if (value.created) await this.audit(context, 'FINANCIAL_TRANSACTION_TAX_POLICY_ACTIVATED', 'OperationalPolicy', value.policyId,
-        null, { ...value, rateBasisPoints: input.rateBasisPoints }, input.reason, now);
+      if (value.created) {
+        await this.publish(toOperationalPolicyPublication({
+          policyType: 'FINANCIAL_TRANSACTION_TAX',
+          policyId: value.policyId,
+          version: value.version,
+          rateBasisPoints,
+          eligiblePaymentMethodCodes: [...new Set(input.eligiblePaymentMethodCodes
+            .map((code) => code.trim().toUpperCase()).filter(Boolean))].sort(),
+          eligibleCurrencies: [...new Set(input.eligibleCurrencies
+            .map((code) => code.trim().toUpperCase()).filter(Boolean))].sort()
+        }, { eventId: this.ids.generate(), occurredAt: now }), context);
+        await this.audit(context, 'FINANCIAL_TRANSACTION_TAX_POLICY_ACTIVATED', 'OperationalPolicy', value.policyId,
+          null, { ...value, rateBasisPoints: input.rateBasisPoints }, input.reason, now);
+      }
       return ok(value);
     });
   }

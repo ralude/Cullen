@@ -27,6 +27,7 @@ import type {
 } from '../ports/index.js';
 import type { CreateProductInput, ProductDto } from './dtos.js';
 import { toProductDto } from './mappers.js';
+import { toProductPublication } from './reference-publications.js';
 import { CATALOG_PERMISSIONS } from './permissions.js';
 
 export class CreateProduct {
@@ -99,7 +100,7 @@ export class CreateProduct {
           const dto = toProductDto(product);
           await persistBusinessChange(
             () => this.repository.save(product), product.domainEvents, context,
-            undefined, this.eventStore, this.outboxStore, ['ProductCreated'],
+            undefined, this.eventStore, this.outboxStore, [],
             this.auditWriter, this.auditWriter ? [{
               auditId: this.idGenerator.generate(), actorId: context.actorId,
               actorRoleCodes: context.actorRoleCodes ?? [], action: 'CATALOG_PRODUCT_CREATED',
@@ -107,7 +108,10 @@ export class CreateProduct {
               after: JSON.parse(JSON.stringify(dto)) as JsonValue, reason: input.reason,
               terminalId: context.terminalId, originNodeId: context.originNodeId,
               occurredAt: now, correlationId: context.correlationId
-            }] : []
+            }] : [],
+            [toProductPublication(product, {
+              eventId: this.idGenerator.generate(), occurredAt: now
+            })]
           );
           return ok(dto);
         },

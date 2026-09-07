@@ -1,8 +1,7 @@
+import type { JsonValue } from '@supermarket/shared';
 import type { ExecutionContext } from '../execution-context.js';
 
-export type JsonValue = null | boolean | number | string | JsonValue[] | {
-  readonly [key: string]: JsonValue;
-};
+export type { JsonValue };
 
 export type DomainEventLike = {
   readonly type: string;

@@ -76,3 +76,16 @@ apps/desktop/src/
 ```
 
 Esta estructura es un contrato inicial. La implementación puede organizarse por slices verticales cuando un módulo crezca, siempre que conserve las reglas de dependencia.
+
+## Extensión post-MVP aprobada
+
+[ADR-0024](./adr/0024-inventario-multi-almacen-y-consolidacion-cloud.md) prevé un adaptador
+PostgreSQL y composición Fastify central para consultar inventario consolidado, conservando
+SQLite y su autoridad local. [ADR-0025](./adr/0025-web-nextjs-y-sistema-de-diseno.md) prevé
+`apps/web` con Next.js en presentación y `packages/ui` para el sistema de diseño propio.
+Esos paquetes se crean en sus fases futuras; no existen por efecto de esta planificación.
+
+Next.js, incluidos Server Components y Route Handlers, delega negocio por HTTP en Fastify.
+La UI no importa drivers ni implementa SQL. La biblioteca visual expone componentes y tokens
+sin consultas, permisos de negocio ni persistencia. Se conservan los exports públicos y la
+dirección de dependencias; el adaptador PostgreSQL no sustituye al driver SQLite.

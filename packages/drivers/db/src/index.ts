@@ -5,6 +5,12 @@ export type { Migration, MigrationOptions, MigrationResult } from './migrations.
 export { mapDatabaseError, requireTransaction, SqliteUnitOfWork } from './unit-of-work.js';
 export { DrizzleBusinessEventStore } from './business-event-store.js';
 export { DrizzleOutboxStore } from './outbox-store.js';
+export { DrizzleSyncReceptionStore } from './sync-reception-store.js';
+export { DrizzleSyncInboxWorkStore } from './sync-inbox-work-store.js';
+export { SqliteCatalogReferenceProjection } from './catalog-reference-projection.js';
+export { SqliteCatalogReferenceSource } from './catalog-reference-source.js';
+export { DrizzleAggregateAuthorityRegistry } from './sync-authority-registry.js';
+export { SqliteSyncNodeRegistry } from './sync-node-registry.js';
 export { DrizzleAuditWriter } from './audit-writer.js';
 export { DrizzleIdempotencyStore } from './idempotency-store.js';
 export { DrizzleProductSnapshotProvider } from './product-snapshot-provider.js';

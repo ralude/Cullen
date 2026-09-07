@@ -2,6 +2,13 @@
 
 ## Riesgo
 
+Esta ficha describe la devolución atómica **local** implementada. La coordinación LAN de
+[ADR-0026](../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) está decidida
+y pendiente de implementación: conexión inicial, efectos por nodo y pendiente de conciliación
+si se interrumpe. Sus garantías objetivo, retry, recuperación, observabilidad y pruebas están
+en [FS-011](./FS-011-operacion-lan-interrumpida.md). No se extiende la atomicidad local de esta
+ficha a dos SQLite ni se cambia la evidencia fiscal vigente.
+
 Una devolución de una venta ya cobrada puede duplicar el reintegro, dejar el
 stock o la caja a medias, o aparentar una emisión fiscal legal cuando el nodo
 solo usa el driver fake.

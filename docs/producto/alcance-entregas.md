@@ -71,6 +71,26 @@ Puede incluir, mediante fases futuras aprobadas:
 
 Estas capacidades no forman parte implícita del MVP. Cada una debe incorporarse con alcance, ADR cuando aplique y criterio de salida propio.
 
+### Evolución aprobada el 2026-09-06
+
+El [plan post-MVP](../cronograma/evolucion-post-mvp.md) incorpora, con implementación pendiente:
+
+- Fase 13: varios almacenes por sucursal, migración conservadora y transferencias internas.
+- Fase 14: API central Fastify y PostgreSQL alojados en la nube.
+- Fase 15: sincronización de inventario confirmado desde SQLite local hacia la vista central.
+- Fase 16: Web App interna de consulta con Next.js, Tailwind CSS y TanStack Query.
+- Fase 16B: sistema de diseño propio de Cullen basado en shadcn/ui, integrado en la web.
+- Fase 17: validación integral y despliegue gradual.
+
+Zustand está autorizado para estado compartido de UI cuando se necesite. Por instrucción
+expresa del usuario, Ponytail no aplica en Fases 16 y 16B: se exploran las dependencias
+adecuadas para calidad de interfaz y eficiencia de implementación, con pruebas y fronteras
+arquitectónicas conservadas. Estas fases no agregan comandos de stock desde la web,
+almacén central independiente, transferencias entre sucursales ni portal público.
+
+Esta evolución se ejecuta después del cierre técnico del MVP; su planificación no permite
+adelantar código de fases futuras ni sustituye los gates de piloto y producción.
+
 ## Regla de avance
 
 Con la [replanificación aprobada](../cronograma/replanificacion-fase-08-a-09.md),

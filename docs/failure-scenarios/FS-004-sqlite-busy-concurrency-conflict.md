@@ -8,6 +8,11 @@ y mapea `SQLITE_BUSY/LOCKED` a `DATABASE_BUSY`. Repositorios versionados rechaza
 escrituras obsoletas con `DATABASE_CONCURRENCY_CONFLICT`. No existe todavía una
 política común implementada de backoff/retry en la frontera de aplicación.
 
+Desde 10.03 la recepción entre nodos traduce cualquier fallo de su transacción a
+`SYNC_RECEIVER_UNAVAILABLE`, que el emisor reprograma: una base ocupada nunca produce un ACK
+de aceptación. `sync-reception.integration.test.ts` fuerza un segundo writer con
+`BEGIN IMMEDIATE` y comprueba que inbox y trabajo permanecen vacíos.
+
 ## Riesgo
 
 Dos operaciones compiten por el writer o una escritura usa una versión obsoleta.
@@ -111,6 +116,9 @@ documento. Los mensajes finales de UI siguen pendientes de Fase 9.
   verifica pragmas y ownership del archivo.
 - [`unit-of-work.test.ts`](../../packages/drivers/db/src/unit-of-work.test.ts):
   commit, rollback, transacción obligatoria y error estable de restricción.
+- [`sync-reception.integration.test.ts`](../../packages/drivers/db/src/sync-reception.integration.test.ts):
+  fuerza `SQLITE_BUSY` en la recepción, obtiene indisponibilidad reintentable y verifica que no
+  exista custodia ni trabajo parcial.
 - [`repositories.test.ts`](../../packages/drivers/db/src/repositories.test.ts):
   persistencia dentro de transacción y rechazo de escritura fuera de ella.
 - [`fiscal-document-repository.test.ts`](../../packages/drivers/db/src/fiscal-document-repository.test.ts)
@@ -120,9 +128,9 @@ documento. Los mensajes finales de UI siguen pendientes de Fase 9.
 - [`migrations.test.ts`](../../packages/drivers/db/src/migrations.test.ts):
   rollback de DDL/DML/guards y aborto de 0012 ante secuencia incompleta o
   transición de reporte cruzada.
-- Brecha explícita: no hay una prueba dedicada que fuerce `SQLITE_BUSY` y
-  verifique un backoff de aplicación, ni una prueba uniforme de versión obsoleta
-  para todos los repositorios.
+- Brecha explícita: no hay una política común de backoff para todos los casos de uso ni una
+  prueba uniforme de versión obsoleta para todos los repositorios. El receptor sync sí cubre
+  el lock y delega el reintento acotado al emisor.
 
 ## ADRs/documentos relacionados
 
@@ -132,5 +140,6 @@ documento. Los mensajes finales de UI siguen pendientes de Fase 9.
 - [ADR-0003](../architecture/adr/0003-sqlite-dinero-identificadores.md)
 - [ADR-0008](../architecture/adr/0008-topologia-offline-por-nodo.md)
 - [ADR-0009](../architecture/adr/0009-estado-relacional-ledger-outbox.md)
+- [FS-007](./FS-007-entrega-outbox-ambigua.md)
 - [3.01 Conexión SQLite](../cronograma/fase-03-persistencia/3.01-conexion-sqlite.md)
 - [3.03 Repositorios](../cronograma/fase-03-persistencia/3.03-repositorios.md)

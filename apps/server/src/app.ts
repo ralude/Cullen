@@ -32,6 +32,7 @@ import { registerSupplierRoutes } from './routes/suppliers.ts';
 import { registerPurchaseReceiptRoutes } from './routes/purchase-receipts.ts';
 import { registerStockCountRoutes } from './routes/stock-counts.ts';
 import { registerConfigRoutes } from './routes/config.ts';
+import { registerSyncRoutes } from './routes/sync.ts';
 
 type FiscalReportUseCase = {
   execute(
@@ -156,6 +157,18 @@ export type ServerDependencies = {
   readonly fiscalReports?: {
     readonly printX: FiscalReportUseCase;
     readonly printZ: FiscalReportUseCase;
+  };
+  readonly sync?: {
+    readonly registerNode: application.RegisterSyncNode;
+    readonly revokeNode: application.RevokeSyncNode;
+    readonly listNodes: application.ListSyncNodes;
+    readonly publishCatalogBootstrap: application.PublishCatalogBootstrap;
+    readonly getStatus: application.GetSyncStatus;
+    readonly listPaused: application.ListPausedDeliveries;
+    readonly resumeDelivery: application.ResumeSyncDelivery;
+    readonly listDiscrepancies: application.ListSyncDiscrepancies;
+    readonly retryDiscrepancy: application.RetrySyncDiscrepancy;
+    readonly resolveDiscrepancy: application.ResolveSyncDiscrepancy;
   };
   readonly close?: () => void | Promise<void>;
 };
@@ -292,6 +305,7 @@ export const buildApp = (dependencies?: ServerDependencies): FastifyInstance => 
     registerInventoryRoutes(app, dependencies);
     registerStockCountRoutes(app, dependencies);
     registerConfigRoutes(app, dependencies);
+    registerSyncRoutes(app, dependencies);
     registerSupplierRoutes(app, dependencies);
     registerPurchaseReceiptRoutes(app, dependencies);
     registerFiscalDocumentRoutes(app, dependencies);

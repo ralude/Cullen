@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Adaptadores criptográficos y de identidad local del nodo.",
+  "description": "Adaptadores criptográficos, identidad local del nodo y transporte autenticado entre nodos.",
   "exports": {
     ".": "./src/index.ts"
   },

@@ -158,8 +158,18 @@ export class StockItem {
     return batch;
   }
 
-  registerMovement(props: StockMovementProps): StockMovement {
-    return this.appendMovement(props, true);
+  /**
+   * `inferOperationalCost: false` conserva un costo desconocido en la salida en
+   * lugar de heredar el promedio vigente. Es la excepción explícita de
+   * ADR-0026 D4 para un hecho recibido de otra terminal: su costo es el
+   * snapshot que el origen conoció al vender, no el promedio de este nodo en el
+   * momento de recibirlo.
+   */
+  registerMovement(
+    props: StockMovementProps,
+    options: { readonly inferOperationalCost?: boolean } = {}
+  ): StockMovement {
+    return this.appendMovement(props, options.inferOperationalCost ?? true);
   }
 
   private appendMovement(props: StockMovementProps, inferOperationalCost: boolean): StockMovement {

@@ -17,12 +17,51 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 8 | Integracion serial | Suspendida por dependencia externa |
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | Perfiles 9B.14–9B.18 y configuración 9B.10 completados 2026-09-05; 9B.08 diferida y 9B.09 trasladada a Fase 11 |
-| 10 | Sincronizacion | Pendiente |
+| 10 | Sincronizacion | En progreso; 10.01 y 10.02 completadas; 10.03 y 10.04 parciales (2026-09-06) |
 | 11 | Seguridad | Pendiente (corte minimo pre-UI adelantado) |
 | 12 | Optimizacion | Pendiente |
+| 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
+| 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
+| 15 | [Sincronización SQLite–PostgreSQL](./fase-15-sincronizacion-cloud/README.md) | Planificada; post-MVP, sin iniciar |
+| 16 | [Web App interna Next.js](./fase-16-web-app/README.md) | Planificada; post-MVP, sin iniciar |
+| 16B | [Sistema de diseño propio](./fase-16b-sistema-diseno/README.md) | Planificada; post-MVP, sin iniciar |
+| 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
-**Fase actual:** Fase 9B - Perfiles operativos y capacidades faltantes
-**Trabajo actual:** el
+**Fase actual:** Fase 10 - Sincronización
+**Trabajo actual:** 10.01 quedó completada el 2026-09-05 con outbox durable ordenado por
+agregado, claims generacionales y recuperación tras reinicio. 10.02 quedó completada el
+2026-09-06 según su [plan](./fase-10-sincronizacion/plan-10.02-protocolo-eventos.md) y
+[ADR-0023](../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md): sobre versionado,
+catálogo cerrado de los once contratos existentes, ownership verificado, deduplicación por
+`eventId`, clasificación de confirmaciones y aislamiento durable de la salida local.
+
+El 2026-09-06 se implementaron además los cortes 1–4 de 10.03 y los cortes 1–2 de 10.04:
+recepción durable con custodia y trabajo transaccionales, registro confiable de nodos,
+transporte `POST /sync/v1/events` sobre HTTPS con autenticación mutua, alta delegada de
+agregados creados sin conexión, aplicación recuperable de inventario con discrepancias
+auditables, entrega con estado por destino, worker con retry acotado, pausa durable y
+reanudación autorizada, lectura de estado de sincronización y la distribución del catálogo
+con su corte inicial reanudable, incluidos métodos de pago y políticas operativas. Migraciones
+0028–0035; las tasas confirmadas también tienen publicación, proyección y bootstrap por par.
+**10.03 y 10.04 siguen abiertas**: faltan las referencias restantes —concesiones y
+disponibilidad—, los consumidores de
+caja/fiscalidad/ventas, la coordinación LAN de compras, conteos y devoluciones, las
+concesiones offline, la presentación en UI y cinco de los once escenarios de corte.
+Fase 11 permanece pendiente.
+
+El 2026-09-06 se planificó la secuencia restante **10.03 → 10.04** en el
+[registro de decisiones y gates](./fase-10-sincronizacion/plan-secuencia-y-decisiones.md),
+con planes de [receptor LAN](./fase-10-sincronizacion/plan-10.03-servidor-receptor.md) y
+[operación offline/reconexión](./fase-10-sincronizacion/plan-10.04-offline-reconexion.md).
+El usuario confirmó LAN operativa completa, nodos nuevos de prueba y alta manual auditable
+de confianza. La planificación incorpora las brechas de referencias, bootstrap y entrega
+por terminal de ADR-0023; no declara código implementado ni habilita Fase 11.
+Las preguntas de negocio se resolvieron en la misma sesión y quedaron en
+[ADR-0026](../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado para
+el MVP de prueba: operaciones de stock conectadas con conciliación recuperable, concesiones
+de ocho horas, snapshot de costo al vender y diez intentos por ciclo con reanudación manual.
+
+El
 [plan correctivo de la auditoría del 2026-09-05](./fase-09b-perfiles/plan-correcciones-auditoria-9b.md)
 quedó **cerrado el 2026-09-05** (Cortes 0-4). La auditoría había reabierto 9B.04, 9B.06, 9B.07
 y 9B.11 y bloqueado 9B.12/9B.13 por decisiones pendientes.
@@ -330,6 +369,11 @@ piloto o la producción. La Fase 10 conserva sus cuatro sub-fases y no ha inicia
 
 ## Documentos transversales
 
+- [Evolución post-MVP: almacenes, nube y consulta web](./evolucion-post-mvp.md) — aprobada
+  el 2026-09-06; secuencia 13 → 14 → 15 → 16 → 16B → 17 después del cierre técnico del MVP.
+  Next.js, Tailwind y TanStack Query en 16; sistema propio basado en shadcn/ui en 16B;
+  Zustand para estado UI cuando corresponda. Ponytail no aplica en 16 ni 16B.
+  La planificación no cambia la fase activa ni declara implementación.
 - [Replanificación de Fase 8 a Fase 9](./replanificacion-fase-08-a-09.md)
 - [Replanificación: inserción de Fase 9B](./replanificacion-fase-09b.md)
 - [Estrategia de testing](./testing.md)

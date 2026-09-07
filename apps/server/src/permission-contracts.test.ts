@@ -32,11 +32,21 @@ import {
   listDevicesContract,
   listOperationalMasterDataContract,
   listStockCountsContract,
+  getSyncStatusContract,
+  listPausedDeliveriesContract,
+  listSyncDiscrepanciesContract,
+  listSyncNodesContract,
+  resolveSyncDiscrepancyContract,
+  resumeSyncDeliveryContract,
+  retrySyncDiscrepancyContract,
+  registerSyncNodeContract,
+  revokeSyncNodeContract,
   listSuppliersContract,
   openStockCountContract,
   openShiftContract,
   printSimulatedXReportContract,
   printSimulatedZReportContract,
+  publishCatalogBootstrapContract,
   receivePurchaseContract,
   saveCategoryContract,
   savePaymentMethodContract,
@@ -168,6 +178,19 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
     expectedPermission(startPurchaseReceiptContract, application.PURCHASE_RECEIPT_PERMISSIONS.START);
     expectedPermission(completePurchaseReceiptContract, application.PURCHASE_RECEIPT_PERMISSIONS.COMPLETE);
     expectedPermission(reversePurchaseReceiptContract, application.PURCHASE_RECEIPT_PERMISSIONS.REVERSE);
+  });
+
+  it('sincronización', () => {
+    expectedPermission(registerSyncNodeContract, application.SYNC_PERMISSIONS.MANAGE_NODE);
+    expectedPermission(revokeSyncNodeContract, application.SYNC_PERMISSIONS.MANAGE_NODE);
+    expectedPermission(listSyncNodesContract, application.SYNC_PERMISSIONS.MANAGE_NODE);
+    expectedPermission(getSyncStatusContract, application.SYNC_PERMISSIONS.REVIEW_RECEPTION);
+    expectedPermission(listPausedDeliveriesContract, application.SYNC_PERMISSIONS.REVIEW_RECEPTION);
+    expectedPermission(listSyncDiscrepanciesContract, application.SYNC_PERMISSIONS.REVIEW_RECEPTION);
+    expectedPermission(resumeSyncDeliveryContract, application.SYNC_PERMISSIONS.RESUME_DELIVERY);
+    expectedPermission(retrySyncDiscrepancyContract, application.SYNC_PERMISSIONS.RESOLVE_DISCREPANCY);
+    expectedPermission(resolveSyncDiscrepancyContract, application.SYNC_PERMISSIONS.RESOLVE_DISCREPANCY);
+    expectedPermission(publishCatalogBootstrapContract, application.SYNC_PERMISSIONS.PUBLISH_REFERENCES);
   });
 
   it('venta', () => {

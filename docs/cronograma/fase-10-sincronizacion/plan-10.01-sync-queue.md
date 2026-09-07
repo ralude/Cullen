@@ -1,8 +1,8 @@
 # Plan de ejecución 10.01: Cola persistente de sincronización
 
 - **Sub-fase:** [10.01 Sync queue](./10.01-sync-queue.md).
-- **Estado del plan:** Propuesto el 2026-09-05; preparación documental solicitada, sin implementación.
-- **Prerrequisito de ejecución:** cierre de [Fase 9B](../fase-09b-perfiles/README.md) y actualización del [cronograma maestro](../README.md).
+- **Estado del plan:** Completado el 2026-09-05.
+- **Prerrequisito de ejecución:** cumplido; [Fase 9B](../fase-09b-perfiles/README.md) cerrada y [cronograma maestro](../README.md) actualizado.
 - **Disciplina:** Outside-in TDD, cambio mínimo sobre el outbox existente y SQLite con un único proceso dueño.
 
 ## Resultado esperado y límite de la entrega
@@ -20,7 +20,8 @@ mismo `eventId`; el receptor idempotente se implementa en 10.03.
 ## Fuentes y coordinación con 9B
 
 El orden de autoridad es [AGENTS.md](../../../AGENTS.md), arquitectura/ADRs y cronograma/plan.
-Este documento no es un PRP ni convierte sus propuestas en decisiones aceptadas.
+Este documento no es un PRP. Sus criterios fueron aprobados para ejecución el 2026-09-05;
+la semántica arquitectónica se formaliza en ADR-0022.
 
 Lectura obligatoria antes de implementar:
 
@@ -38,19 +39,13 @@ Lectura obligatoria antes de implementar:
 - [Gate correctivo de 9B](../fase-09b-perfiles/plan-correcciones-auditoria-9b.md), cierre efectivo
   de los perfiles 9B.14–9B.18 y [ADR-0020](../../architecture/adr/0020-modelo-de-almacenes-y-transferencias.md).
 
-Otro agente está culminando 9B en el mismo árbol. Esta preparación solo modifica documentos
-de `fase-10-sincronizacion`; conserva todos los estados y tareas de implementación pendientes.
-No modifica su código, migraciones, ADRs, perfiles ni el índice maestro compartido.
-
-Al comenzar 10.01 se debe releer el estado final de 9B, revisar el diff y renovar la línea base
-de productores, consumidores y migraciones. No basta con que el gate correctivo esté cerrado:
-los perfiles y cualquier tarea activa restante también deben terminar. Los diferimientos
-aprobados de 9B.08 y el traslado de 9B.09 a 11.02 no se reabren por este plan.
+Antes de ejecutar 10.01 se releyó el cierre final de 9B y se renovó la línea base de
+productores, consumidores y migraciones. Los diferimientos aprobados de 9B.08 y el traslado
+de 9B.09 a 11.02 permanecen intactos.
 
 ## Línea base examinada
 
-Inspección del árbol de trabajo del 2026-09-05, con cambios concurrentes; no es un snapshot
-inmutable ni certifica el cierre del otro agente.
+Inspección renovada sobre el árbol estabilizado después del cierre de 9B el 2026-09-05.
 
 1. [BusinessEventV1](../../../packages/core/src/application/events/business-event.ts) ya contiene
    `eventId`, tipo, versión contractual, agregado, versión del agregado, nodo, actor,
@@ -187,34 +182,34 @@ en 10.01 un publisher de éxito vacío que marque como entregados los eventos re
 
 ## Criterios de aceptación propuestos
 
-- [ ] CA-01: repetir el enqueue del mismo evento conserva una fila, identidad y estado;
+- [x] CA-01: repetir el enqueue del mismo evento conserva una fila, identidad y estado;
   un evento `PUBLISHED` no vuelve a ser seleccionado por una repetición idéntica.
-- [ ] CA-02: rollback del cambio de negocio no deja evento entregable; commit seguido de
+- [x] CA-02: rollback del cambio de negocio no deja evento entregable; commit seguido de
   cierre/reapertura conserva el evento y sus metadatos sin reconstruir tablas desde el ledger.
-- [ ] CA-03: solo se reclaman pendientes vencidos o leases expirados; antes de su vencimiento
+- [x] CA-03: solo se reclaman pendientes vencidos o leases expirados; antes de su vencimiento
   no se recuperan. El incremento de intentos se confirma junto con el claim.
-- [ ] CA-04: una cabecera bloqueada impide adelantar su agregado; otros agregados avanzan.
+- [x] CA-04: una cabecera bloqueada impide adelantar su agregado; otros agregados avanzan.
   Versiones no contiguas y timestamps iguales/invertidos conservan el orden por versión.
-- [ ] CA-05: la selección respeta el límite válido, desempata de forma determinista y nunca
+- [x] CA-05: la selección respeta el límite válido, desempata de forma determinista y nunca
   coloca dos versiones del mismo agregado en el lote reclamado.
-- [ ] CA-06: un intento sustituido no confirma ni reprograma la generación vigente;
+- [x] CA-06: un intento sustituido no confirma ni reprograma la generación vigente;
   dos ejecuciones intercaladas no obtienen la misma reclamación vigente.
-- [ ] CA-07: si una entrada vence esperando en un lote, no se publica bajo un claim obsoleto.
+- [x] CA-07: si una entrada vence esperando en un lote, no se publica bajo un claim obsoleto.
   La posible reentrega durante una llamada lenta conserva el mismo `eventId`.
-- [ ] CA-08: el publisher observa siempre ausencia de transacción SQLite abierta. Su fallo
+- [x] CA-08: el publisher observa siempre ausencia de transacción SQLite abierta. Su fallo
   transitorio probado persiste intento, código seguro y fecha de retry, sin borrar payload.
-- [ ] CA-09: aceptación por el publisher seguida de fallo al confirmar deja recuperación
+- [x] CA-09: aceptación por el publisher seguida de fallo al confirmar deja recuperación
   posible; tras reinicio hay reentrega idéntica y el fake receptor idempotente aplica una vez.
-- [ ] CA-10: un error de claim/confirmación se mantiene distinguible de un error del publisher;
+- [x] CA-10: un error de claim/confirmación se mantiene distinguible de un error del publisher;
   no produce éxito falso ni cambios parciales. Probar rollback y recuperación del lease.
-- [ ] CA-11: reabrir el archivo preserva `PENDING`, `PROCESSING` y `PUBLISHED`, sus intentos
+- [x] CA-11: reabrir el archivo preserva `PENDING`, `PROCESSING` y `PUBLISHED`, sus intentos
   y tiempos. No resetea trabajo vigente ni reenvía publicaciones ya confirmadas.
-- [ ] CA-12: payload, versión contractual, nodo de origen, actor y correlación permanecen
+- [x] CA-12: payload, versión contractual, nodo de origen, actor y correlación permanecen
   intactos. No reinterpretar como v1 una fila incompatible: su rechazo seguro debe probarse;
   el esquema de compatibilidad y aislamiento completo se define en 10.02.
-- [ ] CA-13: diagnóstico por IDs, intento, transición y código; sin payload comercial, PII,
+- [x] CA-13: diagnóstico por IDs, intento, transición y código; sin payload comercial, PII,
   credenciales ni stack en errores públicos, conforme a la lista permitida de logs.
-- [ ] CA-14: pruebas de aplicación y SQLite, suite completa y typecheck pasan; documentación
+- [x] CA-14: pruebas de aplicación y SQLite, suite completa y typecheck pasan; documentación
   distingue garantías probadas de las pendientes en protocolo, receptor y operación offline.
 
 ## Fuera de alcance y entregas posteriores
@@ -230,21 +225,13 @@ en 10.01 un publisher de éxito vacío que marque como entregados los eventos re
 - Sin administración de identidad de Fase 11, hardware fiscal real de Fase 8, limpieza de
   historia, métricas de rendimiento o paralelismo de optimización de Fase 12.
 
-## Verificación de esta preparación documental
+## Verificación de cierre
 
-- `pnpm typecheck`: aprobado en los diez paquetes seleccionados, fuera del sandbox.
-- `pnpm test`: ejecución del 2026-09-05 a las 12:04 de Caracas, 577 aprobadas y 4 fallidas
-  en 119 archivos (117 aprobados, 2 fallidos). Los fallos observados están en
-  `apps/desktop/src/renderer/src/App.test.tsx` (tres) y `operation-screens.test.tsx` (uno),
-  sobre navegación/permisos del renderer que el otro agente está modificando.
-- El primer intento dentro del sandbox no pudo cargar la configuración de Vitest por acceso
-  denegado; typecheck tampoco resolvió tipos de Electron allí. Se repitieron fuera del
-  sandbox para separar esa limitación de los resultados anteriores.
-- No se reinstalaron dependencias ni se modificó código para esta preparación. La instalación
-  existente permitió ejecutar ambas verificaciones. Al implementar, aplicar el mínimo de
-  AGENTS.md (`pnpm install`, `pnpm test`, `pnpm typecheck`) sobre el árbol ya estabilizado,
-  además de `pnpm lint` y `git diff --check`.
-
-Estos resultados son provisionales por el trabajo concurrente; no reemplazan la verificación
-final de 9B ni autorizan adelantar Fase 10. Este plan queda preparado aunque la implementación
-y todos sus criterios continúan pendientes.
+- `pnpm install --frozen-lockfile`: aprobado; los 11 proyectos ya estaban actualizados.
+- `pnpm pipeline`: aprobado el 2026-09-05; lint y typecheck verdes en los diez paquetes
+  seleccionados, con 603 pruebas aprobadas en 121 archivos.
+- `git diff --check`: aprobado.
+- Pruebas focalizadas: 7 de `OutboxRelay` y 7 de `DrizzleOutboxStore`, incluidas selección
+  ordenada, callbacks sustituidos, contrato incompatible y reapertura de SQLite.
+- El transporte de red, el receptor remoto, la deduplicación persistida y el worker periódico
+  siguen pendientes en 10.02–10.04.

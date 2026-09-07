@@ -81,6 +81,15 @@ persistida ni permitirá editar evidencia histórica: seguirá siendo solo la
 referencia del movimiento ya existente. Esta separación es la opción mínima
 que respeta el orden de fases y no inventa un costo.
 
+### Complemento LAN del 2026-09-06
+
+La coordinación LAN está complementada por
+[ADR-0026, D3](./0026-lan-operativa-y-recuperacion-entre-nodos.md), decidido y aún no
+implementado: completar compras requiere conexión al coordinador y una interrupción con
+efectos iniciados conserva intención pendiente de conciliación. Cada nodo confirma sus
+efectos en su transacción; la atomicidad anterior sigue vigente para standalone y no se
+extiende a dos SQLite. El origen de `PurchaseReceipt` permanece fijo.
+
 ### Identificadores y códigos
 
 El ID técnico usa el generador de aplicación aprobado por ADR-0003. El código

@@ -124,7 +124,14 @@ class Harness {
     { generate: () => `audit-id-${this.printerCalls}` }, { now: () => now },
     { execute: async <T>(work: () => Promise<T>) => work() } satisfies UnitOfWork,
     { append: async (events) => { void events; }, findByAggregate: async () => [] } satisfies BusinessEventStore,
-    { enqueue: async (events) => { void events; }, claimAvailable: async () => [], markPublished: async () => undefined, markFailed: async () => undefined } satisfies OutboxStore,
+    { enqueue: async (events) => { void events; }, claimAvailable: async () => [],
+      isClaimActive: async () => false, markPublished: async () => false,
+      markFailed: async () => false, markBlocked: async () => false,
+      markPaused: async () => false, resumeDelivery: async () => false,
+      summarize: async (destinationNodeId: string) => ({
+        destinationNodeId, pending: 0, paused: 0, blocked: 0,
+        lastPublishedAt: null, lastError: null
+      }), listPaused: async () => [] } satisfies OutboxStore,
     { append: async (entries: readonly AuditEntry[]) => { void entries; } } satisfies AuditWriter,
     { find: async (scope, key) => this.idempotency?.scope === scope && this.idempotency.key === key ? this.idempotency : null,
       save: async (record) => { this.idempotency = record; } } satisfies IdempotencyStore

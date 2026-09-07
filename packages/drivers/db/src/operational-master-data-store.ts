@@ -23,11 +23,13 @@ export class SqliteOperationalMasterDataStore implements OperationalMasterDataSt
     return read(() => (this.handle.sqlite.prepare('select id, name, is_active as isActive from categories order by name').all() as
       Array<{ id: string; name: string; isActive: number }>).map((row) => Category.create({ ...row, isActive: row.isActive === 1 })));
   }
-  async saveCategory(value: Category): Promise<void> {
+  /** Devuelve la versión persistida: el propio insert la incrementa. */
+  async saveCategory(value: Category): Promise<number> {
     requireTransaction(this.handle.sqlite);
-    this.handle.sqlite.prepare(`insert into categories (id, name, is_active) values (?, ?, ?)
-      on conflict(id) do update set name = excluded.name, is_active = excluded.is_active`)
-      .run(value.id, value.name, value.isActive ? 1 : 0);
+    return this.handle.sqlite.prepare(`insert into categories (id, name, is_active, version)
+      values (?, ?, ?, 1) on conflict(id) do update set name = excluded.name,
+      is_active = excluded.is_active, version = version + 1 returning version`)
+      .pluck().get(value.id, value.name, value.isActive ? 1 : 0) as number;
   }
   isCategoryInUse(id: string): Promise<boolean> {
     return read(() => Boolean(this.handle.sqlite.prepare(
@@ -49,12 +51,15 @@ export class SqliteOperationalMasterDataStore implements OperationalMasterDataSt
       Array<{ id: string; code: string; name: string; quantityScale: number; isActive: number }>)
       .map((row) => UnitOfMeasure.create({ ...row, isActive: row.isActive === 1 })));
   }
-  async saveUnit(value: UnitOfMeasure): Promise<void> {
+  async saveUnit(value: UnitOfMeasure): Promise<number> {
     requireTransaction(this.handle.sqlite);
-    this.handle.sqlite.prepare(`insert into units_of_measure (id, code, name, quantity_scale, is_active)
-      values (?, ?, ?, ?, ?) on conflict(id) do update set code = excluded.code, name = excluded.name,
-      quantity_scale = excluded.quantity_scale, is_active = excluded.is_active`)
-      .run(value.id, value.code, value.name, value.quantityScale, value.isActive ? 1 : 0);
+    return this.handle.sqlite.prepare(`insert into units_of_measure (id, code, name,
+      quantity_scale, is_active, version) values (?, ?, ?, ?, ?, 1)
+      on conflict(id) do update set code = excluded.code, name = excluded.name,
+      quantity_scale = excluded.quantity_scale, is_active = excluded.is_active,
+      version = version + 1 returning version`)
+      .pluck().get(value.id, value.code, value.name, value.quantityScale,
+        value.isActive ? 1 : 0) as number;
   }
   isUnitInUse(id: string): Promise<boolean> {
     return read(() => Boolean(this.handle.sqlite.prepare(
@@ -79,12 +84,16 @@ export class SqliteOperationalMasterDataStore implements OperationalMasterDataSt
       Array<{ code: string; name: string; kind: PaymentMethodKind; currencyCode: string; isActive: number }>)
       .map((row) => PaymentMethod.create({ ...row, isActive: row.isActive === 1 })));
   }
-  async savePaymentMethod(value: PaymentMethod): Promise<void> {
+  async savePaymentMethod(value: PaymentMethod): Promise<number> {
     requireTransaction(this.handle.sqlite);
-    this.handle.sqlite.prepare(`insert into payment_methods (code, name, kind, currency_code, is_active)
-      values (?, ?, ?, ?, ?) on conflict(code) do update set name = excluded.name, kind = excluded.kind,
-      currency_code = excluded.currency_code, is_active = excluded.is_active`)
-      .run(value.code, value.name, value.kind, value.currencyCode, value.isActive ? 1 : 0);
+    return this.handle.sqlite.prepare(`insert into payment_methods (
+      code, name, kind, currency_code, is_active, version
+    ) values (?, ?, ?, ?, ?, 1) on conflict(code) do update set name = excluded.name,
+      kind = excluded.kind, currency_code = excluded.currency_code,
+      is_active = excluded.is_active, version = version + 1 returning version`)
+      .pluck().get(
+        value.code, value.name, value.kind, value.currencyCode, value.isActive ? 1 : 0
+      ) as number;
   }
   isPaymentMethodInUse(code: string): Promise<boolean> {
     return read(() => Boolean(this.handle.sqlite.prepare(`

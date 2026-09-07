@@ -1,0 +1,562 @@
+import { createHash } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { request as httpsRequest } from 'node:https';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  application,
+  StockItem,
+  type BusinessEventV1,
+  type SyncNodeRegistration
+} from '@supermarket/core';
+import { Money, Quantity, type SyncEnvelopeV1 } from '@supermarket/shared';
+import { HttpsSyncEventPublisher } from '@supermarket/driver-security';
+import {
+  applyMigrations,
+  DrizzleAggregateAuthorityRegistry,
+  DrizzleAuditWriter,
+  DrizzleBusinessEventStore,
+  DrizzleOutboxStore,
+  DrizzleStockItemRepository,
+  DrizzleSyncInboxWorkStore,
+  DrizzleSyncReceptionStore,
+  openDatabase,
+  SqliteSyncNodeRegistry,
+  SqliteUnitOfWork,
+  type DatabaseHandle
+} from '@supermarket/driver-db';
+import type { FastifyInstance } from 'fastify';
+import { buildSyncApp, SYNC_AGGREGATES_ROUTE, SYNC_DESTINATION_HEADER } from './sync-app.ts';
+import { issueNodeCertificate, type NodeCertificate } from './testing/certificates.ts';
+
+const COORDINATOR = 'node-coordinator';
+let moment = new Date('2026-09-06T12:00:00.000Z');
+const clock = { now: (): Date => moment };
+let issued = 0;
+const ids = { generate: (): string => `generated-${(issued += 1)}` };
+
+const coordinatorCertificate = issueNodeCertificate(COORDINATOR);
+const terminalCertificates: Readonly<Record<string, NodeCertificate>> = {
+  'node-terminal-1': issueNodeCertificate('node-terminal-1'),
+  'node-terminal-2': issueNodeCertificate('node-terminal-2')
+};
+
+const salePayload = (terminalId: string, quantityScaled: number): BusinessEventV1['payload'] => ({
+  shiftId: `shift-${terminalId}`,
+  terminalId,
+  total: { minorUnits: 1000, currencyCode: 'USD' },
+  paidTotal: { minorUnits: 1000, currencyCode: 'USD' },
+  payments: [{
+    paymentId: `payment-${terminalId}`,
+    methodCode: 'CASH_USD',
+    currencyCode: 'USD',
+    amountMinorUnits: 1000
+  }],
+  items: [{
+    itemId: `line-${terminalId}`, productId: 'product-1', quantityScaled, quantityScale: 0
+  }]
+});
+
+const shiftEvent = (nodeId: string, terminalId: string): BusinessEventV1 => ({
+  eventId: `event-shift-${terminalId}`,
+  eventType: 'ShiftOpened',
+  contractVersion: 1,
+  aggregateId: `shift-${terminalId}`,
+  aggregateType: 'Shift',
+  aggregateVersion: 1,
+  originNodeId: nodeId,
+  correlationId: `correlation-shift-${terminalId}`,
+  actorId: 'user-001',
+  occurredAt: new Date('2026-09-06T09:00:00.000Z'),
+  payload: {
+    cashRegisterId: `register-${terminalId}`,
+    terminalId,
+    originNodeId: nodeId,
+    openedBy: 'user-001',
+    openingBalances: []
+  }
+});
+
+const saleEvent = (
+  nodeId: string,
+  terminalId: string,
+  quantityScaled: number
+): BusinessEventV1 => ({
+  eventId: `event-sale-${terminalId}`,
+  eventType: 'SaleCompleted',
+  contractVersion: 1,
+  aggregateId: `sale-${terminalId}`,
+  aggregateType: 'Sale',
+  aggregateVersion: 4,
+  originNodeId: nodeId,
+  correlationId: `correlation-sale-${terminalId}`,
+  actorId: 'user-001',
+  occurredAt: new Date('2026-09-06T10:00:00.000Z'),
+  payload: salePayload(terminalId, quantityScaled)
+});
+
+type Coordinator = {
+  readonly handle: DatabaseHandle;
+  readonly app: FastifyInstance;
+  readonly port: number;
+  readonly processor: application.ProcessSyncInbox;
+  readonly workStore: DrizzleSyncInboxWorkStore;
+  readonly unitOfWork: SqliteUnitOfWork;
+};
+
+type Terminal = {
+  readonly nodeId: string;
+  readonly terminalId: string;
+  readonly handle: DatabaseHandle;
+  readonly outbox: DrizzleOutboxStore;
+  readonly unitOfWork: SqliteUnitOfWork;
+};
+
+let directory: string;
+let coordinator: Coordinator;
+const terminals = new Map<string, Terminal>();
+
+const node = (
+  overrides: Partial<SyncNodeRegistration> & Pick<SyncNodeRegistration, 'nodeId'>
+): SyncNodeRegistration => ({
+  storeId: 'store-001',
+  role: 'TERMINAL',
+  terminalId: null,
+  credentialFingerprint: '',
+  addressHost: null,
+  addressPort: null,
+  notAfter: new Date('2027-01-01T00:00:00.000Z'),
+  registeredAt: clock.now(),
+  registeredBy: 'operator-001',
+  registrationReason: 'Alta manual de prueba.',
+  ...overrides
+});
+
+const stockedItem = (available: number): StockItem => {
+  const item = StockItem.create({
+    id: 'stock-1', productId: 'product-1', unitCode: 'UND', quantityScale: 0, tracksBatches: false
+  });
+  item.registerMovement({
+    id: 'receipt-1',
+    eventId: 'receipt-event-1',
+    type: 'PURCHASE_RECEIPT',
+    quantity: Quantity.fromScaled(available, 0),
+    actorId: 'user-001',
+    reason: 'Purchase',
+    referenceId: 'r-1',
+    occurredAt: new Date('2026-09-01T10:00:00.000Z'),
+    unitCost: Money.fromMinorUnits(500, 'USD')
+  });
+  return item;
+};
+
+const startCoordinator = async (
+  available: number,
+  name = 'coordinator'
+): Promise<Coordinator> => {
+  const handle = openDatabase(join(directory, `${name}.sqlite`));
+  applyMigrations(handle.sqlite);
+  const unitOfWork = new SqliteUnitOfWork(handle.sqlite);
+  const authorities = new DrizzleAggregateAuthorityRegistry(handle);
+  const workStore = new DrizzleSyncInboxWorkStore(handle);
+  const registry = new SqliteSyncNodeRegistry(handle);
+  const stockItems = new DrizzleStockItemRepository(handle);
+
+  await unitOfWork.execute(() => stockItems.save(stockedItem(available)));
+  await unitOfWork.execute(() => registry.register(node({
+    nodeId: COORDINATOR,
+    role: 'COORDINATOR',
+    credentialFingerprint: coordinatorCertificate.fingerprint
+  })));
+  for (const [nodeId, certificate] of Object.entries(terminalCertificates)) {
+    await unitOfWork.execute(() => registry.register(node({
+      nodeId,
+      terminalId: nodeId.replace('node-terminal-', 'terminal-00'),
+      credentialFingerprint: certificate.fingerprint
+    })));
+  }
+
+  const app = buildSyncApp({
+    receiverNodeId: COORDINATOR,
+    resolveSender: new application.ResolveSyncSender(COORDINATOR, registry, clock),
+    receiveSyncEvent: new application.ReceiveSyncEvent(
+      COORDINATOR,
+      new DrizzleSyncReceptionStore(handle),
+      authorities,
+      clock,
+      unitOfWork,
+      ids
+    ),
+    registerOwnedAggregate: new application.RegisterOwnedAggregate(
+      authorities, clock, unitOfWork, ids, new DrizzleAuditWriter(handle)
+    ),
+    https: {
+      key: coordinatorCertificate.privateKeyPem,
+      cert: coordinatorCertificate.certificatePem,
+      ca: Object.values(terminalCertificates).map(({ certificatePem }) => certificatePem)
+    }
+  });
+  await app.listen({ host: '127.0.0.1', port: 0 });
+  const address = app.server.address();
+
+  return {
+    handle,
+    app,
+    port: typeof address === 'object' && address !== null ? address.port : 0,
+    unitOfWork,
+    workStore,
+    processor: new application.ProcessSyncInbox(
+      workStore,
+      new Map([['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(
+        new application.ApplySaleCompletedToInventory(
+          stockItems, ids, ids, application.ambientUnitOfWork,
+          new DrizzleBusinessEventStore(handle), new DrizzleAuditWriter(handle),
+          'SYNCED_SNAPSHOT'
+        )
+      )]]),
+      unitOfWork,
+      clock,
+      ids
+    )
+  };
+};
+
+const openTerminal = (nodeId: string): Terminal => {
+  const handle = openDatabase(join(directory, `${nodeId}.sqlite`));
+  applyMigrations(handle.sqlite);
+  return {
+    nodeId,
+    terminalId: nodeId.replace('node-terminal-', 'terminal-00'),
+    handle,
+    outbox: new DrizzleOutboxStore(handle),
+    unitOfWork: new SqliteUnitOfWork(handle.sqlite)
+  };
+};
+
+const relayFor = (
+  terminal: Terminal,
+  port = coordinator.port
+): application.OutboxRelay => new application.OutboxRelay(
+  COORDINATOR,
+  terminal.outbox,
+  new HttpsSyncEventPublisher({
+    host: 'localhost',
+    port,
+    destinationNodeId: COORDINATOR,
+    key: (terminalCertificates[terminal.nodeId] as NodeCertificate).privateKeyPem,
+    cert: (terminalCertificates[terminal.nodeId] as NodeCertificate).certificatePem,
+    ca: [coordinatorCertificate.certificatePem],
+    timeoutMilliseconds: 2_000
+  }),
+  terminal.unitOfWork,
+  clock,
+  { jitter: () => 0 }
+);
+
+/** Alta técnica del agregado creado sin conexión, previa a su entrega comercial. */
+const claimAuthority = (
+  terminal: Terminal,
+  aggregateType: string,
+  aggregateId: string
+): Promise<{ status: number; body: unknown }> => new Promise((resolve, reject) => {
+  const certificate = terminalCertificates[terminal.nodeId] as NodeCertificate;
+  const body = JSON.stringify({
+    aggregateType,
+    aggregateId,
+    evidenceFingerprint: createHash('sha256').update(aggregateId).digest('hex')
+  });
+  const call = httpsRequest({
+    host: 'localhost',
+    port: coordinator.port,
+    path: SYNC_AGGREGATES_ROUTE,
+    method: 'POST',
+    ca: [coordinatorCertificate.certificatePem],
+    key: certificate.privateKeyPem,
+    cert: certificate.certificatePem,
+    headers: {
+      'content-type': 'application/json',
+      [SYNC_DESTINATION_HEADER]: COORDINATOR
+    }
+  }, (response) => {
+    let raw = '';
+    response.setEncoding('utf8');
+    response.on('data', (chunk: string) => { raw += chunk; });
+    response.on('end', () => resolve({
+      status: response.statusCode ?? 0,
+      body: raw.length === 0 ? null : JSON.parse(raw) as unknown
+    }));
+  });
+  call.on('error', reject);
+  call.end(body);
+});
+
+const custody = (): unknown[] => coordinator.handle.sqlite.prepare(
+  'select event_id, application_state, received_from_node_id from sync_inbox_event order by event_id'
+).all();
+
+const deliveries = (terminal: Terminal): unknown[] => terminal.handle.sqlite.prepare(
+  'select event_id, status, attempts, cycle_attempts from sync_delivery order by event_id'
+).all();
+
+const saleIssues = (): number => coordinator.handle.sqlite
+  .prepare("select count(*) from stock_movements where type = 'SALE_ISSUE'")
+  .pluck().get() as number;
+
+const balance = async (): Promise<number> => {
+  const item = await new DrizzleStockItemRepository(coordinator.handle)
+    .findByProductId('product-1');
+  return item?.balance.scaledValue ?? -1;
+};
+
+const enqueueSale = async (terminal: Terminal, quantityScaled: number): Promise<void> => {
+  await terminal.unitOfWork.execute(() => terminal.outbox.enqueue([
+    shiftEvent(terminal.nodeId, terminal.terminalId),
+    saleEvent(terminal.nodeId, terminal.terminalId, quantityScaled)
+  ]));
+};
+
+const grantAuthority = async (terminal: Terminal): Promise<void> => {
+  await claimAuthority(terminal, 'Shift', `shift-${terminal.terminalId}`);
+  await claimAuthority(terminal, 'Sale', `sale-${terminal.terminalId}`);
+};
+
+beforeEach(async () => {
+  moment = new Date('2026-09-06T12:00:00.000Z');
+  directory = mkdtempSync(join(tmpdir(), 'lan-sync-'));
+  coordinator = await startCoordinator(10);
+  terminals.set('node-terminal-1', openTerminal('node-terminal-1'));
+  terminals.set('node-terminal-2', openTerminal('node-terminal-2'));
+});
+
+afterEach(async () => {
+  await coordinator.app.close();
+  if (coordinator.handle.sqlite.open) coordinator.handle.close();
+  for (const terminal of terminals.values()) {
+    if (terminal.handle.sqlite.open) terminal.handle.close();
+  }
+  terminals.clear();
+  rmSync(directory, { recursive: true, force: true });
+});
+
+const first = (): Terminal => terminals.get('node-terminal-1') as Terminal;
+const second = (): Terminal => terminals.get('node-terminal-2') as Terminal;
+
+describe('LAN de una tienda con coordinador y dos terminales', () => {
+  it('entrega una venta acumulada durante el corte y la aplica una sola vez', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+
+    /** Coordinador inalcanzable: la salida local conserva ambos hechos. */
+    expect(await relayFor(terminal, 1).runBatch()).toBe(2);
+    expect(deliveries(terminal)).toMatchObject([
+      { event_id: 'event-sale-terminal-001', status: 'PENDING' },
+      { event_id: 'event-shift-terminal-001', status: 'PENDING' }
+    ]);
+    expect(custody()).toEqual([]);
+
+    moment = new Date('2026-09-06T12:05:00.000Z');
+    await grantAuthority(terminal);
+    const relay = relayFor(terminal);
+    await relay.runBatch();
+    await relay.runBatch();
+    await coordinator.processor.runBatch();
+
+    expect(deliveries(terminal)).toMatchObject([
+      { event_id: 'event-sale-terminal-001', status: 'PUBLISHED' },
+      { event_id: 'event-shift-terminal-001', status: 'PUBLISHED' }
+    ]);
+    expect(custody()).toEqual([
+      { event_id: 'event-sale-terminal-001', application_state: 'PENDING_CONSUMER',
+        received_from_node_id: 'node-terminal-1' },
+      { event_id: 'event-shift-terminal-001', application_state: 'PENDING_CONSUMER',
+        received_from_node_id: 'node-terminal-1' }
+    ]);
+    expect(saleIssues()).toBe(1);
+    expect(await balance()).toBe(8);
+  });
+
+  it('reentrega tras un ACK perdido sin duplicar custodia ni efectos', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+    await grantAuthority(terminal);
+    const publisher = new HttpsSyncEventPublisher({
+      host: 'localhost',
+      port: coordinator.port,
+      destinationNodeId: COORDINATOR,
+      key: (terminalCertificates['node-terminal-1'] as NodeCertificate).privateKeyPem,
+      cert: (terminalCertificates['node-terminal-1'] as NodeCertificate).certificatePem,
+      ca: [coordinatorCertificate.certificatePem]
+    });
+    let lostAcknowledgements = 2;
+
+    /** El coordinador confirma, pero la respuesta se pierde en el camino. */
+    const lossy = new application.OutboxRelay(COORDINATOR, terminal.outbox, {
+      publish: async (envelope: SyncEnvelopeV1) => {
+        const acknowledgement = await publisher.publish(envelope);
+        if (lostAcknowledgements > 0) {
+          lostAcknowledgements -= 1;
+          throw new Error('connection reset before the acknowledgement arrived');
+        }
+        return acknowledgement;
+      }
+    }, terminal.unitOfWork, clock, { jitter: () => 0 });
+
+    await lossy.runBatch();
+    await lossy.runBatch();
+    moment = new Date('2026-09-06T12:10:00.000Z');
+    const recovered = relayFor(terminal);
+    await recovered.runBatch();
+    await recovered.runBatch();
+    await coordinator.processor.runBatch();
+    await coordinator.processor.runBatch();
+
+    expect(deliveries(terminal)).toMatchObject([
+      { event_id: 'event-sale-terminal-001', status: 'PUBLISHED' },
+      { event_id: 'event-shift-terminal-001', status: 'PUBLISHED' }
+    ]);
+    expect(coordinator.handle.sqlite.prepare('select count(*) from sync_inbox_event')
+      .pluck().get()).toBe(2);
+    expect(saleIssues()).toBe(1);
+    expect(await balance()).toBe(8);
+  });
+
+  it('el ACK de una terminal no confirma a la otra ni la bloquea', async () => {
+    const online = first();
+    const offline = second();
+    await enqueueSale(online, 2);
+    await enqueueSale(offline, 1);
+    await grantAuthority(online);
+
+    const relay = relayFor(online);
+    await relay.runBatch();
+    await relay.runBatch();
+    expect(await relayFor(offline, 1).runBatch()).toBe(2);
+
+    expect(deliveries(online)).toMatchObject([
+      { event_id: 'event-sale-terminal-001', status: 'PUBLISHED' },
+      { event_id: 'event-shift-terminal-001', status: 'PUBLISHED' }
+    ]);
+    expect(deliveries(offline)).toMatchObject([
+      { event_id: 'event-sale-terminal-002', status: 'PENDING' },
+      { event_id: 'event-shift-terminal-002', status: 'PENDING' }
+    ]);
+    expect(custody()).toMatchObject([
+      { event_id: 'event-sale-terminal-001' },
+      { event_id: 'event-shift-terminal-001' }
+    ]);
+
+    moment = new Date('2026-09-06T12:05:00.000Z');
+    await grantAuthority(offline);
+    const recovered = relayFor(offline);
+    await recovered.runBatch();
+    await recovered.runBatch();
+
+    expect(deliveries(offline)).toMatchObject([
+      { event_id: 'event-sale-terminal-002', status: 'PUBLISHED' },
+      { event_id: 'event-shift-terminal-002', status: 'PUBLISHED' }
+    ]);
+  });
+
+  it('conserva ambas ventas de la última unidad y abre una discrepancia única', async () => {
+    await coordinator.app.close();
+    coordinator.handle.close();
+    coordinator = await startCoordinator(1, 'coordinator-scarce');
+    const online = first();
+    const neighbour = second();
+    await enqueueSale(online, 1);
+    await enqueueSale(neighbour, 1);
+    await grantAuthority(online);
+    await grantAuthority(neighbour);
+
+    for (const terminal of [online, neighbour]) {
+      const relay = relayFor(terminal);
+      await relay.runBatch();
+      await relay.runBatch();
+    }
+    await coordinator.processor.runBatch();
+    await coordinator.processor.runBatch();
+
+    expect(coordinator.handle.sqlite.prepare('select count(*) from sync_inbox_event')
+      .pluck().get()).toBe(4);
+    expect(await balance()).toBe(0);
+    expect(saleIssues()).toBe(1);
+    expect(coordinator.handle.sqlite.prepare(
+      'select event_id, consumer, reason_code, status from sync_discrepancy'
+    ).all()).toEqual([{
+      event_id: 'event-sale-terminal-002',
+      consumer: 'INVENTORY_AUTHORITY',
+      reason_code: 'STOCK_INSUFFICIENT',
+      status: 'OPEN'
+    }]);
+  });
+
+  it('agota el ciclo, pausa de forma durable y solo reanuda con autorización', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+    const relay = relayFor(terminal, 1);
+
+    for (let cycle = 0; cycle < 12; cycle += 1) {
+      await relay.runBatch();
+      moment = new Date(moment.getTime() + 120_000);
+    }
+    terminal.handle.close();
+
+    const reopened = openTerminal('node-terminal-1');
+    terminals.set('node-terminal-1', reopened);
+    await relayFor(reopened, 1).runBatch();
+
+    expect(deliveries(reopened)).toMatchObject([
+      { event_id: 'event-sale-terminal-001', status: 'PAUSED', attempts: 10, cycle_attempts: 10 },
+      { event_id: 'event-shift-terminal-001', status: 'PAUSED', attempts: 10, cycle_attempts: 10 }
+    ]);
+
+    const resumed = await new application.ResumeSyncDelivery(
+      reopened.outbox,
+      { authorize: async () => true },
+      clock,
+      reopened.unitOfWork,
+      ids,
+      new DrizzleAuditWriter(reopened.handle)
+    ).execute({
+      eventId: 'event-shift-terminal-001',
+      destinationNodeId: COORDINATOR,
+      reason: 'LAN restablecida y verificada.'
+    }, {
+      actorId: 'operator-001',
+      actorRoleCodes: ['ADMIN'],
+      terminalId: 'terminal-001',
+      originNodeId: 'node-terminal-1',
+      correlationId: 'correlation-resume'
+    });
+
+    expect(resumed).toMatchObject({ ok: true });
+    expect(reopened.handle.sqlite.prepare(
+      "select status, cycle_attempts, attempts from sync_delivery where event_id = 'event-shift-terminal-001'"
+    ).get()).toEqual({ status: 'PENDING', cycle_attempts: 0, attempts: 10 });
+    expect(reopened.handle.sqlite.prepare(
+      "select count(*) from audit_log where action = 'SYNC_DELIVERY_RESUMED'"
+    ).pluck().get()).toBe(1);
+  });
+
+  it('no acepta un agregado sin alta y lo acepta después de registrarla', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+
+    expect(await relayFor(terminal).runBatch()).toBe(2);
+    expect(terminal.handle.sqlite.prepare(
+      "select status, last_error from sync_delivery where event_id = 'event-shift-terminal-001'"
+    ).get()).toEqual({ status: 'BLOCKED', last_error: 'SYNC_AGGREGATE_OWNER_UNRESOLVED' });
+
+    const alta = await claimAuthority(terminal, 'Shift', 'shift-terminal-001');
+    expect(alta.body).toMatchObject({ status: 'REGISTERED', ownerNodeId: 'node-terminal-1' });
+    expect(coordinator.handle.sqlite.prepare(
+      "select count(*) from audit_log where action = 'SYNC_AGGREGATE_AUTHORITY_DELEGATED'"
+    ).pluck().get()).toBe(1);
+    expect(coordinator.handle.sqlite.prepare(
+      'select reason_code from sync_quarantine'
+    ).pluck().all()).toEqual([
+      'SYNC_AGGREGATE_OWNER_UNRESOLVED', 'SYNC_AGGREGATE_OWNER_UNRESOLVED'
+    ]);
+  });
+});

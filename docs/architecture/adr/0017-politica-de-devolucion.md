@@ -54,10 +54,21 @@ comprobante, disposición de merma, consolidación de notas y políticas fiscale
 pertenecen a perfiles posteriores. Una integración real debe mapearlas contra la evidencia y
 el proveedor que correspondan.
 
+## Complemento LAN del 2026-09-06
+
+[ADR-0026, D3](./0026-lan-operativa-y-recuperacion-entre-nodos.md) conserva esta atomicidad
+en standalone y define para LAN conexión inicial obligatoria, transacciones por nodo e
+intención pendiente de conciliación si se interrumpe el flujo. No promete commit global
+entre caja del POS e inventario del coordinador. Mantiene turno/método original, lote/costo,
+documentos inmutables y fiscalidad recuperable. Está decidido, pendiente de implementación
+y de las pruebas de cada paso de 10.03; [FS-011](../../failure-scenarios/FS-011-operacion-lan-interrumpida.md)
+describe esa brecha, mientras FS-006 conserva la garantía local actual.
+
 ## Invariantes
 
 - Un documento emitido no se edita; se corrige mediante un documento compensatorio.
-- Caja, inventario, ledger, outbox y estado fiscal se confirman juntos o no se confirman.
+- En standalone, caja, inventario, ledger, outbox y estado fiscal se confirman juntos o
+  no se confirman. La coordinación LAN sigue el complemento de ADR-0026, aún sin implementar.
 - Toda acción sensible deja actor, terminal, nodo, UTC y motivo.
 - Un fallo de impresión simulada conserva un estado recuperable e idempotente.
 - El saldo esperado puede ser negativo por reintegros y debe mostrarse con su signo.

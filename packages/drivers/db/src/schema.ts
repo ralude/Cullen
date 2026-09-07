@@ -167,7 +167,8 @@ export const financialTransactionTaxCurrencies = sqliteTable(
 export const categories = sqliteTable('categories', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull()
+  isActive: integer('is_active', { mode: 'boolean' }).notNull(),
+  version: integer('version').notNull()
 });
 
 export const unitsOfMeasure = sqliteTable('units_of_measure', {
@@ -175,7 +176,8 @@ export const unitsOfMeasure = sqliteTable('units_of_measure', {
   code: text('code').notNull().unique(),
   name: text('name').notNull(),
   quantityScale: integer('quantity_scale').notNull(),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull()
+  isActive: integer('is_active', { mode: 'boolean' }).notNull(),
+  version: integer('version').notNull()
 });
 
 export const paymentMethods = sqliteTable('payment_methods', {
@@ -183,7 +185,8 @@ export const paymentMethods = sqliteTable('payment_methods', {
   name: text('name').notNull(),
   kind: text('kind').notNull(),
   currencyCode: text('currency_code').notNull(),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull()
+  isActive: integer('is_active', { mode: 'boolean' }).notNull(),
+  version: integer('version').notNull()
 });
 
 export const cashRegisters = sqliteTable('cash_registers', {
@@ -203,7 +206,8 @@ export const exchangeRates = sqliteTable('exchange_rates', {
   source: text('source').notNull(),
   validFrom: integer('valid_from').notNull(),
   validUntil: integer('valid_until'),
-  registeredBy: text('registered_by').notNull()
+  registeredBy: text('registered_by').notNull(),
+  version: integer('version').notNull()
 });
 
 export const products = sqliteTable('products', {

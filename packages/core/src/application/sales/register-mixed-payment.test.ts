@@ -46,7 +46,7 @@ describe('RegisterMixedPayment', () => {
         findByCode: async () => PaymentMethod.create({ code: 'CASH_USD', name: 'Cash USD', kind: 'CASH', currencyCode: 'USD' }),
         findAll: async () => []
       },
-      { findById: async () => null, findCurrentByPair: async () => null, save: async () => {} },
+      { findById: async () => null, findCurrentByPair: async () => null, save: async () => 1 },
       { getPolicy: async () => ({ id: 'igtf-001', rate: TaxRate.fromBasisPoints(0), eligiblePaymentMethodCodes: [], eligibleCurrencies: [] }) },
       { generate: () => 'payment-001' },
       { generate: () => 'event-003' },
@@ -71,7 +71,7 @@ describe('RegisterMixedPayment', () => {
         findByCode: async () => PaymentMethod.create({ code: 'CASH_USD', name: 'Cash USD', kind: 'CASH', currencyCode: 'USD' }),
         findAll: async () => []
       },
-      { findById: async () => ExchangeRate.create({ id: 'rate-001', baseCurrency: 'EUR', quoteCurrency: 'USD', rateValue: 100, rateScale: 0, source: 'test', validFrom: new Date('2026-08-01T00:00:00Z'), registeredBy: 'user-001' }), findCurrentByPair: async () => null, save: async () => {} },
+      { findById: async () => ExchangeRate.create({ id: 'rate-001', baseCurrency: 'EUR', quoteCurrency: 'USD', rateValue: 100, rateScale: 0, source: 'test', validFrom: new Date('2026-08-01T00:00:00Z'), registeredBy: 'user-001' }), findCurrentByPair: async () => null, save: async () => 1 },
       { getPolicy: async () => ({ id: 'igtf-001', rate: TaxRate.fromBasisPoints(300), eligiblePaymentMethodCodes: ['CASH_USD'], eligibleCurrencies: ['USD'] }) },
       { generate: () => 'payment-001' },
       { generate: () => 'event-003' },

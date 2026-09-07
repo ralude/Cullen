@@ -64,10 +64,19 @@ Incluye:
 - [ADR-0019: Proveedores y evidencia de recepciones de compra](./adr/0019-proveedores-y-recepciones-de-compra.md)
 - [ADR-0020: Modelo de almacenes y transferencias de existencia](./adr/0020-modelo-de-almacenes-y-transferencias.md) — **aceptado**, un almacén implícito por nodo; transferencias diferidas
 - [ADR-0021: MVP de referencia no certificado y defaults reemplazables](./adr/0021-mvp-referencia-no-certificado.md) — **aceptado**, política de alcance
+- [ADR-0022: Entrega outbox ordenada y recuperable](./adr/0022-entrega-outbox-ordenada-y-recuperable.md) — **aceptado**, generación de claim, orden y recuperación
+- [ADR-0023: Protocolo de eventos entre nodos](./adr/0023-protocolo-de-eventos-entre-nodos.md) — **aceptado**, sobre versionado, ownership verificado, deduplicación y aislamiento local
+- [ADR-0024: Inventario multi-almacén y consolidación cloud](./adr/0024-inventario-multi-almacen-y-consolidacion-cloud.md) — **aceptado para post-MVP**, implementación y especificaciones de detalle pendientes
+- [ADR-0025: Web interna Next.js y sistema de diseño de Cullen](./adr/0025-web-nextjs-y-sistema-de-diseno.md) — **aceptado para Fases 16 y 16B**, sin implementación
+- [ADR-0026: LAN operativa y recuperación entre nodos](./adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) — **aceptado para Fase 10**, confianza, referencias, coordinación, costo offline y retry; confianza, recepción durable, transporte autenticado, aplicación de inventario, entrega por destino y retry implementados el 2026-09-06; referencias, bootstrap, coordinación de stock y concesiones siguen pendientes
 
 ## Alcance del producto
 
 Los niveles MVP técnico, piloto, producción soportada y plataforma empresarial se distinguen en [Alcance por nivel de entrega](../producto/alcance-entregas.md).
+
+La [evolución post-MVP](../cronograma/evolucion-post-mvp.md) incorpora almacenes por sucursal,
+PostgreSQL central, sincronización cloud, Web App Next.js y sistema de diseño propio basado
+en shadcn/ui. Es arquitectura futura aprobada, no una descripción de paquetes ya existentes.
 
 ## Estado
 

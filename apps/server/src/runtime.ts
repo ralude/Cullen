@@ -3,7 +3,11 @@ import {
   AuthenticateOperator,
   ProvisionInitialAdmin,
   RevokeSession,
-  VerifySession
+  VerifySession,
+  type Clock,
+  type OutboxStore,
+  type SyncNodeRegistry,
+  type UnitOfWork
 } from '@supermarket/core';
 import {
   applyMigrations,
@@ -16,6 +20,12 @@ import {
   DrizzleFiscalDocumentRepository,
   DrizzleIdempotencyStore,
   DrizzleOutboxStore,
+  DrizzleSyncReceptionStore,
+  DrizzleSyncInboxWorkStore,
+  SqliteCatalogReferenceProjection,
+  SqliteCatalogReferenceSource,
+  DrizzleAggregateAuthorityRegistry,
+  SqliteSyncNodeRegistry,
   DrizzlePaymentMethodRepository,
   DrizzleProductRepository,
   DrizzleCatalogReadRepository,
@@ -50,6 +60,7 @@ import { FiscalPrinterFake } from '@supermarket/driver-fiscal';
 import { HttpExchangeRateProvider, UnavailableExchangeRateProvider } from '@supermarket/driver-exchange-rate';
 import {
   CryptoSessionTokenService,
+  ObservedSyncConnectivity,
   ScryptPinHasher,
   SystemClock,
   UuidV7Generator,
@@ -67,7 +78,8 @@ export const ADMIN_PERMISSIONS = Object.freeze([
   ...Object.values(application.REPORT_PERMISSIONS),
   ...Object.values(application.SUPPLIER_PERMISSIONS),
   ...Object.values(application.PURCHASE_RECEIPT_PERMISSIONS),
-  ...Object.values(application.CONFIG_PERMISSIONS)
+  ...Object.values(application.CONFIG_PERMISSIONS),
+  ...Object.values(application.SYNC_PERMISSIONS)
 ]) as readonly string[];
 
 export type SecurityRuntime = {
@@ -75,6 +87,25 @@ export type SecurityRuntime = {
   readonly dependencies: ServerDependencies;
   readonly provisionInitialAdmin: ProvisionInitialAdmin;
   readonly fiscalPrinter: FiscalPrinterFake;
+  /** Casos de uso del listener tecnico de LAN; se componen aparte del API de operadores. */
+  readonly syncReception: {
+    readonly receiverNodeId: string;
+    readonly resolveSender: application.ResolveSyncSender;
+    readonly receiveSyncEvent: application.ReceiveSyncEvent;
+    readonly registerOwnedAggregate: application.RegisterOwnedAggregate;
+  };
+  /**
+   * Piezas del worker de sincronizacion del mismo proceso duenno de SQLite. El
+   * relay se compone por destino cuando la configuracion de LAN lo declara.
+   */
+  readonly syncDelivery: {
+    readonly outboxStore: OutboxStore;
+    readonly unitOfWork: UnitOfWork;
+    readonly clock: Clock;
+    readonly connectivity: ObservedSyncConnectivity;
+    readonly nodeRegistry: SyncNodeRegistry;
+    readonly processInbox: application.ProcessSyncInbox;
+  };
 };
 
 export const createSecurityRuntime = (
@@ -131,6 +162,10 @@ export const createSecurityRuntime = (
   const saleReturnRepository = new DrizzleSaleReturnRepository(handle);
   const fiscalPrinter = new FiscalPrinterFake();
   const fiscalDocumentRepository = new DrizzleFiscalDocumentRepository(handle);
+  const syncNodeRegistry = new SqliteSyncNodeRegistry(handle);
+  const aggregateAuthorities = new DrizzleAggregateAuthorityRegistry(handle);
+  const syncInboxWork = new DrizzleSyncInboxWorkStore(handle);
+  const syncConnectivity = new ObservedSyncConnectivity();
   const fiscalArguments = [
     fiscalDayRepository,
     fiscalPrinter,
@@ -147,6 +182,56 @@ export const createSecurityRuntime = (
   return {
     handle,
     fiscalPrinter,
+    syncReception: {
+      receiverNodeId: nodeIdentity.originNodeId,
+      resolveSender: new application.ResolveSyncSender(
+        nodeIdentity.originNodeId, syncNodeRegistry, clock
+      ),
+      receiveSyncEvent: new application.ReceiveSyncEvent(
+        nodeIdentity.originNodeId,
+        new DrizzleSyncReceptionStore(handle),
+        aggregateAuthorities,
+        clock,
+        unitOfWork,
+        ids
+      ),
+      registerOwnedAggregate: new application.RegisterOwnedAggregate(
+        aggregateAuthorities, clock, unitOfWork, ids, auditWriter
+      )
+    },
+    syncDelivery: {
+      outboxStore,
+      unitOfWork,
+      clock,
+      connectivity: syncConnectivity,
+      nodeRegistry: syncNodeRegistry,
+      /**
+       * El consumidor autoritativo del coordinador se une a la transaccion del
+       * procesador y conserva el costo del origen: un hecho sincronizado no se
+       * completa con el promedio vigente de este nodo.
+       */
+      processInbox: new application.ProcessSyncInbox(
+        syncInboxWork,
+        new Map<string, application.SyncConsumer>([
+          ['INVENTORY_AUTHORITY', new application.InventoryAuthorityConsumer(
+            new application.ApplySaleCompletedToInventory(
+              stockItemRepository, ids, ids, application.ambientUnitOfWork,
+              eventStore, auditWriter, 'SYNCED_SNAPSHOT'
+            )
+          )],
+          /**
+           * Proyeccion local del catalogo que publica el coordinador. No pasa
+           * por los casos de uso de administracion ni encola nada en la salida.
+           */
+          ['CATALOG_REFERENCE', new application.CatalogReferenceConsumer(
+            new SqliteCatalogReferenceProjection(handle)
+          )]
+        ]),
+        unitOfWork,
+        clock,
+        ids
+      )
+    },
     dependencies: {
       authenticateOperator: new AuthenticateOperator(store, pinHasher, tokens, clock),
       verifySession: new VerifySession(store, tokens, clock),
@@ -160,7 +245,7 @@ export const createSecurityRuntime = (
         ),
         updateProduct: new application.UpdateProduct(
           productRepository, categoryRepository, unitRepository, ids, clock,
-          authorization, unitOfWork, idempotencyStore, auditWriter
+          authorization, unitOfWork, idempotencyStore, auditWriter, outboxStore
         ),
         updatePrice: new application.UpdatePrice(
           productRepository, ids, ids, clock, authorization, unitOfWork,
@@ -181,7 +266,7 @@ export const createSecurityRuntime = (
       currency: {
         updateExchangeRate: new application.UpdateExchangeRate(
           ids, exchangeRateRepository, authorization, clock,
-          unitOfWork, idempotencyStore, auditWriter
+          unitOfWork, idempotencyStore, auditWriter, outboxStore
         ),
         getCurrentExchangeRate: new application.GetCurrentExchangeRate(clock, exchangeRateRepository),
         getExchangeRateHistory: new application.GetExchangeRateHistory(exchangeRateRepository),
@@ -309,10 +394,12 @@ export const createSecurityRuntime = (
         operational: {
           list: new application.ListOperationalMasterData(operationalMasterDataStore, authorization),
           saveCategory: new application.SaveCategory(
-            operationalMasterDataStore, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
+            operationalMasterDataStore, authorization, ids, clock, unitOfWork,
+            auditWriter, idempotencyStore, outboxStore
           ),
           saveUnit: new application.SaveUnit(
-            operationalMasterDataStore, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
+            operationalMasterDataStore, authorization, ids, clock, unitOfWork,
+            auditWriter, idempotencyStore, outboxStore
           ),
           savePaymentMethod: new application.SavePaymentMethod(
             operationalMasterDataStore, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
@@ -386,6 +473,34 @@ export const createSecurityRuntime = (
         ),
         getInventoryReport: new application.GetInventoryReport(
           new DrizzleInventoryReportRepository(handle), authorization
+        )
+      },
+      sync: {
+        registerNode: new application.RegisterSyncNode(
+          syncNodeRegistry, authorization, clock, unitOfWork, ids, auditWriter
+        ),
+        revokeNode: new application.RevokeSyncNode(
+          syncNodeRegistry, authorization, clock, unitOfWork, ids, auditWriter
+        ),
+        listNodes: new application.ListSyncNodes(syncNodeRegistry, authorization),
+        publishCatalogBootstrap: new application.PublishCatalogBootstrap(
+          new SqliteCatalogReferenceSource(handle), outboxStore, authorization,
+          clock, unitOfWork, ids, auditWriter
+        ),
+        getStatus: new application.GetSyncStatus(
+          outboxStore, syncInboxWork, syncConnectivity, clock, authorization,
+          new SqliteCatalogReferenceProjection(handle)
+        ),
+        listPaused: new application.ListPausedDeliveries(outboxStore, authorization),
+        resumeDelivery: new application.ResumeSyncDelivery(
+          outboxStore, authorization, clock, unitOfWork, ids, auditWriter
+        ),
+        listDiscrepancies: new application.ListSyncDiscrepancies(syncInboxWork, authorization),
+        retryDiscrepancy: new application.RetrySyncDiscrepancy(
+          syncInboxWork, authorization, clock, unitOfWork, ids, auditWriter
+        ),
+        resolveDiscrepancy: new application.ResolveSyncDiscrepancy(
+          syncInboxWork, authorization, clock, unitOfWork, ids, auditWriter
         )
       },
       ...(simulatedReportsEnabled ? {

@@ -14,8 +14,9 @@ class FakeIdGenerator implements IdGenerator {
 class FakeExchangeRateRepository implements ExchangeRateRepository {
   rates: ExchangeRate[] = [];
 
-  async save(rate: ExchangeRate): Promise<void> {
+  async save(rate: ExchangeRate): Promise<number> {
     this.rates.push(rate);
+    return this.rates.length;
   }
 
   async findCurrentByPair(): Promise<ExchangeRate | null> {

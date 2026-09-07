@@ -56,8 +56,17 @@ describe('CompleteSale', () => {
     const outboxStore: OutboxStore = {
       enqueue: async (events) => { enqueued.push(...events); },
       claimAvailable: async () => [],
-      markPublished: async () => undefined,
-      markFailed: async () => undefined
+      isClaimActive: async () => false,
+      markPublished: async () => false,
+      markFailed: async () => false,
+      markBlocked: async () => false,
+      markPaused: async () => false,
+      resumeDelivery: async () => false,
+      summarize: async (destinationNodeId: string) => ({
+        destinationNodeId, pending: 0, paused: 0, blocked: 0,
+        lastPublishedAt: null, lastError: null
+      }),
+      listPaused: async () => []
     };
     const idempotencyStore: IdempotencyStore = {
       find: async () => idempotentRecord,

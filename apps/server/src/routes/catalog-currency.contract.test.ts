@@ -157,8 +157,21 @@ describe('catalog and currency HTTP contracts', () => {
     expect(audit).toEqual(expect.arrayContaining([expect.objectContaining({
       actor_id: expect.any(String), terminal_id: 'terminal-001', origin_node_id: 'node-001'
     })]));
-    expect(runtime.handle.sqlite.prepare('select count(*) from business_event').pluck().get()).toBe(2);
-    expect(runtime.handle.sqlite.prepare('select count(*) from outbox_event').pluck().get()).toBe(2);
+    /**
+     * El ledger conserva los hechos de dominio; la salida distribuye el estado
+     * vigente del catálogo, así que también la actualización de detalles, que
+     * no produce evento de dominio, publica una referencia.
+     */
+    expect(runtime.handle.sqlite.prepare(
+      'select event_type from business_event order by occurred_at'
+    ).pluck().all()).toEqual(['ProductCreated', 'PriceChanged']);
+    expect(runtime.handle.sqlite.prepare(
+      'select event_type, aggregate_version from outbox_event order by aggregate_version'
+    ).all()).toEqual([
+      { event_type: 'ProductPublished', aggregate_version: 1 },
+      { event_type: 'ProductPublished', aggregate_version: 2 },
+      { event_type: 'ProductPublished', aggregate_version: 3 }
+    ]);
     expect(runtime.handle.sqlite.prepare('select count(*) from idempotency_key').pluck().get()).toBe(3);
   });
 

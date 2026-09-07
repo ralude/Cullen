@@ -34,7 +34,51 @@ export type { UnitOfWork } from './unit-of-work.js';
 export type { BusinessEventStore } from './business-event-store.js';
 export type { AuditEntry, AuditWriter } from './audit-writer.js';
 export type { EventPublisher } from './event-publisher.js';
-export type { OutboxEvent, OutboxStore } from './outbox-store.js';
+export type {
+  AggregateAuthority,
+  AggregateAuthorityRegistration,
+  AggregateAuthorityRegistrationOutcome,
+  AggregateAuthorityRegistry,
+  SyncSenderContext
+} from './aggregate-authority-registry.js';
+export type {
+  ReceivedSyncEvent,
+  SyncCustodyRecord,
+  SyncQuarantineEntry,
+  SyncReceptionStore
+} from './sync-reception-store.js';
+export type {
+  CatalogReferenceSource,
+  OperationalPolicyReference,
+  VersionedMaster
+} from './catalog-reference-source.js';
+export type {
+  CatalogReferenceProjection,
+  CategoryReference,
+  ExchangeRateReference,
+  PaymentMethodReference,
+  ProjectedOperationalPolicyReference,
+  ProductReference,
+  ReferenceApplication,
+  UnitOfMeasureReference
+} from './catalog-reference-projection.js';
+export type {
+  SyncDiscrepancyInput,
+  SyncDiscrepancyRecord,
+  SyncInboxWorkItem,
+  SyncInboxWorkStore
+} from './sync-inbox-work-store.js';
+export type {
+  RegisteredSyncNode,
+  SyncNodeRegistration,
+  SyncNodeRegistry,
+  SyncNodeRole
+} from './sync-node-registry.js';
+export type {
+  OutboxDestinationSummary,
+  OutboxEvent,
+  OutboxStore
+} from './outbox-store.js';
 export type { IdempotencyRecord, IdempotencyStore } from './idempotency-store.js';
 export type { FiscalDocumentRepository } from './fiscal-document-repository.js';
 export type { FiscalDayRepository } from './fiscal-day-repository.js';

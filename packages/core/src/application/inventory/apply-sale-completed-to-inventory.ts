@@ -26,6 +26,20 @@ const payloadOf = (event: BusinessEventV1): SalePayload | null => {
   return payload.terminalId.length > 0 && items.length > 0 ? { terminalId: payload.terminalId, items } : null;
 };
 
+/**
+ * Fuente del costo que se congela en la salida.
+ *
+ * `LOCAL_AVERAGE` conserva ADR-0016 para la venta que ocurre en este nodo: el
+ * promedio ponderado vigente al momento de vender.
+ *
+ * `SYNCED_SNAPSHOT` es la excepción explícita de ADR-0026 D4 para un hecho
+ * recibido de otra terminal: el costo debe ser el snapshot que esa terminal
+ * conoció al vender. Los once contratos v1 no lo transportan, así que la salida
+ * queda con costo desconocido y visible como tal; no se completa con el
+ * promedio del coordinador en el momento de recibir el evento.
+ */
+export type SaleIssueCostSource = 'LOCAL_AVERAGE' | 'SYNCED_SNAPSHOT';
+
 export class ApplySaleCompletedToInventory {
   constructor(
     private readonly repository: StockItemRepository,
@@ -33,7 +47,8 @@ export class ApplySaleCompletedToInventory {
     private readonly auditIdGenerator: IdGenerator,
     private readonly unitOfWork: UnitOfWork,
     private readonly eventStore: BusinessEventStore,
-    private readonly auditWriter: AuditWriter
+    private readonly auditWriter: AuditWriter,
+    private readonly costSource: SaleIssueCostSource = 'LOCAL_AVERAGE'
   ) {}
 
   async execute(event: BusinessEventV1): Promise<Result<StockItemDto[], AppError>> {
@@ -71,16 +86,19 @@ export class ApplySaleCompletedToInventory {
           /**
            * El costo de la salida se congela en el promedio ponderado vigente
            * al momento de la venta (ADR-0016); una recepción posterior no
-           * revaloriza esta salida.
+           * revaloriza esta salida. Un hecho sincronizado conserva en cambio el
+           * snapshot de su origen: sin esa evidencia el costo queda desconocido.
            */
-          const unitCostAtIssue = item.averageUnitCost;
+          const unitCostAtIssue = this.costSource === 'LOCAL_AVERAGE'
+            ? item.averageUnitCost
+            : undefined;
           allocations.forEach((allocation, index) => item.registerMovement({
             id: `${event.eventId}:${line.itemId}:${index}`, type: 'SALE_ISSUE', quantity: allocation.quantity,
             ...(allocation.batchId ? { batchId: allocation.batchId } : {}), actorId: event.actorId,
             reason: 'Completed sale issue', referenceId, occurredAt: event.occurredAt,
             eventId: this.eventIdGenerator.generate(),
             ...(unitCostAtIssue ? { unitCost: unitCostAtIssue } : {})
-          }));
+          }, { inferOperationalCost: this.costSource === 'LOCAL_AVERAGE' }));
           const events = item.domainEvents.slice(beforeEventCount);
           allEvents.push(...events);
           audits.push({

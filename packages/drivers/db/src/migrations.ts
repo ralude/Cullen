@@ -37,6 +37,15 @@ import { purchaseReceiptDraftEvidenceSql } from './migrations/0023-purchase-rece
 import { deviceIdentifierUniqueSql } from './migrations/0024-device-identifier-unique.js';
 import { singleOpenStockCountSql } from './migrations/0025-single-open-stock-count.js';
 import { aggregateOriginNodeSql } from './migrations/0026-aggregate-origin-node.js';
+import { outboxBlockedContractSql } from './migrations/0027-outbox-blocked-contract.js';
+import { syncReceptionSql } from './migrations/0028-sync-reception.js';
+import { syncNodeRegistrySql } from './migrations/0029-sync-node-registry.js';
+import { syncDiscrepanciesSql } from './migrations/0030-sync-discrepancies.js';
+import { syncDeliveryByDestinationSql } from './migrations/0031-sync-delivery-by-destination.js';
+import { referenceMasterVersionSql } from './migrations/0032-reference-master-version.js';
+import { syncNodeAddressSql } from './migrations/0033-sync-node-address.js';
+import { paymentMethodReferenceVersionSql } from './migrations/0034-payment-method-reference-version.js';
+import { exchangeRateReferenceVersionSql } from './migrations/0035-exchange-rate-reference-version.js';
 
 export type Migration = {
   readonly version: number;
@@ -148,6 +157,42 @@ export const migrations: readonly Migration[] = [{
   version: 26,
   name: 'aggregate_origin_node',
   sql: aggregateOriginNodeSql
+}, {
+  version: 27,
+  name: 'outbox_blocked_contract',
+  sql: outboxBlockedContractSql
+}, {
+  version: 28,
+  name: 'sync_reception',
+  sql: syncReceptionSql
+}, {
+  version: 29,
+  name: 'sync_node_registry',
+  sql: syncNodeRegistrySql
+}, {
+  version: 30,
+  name: 'sync_discrepancies',
+  sql: syncDiscrepanciesSql
+}, {
+  version: 31,
+  name: 'sync_delivery_by_destination',
+  sql: syncDeliveryByDestinationSql
+}, {
+  version: 32,
+  name: 'reference_master_version',
+  sql: referenceMasterVersionSql
+}, {
+  version: 33,
+  name: 'sync_node_address',
+  sql: syncNodeAddressSql
+}, {
+  version: 34,
+  name: 'payment_method_reference_version',
+  sql: paymentMethodReferenceVersionSql
+}, {
+  version: 35,
+  name: 'exchange_rate_reference_version',
+  sql: exchangeRateReferenceVersionSql
 }];
 
 const checksum = (migration: Migration): string => createHash('sha256')

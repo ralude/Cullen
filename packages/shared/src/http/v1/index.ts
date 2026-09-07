@@ -12,3 +12,4 @@ export * from './config.contracts.js';
 export * from './purchase-receipt.contracts.js';
 export * from './reports.contracts.js';
 export * from './supplier.contracts.js';
+export * from './sync.contracts.js';

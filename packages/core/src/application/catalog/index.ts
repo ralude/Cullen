@@ -20,3 +20,18 @@ export type {
   UpdateProductInput
 } from './dtos.js';
 export type { PriceHistoryDto } from './get-price-history.js';
+export {
+  PRODUCT_PUBLISHED,
+  CATEGORY_PUBLISHED,
+  UNIT_OF_MEASURE_PUBLISHED,
+  PAYMENT_METHOD_PUBLISHED,
+  DISCOUNT_POLICY_PUBLISHED,
+  FINANCIAL_TRANSACTION_TAX_POLICY_PUBLISHED,
+  EXCHANGE_RATE_UPDATED,
+  toProductPublication,
+  toCategoryPublication,
+  toUnitOfMeasurePublication,
+  toPaymentMethodPublication,
+  toOperationalPolicyPublication,
+  toExchangeRatePublication
+} from './reference-publications.js';

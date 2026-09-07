@@ -228,6 +228,12 @@ export class Product {
     return this.events;
   }
 
+  /**
+   * Avanza la versión del agregado igual que un cambio de precio. La versión
+   * ordena la distribución del catálogo: sin incrementarla, dos
+   * actualizaciones consecutivas serían indistinguibles para una terminal y la
+   * segunda se descartaría por no ser posterior.
+   */
   updateDetails(changes: ProductDetailsChanges): void {
     if (changes.name !== undefined) {
       const name = changes.name.trim();
@@ -255,6 +261,7 @@ export class Product {
       this.currentBarcodes = [...changes.barcodes];
     }
     if (changes.isActive !== undefined) this.currentIsActive = changes.isActive;
+    this.currentVersion += 1;
   }
 
   changePrice(props: ChangePriceProps): void {
