@@ -216,6 +216,15 @@ export const createSecurityRuntime = (
     ids,
     auditWriter
   );
+  /**
+   * Emisor único del documento fiscal: lo comparten la ruta genérica y la
+   * factura derivada de una venta, para que ambas pasen por el mismo control de
+   * concurrencia del dispositivo y la misma evidencia recuperable.
+   */
+  const issueFiscalDocument = new application.IssueFiscalDocument(
+    fiscalDocumentRepository, fiscalPrinter, authorization, ids, ids, ids,
+    clock, unitOfWork, eventStore, outboxStore, auditWriter
+  );
   const fiscalArguments = [
     fiscalDayRepository,
     fiscalPrinter,
@@ -420,7 +429,8 @@ export const createSecurityRuntime = (
         ),
         getSaleHistory: new application.GetSaleHistory(
           eventStore, saleReturnRepository, authorization
-        )
+        ),
+        issueSaleInvoice: new application.IssueSaleInvoice(saleRepository, issueFiscalDocument)
       },
       cash: {
         openShift: new application.OpenShift(
@@ -559,10 +569,7 @@ export const createSecurityRuntime = (
         get: new application.GetPurchaseReceipt(purchaseReceiptRepository, authorization)
       },
       fiscalDocuments: {
-        issue: new application.IssueFiscalDocument(
-          fiscalDocumentRepository, fiscalPrinter, authorization, ids, ids, ids,
-          clock, unitOfWork, eventStore, outboxStore, auditWriter
-        ),
+        issue: issueFiscalDocument,
         get: new application.GetFiscalDocument(fiscalDocumentRepository),
         reconcile: new application.ReconcileFiscalState(
           fiscalDocumentRepository, fiscalPrinter, authorization, ids, ids,

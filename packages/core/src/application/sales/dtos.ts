@@ -99,6 +99,12 @@ export type VoidSaleInput = {
   reason: string;
 };
 
+/** Emisión del documento fiscal de una venta ya completada. */
+export type IssueSaleInvoiceInput = {
+  saleId: string;
+  reason: string;
+};
+
 /**
  * Devolución total (ADR-0017). El monto y la moneda no viajan en la entrada:
  * se toman del pago original para que el cliente no pueda elegirlos.

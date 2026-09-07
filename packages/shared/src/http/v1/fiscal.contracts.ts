@@ -151,6 +151,39 @@ export const issueSimulatedFiscalDocumentContract = {
   ]
 } as const satisfies HttpContractV1;
 
+/**
+ * Emisión de la factura de una venta ya completada. A diferencia del contrato
+ * anterior, el contenido no viaja en la petición: el nodo lo deriva de la venta
+ * con los snapshots que ésta congeló, para que la interfaz no pueda declarar
+ * importes, impuestos ni receptor distintos de los que la venta cobró.
+ */
+export const issueSaleInvoiceContract = {
+  method: 'POST', path: '/api/v1/sales/:saleId/fiscal-document',
+  permission: 'fiscal.document.issue', idempotency: 'REQUIRED',
+  schema: {
+    params: {
+      type: 'object', additionalProperties: false, required: ['saleId'],
+      properties: { saleId: { type: 'string', minLength: 1, maxLength: 128 } }
+    },
+    headers: {
+      type: 'object', required: ['idempotency-key'],
+      properties: { 'idempotency-key': { type: 'string', minLength: 1, maxLength: 128 } }
+    },
+    body: {
+      type: 'object', additionalProperties: false, required: ['reason'],
+      properties: { reason: { type: 'string', minLength: 1, maxLength: 500 } }
+    },
+    response: {
+      200: simulatedDocumentResponse, 201: simulatedDocumentResponse, ...documentProblems
+    }
+  },
+  errorCodes: [
+    'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'SALE_NOT_FOUND',
+    'SALE_INVALID_STATE', 'IDEMPOTENCY_KEY_CONFLICT', 'FISCAL_DEVICE_OPERATION_PENDING',
+    'FISCAL_RECONCILIATION_REQUIRED'
+  ]
+} as const satisfies HttpContractV1;
+
 export const getSimulatedFiscalDocumentContract = {
   method: 'GET', path: '/api/v1/fiscal/documents/:documentId',
   permission: null, idempotency: 'NONE',

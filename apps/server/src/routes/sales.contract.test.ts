@@ -266,6 +266,110 @@ describe('sales HTTP contracts', () => {
     expect(completed.json()).toMatchObject({ id: saleId, status: 'COMPLETED' });
   });
 
+  /**
+   * Circuito completo de la venta: cobrar, completar, facturar y devolver. La
+   * devolución exige el documento emitido, así que sin este endpoint la
+   * pantalla ofrecía una acción que el nodo siempre rechazaba.
+   */
+  it('issues the invoice of a completed sale and enables its return', async () => {
+    const { app, runtime, cookie } = await setup();
+    const stock = StockItem.create({
+      id: 'stock-invoice', productId: 'product-coffee', unitCode: 'UNIT',
+      quantityScale: 0, tracksBatches: false
+    });
+    stock.registerMovement({
+      id: 'stock-invoice-receipt', type: 'PURCHASE_RECEIPT', quantity: Quantity.fromScaled(5, 0),
+      actorId: 'seed-user', reason: 'Fixture', referenceId: 'receipt-invoice',
+      occurredAt: new Date('2026-09-01T08:00:00.000Z'), eventId: 'stock-invoice-event',
+      unitCost: Money.fromMinorUnits(500, 'USD')
+    });
+    await new SqliteUnitOfWork(runtime.handle.sqlite).execute(async () => {
+      await new DrizzleStockItemRepository(runtime.handle).save(stock);
+    });
+
+    const started = await app.inject({
+      method: 'POST', url: '/api/v1/sales',
+      headers: { cookie, 'idempotency-key': 'invoice-start' },
+      payload: { currencyCode: 'USD', shiftId: 'shift-001' }
+    });
+    const saleId = started.json<{ id: string }>().id;
+    const item = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/items`,
+      headers: { cookie, 'idempotency-key': 'invoice-item' },
+      payload: { barcode: '759000000001', quantityScaled: 1, quantityScale: 0 }
+    });
+    const total = item.json<SaleResponse>().totalMinorUnits;
+    await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/payments`,
+      headers: { cookie, 'idempotency-key': 'invoice-payment' },
+      payload: {
+        payments: [{ methodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: total }]
+      }
+    });
+    const completed = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/complete`,
+      headers: { cookie, 'idempotency-key': 'invoice-complete' }
+    });
+    expect(completed.statusCode).toBe(200);
+
+    const invoiceHeaders = { cookie, 'idempotency-key': 'invoice-issue' };
+    const invoice = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/fiscal-document`,
+      headers: invoiceHeaders, payload: { reason: 'Factura de la venta' }
+    });
+
+    expect(invoice.statusCode).toBe(201);
+    /**
+     * `content` viaja opaco en el schema fiscal compartido; que la devolución
+     * de más abajo encuentre el documento prueba que su referencia es la venta,
+     * porque `ReturnSale` lo busca por `('INVOICE', saleId)`.
+     */
+    expect(invoice.json()).toMatchObject({
+      fiscalMode: 'SIMULATION',
+      document: { status: 'ISSUED', fiscalNumber: expect.any(String) }
+    });
+    // La misma intención no emite un segundo documento del mismo hecho.
+    const replay = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/fiscal-document`,
+      headers: invoiceHeaders, payload: { reason: 'Factura de la venta' }
+    });
+    expect(replay.statusCode).toBe(201);
+    expect(replay.json()).toEqual(invoice.json());
+
+    const returned = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/return`,
+      headers: { cookie, 'idempotency-key': 'invoice-return' },
+      payload: { reason: 'Cliente devuelve el producto' }
+    });
+    expect(returned.statusCode).toBe(201);
+    expect(returned.json()).toMatchObject({ saleId, creditNoteStatus: 'ISSUED' });
+
+    // La devolución repuso la existencia que la venta había descontado.
+    const kardex = await app.inject({
+      method: 'GET', url: '/api/v1/inventory/products/product-coffee/kardex', headers: { cookie }
+    });
+    expect(kardex.json<{ currentBalanceScaled: number }>().currentBalanceScaled).toBe(5);
+  });
+
+  it('refuses to invoice a sale that is still a draft', async () => {
+    const { app, cookie } = await setup();
+    const started = await app.inject({
+      method: 'POST', url: '/api/v1/sales',
+      headers: { cookie, 'idempotency-key': 'draft-invoice-start' },
+      payload: { currencyCode: 'USD', shiftId: 'shift-001' }
+    });
+    const saleId = started.json<{ id: string }>().id;
+
+    const invoice = await app.inject({
+      method: 'POST', url: `/api/v1/sales/${saleId}/fiscal-document`,
+      headers: { cookie, 'idempotency-key': 'draft-invoice' },
+      payload: { reason: 'Factura anticipada' }
+    });
+
+    expect(invoice.statusCode).toBe(409);
+    expect(invoice.json()).toMatchObject({ code: 'SALE_INVALID_STATE' });
+  });
+
   it('does not expose sale recovery without a session', async () => {
     const { app } = await setup();
     const response = await app.inject({ method: 'GET', url: '/api/v1/sales/sale-unknown' });

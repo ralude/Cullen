@@ -82,6 +82,7 @@ export type ServerDependencies = {
     readonly returnSale: application.ReturnSale;
     readonly setSaleRecipient: application.SetSaleRecipient;
     readonly getSaleHistory: application.GetSaleHistory;
+    readonly issueSaleInvoice: application.IssueSaleInvoice;
   };
   readonly cash: {
     readonly openShift: application.OpenShift;

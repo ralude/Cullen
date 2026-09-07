@@ -13,6 +13,7 @@ export { VoidSale } from './void-sale.js';
 export { ReturnSale } from './return-sale.js';
 export { GetSaleHistory, type SaleHistoryVersion, type GetSaleHistoryInput } from './get-sale-history.js';
 export { GetSale } from './get-sale.js';
+export { IssueSaleInvoice, type FiscalDocumentIssuer } from './issue-sale-invoice.js';
 export { SALE_PERMISSIONS } from './permissions.js';
 export type {
   AddItemToSaleInput,
@@ -26,6 +27,7 @@ export type {
   SaleRecipientDto,
   SetSaleRecipientInput,
   StartSaleInput,
+  IssueSaleInvoiceInput,
   VoidSaleInput,
   ReturnSaleInput,
   SaleReturnDto,

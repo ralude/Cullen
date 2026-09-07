@@ -3,6 +3,7 @@ import {
   addSaleItemContract,
   applySaleDiscountContract,
   completeSaleContract,
+  issueSaleInvoiceContract,
   getSaleContract,
   getSaleHistoryContract,
   registerSalePaymentsContract,
@@ -177,6 +178,21 @@ export const registerSalesRoutes = (
     return result.ok ? reply.send(saleResponse(result.value))
       : sendProblem(reply, request, result.error.code, result.error.message);
   });
+
+  app.post<{ Params: { saleId: string }; Body: { reason: string } }>(
+    issueSaleInvoiceContract.path,
+    { schema: issueSaleInvoiceContract.schema as FastifySchema },
+    async (request, reply) => {
+      const principal = await requirePrincipal(request, reply, dependencies);
+      if (!principal) return;
+      const result = await dependencies.sales.issueSaleInvoice.execute({
+        saleId: request.params.saleId, reason: request.body.reason
+      }, createExecutionContext(request, principal, dependencies));
+      return result.ok
+        ? reply.code(201).send({ fiscalMode: 'SIMULATION' as const, document: result.value })
+        : sendProblem(reply, request, result.error.code, result.error.message);
+    }
+  );
 
   app.post<{ Params: { saleId: string }; Body: ReturnSaleRequest }>(returnSaleContract.path, {
     schema: returnSaleContract.schema as FastifySchema

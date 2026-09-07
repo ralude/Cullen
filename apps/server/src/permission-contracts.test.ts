@@ -27,6 +27,7 @@ import {
   getMarginReportContract,
   getSalesReportContract,
   getInventoryReportContract,
+  issueSaleInvoiceContract,
   issueSimulatedFiscalDocumentContract,
   listBranchesContract,
   listDevicesContract,
@@ -108,6 +109,7 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
 
   it('fiscal', () => {
     expectedPermission(issueSimulatedFiscalDocumentContract, application.FISCAL_PERMISSIONS.ISSUE_DOCUMENT);
+    expectedPermission(issueSaleInvoiceContract, application.FISCAL_PERMISSIONS.ISSUE_DOCUMENT);
     expectedPermission(reconcileSimulatedFiscalDocumentContract, application.FISCAL_PERMISSIONS.RECONCILE);
     expectedPermission(printSimulatedXReportContract, application.FISCAL_PERMISSIONS.PRINT_X_REPORT);
     expectedPermission(printSimulatedZReportContract, application.FISCAL_PERMISSIONS.PRINT_Z_REPORT);
