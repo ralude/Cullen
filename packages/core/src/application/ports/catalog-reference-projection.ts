@@ -1,5 +1,8 @@
 import type { PaymentMethodKind } from '../../domain/currency/index.js';
-import type { OperationalPolicyReference } from './catalog-reference-source.js';
+import type {
+  OperationalPolicyReference,
+  OperatorGrantReference
+} from './catalog-reference-source.js';
 
 export type CategoryReference = {
   readonly categoryId: string;
@@ -66,6 +69,29 @@ export type ExchangeRateReference = {
 };
 
 /**
+ * Concesión proyectada en la terminal. `expiresAt` es la vigencia declarada por
+ * el coordinador, ya acotada al tope de la política: reentregarla no la renueva.
+ */
+export type ProjectedOperatorGrantReference = OperatorGrantReference & {
+  readonly expiresAt: Date;
+  readonly publishedBy: string;
+  readonly publishedAt: Date;
+};
+
+/**
+ * Disponibilidad proyectada. Vive en su propia tabla y nunca participa de un
+ * saldo local: es un dato informativo con antigüedad, no una reserva.
+ */
+export type ProjectedStockAvailabilityReference = {
+  readonly productId: string;
+  readonly quantityScaled: number;
+  readonly quantityScale: number;
+  readonly version: number;
+  readonly publishedBy: string;
+  readonly publishedAt: Date;
+};
+
+/**
  * Resultado de aplicar una referencia. `STALE` no es un fallo: significa que la
  * proyección ya conserva una versión igual o posterior, así que la publicación
  * no tiene nada que aplicar y no debe reintentarse.
@@ -89,6 +115,10 @@ export interface CatalogReferenceProjection {
     reference: ProjectedOperationalPolicyReference
   ): Promise<ReferenceApplication>;
   applyExchangeRate(reference: ExchangeRateReference): Promise<ReferenceApplication>;
+  applyOperatorGrant(reference: ProjectedOperatorGrantReference): Promise<ReferenceApplication>;
+  applyStockAvailability(
+    reference: ProjectedStockAvailabilityReference
+  ): Promise<ReferenceApplication>;
   /**
    * Referencias ya aplicadas. Distingue una terminal a la que nunca se le
    * publicó el catálogo de una que ya lo tiene: sin publicaciones pendientes,

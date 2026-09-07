@@ -24,6 +24,7 @@ import {
   DrizzleSyncInboxWorkStore,
   SqliteCatalogReferenceProjection,
   SqliteCatalogReferenceSource,
+  SqliteOperatorGrantSource,
   DrizzleAggregateAuthorityRegistry,
   SqliteSyncNodeRegistry,
   DrizzlePaymentMethodRepository,
@@ -485,6 +486,10 @@ export const createSecurityRuntime = (
         listNodes: new application.ListSyncNodes(syncNodeRegistry, authorization),
         publishCatalogBootstrap: new application.PublishCatalogBootstrap(
           new SqliteCatalogReferenceSource(handle), outboxStore, authorization,
+          clock, unitOfWork, ids, auditWriter
+        ),
+        publishOperatorGrants: new application.PublishOperatorGrants(
+          new SqliteOperatorGrantSource(handle), outboxStore, authorization,
           clock, unitOfWork, ids, auditWriter
         ),
         getStatus: new application.GetSyncStatus(

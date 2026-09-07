@@ -2,7 +2,8 @@ import { ApplicationError, DomainError, err, Quantity, ok, type AppError, type R
 import type { ExecutionContext } from '../execution-context.js';
 import { persistBusinessChange } from '../events/index.js';
 import { executeIdempotentCommand } from '../idempotency/index.js';
-import type { AuditWriter, AuthorizationService, BusinessEventStore, Clock, IdGenerator, IdempotencyStore, StockItemRepository, UnitOfWork } from '../ports/index.js';
+import type { AuditWriter, AuthorizationService, BusinessEventStore, Clock, IdGenerator, IdempotencyStore, OutboxStore, StockItemRepository, UnitOfWork } from '../ports/index.js';
+import { toStockAvailabilityPublications } from './stock-availability-publications.js';
 import type { RegisterStockAdjustmentInput, StockItemDto } from './dtos.js';
 import { toStockItemDto } from './mappers.js';
 import { INVENTORY_PERMISSIONS } from './permissions.js';
@@ -19,7 +20,9 @@ export class RegisterStockAdjustment {
     private readonly unitOfWork: UnitOfWork,
     private readonly eventStore: BusinessEventStore,
     private readonly auditWriter: AuditWriter,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    /** Salida del coordinador: publica la disponibilidad informativa del ítem. */
+    private readonly outbox?: OutboxStore
   ) {}
 
   async execute(input: RegisterStockAdjustmentInput, context: ExecutionContext): Promise<Result<StockItemDto, AppError>> {
@@ -47,7 +50,7 @@ export class RegisterStockAdjustment {
         });
         await persistBusinessChange(
           () => this.repository.save(item), item.domainEvents.slice(previousEventCount), context,
-          undefined, this.eventStore, undefined, [], this.auditWriter, [{
+          undefined, this.eventStore, this.outbox, [], this.auditWriter, [{
             auditId: this.auditIdGenerator.generate(), actorId: context.actorId,
             actorRoleCodes: context.actorRoleCodes ?? [],
             action: input.type === 'WASTE' ? 'STOCK_WASTE_REGISTERED' : 'STOCK_ADJUSTMENT_REGISTERED',
@@ -55,7 +58,8 @@ export class RegisterStockAdjustment {
             before: { balanceScaled: before }, after: { balanceScaled: item.balance.scaledValue, movementId: movement.id },
             reason: movement.reason, terminalId: context.terminalId, originNodeId: context.originNodeId,
             occurredAt, correlationId: context.correlationId
-          }]
+          }],
+          toStockAvailabilityPublications([item], this.eventIdGenerator, occurredAt)
         );
           return ok(toStockItemDto(item));
         },

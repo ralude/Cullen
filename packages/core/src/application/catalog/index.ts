@@ -28,10 +28,16 @@ export {
   DISCOUNT_POLICY_PUBLISHED,
   FINANCIAL_TRANSACTION_TAX_POLICY_PUBLISHED,
   EXCHANGE_RATE_UPDATED,
+  OPERATOR_GRANT_PUBLISHED,
+  OPERATOR_GRANT_VALIDITY_MS,
+  OPERATOR_GRANT_RENEWAL_MS,
+  STOCK_AVAILABILITY_PUBLISHED,
   toProductPublication,
   toCategoryPublication,
   toUnitOfMeasurePublication,
   toPaymentMethodPublication,
   toOperationalPolicyPublication,
-  toExchangeRatePublication
+  toExchangeRatePublication,
+  toOperatorGrantPublication,
+  toStockAvailabilityPublication
 } from './reference-publications.js';

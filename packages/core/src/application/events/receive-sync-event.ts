@@ -215,7 +215,7 @@ export class ReceiveSyncEvent {
     );
     if (highest !== undefined && envelope.aggregateVersion < highest) return 'PENDING_REVIEW';
 
-    for (const dependency of contract.dependencies(envelope.payload)) {
+    for (const dependency of contract.dependencies(envelope.payload, envelope.aggregateId)) {
       const known = await this.store.highestReceivedVersion(
         dependency.aggregateType,
         dependency.aggregateId

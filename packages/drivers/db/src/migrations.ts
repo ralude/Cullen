@@ -46,6 +46,7 @@ import { referenceMasterVersionSql } from './migrations/0032-reference-master-ve
 import { syncNodeAddressSql } from './migrations/0033-sync-node-address.js';
 import { paymentMethodReferenceVersionSql } from './migrations/0034-payment-method-reference-version.js';
 import { exchangeRateReferenceVersionSql } from './migrations/0035-exchange-rate-reference-version.js';
+import { operatorGrantsAndAvailabilitySql } from './migrations/0036-operator-grants-and-availability.js';
 
 export type Migration = {
   readonly version: number;
@@ -193,6 +194,10 @@ export const migrations: readonly Migration[] = [{
   version: 35,
   name: 'exchange_rate_reference_version',
   sql: exchangeRateReferenceVersionSql
+}, {
+  version: 36,
+  name: 'operator_grants_and_availability',
+  sql: operatorGrantsAndAvailabilitySql
 }];
 
 const checksum = (migration: Migration): string => createHash('sha256')

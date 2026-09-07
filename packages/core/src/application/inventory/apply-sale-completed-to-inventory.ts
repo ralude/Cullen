@@ -3,7 +3,8 @@ import type { StockItem } from '../../domain/inventory/index.js';
 import type { ExecutionContext } from '../execution-context.js';
 import type { BusinessEventV1, JsonValue } from '../events/index.js';
 import { persistBusinessChange } from '../events/index.js';
-import type { AuditEntry, AuditWriter, BusinessEventStore, IdGenerator, StockItemRepository, UnitOfWork } from '../ports/index.js';
+import type { AuditEntry, AuditWriter, BusinessEventStore, IdGenerator, OutboxStore, StockItemRepository, UnitOfWork } from '../ports/index.js';
+import { toStockAvailabilityPublications } from './stock-availability-publications.js';
 import type { StockItemDto } from './dtos.js';
 import { toStockItemDto } from './mappers.js';
 
@@ -48,7 +49,13 @@ export class ApplySaleCompletedToInventory {
     private readonly unitOfWork: UnitOfWork,
     private readonly eventStore: BusinessEventStore,
     private readonly auditWriter: AuditWriter,
-    private readonly costSource: SaleIssueCostSource = 'LOCAL_AVERAGE'
+    private readonly costSource: SaleIssueCostSource = 'LOCAL_AVERAGE',
+    /**
+     * Salida del coordinador. Aplicar una venta remota cambia el saldo
+     * autoritativo, así que publica la disponibilidad de los ítems tocados en
+     * la misma transacción del efecto.
+     */
+    private readonly outbox?: OutboxStore
   ) {}
 
   async execute(event: BusinessEventV1): Promise<Result<StockItemDto[], AppError>> {
@@ -113,7 +120,8 @@ export class ApplySaleCompletedToInventory {
         if (allEvents.length === 0) return ok([...changed.values()].map(toStockItemDto));
         await persistBusinessChange(
           async () => { for (const item of changed.values()) await this.repository.save(item); },
-          allEvents, context, undefined, this.eventStore, undefined, [], this.auditWriter, audits
+          allEvents, context, undefined, this.eventStore, this.outbox, [], this.auditWriter, audits,
+          toStockAvailabilityPublications(changed.values(), this.eventIdGenerator, event.occurredAt)
         );
         return ok([...changed.values()].map(toStockItemDto));
       });

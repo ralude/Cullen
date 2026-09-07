@@ -3,7 +3,8 @@ import { StockItem } from '../../domain/inventory/index.js';
 import type { ExecutionContext } from '../execution-context.js';
 import { persistBusinessChange } from '../events/index.js';
 import { executeIdempotentCommand } from '../idempotency/index.js';
-import type { AuditWriter, AuthorizationService, BusinessEventStore, Clock, IdGenerator, IdempotencyStore, ProductRepository, StockItemRepository, SupplierRepository, UnitOfWork } from '../ports/index.js';
+import type { AuditWriter, AuthorizationService, BusinessEventStore, Clock, IdGenerator, IdempotencyStore, OutboxStore, ProductRepository, StockItemRepository, SupplierRepository, UnitOfWork } from '../ports/index.js';
+import { toStockAvailabilityPublications } from './stock-availability-publications.js';
 import type { ReceivePurchaseInput, StockItemDto } from './dtos.js';
 import { toStockItemDto } from './mappers.js';
 import { INVENTORY_PERMISSIONS } from './permissions.js';
@@ -24,7 +25,9 @@ export class ReceivePurchase {
     private readonly unitOfWork: UnitOfWork,
     private readonly eventStore: BusinessEventStore,
     private readonly auditWriter: AuditWriter,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    /** Salida del coordinador: publica la disponibilidad informativa del ítem. */
+    private readonly outbox?: OutboxStore
   ) {}
 
   async execute(input: ReceivePurchaseInput, context: ExecutionContext): Promise<Result<StockItemDto, AppError>> {
@@ -86,7 +89,7 @@ export class ReceivePurchase {
         });
         await persistBusinessChange(
           () => this.repository.save(item), item.domainEvents.slice(previousEventCount), context,
-          undefined, this.eventStore, undefined, [], this.auditWriter, [{
+          undefined, this.eventStore, this.outbox, [], this.auditWriter, [{
             auditId: this.auditIdGenerator.generate(), actorId: context.actorId,
             actorRoleCodes: context.actorRoleCodes ?? [], action: 'PURCHASE_RECEIPT_REGISTERED',
             entityType: 'StockItem', entityId: item.id, before: null,
@@ -95,7 +98,8 @@ export class ReceivePurchase {
               batchId: movement.batchId },
             reason: movement.reason, terminalId: context.terminalId, originNodeId: context.originNodeId,
             occurredAt, correlationId: context.correlationId
-          }]
+          }],
+          toStockAvailabilityPublications([item], this.eventIdGenerator, occurredAt)
         );
           return ok(toStockItemDto(item));
         },

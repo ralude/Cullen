@@ -121,7 +121,15 @@ export type SyncEventContractV1 = {
    * la custodia no se presenta como aplicación.
    */
   readonly consumers: readonly SyncConsumerId[];
-  readonly dependencies: (payload: JsonObject) => readonly SyncAggregateRef[];
+  /**
+   * Dependencias declaradas del hecho. Recibe también la identidad del agregado
+   * del sobre, porque una referencia puede depender de otro agregado
+   * identificado por ella misma sin repetir ese ID dentro del payload.
+   */
+  readonly dependencies: (
+    payload: JsonObject,
+    aggregateId: string
+  ) => readonly SyncAggregateRef[];
 };
 
 const evidence = object({
@@ -284,6 +292,50 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   intendedConsumer: 'metodos de pago de cada terminal',
   consumers: ['CATALOG_REFERENCE'],
   dependencies: noDependencies
+}, {
+  eventType: 'OperatorGrantPublished',
+  contractVersion: 1,
+  aggregateType: 'OperatorGrant',
+  direction: 'COORDINATOR_TO_TERMINAL',
+  /**
+   * Concesión de autorización, nunca credenciales: ADR-0026 D5 prohíbe
+   * sincronizar PINs, tokens, sesiones o secretos. El instante de emisión es
+   * `occurredAt` del sobre y no se repite; `expiresAt` viaja explícito porque
+   * es la declaración de vigencia del coordinador.
+   */
+  fields: {
+    operatorCode: identifier(),
+    displayName: text(),
+    roleCodes: array(identifier()),
+    permissionCodes: array(identifier()),
+    isActive: activityFlag,
+    expiresAt: text()
+  },
+  payloadOriginField: null,
+  payloadTerminalField: null,
+  intendedConsumer: 'concesiones de operador de cada terminal',
+  consumers: ['CATALOG_REFERENCE'],
+  dependencies: noDependencies
+}, {
+  eventType: 'StockAvailabilityPublished',
+  contractVersion: 1,
+  aggregateType: 'StockAvailability',
+  direction: 'COORDINATOR_TO_TERMINAL',
+  /**
+   * Saldo observado en el coordinador, informativo. No reserva existencias, no
+   * habilita ni bloquea una venta y no se suma a ningún saldo local: la
+   * terminal lo proyecta en una tabla propia junto a su antigüedad.
+   */
+  fields: {
+    quantityScaled: integer(0),
+    quantityScale: integer(0)
+  },
+  payloadOriginField: null,
+  payloadTerminalField: null,
+  intendedConsumer: 'disponibilidad informativa de cada terminal',
+  consumers: ['CATALOG_REFERENCE'],
+  /** Un saldo de un producto que la terminal no conoce no es utilizable. */
+  dependencies: (_payload, aggregateId) => [{ aggregateType: 'Product', aggregateId }]
 }, {
   eventType: 'ProductPublished',
   contractVersion: 1,

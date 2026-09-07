@@ -1,7 +1,11 @@
 import type { Category, Product, UnitOfMeasure } from '../../domain/catalog/index.js';
 import type { ExchangeRate, PaymentMethod } from '../../domain/currency/index.js';
 import type { DomainEventLike } from '../events/index.js';
-import type { OperationalPolicyReference } from '../ports/index.js';
+import type {
+  OperationalPolicyReference,
+  OperatorGrantReference,
+  StockAvailabilityReference
+} from '../ports/index.js';
 
 export const PRODUCT_PUBLISHED = 'ProductPublished';
 export const CATEGORY_PUBLISHED = 'CategoryPublished';
@@ -11,6 +15,22 @@ export const DISCOUNT_POLICY_PUBLISHED = 'DiscountPolicyPublished';
 export const FINANCIAL_TRANSACTION_TAX_POLICY_PUBLISHED =
   'FinancialTransactionTaxPolicyPublished';
 export const EXCHANGE_RATE_UPDATED = 'ExchangeRateUpdated';
+export const OPERATOR_GRANT_PUBLISHED = 'OperatorGrantPublished';
+export const STOCK_AVAILABILITY_PUBLISHED = 'StockAvailabilityPublished';
+
+/**
+ * Vigencia de una concesión de operador: ocho horas desde su emisión por el
+ * coordinador, conforme ADR-0026 D6. Reentregarla no la renueva, porque el
+ * instante de emisión es `occurredAt` del sobre y ya es inmutable.
+ */
+export const OPERATOR_GRANT_VALIDITY_MS = 8 * 60 * 60 * 1000;
+
+/**
+ * Margen de reemisión: mientras hay LAN, el coordinador vuelve a emitir la
+ * concesión cuando le queda menos de la mitad de su ventana, de modo que una
+ * terminal conectada siempre conserva ocho horas completas por delante.
+ */
+export const OPERATOR_GRANT_RENEWAL_MS = OPERATOR_GRANT_VALIDITY_MS / 2;
 
 /**
  * Los contratos de referencia no transportan booleanos: una desactivación es un
@@ -154,5 +174,58 @@ export const toExchangeRatePublication = (
     validFrom: rate.validFrom.toISOString(),
     validUntil: rate.validUntil?.toISOString() ?? null,
     registeredBy: rate.registeredBy
+  }
+});
+
+/**
+ * Concesión de autorización de un operador. Transporta lo que puede hacer, no
+ * cómo se autentica: ADR-0026 D5 prohíbe sincronizar PINs, tokens o sesiones.
+ *
+ * `aggregateVersion` es una versión propia de concesión y no la
+ * `authorization_version` del usuario: una renovación con los mismos permisos
+ * debe avanzar, o el consumidor la descartaría por atrasada.
+ */
+export const toOperatorGrantPublication = (
+  grant: OperatorGrantReference,
+  props: PublicationProps
+): DomainEventLike => ({
+  type: OPERATOR_GRANT_PUBLISHED,
+  eventId: props.eventId,
+  aggregateId: grant.userId,
+  aggregateType: 'OperatorGrant',
+  aggregateVersion: grant.version,
+  occurredAt: props.occurredAt,
+  payload: {
+    operatorCode: grant.operatorCode,
+    displayName: grant.displayName,
+    roleCodes: [...grant.roleCodes],
+    permissionCodes: [...grant.permissionCodes],
+    isActive: activity(grant.isActive),
+    expiresAt: new Date(
+      props.occurredAt.getTime() + OPERATOR_GRANT_VALIDITY_MS
+    ).toISOString()
+  }
+});
+
+/**
+ * Saldo observado de un ítem de stock del coordinador. Es informativo: no
+ * reserva existencias ni participa en ningún saldo local de la terminal.
+ *
+ * `aggregateVersion` es el número de movimientos del ítem, ya monotónico, y la
+ * identidad es el producto, que es lo que la terminal conoce.
+ */
+export const toStockAvailabilityPublication = (
+  availability: StockAvailabilityReference,
+  props: PublicationProps
+): DomainEventLike => ({
+  type: STOCK_AVAILABILITY_PUBLISHED,
+  eventId: props.eventId,
+  aggregateId: availability.productId,
+  aggregateType: 'StockAvailability',
+  aggregateVersion: availability.version,
+  occurredAt: props.occurredAt,
+  payload: {
+    quantityScaled: availability.quantityScaled,
+    quantityScale: availability.quantityScale
   }
 });

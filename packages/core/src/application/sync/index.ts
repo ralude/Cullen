@@ -48,3 +48,5 @@ export type {
   SyncNodeDto,
   SyncTransportCredential
 } from './dtos.js';
+export { PublishOperatorGrants } from './publish-operator-grants.js';
+export type { OperatorGrantsPublishedDto } from './publish-operator-grants.js';

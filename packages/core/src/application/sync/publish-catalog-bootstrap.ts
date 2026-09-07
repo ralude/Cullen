@@ -5,6 +5,7 @@ import {
   toPaymentMethodPublication,
   toOperationalPolicyPublication,
   toProductPublication,
+  toStockAvailabilityPublication,
   toUnitOfMeasurePublication
 } from '../catalog/reference-publications.js';
 import type { ExecutionContext } from '../execution-context.js';
@@ -27,6 +28,7 @@ export type CatalogBootstrapDto = {
   readonly paymentMethods: number;
   readonly operationalPolicies: number;
   readonly exchangeRates: number;
+  readonly stockAvailability: number;
   readonly publishedAt: string;
 };
 
@@ -76,13 +78,14 @@ export class PublishCatalogBootstrap {
 
     const now = this.clock.now();
     return ok(await this.unitOfWork.execute(async () => {
-      const [categories, units, paymentMethods, policies, exchangeRates, products] = [
+      const [categories, units, paymentMethods, policies, exchangeRates, products, availability] = [
         await this.source.listCategories(),
         await this.source.listUnitsOfMeasure(),
         await this.source.listPaymentMethods(),
         await this.source.listOperationalPolicies(),
         await this.source.listExchangeRates(now),
-        await this.source.listProducts()
+        await this.source.listProducts(),
+        await this.source.listStockAvailability()
       ];
 
       /**
@@ -108,6 +111,13 @@ export class PublishCatalogBootstrap {
         })),
         ...products.map((product) => toProductPublication(product, {
           eventId: this.ids.generate(), occurredAt: now
+        })),
+        /**
+         * La disponibilidad va después de los productos porque declara su
+         * dependencia sobre ellos; el receptor la espera igualmente.
+         */
+        ...availability.map((entry) => toStockAvailabilityPublication(entry, {
+          eventId: this.ids.generate(), occurredAt: now
         }))
       ];
 
@@ -126,7 +136,8 @@ export class PublishCatalogBootstrap {
           paymentMethods: paymentMethods.length,
           operationalPolicies: policies.length,
           exchangeRates: exchangeRates.length,
-          products: products.length
+          products: products.length,
+          stockAvailability: availability.length
         } as unknown as JsonValue,
         reason: input.reason.trim(),
         terminalId: context.terminalId,
@@ -142,6 +153,7 @@ export class PublishCatalogBootstrap {
         operationalPolicies: policies.length,
         exchangeRates: exchangeRates.length,
         products: products.length,
+        stockAvailability: availability.length,
         publishedAt: now.toISOString()
       };
     }));

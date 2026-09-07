@@ -4,7 +4,9 @@ import {
   type AuthenticationRecord,
   type AuthenticationStore,
   type AuthorizationService,
+  type Clock,
   type ExecutionContext,
+  type OperatorGrantState,
   type SessionPrincipal
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
@@ -156,7 +158,8 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
           input.terminalId,
           input.originNodeId,
           input.idleExpiresAt.getTime(),
-          input.absoluteExpiresAt.getTime()
+          input.absoluteExpiresAt.getTime(),
+          now
         )
       };
     });
@@ -176,9 +179,16 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
         where s.token_hash = ?
       `).get(tokenHash) as SessionRow | undefined;
       if (!session) return null;
+      /**
+       * Una concesión vencida o revocada invalida la sesión existente, aunque
+       * siga dentro de los límites idle y absoluto de ADR-0011: la vigencia de
+       * la concesión se aplica además de ellos, no en su lugar.
+       */
+      const grant = this.grantForUser(session.userId, now);
       const invalid = session.revokedAt !== null
         || session.isActive !== 1
         || session.authorizationVersion !== session.currentAuthorizationVersion
+        || (grant.governed && !grant.usable)
         || now >= session.idleExpiresAt
         || now >= session.absoluteExpiresAt;
       if (invalid) {
@@ -202,9 +212,46 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
         session.terminalId,
         session.originNodeId,
         idleExpiresAt,
-        session.absoluteExpiresAt
+        session.absoluteExpiresAt,
+        now
       );
     });
+  }
+
+  /**
+   * Concesión vigente de un operador. La identidad de unión es el código de
+   * negocio: el `userId` que publica el coordinador no es el identificador
+   * local de esta terminal.
+   */
+  async operatorGrantState(operatorCode: string, now: Date): Promise<OperatorGrantState> {
+    return this.grantState(operatorCode, now.getTime());
+  }
+
+  private grantState(operatorCode: string, now: number): OperatorGrantState {
+    const row = this.handle.sqlite.prepare(`
+      select role_codes as roleCodes, permission_codes as permissionCodes,
+        is_active as isActive, expires_at as expiresAt
+      from identity_operator_grant where operator_code = ? collate nocase
+    `).get(operatorCode) as {
+      roleCodes: string; permissionCodes: string; isActive: number; expiresAt: number;
+    } | undefined;
+    if (row === undefined) return { governed: false };
+    return {
+      governed: true,
+      usable: row.isActive === 1 && now < row.expiresAt,
+      roleCodes: JSON.parse(row.roleCodes) as string[],
+      permissionCodes: JSON.parse(row.permissionCodes) as string[],
+      expiresAt: new Date(row.expiresAt)
+    };
+  }
+
+  private grantForUser(userId: string, now: number): OperatorGrantState {
+    const operatorCode = this.handle.sqlite
+      .prepare('select operator_code from identity_users where id = ?')
+      .pluck().get(userId) as string | undefined;
+    return operatorCode === undefined
+      ? { governed: false }
+      : this.grantState(operatorCode, now);
   }
 
   async revokeSession(tokenHash: string, now: Date): Promise<void> {
@@ -256,7 +303,16 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
     });
   }
 
-  hasPermission(userId: string, permission: string): boolean {
+  /**
+   * Autorización de una acción protegida. Cuando el coordinador emitió una
+   * concesión para este operador, ella es la autoridad: vencida o revocada
+   * deniega, y su conjunto de permisos sustituye al local.
+   */
+  hasPermission(userId: string, permission: string, now: Date = new Date()): boolean {
+    const grant = this.grantForUser(userId, now.getTime());
+    if (grant.governed) {
+      return grant.usable && grant.permissionCodes.includes(permission);
+    }
     const found = this.handle.sqlite.prepare(`
       select 1
       from identity_users u
@@ -276,23 +332,34 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
     terminalId: string,
     originNodeId: string,
     idleExpiresAt: number,
-    absoluteExpiresAt: number
+    absoluteExpiresAt: number,
+    now: number
   ): SessionPrincipal {
     const user = this.handle.sqlite.prepare(
       'select display_name as displayName from identity_users where id = ?'
     ).get(userId) as { displayName: string };
-    const roleCodes = uniqueStrings(this.handle.sqlite.prepare(`
-      select r.code from identity_user_roles ur
-      join identity_roles r on r.id = ur.role_id
-      where ur.user_id = ? and r.is_active = 1 order by r.code
-    `).pluck().all(userId));
-    const permissionCodes = uniqueStrings(this.handle.sqlite.prepare(`
-      select p.code from identity_user_roles ur
-      join identity_roles r on r.id = ur.role_id
-      join identity_role_permissions rp on rp.role_id = r.id
-      join identity_permissions p on p.code = rp.permission_code
-      where ur.user_id = ? and r.is_active = 1 and p.is_active = 1 order by p.code
-    `).pluck().all(userId));
+    /**
+     * Con concesión vigente, el principal lleva los roles y permisos que
+     * publicó el coordinador; la copia local no es la autoridad de ese
+     * operador. Sin concesión, el nodo standalone conserva la suya.
+     */
+    const grant = this.grantForUser(userId, now);
+    const roleCodes = grant.governed && grant.usable
+      ? [...grant.roleCodes]
+      : uniqueStrings(this.handle.sqlite.prepare(`
+        select r.code from identity_user_roles ur
+        join identity_roles r on r.id = ur.role_id
+        where ur.user_id = ? and r.is_active = 1 order by r.code
+      `).pluck().all(userId));
+    const permissionCodes = grant.governed && grant.usable
+      ? [...grant.permissionCodes]
+      : uniqueStrings(this.handle.sqlite.prepare(`
+        select p.code from identity_user_roles ur
+        join identity_roles r on r.id = ur.role_id
+        join identity_role_permissions rp on rp.role_id = r.id
+        join identity_permissions p on p.code = rp.permission_code
+        where ur.user_id = ? and r.is_active = 1 and p.is_active = 1 order by p.code
+      `).pluck().all(userId));
     return {
       actorId: userId,
       displayName: user.displayName,
@@ -307,10 +374,17 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
 }
 
 export class SqliteAuthorizationService implements AuthorizationService {
-  constructor(private readonly store: SqliteAuthenticationStore) {}
+  /**
+   * El reloj es explícito para que la vigencia de una concesión sea probable
+   * sin depender del tiempo de pared.
+   */
+  constructor(
+    private readonly store: SqliteAuthenticationStore,
+    private readonly clock: Clock = { now: () => new Date() }
+  ) {}
 
   async authorize(context: ExecutionContext, permission: string): Promise<boolean> {
-    return this.store.hasPermission(context.actorId, permission);
+    return this.store.hasPermission(context.actorId, permission, this.clock.now());
   }
 }
 

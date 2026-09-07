@@ -13,8 +13,11 @@ import {
   DISCOUNT_POLICY_PUBLISHED,
   EXCHANGE_RATE_UPDATED,
   FINANCIAL_TRANSACTION_TAX_POLICY_PUBLISHED,
+  OPERATOR_GRANT_PUBLISHED,
+  OPERATOR_GRANT_VALIDITY_MS,
   PAYMENT_METHOD_PUBLISHED,
   PRODUCT_PUBLISHED,
+  STOCK_AVAILABILITY_PUBLISHED,
   UNIT_OF_MEASURE_PUBLISHED
 } from '../catalog/reference-publications.js';
 import { PAYMENT_METHOD_KINDS, type PaymentMethodKind } from '../../domain/currency/index.js';
@@ -190,6 +193,61 @@ export class CatalogReferenceConsumer implements SyncConsumer {
         rateId, baseCurrency, quoteCurrency, rateValue, rateScale,
         source: source.trim(), validFrom, validUntil, registeredBy, version
       } satisfies ExchangeRateReference));
+    }
+
+    if (envelope.eventType === OPERATOR_GRANT_PUBLISHED) {
+      const operatorCode = text(payload.operatorCode);
+      const displayName = text(payload.displayName);
+      const roleCodes = textArray(payload.roleCodes);
+      const permissionCodes = textArray(payload.permissionCodes);
+      const isActive = activity(payload.isActive);
+      const declaredExpiry = instant(text(payload.expiresAt));
+      const issuedAt = new Date(envelope.occurredAt);
+      if (operatorCode === null || operatorCode.trim().length === 0 ||
+        displayName === null || roleCodes === null || permissionCodes === null ||
+        isActive === null || declaredExpiry === null ||
+        declaredExpiry.getTime() <= issuedAt.getTime()) {
+        return this.invalid(envelope);
+      }
+      /**
+       * La vigencia declarada nunca amplía la política: un coordinador que
+       * pidiera una ventana mayor que las ocho horas de ADR-0026 D6 se recorta
+       * a ese tope. Reentregar la concesión tampoco la renueva, porque el
+       * instante de emisión es `occurredAt` del sobre.
+       */
+      const expiresAt = new Date(Math.min(
+        declaredExpiry.getTime(),
+        issuedAt.getTime() + OPERATOR_GRANT_VALIDITY_MS
+      ));
+      return ok(await this.projection.applyOperatorGrant({
+        userId: envelope.aggregateId,
+        operatorCode: operatorCode.trim().toUpperCase(),
+        displayName,
+        roleCodes,
+        permissionCodes,
+        isActive,
+        version,
+        expiresAt,
+        publishedBy: envelope.originNodeId,
+        publishedAt: issuedAt
+      }));
+    }
+
+    if (envelope.eventType === STOCK_AVAILABILITY_PUBLISHED) {
+      const quantityScaled = integer(payload.quantityScaled);
+      const quantityScale = integer(payload.quantityScale);
+      if (quantityScaled === null || quantityScaled < 0 ||
+        quantityScale === null || quantityScale < 0) {
+        return this.invalid(envelope);
+      }
+      return ok(await this.projection.applyStockAvailability({
+        productId: envelope.aggregateId,
+        quantityScaled,
+        quantityScale,
+        version,
+        publishedBy: envelope.originNodeId,
+        publishedAt: new Date(envelope.occurredAt)
+      }));
     }
 
     if (envelope.eventType !== PRODUCT_PUBLISHED) {

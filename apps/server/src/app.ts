@@ -163,6 +163,7 @@ export type ServerDependencies = {
     readonly revokeNode: application.RevokeSyncNode;
     readonly listNodes: application.ListSyncNodes;
     readonly publishCatalogBootstrap: application.PublishCatalogBootstrap;
+    readonly publishOperatorGrants: application.PublishOperatorGrants;
     readonly getStatus: application.GetSyncStatus;
     readonly listPaused: application.ListPausedDeliveries;
     readonly resumeDelivery: application.ResumeSyncDelivery;

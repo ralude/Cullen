@@ -4,6 +4,8 @@ import type {
   ExchangeRateReference,
   PaymentMethodReference,
   ProjectedOperationalPolicyReference,
+  ProjectedOperatorGrantReference,
+  ProjectedStockAvailabilityReference,
   ProductReference,
   ReferenceApplication,
   UnitOfMeasureReference
@@ -260,6 +262,89 @@ export class SqliteCatalogReferenceProjection implements CatalogReferenceProject
         reference.version
       );
       return 'APPLIED';
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  /**
+   * Concesión de autorización. Se guarda en su propia tabla, separada de
+   * `identity_users`: la terminal no adopta el usuario del coordinador ni sus
+   * credenciales, solo conserva lo que ese operador puede hacer y hasta cuándo.
+   */
+  async applyOperatorGrant(
+    reference: ProjectedOperatorGrantReference
+  ): Promise<ReferenceApplication> {
+    requireTransaction(this.handle.sqlite);
+    try {
+      const changes = this.handle.sqlite.prepare(`
+        insert into identity_operator_grant (
+          user_id, operator_code, display_name, role_codes, permission_codes,
+          is_active, version, expires_at, published_by, published_at, applied_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        on conflict(user_id) do update set
+          operator_code = excluded.operator_code,
+          display_name = excluded.display_name,
+          role_codes = excluded.role_codes,
+          permission_codes = excluded.permission_codes,
+          is_active = excluded.is_active,
+          version = excluded.version,
+          expires_at = excluded.expires_at,
+          published_by = excluded.published_by,
+          published_at = excluded.published_at,
+          applied_at = excluded.applied_at
+          where excluded.version > identity_operator_grant.version
+      `).run(
+        reference.userId,
+        reference.operatorCode,
+        reference.displayName,
+        JSON.stringify([...reference.roleCodes]),
+        JSON.stringify([...reference.permissionCodes]),
+        reference.isActive ? 1 : 0,
+        reference.version,
+        reference.expiresAt.getTime(),
+        reference.publishedBy,
+        reference.publishedAt.getTime(),
+        reference.publishedAt.getTime()
+      ).changes;
+      return changes === 1 ? 'APPLIED' : 'STALE';
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  /**
+   * Disponibilidad informativa. Tabla propia y separada de `stock_items`: no
+   * existe la ruta que permitiría sumarla a un saldo local por accidente.
+   */
+  async applyStockAvailability(
+    reference: ProjectedStockAvailabilityReference
+  ): Promise<ReferenceApplication> {
+    requireTransaction(this.handle.sqlite);
+    try {
+      const changes = this.handle.sqlite.prepare(`
+        insert into stock_availability_reference (
+          product_id, quantity_scaled, quantity_scale, version,
+          published_by, published_at, applied_at
+        ) values (?, ?, ?, ?, ?, ?, ?)
+        on conflict(product_id) do update set
+          quantity_scaled = excluded.quantity_scaled,
+          quantity_scale = excluded.quantity_scale,
+          version = excluded.version,
+          published_by = excluded.published_by,
+          published_at = excluded.published_at,
+          applied_at = excluded.applied_at
+          where excluded.version > stock_availability_reference.version
+      `).run(
+        reference.productId,
+        reference.quantityScaled,
+        reference.quantityScale,
+        reference.version,
+        reference.publishedBy,
+        reference.publishedAt.getTime(),
+        reference.publishedAt.getTime()
+      ).changes;
+      return changes === 1 ? 'APPLIED' : 'STALE';
     } catch (error) {
       throw mapDatabaseError(error);
     }

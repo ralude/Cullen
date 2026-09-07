@@ -14,3 +14,4 @@ export type {
   RecordStockCountLineInput, RejectStockCountInput, StockCountDifferenceDto,
   StockCountDto, StockCountLineDto
 } from './dtos.js';
+export { toStockAvailabilityPublications } from './stock-availability-publications.js';

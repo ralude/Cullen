@@ -37,4 +37,62 @@ export interface CatalogReferenceSource {
   listExchangeRates(at: Date): Promise<readonly VersionedMaster<ExchangeRate>[]>;
   /** `Product` ya transporta su propia versión. */
   listProducts(): Promise<readonly Product[]>;
+  /**
+   * Saldo observado de cada ítem de stock. Un ítem sin movimientos publica cero
+   * con versión cero: es un saldo conocido, distinto de la ausencia de dato.
+   */
+  listStockAvailability(): Promise<readonly StockAvailabilityReference[]>;
 }
+
+/**
+ * Lectura de los operadores del coordinador para emitir sus concesiones.
+ *
+ * Enumera también los inactivos: una terminal que nunca supo de un operador
+ * desactivado no podría aplicar su revocación.
+ */
+export interface OperatorGrantSource {
+  listOperators(): Promise<readonly Omit<OperatorGrantReference, 'version'>[]>;
+  /**
+   * Avanza y devuelve la versión de concesión de un operador. Es monotónica y
+   * avanza incluso cuando el conjunto de permisos no cambió, para que una
+   * renovación no se descarte por atrasada.
+   */
+  nextGrantVersion(
+    userId: string,
+    issuedAt: Date,
+    expiresAt: Date
+  ): Promise<number>;
+  /**
+   * Vencimiento de la concesión vigente de cada operador, para decidir la
+   * reemisión. `null` significa que nunca se emitió.
+   */
+  earliestGrantExpiry(): Promise<Date | null>;
+}
+
+/**
+ * Concesión de autorización de un operador tal como la conoce el coordinador.
+ * No transporta credenciales: el PIN y las sesiones son locales de cada nodo.
+ */
+export type OperatorGrantReference = {
+  readonly userId: string;
+  readonly operatorCode: string;
+  readonly displayName: string;
+  readonly roleCodes: readonly string[];
+  readonly permissionCodes: readonly string[];
+  readonly isActive: boolean;
+  /** Versión propia de concesión, monotónica y distinta de `authorizationVersion`. */
+  readonly version: number;
+};
+
+/**
+ * Saldo observado de un ítem de stock del coordinador, identificado por su
+ * producto. `version` es el número de movimientos del ítem más uno, porque el
+ * sobre exige una versión positiva y un ítem sin movimientos también tiene un
+ * saldo conocido.
+ */
+export type StockAvailabilityReference = {
+  readonly productId: string;
+  readonly quantityScaled: number;
+  readonly quantityScale: number;
+  readonly version: number;
+};

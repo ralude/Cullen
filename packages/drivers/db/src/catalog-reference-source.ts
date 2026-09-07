@@ -5,13 +5,16 @@ import {
   UnitOfMeasure,
   type CatalogReferenceSource,
   type OperationalPolicyReference,
+  type OperatorGrantReference,
+  type OperatorGrantSource,
   type Product,
+  type StockAvailabilityReference,
   type VersionedMaster
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
 import { DrizzleProductRepository } from './repositories.js';
 import type { PaymentMethodKind } from '@supermarket/core';
-import { mapDatabaseError } from './unit-of-work.js';
+import { mapDatabaseError, requireTransaction } from './unit-of-work.js';
 
 type CategoryRow = {
   readonly id: string;
@@ -203,6 +206,119 @@ export class SqliteCatalogReferenceSource implements CatalogReferenceSource {
         }),
         version: row.version
       }));
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  /**
+   * Saldo observado por ítem de stock. La versión es el número de movimientos
+   * más uno, la misma que asigna el productor tras registrar un movimiento, de
+   * modo que el corte inicial y los cambios posteriores se ordenan entre sí.
+   */
+  async listStockAvailability(): Promise<readonly StockAvailabilityReference[]> {
+    try {
+      const rows = this.handle.sqlite.prepare(`
+        select i.product_id as productId, i.quantity_scale as quantityScale,
+          coalesce(sum(case when m.direction = 'IN' then m.quantity_scaled
+            else -m.quantity_scaled end), 0) as quantityScaled,
+          count(m.id) + 1 as version
+        from stock_items i
+        left join stock_movements m on m.stock_item_id = i.id
+        group by i.id
+        order by i.product_id
+      `).all() as {
+        productId: string; quantityScale: number; quantityScaled: number; version: number;
+      }[];
+      return rows.map((row) => ({
+        productId: row.productId,
+        quantityScaled: Math.max(0, row.quantityScaled),
+        quantityScale: row.quantityScale,
+        version: row.version
+      }));
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+}
+
+/**
+ * Operadores del coordinador y versión monotónica de sus concesiones.
+ *
+ * Enumera también los inactivos: sin conocer al operador desactivado, una
+ * terminal no podría aplicar su revocación. Nunca devuelve credenciales.
+ */
+export class SqliteOperatorGrantSource implements OperatorGrantSource {
+  constructor(private readonly handle: DatabaseHandle) {}
+
+  async listOperators(): Promise<readonly Omit<OperatorGrantReference, 'version'>[]> {
+    try {
+      const rows = this.handle.sqlite.prepare(`
+        select id as userId, operator_code as operatorCode,
+          display_name as displayName, is_active as isActive
+        from identity_users order by operator_code
+      `).all() as {
+        userId: string; operatorCode: string; displayName: string; isActive: number;
+      }[];
+      const roles = this.handle.sqlite.prepare(`
+        select r.code from identity_user_roles ur
+        join identity_roles r on r.id = ur.role_id
+        where ur.user_id = ? and r.is_active = 1 order by r.code
+      `);
+      const permissions = this.handle.sqlite.prepare(`
+        select distinct p.code from identity_user_roles ur
+        join identity_roles r on r.id = ur.role_id
+        join identity_role_permissions rp on rp.role_id = r.id
+        join identity_permissions p on p.code = rp.permission_code
+        where ur.user_id = ? and r.is_active = 1 and p.is_active = 1 order by p.code
+      `);
+      return rows.map((row) => ({
+        userId: row.userId,
+        operatorCode: row.operatorCode.toUpperCase(),
+        displayName: row.displayName,
+        roleCodes: roles.pluck().all(row.userId) as string[],
+        permissionCodes: permissions.pluck().all(row.userId) as string[],
+        isActive: row.isActive === 1
+      }));
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  async nextGrantVersion(
+    userId: string,
+    issuedAt: Date,
+    expiresAt: Date
+  ): Promise<number> {
+    requireTransaction(this.handle.sqlite);
+    try {
+      return this.handle.sqlite.prepare(`
+        insert into identity_operator_grant_version (user_id, version, issued_at, expires_at)
+        values (?, 1, ?, ?)
+        on conflict(user_id) do update set
+          version = identity_operator_grant_version.version + 1,
+          issued_at = excluded.issued_at,
+          expires_at = excluded.expires_at
+        returning version
+      `).pluck().get(userId, issuedAt.getTime(), expiresAt.getTime()) as number;
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  async earliestGrantExpiry(): Promise<Date | null> {
+    try {
+      const operators = this.handle.sqlite
+        .prepare('select count(*) from identity_users').pluck().get() as number;
+      if (operators === 0) return null;
+      const issued = this.handle.sqlite
+        .prepare('select count(*) from identity_operator_grant_version').pluck().get() as number;
+      /** Un operador sin concesión emitida cuenta como vencido, no como vigente. */
+      if (issued < operators) return null;
+      const expiry = this.handle.sqlite
+        .prepare('select min(expires_at) from identity_operator_grant_version')
+        .pluck().get() as number | null;
+      return expiry === null ? null : new Date(expiry);
     } catch (error) {
       throw mapDatabaseError(error);
     }

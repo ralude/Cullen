@@ -379,7 +379,7 @@ const catalogBootstrapSchema = {
   additionalProperties: false,
   required: [
     'categories', 'unitsOfMeasure', 'paymentMethods', 'operationalPolicies', 'exchangeRates', 'products',
-    'publishedAt'
+    'stockAvailability', 'publishedAt'
   ],
   properties: {
     categories: { type: 'integer' },
@@ -388,6 +388,20 @@ const catalogBootstrapSchema = {
     operationalPolicies: { type: 'integer' },
     exchangeRates: { type: 'integer' },
     products: { type: 'integer' },
+    stockAvailability: { type: 'integer' },
+    publishedAt: { type: 'string' }
+  }
+} as const;
+
+export type PublishOperatorGrantsRequest = { readonly reason: string };
+
+const operatorGrantsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['operators', 'expiresAt', 'publishedAt'],
+  properties: {
+    operators: { type: 'integer' },
+    expiresAt: { type: 'string' },
     publishedAt: { type: 'string' }
   }
 } as const;
@@ -410,6 +424,27 @@ export const publishCatalogBootstrapContract = {
   errorCodes: [
     'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN',
     'SYNC_BOOTSTRAP_REASON_REQUIRED', 'DATABASE_BUSY'
+  ]
+} as const satisfies HttpContractV1;
+
+/**
+ * Emite las concesiones de autorización de los operadores. Es el mismo caso de
+ * uso que la renovación: cada emisión avanza la versión y declara ocho horas de
+ * vigencia desde ese instante. Nunca transporta credenciales.
+ */
+export const publishOperatorGrantsContract = {
+  method: 'POST',
+  path: '/api/v1/sync/references/operator-grants/publish',
+  permission: 'sync.reference.publish',
+  idempotency: 'OPTIONAL',
+  schema: {
+    headers,
+    body: reasonBody,
+    response: { 200: operatorGrantsSchema, ...mutationResponses }
+  },
+  errorCodes: [
+    'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN',
+    'SYNC_GRANT_REASON_REQUIRED', 'DATABASE_BUSY'
   ]
 } as const satisfies HttpContractV1;
 

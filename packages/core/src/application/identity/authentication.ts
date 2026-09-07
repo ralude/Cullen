@@ -37,6 +37,25 @@ export type AuthenticationCompletion =
   | { readonly authenticated: true; readonly principal: SessionPrincipal }
   | { readonly authenticated: false };
 
+/**
+ * Estado de la concesión que el coordinador emitió para un operador.
+ *
+ * `governed: false` es el caso standalone: nadie publicó una concesión para ese
+ * operador y su autorización local sigue intacta. Cuando existe, la concesión
+ * es la autoridad de sus permisos en esta terminal y su vigencia se aplica
+ * **además** de los límites de sesión de ADR-0011, conforme ADR-0026 D5.
+ */
+export type OperatorGrantState =
+  | { readonly governed: false }
+  | {
+    readonly governed: true;
+    /** Vigente y activa. Una concesión vencida o revocada no es utilizable. */
+    readonly usable: boolean;
+    readonly roleCodes: readonly string[];
+    readonly permissionCodes: readonly string[];
+    readonly expiresAt: Date;
+  };
+
 export interface AuthenticationStore {
   findByOperatorCode(operatorCode: string): Promise<AuthenticationRecord | null>;
   completeAttempt(input: {
@@ -51,6 +70,11 @@ export interface AuthenticationStore {
     readonly absoluteExpiresAt?: Date;
   }): Promise<AuthenticationCompletion>;
   verifyAndTouchSession(tokenHash: string, now: Date): Promise<SessionPrincipal | null>;
+  /**
+   * Concesión vigente del operador, buscada por su código de negocio: el
+   * `userId` del coordinador y el local no son el mismo identificador.
+   */
+  operatorGrantState(operatorCode: string, now: Date): Promise<OperatorGrantState>;
   revokeSession(tokenHash: string, now: Date): Promise<void>;
   provisionInitialAdmin(input: {
     readonly userId: string;
@@ -108,6 +132,32 @@ export class AuthenticateOperator {
 
     const pinVerified = await this.pinHasher.verify(input.pin, record.pinHash);
     const now = this.clock.now();
+
+    /**
+     * Una concesión vencida o revocada deniega la sesión nueva aunque el PIN
+     * sea correcto (ADR-0026 D5). La comprobación va **después** de verificar
+     * el PIN para que su código propio no revele qué operadores existen, y el
+     * intento se cierra sin token: no se abre sesión ni queda el fallo contado
+     * como PIN incorrecto.
+     */
+    const grant = pinVerified
+      ? await this.store.operatorGrantState(operatorCode, now)
+      : { governed: false } as const;
+    if (grant.governed && !grant.usable) {
+      await this.store.completeAttempt({
+        userId: record.userId,
+        credentialVersion: record.credentialVersion,
+        pinVerified: true,
+        terminalId: input.terminalId,
+        originNodeId: input.originNodeId,
+        now
+      });
+      return err(new ApplicationError(
+        'AUTH_GRANT_UNAVAILABLE',
+        'The operator grant issued by the coordinator is expired or revoked.'
+      ));
+    }
+
     const token = pinVerified ? this.tokenService.generate() : undefined;
     const completion = await this.store.completeAttempt({
       userId: record.userId,

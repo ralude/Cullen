@@ -50,6 +50,9 @@ export type {
 export type {
   CatalogReferenceSource,
   OperationalPolicyReference,
+  OperatorGrantReference,
+  OperatorGrantSource,
+  StockAvailabilityReference,
   VersionedMaster
 } from './catalog-reference-source.js';
 export type {
@@ -58,6 +61,8 @@ export type {
   ExchangeRateReference,
   PaymentMethodReference,
   ProjectedOperationalPolicyReference,
+  ProjectedOperatorGrantReference,
+  ProjectedStockAvailabilityReference,
   ProductReference,
   ReferenceApplication,
   UnitOfMeasureReference

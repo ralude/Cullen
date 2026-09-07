@@ -10,10 +10,12 @@ import type {
   Clock,
   IdGenerator,
   IdempotencyStore,
+  OutboxStore,
   StockCountRepository,
   StockItemRepository,
   UnitOfWork
 } from '../ports/index.js';
+import { toStockAvailabilityPublications } from './stock-availability-publications.js';
 import type {
   ApproveStockCountInput,
   CloseStockCountInput,
@@ -249,7 +251,9 @@ export class ApproveStockCount {
     private readonly unitOfWork: UnitOfWork,
     private readonly eventStore: BusinessEventStore,
     private readonly auditWriter: AuditWriter,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    /** Salida del coordinador: publica la disponibilidad informativa del ítem. */
+    private readonly outbox?: OutboxStore
   ) {}
 
   async execute(input: ApproveStockCountInput, context: ExecutionContext): Promise<Result<StockCountDto, AppError>> {
@@ -286,7 +290,7 @@ export class ApproveStockCount {
             });
             await persistBusinessChange(
               () => this.stockItemRepository.save(item), item.domainEvents.slice(previousEventCount), context,
-              undefined, this.eventStore, undefined, [], this.auditWriter, [{
+              undefined, this.eventStore, this.outbox, [], this.auditWriter, [{
                 auditId: this.auditIdGenerator.generate(), actorId: context.actorId,
                 actorRoleCodes: context.actorRoleCodes ?? [], action: 'STOCK_COUNT_ADJUSTMENT_REGISTERED',
                 entityType: 'StockItem', entityId: item.id,
@@ -294,7 +298,8 @@ export class ApproveStockCount {
                 after: { balanceScaled: item.balance.scaledValue, movementId: movement.id, stockCountId: count.id },
                 reason: movement.reason, terminalId: context.terminalId, originNodeId: context.originNodeId,
                 occurredAt, correlationId: context.correlationId
-              }]
+              }],
+              toStockAvailabilityPublications([item], this.eventIdGenerator, occurredAt)
             );
             adjustmentsCreated += 1;
           }

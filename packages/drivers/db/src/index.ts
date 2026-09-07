@@ -8,7 +8,7 @@ export { DrizzleOutboxStore } from './outbox-store.js';
 export { DrizzleSyncReceptionStore } from './sync-reception-store.js';
 export { DrizzleSyncInboxWorkStore } from './sync-inbox-work-store.js';
 export { SqliteCatalogReferenceProjection } from './catalog-reference-projection.js';
-export { SqliteCatalogReferenceSource } from './catalog-reference-source.js';
+export { SqliteCatalogReferenceSource, SqliteOperatorGrantSource } from './catalog-reference-source.js';
 export { DrizzleAggregateAuthorityRegistry } from './sync-authority-registry.js';
 export { SqliteSyncNodeRegistry } from './sync-node-registry.js';
 export { DrizzleAuditWriter } from './audit-writer.js';

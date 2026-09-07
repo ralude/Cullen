@@ -5,6 +5,8 @@ import type {
   CategoryReference,
   PaymentMethodReference,
   ProjectedOperationalPolicyReference,
+  ProjectedOperatorGrantReference,
+  ProjectedStockAvailabilityReference,
   ProductReference,
   ReferenceApplication,
   UnitOfMeasureReference
@@ -22,6 +24,8 @@ class RecordingProjection implements CatalogReferenceProjection {
     rateScale: number; source: string; validFrom: Date; validUntil: Date | null;
     registeredBy: string; version: number;
   }> = [];
+  readonly operatorGrants: ProjectedOperatorGrantReference[] = [];
+  readonly stockAvailability: ProjectedStockAvailabilityReference[] = [];
   outcome: ReferenceApplication = 'APPLIED';
 
   async applyCategory(reference: CategoryReference): Promise<ReferenceApplication> {
@@ -53,6 +57,20 @@ class RecordingProjection implements CatalogReferenceProjection {
 
   async applyExchangeRate(reference: typeof this.exchangeRates[number]): Promise<ReferenceApplication> {
     this.exchangeRates.push(reference);
+    return this.outcome;
+  }
+
+  async applyOperatorGrant(
+    reference: ProjectedOperatorGrantReference
+  ): Promise<ReferenceApplication> {
+    this.operatorGrants.push(reference);
+    return this.outcome;
+  }
+
+  async applyStockAvailability(
+    reference: ProjectedStockAvailabilityReference
+  ): Promise<ReferenceApplication> {
+    this.stockAvailability.push(reference);
     return this.outcome;
   }
 

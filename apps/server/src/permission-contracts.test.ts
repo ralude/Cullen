@@ -47,6 +47,7 @@ import {
   printSimulatedXReportContract,
   printSimulatedZReportContract,
   publishCatalogBootstrapContract,
+  publishOperatorGrantsContract,
   receivePurchaseContract,
   saveCategoryContract,
   savePaymentMethodContract,
@@ -191,6 +192,7 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
     expectedPermission(retrySyncDiscrepancyContract, application.SYNC_PERMISSIONS.RESOLVE_DISCREPANCY);
     expectedPermission(resolveSyncDiscrepancyContract, application.SYNC_PERMISSIONS.RESOLVE_DISCREPANCY);
     expectedPermission(publishCatalogBootstrapContract, application.SYNC_PERMISSIONS.PUBLISH_REFERENCES);
+    expectedPermission(publishOperatorGrantsContract, application.SYNC_PERMISSIONS.PUBLISH_REFERENCES);
   });
 
   it('venta', () => {

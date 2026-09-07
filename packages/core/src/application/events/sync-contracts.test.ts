@@ -4,15 +4,18 @@ import { Barcode, Category, Product, ProductSnapshot, UnitOfMeasure } from '../.
 import { CashRegister, Shift } from '../../domain/cash/index.js';
 import { ExchangeRate, PaymentMethod } from '../../domain/currency/index.js';
 import { FiscalDay, FiscalDocument } from '../../domain/fiscal/index.js';
+import { StockItem } from '../../domain/inventory/index.js';
 import { Payment, Sale, SaleReturn } from '../../domain/sales/index.js';
 import {
   toCategoryPublication,
   toExchangeRatePublication,
   toOperationalPolicyPublication,
   toPaymentMethodPublication,
+  toOperatorGrantPublication,
   toProductPublication,
   toUnitOfMeasurePublication
 } from '../catalog/reference-publications.js';
+import { toStockAvailabilityPublications } from '../inventory/index.js';
 import type { ExecutionContext } from '../execution-context.js';
 import { toBusinessEvents, type DomainEventLike } from './business-event.js';
 import { SYNC_EVENT_CONTRACTS_V1, SYNC_INTEGRATION_EVENT_TYPES } from './sync-contracts.js';
@@ -76,6 +79,28 @@ const catalogProduct = (): Product => {
 
 const catalogEvents = (): readonly DomainEventLike[] => catalogProduct().domainEvents;
 
+/** Ítem con un movimiento aplicado: el saldo publicado es el del coordinador. */
+const availableStockItem = (): StockItem => {
+  const item = StockItem.create({
+    id: 'stock-item-001',
+    productId: 'product-001',
+    unitCode: 'UNIT',
+    quantityScale: 0,
+    tracksBatches: false
+  });
+  item.registerMovement({
+    id: 'movement-001',
+    type: 'PURCHASE_RECEIPT',
+    quantity: Quantity.fromScaled(12, 0),
+    actorId: 'user-001',
+    reason: 'Recepción inicial',
+    referenceId: 'receipt-001',
+    occurredAt: at(2),
+    eventId: 'event-stock-movement'
+  });
+  return item;
+};
+
 /**
  * Publicaciones de referencia construidas desde los mismos agregados que
  * usarán los productores: el contrato se valida contra el payload real, no
@@ -121,7 +146,21 @@ const catalogReferenceEvents = (): readonly DomainEventLike[] => {
     }),
     toProductPublication(product, {
       eventId: 'event-product-published', occurredAt: at(3)
-    })
+    }),
+    toOperatorGrantPublication({
+      userId: 'user-001',
+      operatorCode: 'CAJA01',
+      displayName: 'Cajera 1',
+      roleCodes: ['CASHIER'],
+      permissionCodes: ['sales.complete', 'sales.start'],
+      isActive: true,
+      version: 5
+    }, { eventId: 'event-operator-grant-published', occurredAt: at(3) }),
+    ...toStockAvailabilityPublications(
+      [availableStockItem()],
+      { generate: () => 'event-stock-availability-published' },
+      at(3)
+    )
   ];
 };
 
@@ -346,7 +385,8 @@ describe('catálogo de contratos de integración v1', () => {
     expect(SYNC_EVENT_CONTRACTS_V1.map(({ eventType }) => eventType)).toEqual([
       'ProductCreated', 'PriceChanged', 'CategoryPublished', 'UnitOfMeasurePublished',
       'DiscountPolicyPublished', 'FinancialTransactionTaxPolicyPublished',
-      'ExchangeRateUpdated', 'PaymentMethodPublished', 'ProductPublished',
+      'ExchangeRateUpdated', 'PaymentMethodPublished', 'OperatorGrantPublished',
+      'StockAvailabilityPublished', 'ProductPublished',
       'SaleCompleted', 'SaleReturned', 'ShiftOpened',
       'CashMovementRegistered', 'ShiftClosed', 'FiscalDocumentIssued', 'FiscalDocumentFailed',
       'FiscalXReportIssued', 'FiscalZReportIssued'
@@ -365,6 +405,8 @@ describe('catálogo de contratos de integración v1', () => {
       'FinancialTransactionTaxPolicyPublished:CATALOG_REFERENCE',
       'ExchangeRateUpdated:CATALOG_REFERENCE',
       'PaymentMethodPublished:CATALOG_REFERENCE',
+      'OperatorGrantPublished:CATALOG_REFERENCE',
+      'StockAvailabilityPublished:CATALOG_REFERENCE',
       'ProductPublished:CATALOG_REFERENCE',
       'SaleCompleted:INVENTORY_AUTHORITY'
     ]);
@@ -381,6 +423,8 @@ describe('catálogo de contratos de integración v1', () => {
       'FinancialTransactionTaxPolicyPublished:OperationalPolicy:COORDINATOR_TO_TERMINAL',
       'ExchangeRateUpdated:ExchangeRate:COORDINATOR_TO_TERMINAL',
       'PaymentMethodPublished:PaymentMethod:COORDINATOR_TO_TERMINAL',
+      'OperatorGrantPublished:OperatorGrant:COORDINATOR_TO_TERMINAL',
+      'StockAvailabilityPublished:StockAvailability:COORDINATOR_TO_TERMINAL',
       'ProductPublished:Product:COORDINATOR_TO_TERMINAL',
       'SaleCompleted:Sale:TERMINAL_TO_COORDINATOR',
       'SaleReturned:SaleReturn:TERMINAL_TO_COORDINATOR',
@@ -412,13 +456,14 @@ describe('catálogo de contratos de integración v1', () => {
     const dependencies = producedIntegrationEvents.flatMap((event) => {
       const contract = SYNC_EVENT_CONTRACTS_V1
         .find(({ eventType }) => eventType === event.eventType);
-      return (contract?.dependencies(event.payload as Record<string, never>) ?? [])
+      return (contract?.dependencies(event.payload as Record<string, never>, event.aggregateId) ?? [])
         .map(({ aggregateType, aggregateId }) => `${event.eventType}->${aggregateType}:${aggregateId}`);
     });
 
     expect(dependencies).toEqual([
       'ProductPublished->Category:category-001',
       'ProductPublished->UnitOfMeasure:unit-001',
+      'StockAvailabilityPublished->Product:product-001',
       'SaleCompleted->Shift:shift-001',
       'SaleReturned->Sale:sale-001',
       'CashMovementRegistered->Sale:sale-001',
@@ -460,6 +505,8 @@ describe('catálogo de contratos de integración v1', () => {
       'FinancialTransactionTaxPolicyPublished',
       'ExchangeRateUpdated',
       'PaymentMethodPublished',
+      'OperatorGrantPublished',
+      'StockAvailabilityPublished',
       'ProductPublished'
     ];
 

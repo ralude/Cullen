@@ -329,3 +329,168 @@ que persiste la confirmación humana; las sugerencias continúan siendo solo lec
 proyección conserva cada fila inmutable, omite versiones atrasadas y el bootstrap ordena las
 tasas no vencidas. La prueba LAN confirma que una terminal nueva obtiene la misma tasa vigente
 que el coordinador, conserva la futura, excluye la vencida y no genera outbox local.
+
+## Corte siguiente: concesiones de operador
+
+Cierra la parte de D5/ADR-0026 que faltaba especificar. El coordinador es la autoridad de
+autorización de la LAN: publica lo que cada operador **puede hacer**, con vencimiento, y la
+terminal lo aplica. Las credenciales no viajan.
+
+### Qué es una concesión y qué no
+
+Una concesión transporta identidad de operador y su conjunto de autorización vigente. **No**
+transporta PIN, hash de PIN, token, sesión ni ningún secreto: ADR-0026 lo prohíbe
+explícitamente y la provisión local de credenciales sigue siendo controlada por nodo. Tampoco
+sustituye la administración de usuarios y roles, que pertenece a 11.02.
+
+Recibir una concesión no crea una sesión ni la renueva. Las sesiones conservan los 30 minutos
+idle y las 8 horas absolutas de ADR-0011, que se aplican **además** de la vigencia de la
+concesión y no se sustituyen por ella.
+
+### `OperatorGrantPublished.v1`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `operatorCode` | `identifier` | código de operador normalizado en mayúsculas |
+| `displayName` | `text` | nombre visible |
+| `roleCodes` | `array` de `identifier` | conjunto vigente completo, ordenado |
+| `permissionCodes` | `array` de `identifier` | conjunto vigente completo, ordenado |
+| `isActive` | `enum ACTIVE \| INACTIVE` | una revocación es un cambio, no un borrado |
+| `expiresAt` | `text` | instante UTC en que la concesión deja de servir |
+
+- `aggregateType`: `OperatorGrant`; `aggregateId`: el `userId` del operador en el coordinador.
+- Dirección `COORDINATOR_TO_TERMINAL`. Consumidor: `CATALOG_REFERENCE`, la misma ruta
+  transaccional de referencias. Sin dependencias.
+- El payload **no** repite el instante de emisión: es `occurredAt` del sobre, que ya es
+  inmutable. `expiresAt` sí viaja explícito porque es la declaración de vigencia del
+  coordinador, no un cálculo de la terminal.
+
+### Vigencia, versión y renovación
+
+`identity_users.authorization_version` no sirve como `aggregateVersion`: una renovación de la
+misma autorización no la cambiaría y el consumidor descartaría la publicación por atrasada.
+Por eso el coordinador lleva una **versión propia de concesión** por operador
+(`identity_operator_grant_version`, migración `0036`), monotónica, que avanza en cada emisión
+—incluida una renovación con el mismo conjunto de permisos— y que un trigger impide retroceder.
+
+La vigencia es de ocho horas desde la emisión del coordinador, conforme D6. La terminal aplica
+`expiresAt`, pero nunca acepta una ventana mayor que la política: si el coordinador declarase
+un `expiresAt` posterior a `occurredAt + 8 h`, la terminal lo recorta a ese tope. Un
+`expiresAt` que no sea posterior a `occurredAt` es una incompatibilidad permanente.
+
+Reentregar una concesión **no** renueva nada: su `expiresAt` es parte del hecho inmutable.
+Reiniciar la terminal o atrasar el reloj tampoco amplía la ventana, porque la comparación es
+contra el instante declarado y no contra un contador local.
+
+Mientras hay LAN, el coordinador reemite las concesiones al comenzar cada ciclo de entrega
+cuando a la vigente le queda menos de la mitad de su ventana. Así una terminal conectada
+siempre tiene concesión fresca y, al cortarse la LAN, conserva hasta ocho horas de operación.
+Reemitir sin cambios sigue siendo una publicación nueva con versión nueva; no es un delta.
+
+### Aplicación en la terminal
+
+La proyección `identity_operator_grant` conserva, por `userId`: código, nombre, roles,
+permisos, estado, versión, `expiresAt`, nodo emisor e instante de aplicación. Se aplica por
+la misma ruta de referencias: no invoca casos de uso de administración, no escribe auditoría
+de un actor humano y no encola nada en la salida local.
+
+La concesión **gobierna cuando existe**. Un nodo standalone que nunca recibió concesiones
+conserva su autorización local intacta, porque no hay coordinador que la emita; en cuanto el
+coordinador publica la concesión de un operador, esa concesión pasa a ser la autoridad de sus
+permisos en esa terminal. Concretamente:
+
+- Autenticar: con concesión ausente se conserva el comportamiento local. Con concesión
+  presente pero vencida o `INACTIVE` **no** se abre sesión, aunque el PIN sea correcto. El
+  código de error es distinto del fallo de autenticación y solo se devuelve **después** de
+  verificar el PIN, de modo que no revela la existencia de un operador.
+- Autorizar una acción protegida: la concesión debe estar vigente y contener el permiso. Una
+  concesión vencida deniega aunque la sesión siga viva, conforme D5.
+- Verificar sesión: una concesión vencida o revocada invalida la sesión existente.
+
+La revocación se aplica cuando el nodo la recibe. No se promete revocación global inmediata
+durante un corte; ese límite es el que ya declara ADR-0026 y la UI lo muestra como antigüedad.
+
+### Bootstrap
+
+`PublishOperatorGrants` enumera los operadores del coordinador dentro de la transacción de
+lectura y encola una publicación por operador con la versión siguiente y la vigencia calculada
+desde el reloj del caso de uso. Incluye operadores inactivos como `INACTIVE`: una terminal que
+nunca supo de un operador desactivado no puede aplicar su revocación. El corte inicial y la
+renovación son el mismo caso de uso y el mismo contrato.
+
+### Criterios antes de continuar con disponibilidad
+
+- [ ] Emitir una concesión asigna la versión siguiente del operador y encola exactamente una
+  publicación en la misma transacción; los permisos viajan sin credenciales.
+- [ ] La terminal aplica la concesión, descarta una versión atrasada y recorta un `expiresAt`
+  que exceda las ocho horas de la emisión.
+- [ ] Una concesión vencida deniega sesión nueva y acción protegida aunque la sesión local
+  siga dentro de sus límites de ADR-0011; atrasar el reloj no amplía la ventana.
+- [ ] Una concesión `INACTIVE` deniega igual que una vencida y conserva la fila con su
+  historia; el bootstrap incluye operadores activos e inactivos.
+
+## Corte siguiente: disponibilidad informativa
+
+Último elemento del conjunto cerrado. Es la única referencia que **no** es un maestro: es una
+proyección de un saldo que cambia constantemente, y por eso su contrato declara de forma
+explícita qué no promete.
+
+### Qué promete y qué no
+
+El stock autoritativo pertenece al coordinador (ADR-0026 D3). La terminal recibe el saldo
+observado para poder informar al operador, y nada más:
+
+- **No** se suma al saldo del coordinador ni a ningún otro nodo. Vive en una tabla propia de
+  proyección, separada de `stock_items`, precisamente para que no exista la ruta que permitiría
+  sumarlos por accidente.
+- **No** reserva ni compromete existencias: dos terminales pueden vender la última unidad y esa
+  situación se resuelve como discrepancia, conforme D4 y FS-005.
+- **No** habilita ni bloquea la venta. Una venta offline sigue siendo válida.
+- Se presenta siempre con su antigüedad. Sin publicación aplicada el dato es `null`, que
+  significa **desconocido**, no cero.
+
+### `StockAvailabilityPublished.v1`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `quantityScaled` | `integer >= 0` | saldo observado en el coordinador |
+| `quantityScale` | `integer >= 0` | escala con la que se interpreta `quantityScaled` |
+
+- `aggregateType`: `StockAvailability`; `aggregateId`: el `productId`, que es la identidad que
+  la terminal ya conoce. `aggregateVersion` es el número de movimientos del ítem de stock en el
+  coordinador más uno, que ya es monotónico por ítem y no necesita una columna nueva; el `+ 1`
+  solo respeta que el sobre exige una versión positiva.
+- Dependencia: `Product`. Un saldo de un producto que la terminal no conoce no es utilizable,
+  así que espera a que su producto esté aplicado.
+- Dirección `COORDINATOR_TO_TERMINAL`. Consumidor: `CATALOG_REFERENCE`.
+- El payload no transporta código de unidad: la unidad pertenece al producto y duplicarla
+  invitaría a que las dos copias se separaran, igual que en el vertical de catálogo.
+
+### Productor
+
+Cada caso de uso del coordinador que registra movimientos publica la disponibilidad de los
+ítems que tocó, en la misma transacción que el cambio autoritativo: recepción de compra,
+ajuste, aprobación de conteo y la aplicación del `SaleCompleted` recibido de una terminal. La
+publicación se deriva del estado del ítem **después** de la mutación.
+
+Un evento por ítem y por cambio; no se agrupa un saldo global de tienda ni se publica un
+delta. Si el mismo ciclo produce dos cambios del mismo ítem, ambos se publican y la regla de
+versión del consumidor deja vigente el último.
+
+### Bootstrap
+
+El corte inicial enumera los ítems de stock vigentes y publica el saldo de cada uno con su
+versión actual, dentro de la misma transacción de lectura que el resto del corte. Un ítem sin
+movimientos publica saldo cero con versión uno: es un saldo conocido, distinto de la ausencia
+de publicación.
+
+### Criterios de cierre del conjunto
+
+- [ ] Recepción, ajuste, conteo aprobado y venta sincronizada publican exactamente una
+  disponibilidad por ítem afectado, en la transacción del cambio.
+- [ ] La terminal proyecta el saldo en una tabla propia, con su versión y antigüedad; una
+  publicación atrasada no lo retrocede y una reentrega no lo duplica.
+- [ ] La proyección no altera `stock_items` ni participa en ningún saldo local, y una
+  disponibilidad nunca impide completar una venta offline.
+- [ ] El bootstrap publica el saldo de todos los ítems, incluido el saldo cero con versión uno, y una
+  interrupción antes del commit no deja un corte parcial.

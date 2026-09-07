@@ -69,7 +69,8 @@ describe('database migrations', () => {
       expect.objectContaining({ version: 32, name: 'reference_master_version' }),
       expect.objectContaining({ version: 33, name: 'sync_node_address' }),
       expect.objectContaining({ version: 34, name: 'payment_method_reference_version' }),
-      expect.objectContaining({ version: 35, name: 'exchange_rate_reference_version' })
+      expect.objectContaining({ version: 35, name: 'exchange_rate_reference_version' }),
+      expect.objectContaining({ version: 36, name: 'operator_grants_and_availability' })
     ]);
 
     const tables = handle.sqlite.prepare(
@@ -628,7 +629,7 @@ describe('database migrations', () => {
       );
     `);
 
-    expect(applyMigrations(handle.sqlite)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]);
+    expect(applyMigrations(handle.sqlite)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36]);
     expect(handle.sqlite.prepare(`
       select last_dispatch_state as dispatchState,
         last_command_effect as commandEffect,
@@ -959,7 +960,7 @@ describe('database migrations', () => {
         1, 'COMPLETED', 2, 0);
     `);
 
-    expect(applyMigrations(handle.sqlite)).toEqual([20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]);
+    expect(applyMigrations(handle.sqlite)).toEqual([20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36]);
 
     expect(handle.sqlite.prepare(`
       select recipient_country as country, recipient_normalized_value as identification

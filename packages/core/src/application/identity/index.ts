@@ -9,6 +9,7 @@ export type {
   AuthenticationCompletion,
   AuthenticationRecord,
   AuthenticationStore,
+  OperatorGrantState,
   PinHasher,
   SessionPrincipal,
   SessionTokenService

@@ -5,6 +5,7 @@ import {
   listSyncDiscrepanciesContract,
   listSyncNodesContract,
   publishCatalogBootstrapContract,
+  publishOperatorGrantsContract,
   registerSyncNodeContract,
   resolveSyncDiscrepancyContract,
   resumeSyncDeliveryContract,
@@ -14,6 +15,7 @@ import {
   type ResumeSyncDeliveryRequest,
   type RevokeSyncNodeRequest,
   type PublishCatalogBootstrapRequest,
+  type PublishOperatorGrantsRequest,
   type SyncDiscrepancyActionRequest
 } from '@supermarket/shared';
 import {
@@ -85,6 +87,20 @@ export const registerSyncRoutes = (
     const principal = await requirePrincipal(request, reply, dependencies);
     if (!principal) return;
     const result = await sync.publishCatalogBootstrap.execute(
+      request.body,
+      createExecutionContext(request, principal, dependencies)
+    );
+    return result.ok
+      ? reply.send(result.value)
+      : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
+  app.post<{ Body: PublishOperatorGrantsRequest }>(publishOperatorGrantsContract.path, {
+    schema: publishOperatorGrantsContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await sync.publishOperatorGrants.execute(
       request.body,
       createExecutionContext(request, principal, dependencies)
     );

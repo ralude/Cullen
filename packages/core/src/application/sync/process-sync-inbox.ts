@@ -142,7 +142,7 @@ export class ProcessSyncInbox {
   private async pendingDependency(envelope: SyncEnvelopeV1): Promise<boolean> {
     const contract = findSyncContract(envelope.eventType);
     if (!contract) return false;
-    for (const dependency of contract.dependencies(envelope.payload)) {
+    for (const dependency of contract.dependencies(envelope.payload, envelope.aggregateId)) {
       if (!await this.store.isDependencyApplied(
         dependency.aggregateType, dependency.aggregateId
       )) return true;
