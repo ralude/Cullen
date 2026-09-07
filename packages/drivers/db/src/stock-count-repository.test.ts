@@ -32,7 +32,7 @@ describe('DrizzleStockCountRepository', () => {
 
     reloaded!.close([{
       lineId: 'line-1', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 5, countedScaled: 8, differenceScaled: 3
+      expectedScaled: 5, countedScaled: 8, differenceScaled: 3, stockAvailabilityVersion: 7
     }], new Date('2026-09-05T11:00:00.000Z'));
     await uow.execute(() => repository.save(reloaded!));
 
@@ -40,10 +40,13 @@ describe('DrizzleStockCountRepository', () => {
     expect(closed?.status).toBe('COUNTED');
     expect(closed?.differences).toEqual([{
       lineId: 'line-1', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 5, countedScaled: 8, differenceScaled: 3
+      expectedScaled: 5, countedScaled: 8, differenceScaled: 3, stockAvailabilityVersion: 7
     }]);
 
-    closed!.approve('supervisor-001', new Date('2026-09-05T12:00:00.000Z'));
+    closed!.approve({
+      actorId: 'supervisor-001', terminalId: 'terminal-001', reason: 'Aprobado',
+      occurredAt: new Date('2026-09-05T12:00:00.000Z'), eventId: 'event-approved'
+    });
     await uow.execute(() => repository.save(closed!));
 
     const approved = await repository.findById('count-1');
@@ -93,7 +96,7 @@ describe('DrizzleStockCountRepository', () => {
     });
     rejected.close([{
       lineId: 'line-1', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 0, countedScaled: 1, differenceScaled: 1
+      expectedScaled: 0, countedScaled: 1, differenceScaled: 1, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z'));
     rejected.reject('supervisor-001', 'Error de digitación', new Date('2026-09-05T12:00:00.000Z'));
     await uow.execute(() => repository.save(rejected));

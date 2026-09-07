@@ -440,7 +440,8 @@ export const stockCountDifferences = sqliteTable('stock_count_differences', {
   quantityScale: integer('quantity_scale').notNull(),
   expectedScaled: integer('expected_scaled').notNull(),
   countedScaled: integer('counted_scaled').notNull(),
-  differenceScaled: integer('difference_scaled').notNull()
+  differenceScaled: integer('difference_scaled').notNull(),
+  stockAvailabilityVersion: integer('stock_availability_version').notNull()
 });
 
 export const branches = sqliteTable('branches', {

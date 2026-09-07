@@ -100,6 +100,7 @@ export type StockCountDifferenceDto = {
   expectedScaled: number;
   countedScaled: number;
   differenceScaled: number;
+  stockAvailabilityVersion: number;
 };
 
 export type StockCountDto = {

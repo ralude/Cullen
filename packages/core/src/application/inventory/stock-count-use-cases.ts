@@ -7,6 +7,7 @@ import type {
   AuditWriter,
   AuthorizationService,
   BusinessEventStore,
+  CatalogReferenceProjection,
   Clock,
   IdGenerator,
   IdempotencyStore,
@@ -90,7 +91,8 @@ export class OpenStockCount {
  * Registrar una línea es una acción rutinaria de alta frecuencia (escanear
  * producto tras producto), no una operación sensible: no exige motivo, igual
  * que `AddSaleItem`. El artículo, su unidad y si exige lote se derivan del
- * `StockItem` existente; el operador nunca los escribe.
+ * `StockItem` standalone o de la referencia autoritativa LAN; el operador
+ * nunca los escribe.
  */
 export class RecordStockCountLine {
   constructor(
@@ -102,7 +104,9 @@ export class RecordStockCountLine {
     private readonly clock: Clock,
     private readonly unitOfWork: UnitOfWork,
     private readonly auditWriter: AuditWriter,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    /** Referencia autoritativa v2 usada solo por una terminal LAN. */
+    private readonly stockReferences?: CatalogReferenceProjection
   ) {}
 
   async execute(
@@ -124,7 +128,27 @@ export class RecordStockCountLine {
           if (count.originNodeId !== context.originNodeId) {
             return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Stock count belongs to another node.'));
           }
-          const item = await this.stockItemRepository.findByProductId(input.productId);
+          const reference = await this.stockReferences?.findStockAvailability(input.productId);
+          if (this.stockReferences && (reference === null || reference === undefined)) {
+            return err(new ApplicationError(
+              'STOCK_AVAILABILITY_REFERENCE_NOT_FOUND',
+              'The stock availability reference was not found.'
+            ));
+          }
+          if (reference && (reference.stockItemId === null || reference.unitCode === null ||
+            reference.tracksBatches === null || reference.batches === null)) {
+            return err(new ApplicationError(
+              'STOCK_AVAILABILITY_REFERENCE_INCOMPLETE',
+              'The stock availability reference does not contain authoritative identities.'
+            ));
+          }
+          const localItem = reference ? null : await this.stockItemRepository.findByProductId(input.productId);
+          const item = reference ? {
+            id: reference.stockItemId as string,
+            quantityScale: reference.quantityScale,
+            tracksBatches: reference.tracksBatches as boolean,
+            batches: (reference.batches ?? []).map(({ batchId }) => ({ id: batchId }))
+          } : localItem;
           if (!item) return err(new ApplicationError('STOCK_ITEM_NOT_FOUND', 'Stock item was not found.'));
           if (item.tracksBatches && !input.batchId) {
             return err(new ApplicationError('STOCK_BATCH_REQUIRED', 'A batch is required for this stock item.'));
@@ -176,7 +200,9 @@ export class CloseStockCount {
     private readonly clock: Clock,
     private readonly unitOfWork: UnitOfWork,
     private readonly auditWriter: AuditWriter,
-    private readonly idempotencyStore?: IdempotencyStore
+    private readonly idempotencyStore?: IdempotencyStore,
+    /** Referencia autoritativa v2 usada solo por una terminal LAN. */
+    private readonly stockReferences?: CatalogReferenceProjection
   ) {}
 
   async execute(input: CloseStockCountInput, context: ExecutionContext): Promise<Result<StockCountDto, AppError>> {
@@ -197,14 +223,45 @@ export class CloseStockCount {
           }
           const differences: StockCountDifference[] = [];
           for (const line of count.lines) {
-            const item = await this.stockItemRepository.findById(line.stockItemId);
-            if (!item) return err(new ApplicationError('STOCK_ITEM_NOT_FOUND', 'Stock item was not found.'));
-            const expected = line.batchId !== null ? item.balanceForBatch(line.batchId) : item.balance;
+            const reference = await this.stockReferences?.findStockAvailability(line.productId);
+            if (this.stockReferences && (reference === null || reference === undefined)) {
+              return err(new ApplicationError(
+                'STOCK_AVAILABILITY_REFERENCE_NOT_FOUND',
+                'The stock availability reference was not found.'
+              ));
+            }
+            if (reference && (reference.stockItemId === null || reference.unitCode === null ||
+              reference.tracksBatches === null || reference.batches === null)) {
+              return err(new ApplicationError(
+                'STOCK_AVAILABILITY_REFERENCE_INCOMPLETE',
+                'The stock availability reference does not contain authoritative identities.'
+              ));
+            }
+            if (reference && reference.stockItemId !== line.stockItemId) {
+              return err(new ApplicationError(
+                'STOCK_AVAILABILITY_REFERENCE_CONFLICT',
+                'The stock availability reference changed the authoritative item identity.'
+              ));
+            }
+            const item = reference ? null : await this.stockItemRepository.findById(line.stockItemId);
+            if (!reference && !item) {
+              return err(new ApplicationError('STOCK_ITEM_NOT_FOUND', 'Stock item was not found.'));
+            }
+            const batch = line.batchId === null
+              ? null
+              : reference?.batches?.find(({ batchId }) => batchId === line.batchId);
+            if (reference && line.batchId !== null && !batch) {
+              return err(new ApplicationError('STOCK_BATCH_NOT_FOUND', 'Stock batch was not found.'));
+            }
+            const expectedScaled = reference
+              ? (line.batchId === null ? reference.quantityScaled : batch?.quantityScaled as number)
+              : (line.batchId !== null ? item!.balanceForBatch(line.batchId) : item!.balance).scaledValue;
             differences.push({
               lineId: line.id, stockItemId: line.stockItemId, batchId: line.batchId,
               quantityScale: line.countedQuantity.scale,
-              expectedScaled: expected.scaledValue, countedScaled: line.countedQuantity.scaledValue,
-              differenceScaled: line.countedQuantity.scaledValue - expected.scaledValue
+              expectedScaled, countedScaled: line.countedQuantity.scaledValue,
+              differenceScaled: line.countedQuantity.scaledValue - expectedScaled,
+              stockAvailabilityVersion: reference?.version ?? (item?.movements.length ?? 0) + 1
             });
           }
           count.close(differences, occurredAt);
@@ -235,10 +292,10 @@ export class CloseStockCount {
 }
 
 /**
- * Aprobar un conteo cerrado registra sus ajustes derivados en la misma
- * transacción: o se aprueba el conteo y se crean los movimientos, o no se
- * confirma nada. Las diferencias usadas son las congeladas al cerrar (plan
- * 9B.07, decisión 1), no un recálculo contra el saldo del momento de aprobar.
+ * Standalone aprueba el conteo y sus ajustes en la misma transacción. En LAN,
+ * aprueba y publica un único `StockCountApproved`; el coordinador aplica el
+ * delta. En ambos modos usa las diferencias congeladas al cerrar, no un
+ * recálculo contra el saldo del momento de aprobar.
  */
 export class ApproveStockCount {
   constructor(
@@ -281,11 +338,15 @@ export class ApproveStockCount {
           if (count.originNodeId !== context.originNodeId) {
             return err(new ApplicationError('AGGREGATE_OWNER_MISMATCH', 'Stock count belongs to another node.'));
           }
-          const differences = count.approve(context.actorId, occurredAt);
+          const approvalEventId = this.eventIdGenerator.generate();
+          const differences = count.approve({
+            actorId: context.actorId, terminalId: context.terminalId, reason: input.reason,
+            occurredAt, eventId: approvalEventId
+          });
+          const lanOperation = started !== undefined && started.ok &&
+            started.value.coordinatorNodeId !== null;
           let adjustmentsCreated = 0;
-          /** Hechos con los que la reconciliación pregunta al coordinador. */
-          const approvalEventIds: string[] = [];
-          for (const difference of differences) {
+          for (const difference of lanOperation ? [] : differences) {
             if (difference.differenceScaled === 0) continue;
             const item = await this.stockItemRepository.findById(difference.stockItemId);
             if (!item) return err(new ApplicationError('STOCK_ITEM_NOT_FOUND', 'Stock item was not found.'));
@@ -312,14 +373,13 @@ export class ApproveStockCount {
               }],
               toStockAvailabilityPublications([item], this.eventIdGenerator, occurredAt)
             );
-            approvalEventIds.push(
-              ...item.domainEvents.slice(previousEventCount).map(({ eventId }) => eventId)
-            );
             adjustmentsCreated += 1;
           }
-          await this.repository.save(count);
           const dto = toStockCountDto(count);
-          await this.auditWriter.append([{
+          await persistBusinessChange(
+            () => this.repository.save(count), count.domainEvents, context, undefined,
+            this.eventStore, this.outbox, lanOperation ? ['StockCountApproved'] : [],
+            this.auditWriter, [{
             auditId: this.auditIdGenerator.generate(), actorId: context.actorId,
             actorRoleCodes: context.actorRoleCodes ?? [], action: 'STOCK_COUNT_APPROVED',
             entityType: 'StockCount', entityId: count.id,
@@ -336,7 +396,7 @@ export class ApproveStockCount {
           if (started !== undefined && started.ok) {
             await this.coordination?.recordLocalEffect(
               started.value.operationId,
-              approvalEventIds,
+              [approvalEventId],
               context.originNodeId
             );
           }

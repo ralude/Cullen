@@ -1,8 +1,8 @@
 # Plan de ejecución 10.03: servidor receptor y base operativa LAN
 
 - Fecha: 2026-09-06.
-- Estado: **en progreso**. Cortes 0, 1, 2 y 4 implementados; corte 3 abierto en los efectos
-  remotos de compra, conteo y devolución. CA-03-10 y CA-03-16 siguen abiertos.
+- Estado: **en progreso**. Cortes 0, 1, 2 y 4 implementados; corte 3 ya aplica compra y conteo,
+  pero sigue abierto en devolución y conciliación. CA-03-10 y CA-03-16 siguen abiertos.
 - Predecesora: 10.02 completada. Sucesora: 10.04, solo tras cerrar esta sub-fase.
 - Decisiones: [secuencia y registro D1–D8](./plan-secuencia-y-decisiones.md).
 - ADR: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado; detalle contractual en el corte 0.
@@ -148,8 +148,8 @@ orden, sin mezclar sus commits:
    que no consulta `stock_items` en una terminal;
 2. [completado] `PurchaseReceiptCompleted.v1`, productor local sin movimiento POS y consumidor
    autoritativo idempotente;
-3. `StockCountApproved.v1`, conservando el delta congelado del cierre y aplicándolo en el
-   coordinador sin recálculo;
+3. [completado] `StockCountApproved.v1`, conservando el delta congelado del cierre y aplicándolo
+   en el coordinador sin recálculo;
 4. lectura autenticada de la salida aplicada y `SaleReturned.v2`, con restitución validada de
    lote/costo original y sin reimpresión por sync;
 5. conciliación de `APPLIED`, `DISCREPANCY` y estados desconocidos, y cortes/reinicios reales
@@ -206,8 +206,9 @@ LAN; no puede depender del publisher de red para completar un efecto local oblig
 - [ ] CA-03-10: devoluciones y operaciones de stock cumplen D5/ADR-0026, incluidos lote/costo
   original, conexión inicial, estado pendiente visible y recuperación entre cada paso sin
   duplicar efectos. La intención, el estado y la consulta de progreso están implementados,
-  pero no el efecto autoritativo remoto de conteo y devolución. La compra y el snapshot de costo
-  sí están probados; la compensación explícita de un rechazo definitivo tampoco está implementada.
+  pero no el efecto autoritativo remoto de devolución ni todos los cortes de conciliación. Compra,
+  conteo y snapshot de costo sí están probados; la compensación explícita de un rechazo definitivo
+  tampoco está implementada.
   Para cerrarlo deben pasar por separado la referencia v2, compra, conteo, devolución y
   conciliación descritos en el corte 3A, además del escenario 11 extremo a extremo.
 - [x] ~~CA-03-11~~: cada referencia necesaria tiene productor/contrato/consumidor probado; las
@@ -282,16 +283,19 @@ Avances implementados y probados:
   exigen enlace con el coordinador; sin evidencia de todos sus pasos quedan
   `PENDING_RECONCILIATION` y visibles. La reconciliación consulta
   `GET /sync/v1/applications/:eventId` en el coordinador en lugar de repetir efectos.
+- **Corte 3, compra y conteo autoritativos.** `PurchaseReceiptCompleted.v1` y
+  `StockCountApproved.v1` son hechos únicos por operación. El POS no registra movimientos;
+  el coordinador aplica cada línea una vez, conserva costo/lote o el delta congelado y publica
+  la nueva disponibilidad en la transacción del inbox.
 - **Costo del corte 3.** La disponibilidad transporta el costo promedio del coordinador, la
   terminal lo congela al agregar la línea y `SaleCompleted.v2` lo devuelve con su procedencia.
   La v1 permanece intacta y aceptada, y sus líneas se aplican con costo desconocido.
 
 Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
 
-- Los **efectos remotos autoritativos** de compra, conteo y devolución. Hoy compra y conteo
-  conservan como evidencia hechos que no se transportan, y `SaleReturned.v1` solo alimenta la
-  consolidación comercial. Falta especificar el orden exacto por operación antes de
-  implementarlo y probar las caídas de cada frontera.
+- El **efecto remoto autoritativo de devolución**. `SaleReturned.v1` solo alimenta la
+  consolidación comercial. También faltan la conciliación final y las caídas de cada frontera
+  de compra, conteo y devolución.
 - La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos.
   La operación queda `NEEDS_REVIEW` con la evidencia de cada paso; revertirla es una decisión
   humana que hoy se ejecuta con los casos de uso existentes, no un paso automático.

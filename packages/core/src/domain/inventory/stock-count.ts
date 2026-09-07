@@ -31,6 +31,17 @@ export type StockCountDifference = {
   readonly expectedScaled: number;
   readonly countedScaled: number;
   readonly differenceScaled: number;
+  readonly stockAvailabilityVersion: number;
+};
+
+export type StockCountEvent = {
+  readonly type: 'StockCountApproved';
+  readonly eventId: string;
+  readonly aggregateId: string;
+  readonly aggregateType: 'StockCount';
+  readonly aggregateVersion: number;
+  readonly occurredAt: Date;
+  readonly payload: Record<string, unknown>;
 };
 
 export type StockCountProps = {
@@ -65,6 +76,13 @@ const requireText = (value: string, code: string, message: string): string => {
 
 const lineKey = (stockItemId: string, batchId: string | null): string =>
   `${stockItemId}:${batchId ?? ''}`;
+
+const validDate = (value: Date): Date => {
+  if (Number.isNaN(value.getTime())) {
+    throw new DomainError('STOCK_COUNT_TIMESTAMP_INVALID', 'Stock count timestamp is invalid.');
+  }
+  return new Date(value);
+};
 
 export class StockCountLine {
   private constructor(
@@ -113,6 +131,7 @@ export class StockCount {
   private currentRejectedAt: Date | null = null;
   private currentRejectionReason: string | null = null;
   private currentVersion: number;
+  private readonly events: StockCountEvent[] = [];
 
   private constructor(
     readonly id: string,
@@ -162,6 +181,7 @@ export class StockCount {
   get rejectedAt(): Date | null { return this.currentRejectedAt; }
   get rejectionReason(): string | null { return this.currentRejectionReason; }
   get version(): number { return this.currentVersion; }
+  get domainEvents(): readonly StockCountEvent[] { return [...this.events]; }
 
   /**
    * Registra o reemplaza la cantidad contada de un artículo (o de un lote
@@ -191,11 +211,22 @@ export class StockCount {
     if (this.currentLines.size === 0) {
       throw new DomainError('STOCK_COUNT_EMPTY', 'Stock count has no lines to close.');
     }
-    const lineIds = new Set(this.lines.map((line) => line.id));
+    const lines = this.lines;
+    const lineIds = new Set(lines.map((line) => line.id));
     const differenceIds = new Set(differences.map((difference) => difference.lineId));
     if (
       lineIds.size !== differenceIds.size ||
-      [...lineIds].some((id) => !differenceIds.has(id))
+      [...lineIds].some((id) => !differenceIds.has(id)) ||
+      differences.some((difference) => {
+        const line = lines.find(({ id }) => id === difference.lineId);
+        return line === undefined || difference.stockItemId !== line.stockItemId ||
+          difference.batchId !== line.batchId || difference.quantityScale !== line.countedQuantity.scale ||
+          difference.countedScaled !== line.countedQuantity.scaledValue ||
+          difference.expectedScaled < 0 ||
+          difference.differenceScaled !== difference.countedScaled - difference.expectedScaled ||
+          !Number.isSafeInteger(difference.stockAvailabilityVersion) ||
+          difference.stockAvailabilityVersion < 1;
+      })
     ) {
       throw new DomainError(
         'STOCK_COUNT_DIFFERENCE_MISMATCH',
@@ -203,21 +234,57 @@ export class StockCount {
       );
     }
     this.currentDifferences = [...differences];
-    this.currentClosedAt = new Date(occurredAt);
+    this.currentClosedAt = validDate(occurredAt);
     this.currentStatus = 'COUNTED';
     this.touch();
   }
 
   /** Aprueba el conteo y devuelve las diferencias congeladas para que la aplicación derive los ajustes. */
-  approve(actorId: string, occurredAt: Date): readonly StockCountDifference[] {
+  approve(props: {
+    actorId: string;
+    terminalId: string;
+    reason: string;
+    occurredAt: Date;
+    eventId: string;
+  }): readonly StockCountDifference[] {
     if (this.currentStatus !== 'COUNTED') {
       throw new DomainError('STOCK_COUNT_NOT_COUNTED', 'Only a closed stock count can be approved.');
     }
-    this.currentApprovedBy = requireText(actorId, 'STOCK_COUNT_ACTOR_REQUIRED', 'Stock count actor is required.');
-    this.currentApprovedAt = new Date(occurredAt);
+    const actorId = requireText(props.actorId, 'STOCK_COUNT_ACTOR_REQUIRED', 'Stock count actor is required.');
+    const terminalId = requireText(
+      props.terminalId, 'STOCK_COUNT_TERMINAL_REQUIRED', 'Stock count terminal is required.'
+    );
+    const reason = requireText(props.reason, 'STOCK_COUNT_REASON_REQUIRED', 'Stock count reason is required.');
+    const eventId = requireText(
+      props.eventId, 'STOCK_COUNT_EVENT_ID_REQUIRED', 'Stock count event ID is required.'
+    );
+    const approvedAt = validDate(props.occurredAt);
+    this.currentApprovedBy = actorId;
+    this.currentApprovedAt = approvedAt;
     this.currentStatus = 'APPROVED';
     this.touch();
-    return this.currentDifferences ?? [];
+    const differences = this.currentDifferences ?? [];
+    const productByLineId = new Map(this.lines.map((line) => [line.id, line.productId]));
+    this.events.push({
+      type: 'StockCountApproved', eventId, aggregateId: this.id,
+      aggregateType: 'StockCount', aggregateVersion: this.currentVersion,
+      occurredAt: approvedAt,
+      payload: {
+        terminalId, reason, lineCount: differences.length,
+        lines: differences.map((difference) => ({
+          lineId: difference.lineId,
+          productId: productByLineId.get(difference.lineId) as string,
+          stockItemId: difference.stockItemId,
+          batchId: difference.batchId,
+          quantityScale: difference.quantityScale,
+          expectedScaled: difference.expectedScaled,
+          countedScaled: difference.countedScaled,
+          differenceScaled: difference.differenceScaled,
+          stockAvailabilityVersion: difference.stockAvailabilityVersion
+        }))
+      }
+    });
+    return differences;
   }
 
   /** Rechaza el conteo cerrado sin producir ningún efecto de inventario. */

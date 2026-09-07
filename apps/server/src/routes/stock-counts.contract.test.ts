@@ -105,7 +105,10 @@ describe('stock count HTTP contracts', () => {
     expect(closed.statusCode).toBe(200);
     expect(closed.json()).toMatchObject({
       status: 'COUNTED',
-      differences: [{ expectedScaled: 5, countedScaled: 8, differenceScaled: 3 }]
+      differences: [{
+        expectedScaled: 5, countedScaled: 8, differenceScaled: 3,
+        stockAvailabilityVersion: 2
+      }]
     });
 
     const approved = await app.inject({

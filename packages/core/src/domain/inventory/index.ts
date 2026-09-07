@@ -14,5 +14,5 @@ export {
 } from './stock-count.js';
 export type {
   RestoredStockCountProps, StockCountDifference, StockCountLineProps,
-  StockCountProps, StockCountStatus
+  StockCountEvent, StockCountProps, StockCountStatus
 } from './stock-count.js';

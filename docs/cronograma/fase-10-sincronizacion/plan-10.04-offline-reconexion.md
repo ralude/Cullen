@@ -219,7 +219,8 @@ Avances implementados y probados:
   alto que el nodo observó, de modo que atrasar el reloj del equipo no la amplía.
 - **Restricciones LAN de D5.** Completar una compra, aprobar un conteo y procesar una
   devolución exigen enlace con el coordinador antes del primer efecto y fallan sin tocar nada;
-  un nodo standalone conserva su atomicidad local. El efecto remoto posterior sigue abierto.
+  un nodo standalone conserva su atomicidad local. Compra y conteo ya aplican el efecto remoto;
+  devolución sigue abierta.
 - **Presentación.** `apps/desktop` muestra los cinco estados con su significado, la
   conectividad como dato separado, las pendientes de entrega, aplicación, pausa, bloqueo y
   discrepancia, la antigüedad de cada referencia y las operaciones distribuidas pendientes de
@@ -227,13 +228,13 @@ Avances implementados y probados:
 - **Escenarios añadidos.** Se automatizaron el corte de Internet distinguido del corte de LAN,
   la detención del consumidor a mitad de aplicación, la llegada de una devolución antes de su
   venta y la conciliación genérica por transporte real contra
-  `GET /sync/v1/applications/:eventId`. Los cortes entre los pasos reales de compra, conteo y
-  devolución siguen pendientes porque esos efectos remotos aún no existen.
+  `GET /sync/v1/applications/:eventId`. Compra y conteo prueban la aplicación positiva por
+  transporte real; los cortes entre sus fronteras y el flujo remoto de devolución siguen pendientes.
 
 Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
 
-- El escenario 11 con los efectos remotos reales de compra, conteo y devolución, incluido el
-  orden de pasos que la especificación exige decidir antes de implementarlos.
+- El escenario 11 completo: devolución remota y cortes/reinicios entre cada paso real de compra,
+  conteo y devolución.
 - La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos:
   la operación queda `NEEDS_REVIEW` con la evidencia de cada paso y se resuelve con los casos
   de uso existentes, no con un paso automático.

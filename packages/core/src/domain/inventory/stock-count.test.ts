@@ -49,7 +49,7 @@ describe('StockCount', () => {
     });
     count.close([{
       lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 4, countedScaled: 5, differenceScaled: 1
+      expectedScaled: 4, countedScaled: 5, differenceScaled: 1, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z'));
 
     expect(() => count.recordLine({
@@ -72,7 +72,7 @@ describe('StockCount', () => {
 
     expect(() => count.close([{
       lineId: 'line-999', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 4, countedScaled: 5, differenceScaled: 1
+      expectedScaled: 4, countedScaled: 5, differenceScaled: 1, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z')))
       .toThrowError(expect.objectContaining({ code: 'STOCK_COUNT_DIFFERENCE_MISMATCH' }));
   });
@@ -85,18 +85,29 @@ describe('StockCount', () => {
     });
     const differences: StockCountDifference[] = [{
       lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 4, countedScaled: 5, differenceScaled: 1
+      expectedScaled: 4, countedScaled: 5, differenceScaled: 1, stockAvailabilityVersion: 1
     }];
     count.close(differences, new Date('2026-09-05T11:00:00.000Z'));
 
     expect(count.status).toBe('COUNTED');
     expect(count.differences).toEqual(differences);
 
-    const returned = count.approve('supervisor-001', new Date('2026-09-05T12:00:00.000Z'));
+    const returned = count.approve({
+      actorId: 'supervisor-001', terminalId: 'terminal-001', reason: 'Aprobado',
+      occurredAt: new Date('2026-09-05T12:00:00.000Z'), eventId: 'event-approved'
+    });
 
     expect(count.status).toBe('APPROVED');
     expect(count.approvedBy).toBe('supervisor-001');
     expect(returned).toEqual(differences);
+    expect(count.domainEvents).toMatchObject([{
+      type: 'StockCountApproved', eventId: 'event-approved', payload: {
+        terminalId: 'terminal-001', reason: 'Aprobado', lines: [{
+          productId: 'product-001', expectedScaled: 4, countedScaled: 5,
+          differenceScaled: 1, stockAvailabilityVersion: 1
+        }]
+      }
+    }]);
   });
 
   it('rejects approving or rejecting a count that has not been closed', () => {
@@ -106,7 +117,10 @@ describe('StockCount', () => {
       countedQuantity: Quantity.fromScaled(5, 0)
     });
 
-    expect(() => count.approve('supervisor-001', new Date('2026-09-05T12:00:00.000Z')))
+    expect(() => count.approve({
+      actorId: 'supervisor-001', terminalId: 'terminal-001', reason: 'Aprobado',
+      occurredAt: new Date('2026-09-05T12:00:00.000Z'), eventId: 'event-approved'
+    }))
       .toThrowError(expect.objectContaining({ code: 'STOCK_COUNT_NOT_COUNTED' }));
     expect(() => count.reject('supervisor-001', 'Motivo', new Date('2026-09-05T12:00:00.000Z')))
       .toThrowError(expect.objectContaining({ code: 'STOCK_COUNT_NOT_COUNTED' }));
@@ -120,7 +134,7 @@ describe('StockCount', () => {
     });
     count.close([{
       lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 4, countedScaled: 5, differenceScaled: 1
+      expectedScaled: 4, countedScaled: 5, differenceScaled: 1, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z'));
 
     expect(() => count.reject('supervisor-001', '  ', new Date('2026-09-05T12:00:00.000Z')))
@@ -143,7 +157,7 @@ describe('StockCount', () => {
       })],
       differences: [{
         lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-        expectedScaled: 4, countedScaled: 5, differenceScaled: 1
+        expectedScaled: 4, countedScaled: 5, differenceScaled: 1, stockAvailabilityVersion: 1
       }],
       closedAt: new Date('2026-09-05T11:00:00.000Z'),
       approvedBy: 'supervisor-001', approvedAt: new Date('2026-09-05T12:00:00.000Z'),

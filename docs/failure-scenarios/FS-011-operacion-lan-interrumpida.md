@@ -60,10 +60,10 @@ integración, aplicación autoritativa y conciliación por ese `eventId`. Compra
 `SaleReturned.v2`, después de obtener del coordinador la salida aplicada. El POS no registra
 movimientos de esas operaciones.
 
-**Brecha de implementación:** conteo todavía registra hechos locales que no se transportan al
-coordinador, y `SaleReturned.v1` solo actualiza la proyección comercial. Compra ya transporta un
-único `PurchaseReceiptCompleted.v1` y aplica el movimiento autoritativo de forma idempotente; la
-disponibilidad v2 distribuye identidades y saldos por lote sin poblar `stock_items` del POS. Un
+**Brecha de implementación:** compra y conteo transportan un único hecho aplicable y registran
+el movimiento autoritativo de forma idempotente; la disponibilidad v2 distribuye identidades y
+saldos por lote sin poblar `stock_items` del POS. `SaleReturned.v1` todavía solo actualiza la
+proyección comercial, y faltan los cortes entre cada frontera concreta. Un
 rechazo comercial definitivo después de efectos previos queda `NEEDS_REVIEW`; la compensación
 explícita tampoco está automatizada.
 
@@ -114,8 +114,8 @@ renderer y `FiscalPrinterFake`.
 
 La persistencia y reconciliación genéricas están cubiertas por
 `packages/drivers/db/src/coordinated-operations.integration.test.ts`; el transporte real de la
-consulta, por `apps/server/src/sync/lan-sync.e2e.test.ts`. Las pruebas de los pasos remotos de
-compra, conteo y devolución siguen abiertas en
+consulta y la aplicación positiva de compra/conteo, por `apps/server/src/sync/lan-sync.e2e.test.ts`.
+La devolución y los cortes entre cada paso remoto siguen abiertos en
 [10.03](../cronograma/fase-10-sincronizacion/plan-10.03-servidor-receptor.md) y
 [10.04](../cronograma/fase-10-sincronizacion/plan-10.04-offline-reconexion.md).
 

@@ -8,11 +8,14 @@ import type {
   AuditEntry,
   AuditWriter,
   BusinessEventStore,
+  CatalogReferenceProjection,
   IdGenerator,
+  OutboxStore,
   StockCountRepository,
   StockItemRepository,
   UnitOfWork
 } from '../ports/index.js';
+import type { CoordinatedStockOperations } from '../sync/index.js';
 import {
   ApproveStockCount,
   CloseStockCount,
@@ -60,12 +63,21 @@ const sequence = (prefix: string): IdGenerator => {
 
 const evidence = (): { ledger: string[]; audit: AuditEntry[] } => ({ ledger: [], audit: [] });
 const unitOfWork: UnitOfWork = { execute: async (work) => work() };
+const clock = { now: () => new Date('2026-09-05T10:05:00.000Z') };
 const eventStore = (ledger: string[]): BusinessEventStore => ({
   append: async (events: readonly BusinessEventV1[]) => { ledger.push(...events.map((event) => event.eventType)); },
   findByAggregate: async () => []
 });
 const auditWriter = (audit: AuditEntry[]): AuditWriter => ({
   append: async (entries) => { audit.push(...entries); }
+});
+const outboxStore = (events: BusinessEventV1[]): OutboxStore => ({
+  enqueue: async (enqueued) => { events.push(...enqueued); }, claimAvailable: async () => [],
+  isClaimActive: async () => false, markPublished: async () => false,
+  markFailed: async () => false, markBlocked: async () => false,
+  markPaused: async () => false, resumeDelivery: async () => false,
+  summarize: async (destinationNodeId) => ({ destinationNodeId, pending: 0, paused: 0,
+    blocked: 0, lastPublishedAt: null, lastError: null }), listPaused: async () => []
 });
 
 const stockItem = (overrides: {
@@ -95,6 +107,68 @@ const openedCount = (): StockCount => StockCount.open({
 });
 
 describe('stock count application', () => {
+  it('aprueba en LAN con el delta congelado y sin ajustar inventario local', async () => {
+    const stockRepository = new FakeStockItemRepository();
+    const countRepository = new FakeStockCountRepository();
+    const recorded = evidence();
+    const enqueued: BusinessEventV1[] = [];
+    const localEvidence: string[][] = [];
+    const references = {
+      findStockAvailability: async () => ({
+        productId: 'product-001', stockItemId: 'stock-authority-001', unitCode: 'UNIT',
+        quantityScaled: 5, quantityScale: 0, tracksBatches: false, batches: [],
+        unitCost: null, version: 7, publishedBy: 'node-coordinator',
+        publishedAt: new Date('2026-09-05T10:00:00.000Z')
+      })
+    } as unknown as CatalogReferenceProjection;
+    const coordination = {
+      begin: async () => ({ ok: true, value: {
+        operationId: 'operation-001', coordinatorNodeId: 'node-coordinator'
+      } }),
+      recordLocalEffect: async (_operationId: string, eventIds: readonly string[]) => {
+        localEvidence.push([...eventIds]); return {};
+      }
+    } as unknown as CoordinatedStockOperations;
+    countRepository.stored = openedCount();
+    const record = new RecordStockCountLine(
+      countRepository, stockRepository, allow('inventory.count.perform'),
+      sequence('line'), sequence('audit'), clock, unitOfWork, auditWriter([]), undefined,
+      references
+    );
+    await expect(record.execute({
+      stockCountId: 'count-001', productId: 'product-001', quantity: '8'
+    }, context)).resolves.toMatchObject({ ok: true });
+    const close = new CloseStockCount(
+      countRepository, stockRepository, allow('inventory.count.perform'), sequence('audit'),
+      clock, unitOfWork, auditWriter([]), undefined, references
+    );
+    await expect(close.execute({ stockCountId: 'count-001', reason: 'Cierre' }, context))
+      .resolves.toMatchObject({ ok: true });
+    const approve = new ApproveStockCount(
+      countRepository, stockRepository, allow('inventory.count.approve'),
+      sequence('movement'), sequence('event'), sequence('audit'), clock, unitOfWork,
+      eventStore(recorded.ledger), auditWriter(recorded.audit), undefined,
+      outboxStore(enqueued), coordination
+    );
+
+    await expect(approve.execute({
+      stockCountId: 'count-001', reason: 'Aprobado'
+    }, context)).resolves.toMatchObject({ ok: true, value: { status: 'APPROVED' } });
+
+    expect(stockRepository.saves).toBe(0);
+    expect(recorded.ledger).toEqual(['StockCountApproved']);
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]).toMatchObject({
+      eventId: 'event-1', eventType: 'StockCountApproved', contractVersion: 1,
+      payload: { terminalId: 'terminal-001', lines: [{
+        lineId: 'line-1', productId: 'product-001', stockItemId: 'stock-authority-001',
+        expectedScaled: 5, countedScaled: 8, differenceScaled: 3,
+        stockAvailabilityVersion: 7
+      }] }
+    });
+    expect(localEvidence).toEqual([['event-1']]);
+  });
+
   it('opens a count only with the perform permission and audits it', async () => {
     const repository = new FakeStockCountRepository();
     const recorded = evidence();
@@ -221,7 +295,7 @@ describe('stock count application', () => {
     });
     closed.close([{
       lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 5, countedScaled: 8, differenceScaled: 3
+      expectedScaled: 5, countedScaled: 8, differenceScaled: 3, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z'));
     countRepository.stored = closed;
     const recorded = evidence();
@@ -239,7 +313,7 @@ describe('stock count application', () => {
     const stored = await stockRepository.findById('stock-001');
     expect(stored?.balance.scaledValue).toBe(8);
     expect(stored?.movements.some((movement) => movement.type === 'ADJUSTMENT_IN')).toBe(true);
-    expect(recorded.ledger).toEqual(['StockMovementRegistered']);
+    expect(recorded.ledger).toEqual(['StockMovementRegistered', 'StockCountApproved']);
     expect(recorded.audit).toMatchObject([
       { action: 'STOCK_COUNT_ADJUSTMENT_REGISTERED' },
       { action: 'STOCK_COUNT_APPROVED', after: { adjustmentsCreated: 1 } }
@@ -257,7 +331,7 @@ describe('stock count application', () => {
     });
     closed.close([{
       lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 8, countedScaled: 5, differenceScaled: -3
+      expectedScaled: 8, countedScaled: 5, differenceScaled: -3, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z'));
     countRepository.stored = closed;
     const recorded = evidence();
@@ -287,7 +361,7 @@ describe('stock count application', () => {
     });
     closed.close([{
       lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 5, countedScaled: 8, differenceScaled: 3
+      expectedScaled: 5, countedScaled: 8, differenceScaled: 3, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z'));
     countRepository.stored = closed;
 
@@ -330,7 +404,7 @@ describe('stock count application', () => {
     });
     closed.close([{
       lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 5, countedScaled: 5, differenceScaled: 0
+      expectedScaled: 5, countedScaled: 5, differenceScaled: 0, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z'));
     countRepository.stored = closed;
     const recorded = evidence();
@@ -345,7 +419,7 @@ describe('stock count application', () => {
 
     expect(result).toMatchObject({ ok: true, value: { status: 'APPROVED' } });
     expect(stockRepository.saves).toBe(0);
-    expect(recorded.ledger).toEqual([]);
+    expect(recorded.ledger).toEqual(['StockCountApproved']);
     expect(recorded.audit).toMatchObject([{ action: 'STOCK_COUNT_APPROVED', after: { adjustmentsCreated: 0 } }]);
   });
 
@@ -359,7 +433,7 @@ describe('stock count application', () => {
     });
     closed.close([{
       lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 5, countedScaled: 8, differenceScaled: 3
+      expectedScaled: 5, countedScaled: 8, differenceScaled: 3, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z'));
     countRepository.stored = closed;
     const useCase = new ApproveStockCount(
@@ -386,7 +460,7 @@ describe('stock count application', () => {
     });
     closed.close([{
       lineId: 'line-001', stockItemId: 'stock-001', batchId: null, quantityScale: 0,
-      expectedScaled: 5, countedScaled: 8, differenceScaled: 3
+      expectedScaled: 5, countedScaled: 8, differenceScaled: 3, stockAvailabilityVersion: 1
     }], new Date('2026-09-05T11:00:00.000Z'));
     countRepository.stored = closed;
     const recorded = evidence();

@@ -152,6 +152,29 @@ const purchaseReceiptEvent = (nodeId: string, terminalId: string): BusinessEvent
   }
 });
 
+const stockCountApprovedEvent = (nodeId: string, terminalId: string): BusinessEventV1 => ({
+  eventId: `event-count-${terminalId}`,
+  eventType: 'StockCountApproved',
+  contractVersion: 1,
+  aggregateId: `count-${terminalId}`,
+  aggregateType: 'StockCount',
+  aggregateVersion: 4,
+  originNodeId: nodeId,
+  correlationId: `correlation-count-${terminalId}`,
+  actorId: 'user-001',
+  occurredAt: new Date('2026-09-06T11:45:00.000Z'),
+  payload: {
+    terminalId,
+    reason: 'Conteo aprobado',
+    lineCount: 1,
+    lines: [{
+      lineId: 'count-line-001', productId: 'product-1', stockItemId: 'stock-1',
+      batchId: null, quantityScale: 0, expectedScaled: 5, countedScaled: 8,
+      differenceScaled: 3, stockAvailabilityVersion: 2
+    }]
+  }
+});
+
 type Coordinator = {
   readonly handle: DatabaseHandle;
   readonly app: FastifyInstance;
@@ -278,6 +301,11 @@ const startCoordinator = async (
             stockItems, ids, ids, ids, application.ambientUnitOfWork,
             new DrizzleBusinessEventStore(handle), new DrizzleAuditWriter(handle),
             new DrizzleOutboxStore(handle)
+          ),
+          new application.ApplyStockCountApprovedToInventory(
+            stockItems, ids, ids, ids, application.ambientUnitOfWork,
+            new DrizzleBusinessEventStore(handle), new DrizzleAuditWriter(handle),
+            new DrizzleOutboxStore(handle), COORDINATOR
           )
         )],
         ['COMMERCIAL_PROJECTION', new application.CommercialProjectionConsumer(
@@ -433,6 +461,35 @@ describe('LAN de una tienda con coordinador y dos terminales', () => {
       "select count(*) from audit_log where action = 'PURCHASE_STOCK_RECEIVED'"
     ).pluck().get()).toBe(1);
     await expect(coordinator.workStore.applicationProgress(purchase.eventId))
+      .resolves.toBe('APPLIED');
+    expect(coordinator.handle.sqlite.prepare(`
+      select count(*) from outbox_event where event_type = 'StockAvailabilityPublished'
+    `).pluck().get()).toBe(1);
+  });
+
+  it('aplica el delta congelado de un conteo en el coordinador una sola vez', async () => {
+    const terminal = first();
+    const count = stockCountApprovedEvent(terminal.nodeId, terminal.terminalId);
+    await terminal.unitOfWork.execute(() => terminal.outbox.enqueue([count]));
+    await claimAuthority(terminal, 'StockCount', count.aggregateId);
+
+    expect(await relayFor(terminal).runBatch()).toBe(1);
+    await coordinator.processor.runBatch();
+    await coordinator.processor.runBatch();
+
+    /** Saldo actual 10 + delta congelado 3; no se reemplaza por el contado 8. */
+    expect(await balance()).toBe(13);
+    expect(terminal.handle.sqlite.prepare('select count(*) from stock_items').pluck().get()).toBe(0);
+    expect(coordinator.handle.sqlite.prepare(`
+      select type, reference_id as referenceId, quantity_scaled as quantity
+      from stock_movements where reference_id = ?
+    `).get(`${count.eventId}:count-line-001`)).toEqual({
+      type: 'ADJUSTMENT_IN', referenceId: `${count.eventId}:count-line-001`, quantity: 3
+    });
+    expect(coordinator.handle.sqlite.prepare(
+      "select count(*) from audit_log where action = 'STOCK_COUNT_ADJUSTMENT_APPLIED'"
+    ).pluck().get()).toBe(1);
+    await expect(coordinator.workStore.applicationProgress(count.eventId))
       .resolves.toBe('APPLIED');
     expect(coordinator.handle.sqlite.prepare(`
       select count(*) from outbox_event where event_type = 'StockAvailabilityPublished'

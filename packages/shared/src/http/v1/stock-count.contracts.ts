@@ -19,6 +19,7 @@ export type StockCountDifferenceResponse = {
   readonly expectedScaled: number;
   readonly countedScaled: number;
   readonly differenceScaled: number;
+  readonly stockAvailabilityVersion: number;
 };
 
 export type StockCountResponse = {
@@ -75,13 +76,17 @@ const lineSchema = {
 
 const differenceSchema = {
   type: 'object', additionalProperties: false,
-  required: ['lineId', 'stockItemId', 'batchId', 'quantityScale', 'expectedScaled', 'countedScaled', 'differenceScaled'],
+  required: [
+    'lineId', 'stockItemId', 'batchId', 'quantityScale', 'expectedScaled', 'countedScaled',
+    'differenceScaled', 'stockAvailabilityVersion'
+  ],
   properties: {
     lineId: id, stockItemId: id,
     batchId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
     quantityScale: { type: 'integer', minimum: 0 },
     expectedScaled: { type: 'integer' }, countedScaled: { type: 'integer', minimum: 0 },
-    differenceScaled: { type: 'integer' }
+    differenceScaled: { type: 'integer' },
+    stockAvailabilityVersion: { type: 'integer', minimum: 1 }
   }
 } as const;
 
@@ -139,6 +144,7 @@ export const recordStockCountLineContract = {
   errorCodes: [
     'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'STOCK_COUNT_NOT_FOUND',
     'STOCK_ITEM_NOT_FOUND', 'STOCK_BATCH_REQUIRED', 'STOCK_BATCH_NOT_ACCEPTED', 'STOCK_BATCH_NOT_FOUND',
+    'STOCK_AVAILABILITY_REFERENCE_NOT_FOUND', 'STOCK_AVAILABILITY_REFERENCE_INCOMPLETE',
     'QUANTITY_INVALID_TEXT', 'QUANTITY_SCALE_EXCEEDED', 'STOCK_COUNT_LINE_QUANTITY_INVALID',
     'STOCK_COUNT_NOT_OPEN', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY'
   ]
@@ -150,7 +156,9 @@ export const closeStockCountContract = {
   schema: { params: stockCountParams, headers, body: reasonBody, response: mutationResponses },
   errorCodes: [
     'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'STOCK_COUNT_NOT_FOUND',
-    'STOCK_ITEM_NOT_FOUND', 'STOCK_COUNT_NOT_OPEN', 'STOCK_COUNT_EMPTY',
+    'STOCK_ITEM_NOT_FOUND', 'STOCK_BATCH_NOT_FOUND', 'STOCK_AVAILABILITY_REFERENCE_NOT_FOUND',
+    'STOCK_AVAILABILITY_REFERENCE_INCOMPLETE', 'STOCK_AVAILABILITY_REFERENCE_CONFLICT',
+    'STOCK_COUNT_NOT_OPEN', 'STOCK_COUNT_EMPTY',
     'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY'
   ]
 } as const satisfies HttpContractV1;

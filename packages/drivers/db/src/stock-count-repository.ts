@@ -81,7 +81,8 @@ export class DrizzleStockCountRepository implements StockCountRepository {
           lineId: difference.lineId, stockCountId: count.id, stockItemId: difference.stockItemId,
           batchId: difference.batchId, quantityScale: difference.quantityScale,
           expectedScaled: difference.expectedScaled, countedScaled: difference.countedScaled,
-          differenceScaled: difference.differenceScaled
+          differenceScaled: difference.differenceScaled,
+          stockAvailabilityVersion: difference.stockAvailabilityVersion
         }))).run();
       }
     } catch (error) {
@@ -129,7 +130,8 @@ export class DrizzleStockCountRepository implements StockCountRepository {
     const differences: StockCountDifference[] = differenceRows.map((difference) => ({
       lineId: difference.lineId, stockItemId: difference.stockItemId, batchId: difference.batchId,
       quantityScale: difference.quantityScale, expectedScaled: difference.expectedScaled,
-      countedScaled: difference.countedScaled, differenceScaled: difference.differenceScaled
+      countedScaled: difference.countedScaled, differenceScaled: difference.differenceScaled,
+      stockAvailabilityVersion: difference.stockAvailabilityVersion
     }));
     return StockCount.restore({
       id: row.id, openedBy: row.openedBy, originNodeId: row.originNodeId,

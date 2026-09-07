@@ -2,8 +2,8 @@
 
 - Fecha: 2026-09-06.
 - Estado: **planificación completada; ejecución parcial**.
-- Implementación: 10.03 → 10.04 avanzó hasta la infraestructura de coordinación; falta definir
-  y ejecutar el paso remoto autoritativo de compra, conteo y devolución.
+- Implementación: 10.03 → 10.04 ya ejecuta los pasos remotos autoritativos de compra y conteo;
+  falta devolución y cerrar la conciliación con cortes entre fronteras.
 - Autoridad: [AGENTS.md](../../../AGENTS.md), arquitectura y ADRs aceptados.
 - Decisión normativa: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md).
 
@@ -117,15 +117,15 @@ Planes detallados: [10.03](./plan-10.03-servidor-receptor.md) y
 
 El conjunto completo de referencias, los tres consumidores, el snapshot de costo, las
 concesiones aplicadas en backend y la presentación en `apps/desktop` están implementados. La
-coordinación conserva intención, estado por paso y consulta de progreso, pero no ejecuta el
-efecto remoto autoritativo de compra, conteo ni devolución; por eso los gates 10.03 y Fase 10
-siguen abiertos.
+coordinación conserva intención, estado por paso y consulta de progreso, y ya ejecuta compra
+y conteo autoritativos. Devolución y los cortes de conciliación siguen abiertos; por eso los
+gates 10.03 y Fase 10 permanecen abiertos.
 
 De los gates de ejecución que permanecían:
 
 - **Antes de endpoints LAN** y **antes de habilitar terminales** quedaron cumplidos y probados.
-- **Antes de efectos comerciales LAN** sigue abierto: falta decidir el orden exacto por flujo y
-  probar cada frontera sin escribir una segunda autoridad en el POS.
+- **Antes de efectos comerciales LAN** sigue abierto para devolución y para los cortes entre
+  cada frontera; compra y conteo ya respetan el orden aprobado sin segunda autoridad en el POS.
 - **Antes del worker** no se respetó como gate secuencial: el worker está compuesto aunque
   10.03 continúa abierta. Debe revalidarse después de cerrar CA-03-10; su existencia actual no
   habilita Fase 11.

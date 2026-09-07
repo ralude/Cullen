@@ -4,7 +4,7 @@ import { Barcode, Category, Product, ProductSnapshot, UnitOfMeasure } from '../.
 import { CashRegister, Shift } from '../../domain/cash/index.js';
 import { ExchangeRate, PaymentMethod } from '../../domain/currency/index.js';
 import { FiscalDay, FiscalDocument } from '../../domain/fiscal/index.js';
-import { StockItem } from '../../domain/inventory/index.js';
+import { StockCount, StockItem } from '../../domain/inventory/index.js';
 import { PurchaseReceipt } from '../../domain/purchasing/index.js';
 import { Payment, Sale, SaleReturn } from '../../domain/sales/index.js';
 import {
@@ -69,6 +69,26 @@ const purchaseReceiptEvents = (): readonly DomainEventLike[] => {
     occurredAt: at(3), eventId: 'event-purchase-completed'
   });
   return receipt.domainEvents;
+};
+
+const stockCountEvents = (): readonly DomainEventLike[] => {
+  const count = StockCount.open({
+    id: 'count-001', openedBy: 'user-001', originNodeId: 'node-001', openedAt: at(0)
+  });
+  count.recordLine({
+    id: 'count-line-001', productId: 'product-001', stockItemId: 'stock-item-001',
+    countedQuantity: Quantity.fromScaled(8, 0)
+  });
+  count.close([{
+    lineId: 'count-line-001', stockItemId: 'stock-item-001', batchId: null,
+    quantityScale: 0, expectedScaled: 5, countedScaled: 8, differenceScaled: 3,
+    stockAvailabilityVersion: 7
+  }], at(2));
+  count.approve({
+    actorId: 'user-001', terminalId: 'terminal-001', reason: 'Conteo aprobado',
+    occurredAt: at(3), eventId: 'event-stock-count-approved'
+  });
+  return count.domainEvents;
 };
 
 const noCommitEvidence = {
@@ -407,6 +427,7 @@ const producedIntegrationEvents = toBusinessEvents([
   ...catalogEvents(),
   ...catalogReferenceEvents(),
   ...purchaseReceiptEvents(),
+  ...stockCountEvents(),
   ...saleEvents(),
   ...saleReturnEvents(),
   ...shiftEvents(),
@@ -421,7 +442,7 @@ describe('catálogo de contratos de integración v1', () => {
       'DiscountPolicyPublished', 'FinancialTransactionTaxPolicyPublished',
       'ExchangeRateUpdated', 'PaymentMethodPublished', 'OperatorGrantPublished',
       'StockAvailabilityPublished', 'StockAvailabilityPublished', 'ProductPublished',
-      'PurchaseReceiptCompleted',
+      'PurchaseReceiptCompleted', 'StockCountApproved',
       'SaleCompleted', 'SaleCompleted', 'SaleReturned', 'ShiftOpened',
       'CashMovementRegistered', 'ShiftClosed', 'FiscalDocumentIssued', 'FiscalDocumentFailed',
       'FiscalXReportIssued', 'FiscalZReportIssued'
@@ -446,6 +467,7 @@ describe('catálogo de contratos de integración v1', () => {
       'StockAvailabilityPublished.v2:CATALOG_REFERENCE',
       'ProductPublished.v1:CATALOG_REFERENCE',
       'PurchaseReceiptCompleted.v1:INVENTORY_AUTHORITY',
+      'StockCountApproved.v1:INVENTORY_AUTHORITY',
       'SaleCompleted.v1:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
       'SaleCompleted.v2:INVENTORY_AUTHORITY,COMMERCIAL_PROJECTION',
       'SaleReturned.v1:COMMERCIAL_PROJECTION',
@@ -475,6 +497,7 @@ describe('catálogo de contratos de integración v1', () => {
       'StockAvailabilityPublished.v2:StockAvailability:COORDINATOR_TO_TERMINAL',
       'ProductPublished.v1:Product:COORDINATOR_TO_TERMINAL',
       'PurchaseReceiptCompleted.v1:PurchaseReceipt:TERMINAL_TO_COORDINATOR',
+      'StockCountApproved.v1:StockCount:TERMINAL_TO_COORDINATOR',
       'SaleCompleted.v1:Sale:TERMINAL_TO_COORDINATOR',
       'SaleCompleted.v2:Sale:TERMINAL_TO_COORDINATOR',
       'SaleReturned.v1:SaleReturn:TERMINAL_TO_COORDINATOR',

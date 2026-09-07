@@ -1,7 +1,8 @@
 import type { AppError, Result, SyncEnvelopeV1 } from '@supermarket/shared';
 import type {
   ApplyPurchaseReceiptCompletedToInventory,
-  ApplySaleCompletedToInventory
+  ApplySaleCompletedToInventory,
+  ApplyStockCountApprovedToInventory
 } from '../inventory/index.js';
 import type { BusinessEventV1, JsonValue } from '../events/index.js';
 import type { UnitOfWork } from '../ports/index.js';
@@ -44,13 +45,16 @@ export const toBusinessEventFromEnvelope = (envelope: SyncEnvelopeV1): BusinessE
 export class InventoryAuthorityConsumer implements SyncConsumer {
   constructor(
     private readonly sales: ApplySaleCompletedToInventory,
-    private readonly purchases?: ApplyPurchaseReceiptCompletedToInventory
+    private readonly purchases?: ApplyPurchaseReceiptCompletedToInventory,
+    private readonly stockCounts?: ApplyStockCountApprovedToInventory
   ) {}
 
   apply(envelope: SyncEnvelopeV1): Promise<Result<unknown, AppError>> {
     const event = toBusinessEventFromEnvelope(envelope);
     return envelope.eventType === 'PurchaseReceiptCompleted' && this.purchases
       ? this.purchases.execute(event)
+      : envelope.eventType === 'StockCountApproved' && this.stockCounts
+        ? this.stockCounts.execute(event)
       : this.sales.execute(event);
   }
 }

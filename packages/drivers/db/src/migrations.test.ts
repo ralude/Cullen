@@ -74,7 +74,8 @@ describe('database migrations', () => {
       expect.objectContaining({ version: 37, name: 'sale_cost_snapshot' }),
       expect.objectContaining({ version: 38, name: 'coordinated_operations' }),
       expect.objectContaining({ version: 39, name: 'commercial_projection' }),
-      expect.objectContaining({ version: 40, name: 'stock_availability_batches' })
+      expect.objectContaining({ version: 40, name: 'stock_availability_batches' }),
+      expect.objectContaining({ version: 41, name: 'stock_count_availability_version' })
     ]);
 
     const tables = handle.sqlite.prepare(
@@ -156,6 +157,35 @@ describe('database migrations', () => {
           expect.objectContaining({ name: `${prefix}print_delivery` })
         ]));
     }
+  });
+
+  it('preserves legacy frozen differences with an explicit availability version', () => {
+    const handle = openDatabase(':memory:');
+    handles.push(handle);
+    applyMigrations(handle.sqlite, migrations.filter(({ version }) => version <= 40));
+    handle.sqlite.exec(`
+      insert into stock_counts (
+        id, status, opened_by, origin_node_id, opened_at, closed_at, version
+      ) values ('legacy-count', 'COUNTED', 'user-001', 'node-001', 1, 2, 3);
+      insert into stock_count_lines (
+        id, stock_count_id, product_id, stock_item_id, batch_id,
+        counted_quantity_scaled, counted_quantity_scale
+      ) values ('legacy-line', 'legacy-count', 'product-001', 'stock-001', null, 8, 0);
+      insert into stock_count_differences (
+        line_id, stock_count_id, stock_item_id, batch_id, quantity_scale,
+        expected_scaled, counted_scaled, difference_scaled
+      ) values ('legacy-line', 'legacy-count', 'stock-001', null, 0, 5, 8, 3);
+    `);
+
+    expect(applyMigrations(handle.sqlite)).toEqual([41]);
+    expect(handle.sqlite.prepare(`
+      select stock_availability_version as version
+      from stock_count_differences where line_id = 'legacy-line'
+    `).get()).toEqual({ version: 1 });
+    expect(() => handle.sqlite.prepare(`
+      update stock_count_differences set stock_availability_version = 0
+      where line_id = 'legacy-line'
+    `).run()).toThrowError('CHECK constraint failed');
   });
 
   it('advances an existing database and rolls back a failed migration', () => {
@@ -634,7 +664,7 @@ describe('database migrations', () => {
       );
     `);
 
-    expect(applyMigrations(handle.sqlite)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]);
+    expect(applyMigrations(handle.sqlite)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41]);
     expect(handle.sqlite.prepare(`
       select last_dispatch_state as dispatchState,
         last_command_effect as commandEffect,
@@ -965,7 +995,7 @@ describe('database migrations', () => {
         1, 'COMPLETED', 2, 0);
     `);
 
-    expect(applyMigrations(handle.sqlite)).toEqual([20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]);
+    expect(applyMigrations(handle.sqlite)).toEqual([20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41]);
 
     expect(handle.sqlite.prepare(`
       select recipient_country as country, recipient_normalized_value as identification

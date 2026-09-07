@@ -261,6 +261,10 @@ export const createSecurityRuntime = (
             new application.ApplyPurchaseReceiptCompletedToInventory(
               stockItemRepository, ids, ids, ids, application.ambientUnitOfWork,
               eventStore, auditWriter, outboxStore
+            ),
+            new application.ApplyStockCountApprovedToInventory(
+              stockItemRepository, ids, ids, ids, application.ambientUnitOfWork,
+              eventStore, auditWriter, outboxStore, nodeIdentity.originNodeId
             )
           )],
           /**
@@ -404,11 +408,13 @@ export const createSecurityRuntime = (
         ),
         recordLine: new application.RecordStockCountLine(
           stockCountRepository, stockItemRepository, authorization, ids, ids,
-          clock, unitOfWork, auditWriter, idempotencyStore
+          clock, unitOfWork, auditWriter, idempotencyStore,
+          coordinatorNodeId === null ? undefined : referenceProjection
         ),
         close: new application.CloseStockCount(
           stockCountRepository, stockItemRepository, authorization, ids,
-          clock, unitOfWork, auditWriter, idempotencyStore
+          clock, unitOfWork, auditWriter, idempotencyStore,
+          coordinatorNodeId === null ? undefined : referenceProjection
         ),
         approve: new application.ApproveStockCount(
           stockCountRepository, stockItemRepository, authorization, ids, ids, ids,

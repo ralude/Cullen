@@ -445,6 +445,32 @@ export const SYNC_EVENT_CONTRACTS_V1: readonly SyncEventContractV1[] = [{
   consumers: ['INVENTORY_AUTHORITY'],
   dependencies: () => []
 }, {
+  eventType: 'StockCountApproved',
+  contractVersion: 1,
+  aggregateType: 'StockCount',
+  direction: 'TERMINAL_TO_COORDINATOR',
+  fields: {
+    terminalId: identifier(),
+    reason: text(),
+    lineCount: integer(1),
+    lines: array(object({
+      lineId: identifier(),
+      productId: identifier(),
+      stockItemId: identifier(),
+      batchId: identifier(true),
+      quantityScale: integer(0),
+      expectedScaled: integer(0),
+      countedScaled: integer(0),
+      differenceScaled: integer(),
+      stockAvailabilityVersion: integer(1)
+    }))
+  },
+  payloadOriginField: null,
+  payloadTerminalField: 'terminalId',
+  intendedConsumer: 'inventario autoritativo del coordinador',
+  consumers: ['INVENTORY_AUTHORITY'],
+  dependencies: noDependencies
+}, {
   eventType: 'SaleCompleted',
   contractVersion: 1,
   aggregateType: 'Sale',
