@@ -37,6 +37,9 @@ export { CashScreen } from './screens/cash.js';
 export { CatalogScreen } from './screens/catalog.js';
 export { filterSuppliers, InventoryScreen } from './screens/inventory.js';
 export {
+  ProductPicker, filterProducts, productLabel, useProductCatalog
+} from './screens/product-picker.js';
+export {
   SuppliersScreen, canManageSuppliers, supplierTaxTypeFor, supplierUpdatePayload,
   toFiscalAddress, toSupplierForm, SUPPLIER_STATUS_HINTS, SUPPLIER_STATUS_LABELS,
   type SupplierForm

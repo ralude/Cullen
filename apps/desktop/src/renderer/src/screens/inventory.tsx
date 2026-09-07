@@ -12,6 +12,7 @@ import {
   type SupplierResponse
 } from '@supermarket/shared';
 import { createIdempotencyKey, formatScaledDecimal } from '../api-client.js';
+import { ProductPicker, productLabel, useProductCatalog } from './product-picker.js';
 import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
 
 export const filterSuppliers = (
@@ -56,6 +57,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState<readonly InventoryReportResponse[] | null>(null);
+  const products = useProductCatalog(api);
   const visibleSuppliers = useMemo(
     () => filterSuppliers(suppliers, supplierQuery),
     [suppliers, supplierQuery]
@@ -82,9 +84,8 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
    * en la primera recepción. Por eso la consulta conserva el producto aunque
    * no exista existencia previa que mostrar.
    */
-  const load = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    const consulted = productId.trim();
+  const consultKardex = async (consulted: string): Promise<void> => {
+    if (!consulted) return;
     setLoading(true);
     setError(null);
     setNotice(null);
@@ -101,6 +102,17 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
       setError(nextError);
     }
     finally { setLoading(false); }
+  };
+
+  const load = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    await consultKardex(productId.trim());
+  };
+
+  /** Salta del listado de existencia al kardex de esa fila, sin copiar un UUID. */
+  const showKardexOf = async (selected: string): Promise<void> => {
+    setProductId(selected);
+    await consultKardex(selected);
   };
 
   /** El stock item, su unidad y su escala se toman del kardex ya consultado. */
@@ -194,20 +206,25 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
         </div>
         {overview.length === 0 ? <EmptyState>Sin existencia registrada.</EmptyState> :
           <div className="table-wrap"><table><thead><tr>
-            <th>Producto</th><th>Lote</th><th>Unidad</th><th>Existencia</th><th>Vence</th>
+            <th>Producto</th><th>Lote</th><th>Unidad</th><th>Existencia</th><th>Vence</th><th />
           </tr></thead><tbody>{overview.map((entry) => <tr key={entry.stockItemId + (entry.batchId ?? '')}>
-            <td>{entry.productId}</td><td>{entry.lotNumber ?? '—'}</td><td>{entry.unitCode}</td>
+            <td title={entry.productId}>{productLabel(products, entry.productId)}</td>
+            <td>{entry.lotNumber ?? '—'}</td><td>{entry.unitCode}</td>
             <td>{formatScaledDecimal(entry.onHandScaled, entry.quantityScale)}</td>
             <td>{entry.expiresAt ? new Date(entry.expiresAt).toLocaleDateString('es-VE') : 'Sin vencimiento'}</td>
+            <td>
+              <ActionButton type="button" disabled={loading}
+                onClick={() => { void showKardexOf(entry.productId); }}>
+                Ver kardex
+              </ActionButton>
+            </td>
           </tr>)}</tbody></table></div>}
       </section>}
       <section className="panel">
         <form className="inline-form" onSubmit={load}>
-          <label className="grow">Producto
-            <input value={productId} onChange={(event) => setProductId(event.target.value)}
-              placeholder="Identificador del producto" required />
-          </label>
-          <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>
+          <ProductPicker products={products} value={productId} onChange={setProductId} required />
+          <ActionButton className="primary-button" type="submit" busy={loading}
+            disabled={loading || !productId}>
             {loading ? 'Consultando…' : 'Consultar kardex'}
           </ActionButton>
           <label>Lote<input value={kardexBatchId} onChange={(event) => setKardexBatchId(event.target.value)} /></label>
@@ -222,7 +239,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
           {kardex ? (
           <section className="panel">
             <div className="panel-heading">
-              <div><p className="eyebrow">Saldo actual</p><h3>{kardex.productId}</h3></div>
+              <div><p className="eyebrow">Saldo actual</p><h3 title={kardex.productId}>{productLabel(products, kardex.productId)}</h3></div>
               <strong className="total-figure">
                 {formatScaledDecimal(kardex.currentBalanceScaled, kardex.quantityScale)}
               </strong>
@@ -259,7 +276,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
           ) : (
             <section className="panel">
               <EmptyState>
-                <strong>{consultedProductId}</strong> todavía no tiene existencia registrada. La
+                <strong>{productLabel(products, consultedProductId)}</strong> todavía no tiene existencia registrada. La
                 primera recepción crea su artículo de inventario con la unidad del catálogo.
               </EmptyState>
             </section>
@@ -270,7 +287,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
             <h3>Registrar compra</h3>
             <form className="stack-form" onSubmit={receive}>
               <p className="muted">
-                Recepción de <strong>{consultedProductId}</strong>
+                Recepción de <strong>{productLabel(products, consultedProductId)}</strong>
                 {kardex ? ` (${kardex.unitCode})` : ''}. La unidad, la escala y el artículo los
                 resuelve el nodo desde el catálogo.
               </p>

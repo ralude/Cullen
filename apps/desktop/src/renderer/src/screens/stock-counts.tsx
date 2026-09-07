@@ -9,6 +9,7 @@ import {
   type StockCountStatusResponse
 } from '@supermarket/shared';
 import { createIdempotencyKey, formatScaledDecimal } from '../api-client.js';
+import { ProductPicker, productLabel, useProductCatalog } from './product-picker.js';
 import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
 
 /** Contratos que convierten esta pantalla en trabajo real y no en una lectura. */
@@ -41,6 +42,7 @@ export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.
   const [selected, setSelected] = useState<StockCountResponse | null>(null);
   const [openReason, setOpenReason] = useState('');
   const [productId, setProductId] = useState('');
+  const products = useProductCatalog(api);
   const [quantity, setQuantity] = useState('');
   const [batchId, setBatchId] = useState('');
   const [closeReason, setCloseReason] = useState('');
@@ -213,7 +215,7 @@ export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.
               <tbody>
                 {selected.lines.map((line) => (
                   <tr key={line.id}>
-                    <td>{line.productId}</td>
+                    <td title={line.productId}>{productLabel(products, line.productId)}</td>
                     <td>{line.batchId ?? '—'}</td>
                     <td>{scaled(line.countedQuantityScaled, line.quantityScale)}</td>
                   </tr>
@@ -225,9 +227,7 @@ export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.
             <>
               <form className="stack-form" onSubmit={recordLine}>
                 <p className="eyebrow">Registrar línea</p>
-                <label>Producto
-                  <input value={productId} onChange={(event) => setProductId(event.target.value)} required />
-                </label>
+                <ProductPicker products={products} value={productId} onChange={setProductId} required />
                 <label>Cantidad contada
                   <input inputMode="decimal" pattern="\d+([.,]\d+)?" placeholder="0"
                     value={quantity} onChange={(event) => setQuantity(event.target.value)} required />

@@ -7,11 +7,12 @@ import {
   type AuditReportResponse, type CashClosureReportResponse,
   type FiscalOperationsReportResponse, type InventoryReportResponse,
   type MarginReportResponse, type SaleHistoryVersionResponse,
-  type SalesReportResponse, type ShiftResponse
+  type ProductResponse, type SalesReportResponse, type ShiftResponse
 } from '@supermarket/shared';
 import {
   createIdempotencyKey, formatScaledDecimal, type OperationApi, type ReportQuery
 } from '../api-client.js';
+import { productLabel, useProductCatalog } from './product-picker.js';
 import {
   ActionButton, EmptyState, Feedback, ScreenNote, SectionError, money, section,
   type ReportSection, type ScreenProps
@@ -190,15 +191,16 @@ const Sales = ({ report }: {
     </>}
 </section>;
 
-const Margin = ({ report }: {
+const Margin = ({ report, products }: {
   readonly report: ReportSection<readonly MarginReportResponse[]>;
+  readonly products: readonly ProductResponse[];
 }): React.JSX.Element => <section className="panel">
   <p className="eyebrow">Margen</p><h3>Ingreso, costo y margen por producto</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin ventas valoradas en el período consultado.</EmptyState> : <>
       <div className="table-wrap"><table><thead><tr><th>Producto</th><th>Moneda</th><th>Unidades</th><th>Ingreso</th><th>Costo</th><th>Margen</th></tr></thead><tbody>
         {report.value.map((entry) => <tr key={`${entry.productId}-${entry.currencyCode}-${entry.quantityScale}`}>
-          <td>{entry.productId}</td><td>{entry.currencyCode}</td>
+          <td title={entry.productId}>{productLabel(products, entry.productId)}</td><td>{entry.currencyCode}</td>
           <td>{formatScaledDecimal(entry.quantitySoldScaled, entry.quantityScale)}</td>
           <td>{entry.revenueMinorUnits === null ? '—' : money(entry.revenueMinorUnits, entry.currencyCode)}</td>
           <td>{entry.costMinorUnits === null ? '—' : money(entry.costMinorUnits, entry.currencyCode)}</td>
@@ -215,15 +217,16 @@ const Margin = ({ report }: {
     </>}
 </section>;
 
-const Inventory = ({ report }: {
+const Inventory = ({ report, products }: {
   readonly report: ReportSection<readonly InventoryReportResponse[]>;
+  readonly products: readonly ProductResponse[];
 }): React.JSX.Element => <section className="panel">
   <p className="eyebrow">Inventario</p><h3>Existencia por artículo y lote</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin artículos de inventario para la fecha de corte.</EmptyState> : <>
       <div className="table-wrap"><table><thead><tr><th>Producto</th><th>Lote</th><th>Unidad</th><th>Existencia</th><th>Vence</th><th>Estado</th></tr></thead><tbody>
         {report.value.map((entry) => <tr key={`${entry.stockItemId}-${entry.batchId ?? ''}`}>
-          <td>{entry.productId}</td><td>{entry.lotNumber ?? '—'}</td><td>{entry.unitCode}</td>
+          <td title={entry.productId}>{productLabel(products, entry.productId)}</td><td>{entry.lotNumber ?? "—"}</td><td>{entry.unitCode}</td>
           <td>{formatScaledDecimal(entry.onHandScaled, entry.quantityScale)}</td>
           <td>{entry.expiresAt ? new Date(entry.expiresAt).toLocaleDateString('es-VE') : '—'}</td>
           <td>{EXPIRY_LABELS[entry.expiryStatus]}</td>
@@ -247,6 +250,7 @@ export const ReportsScreen = ({
     from: today, to: today, limit: '100', cashRegisterId: ''
   });
   const [reports, setReports] = useState<OperationalReports | null>(null);
+  const products = useProductCatalog(api);
   const [shiftId, setShiftId] = useState('');
   const [reviewedShift, setReviewedShift] = useState<ShiftResponse | null>(null);
   const [saleId, setSaleId] = useState('');
@@ -357,8 +361,8 @@ export const ReportsScreen = ({
     {reports?.audit && <Audit report={reports.audit} />}
     {reports?.fiscal && <Fiscal report={reports.fiscal} />}
     {reports?.sales && <Sales report={reports.sales} />}
-    {reports?.margin && <Margin report={reports.margin} />}
-    {reports?.inventory && <Inventory report={reports.inventory} />}
+    {reports?.margin && <Margin report={reports.margin} products={products} />}
+    {reports?.inventory && <Inventory report={reports.inventory} products={products} />}
     {(canPrintX || canPrintZ) && (capabilities.simulatedReportsEnabled
       ? <section className="panel">
         <p className="eyebrow">Acciones fiscales simuladas</p><h3>Reportes X y Z</h3>
