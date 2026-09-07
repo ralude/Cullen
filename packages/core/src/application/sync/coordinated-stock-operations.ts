@@ -153,7 +153,29 @@ export class CoordinatedStockOperations {
         continue;
       }
       const states = await Promise.all(eventIds.map((eventId) => probe.applicationOf(eventId)));
-      /** Todos los hechos aplicados, o el paso sigue pendiente: no hay medias tintas. */
+      /**
+       * Una discrepancia remota es un resultado definitivo: la intención pasa a
+       * `NEEDS_REVIEW` con la evidencia de qué hecho la causó. Esperar no la
+       * resuelve, y compensarla es una decisión humana, no un paso automático.
+       */
+      if (states.some((state) => state === 'DISCREPANCY')) {
+        reconciled.push(await this.store.recordStep({
+          operationId: operation.operationId,
+          step: 'COORDINATOR_EFFECT',
+          state: 'REJECTED',
+          nodeId: operation.coordinatorNodeId,
+          evidence: {
+            eventIds: eventIds.filter((_, index) => states[index] === 'DISCREPANCY'),
+            reasonCode: 'SYNC_REMOTE_APPLICATION_DISCREPANCY'
+          } as unknown as JsonValue,
+          recordedAt: this.clock.now()
+        }));
+        continue;
+      }
+      /**
+       * Todos los hechos aplicados, o el paso sigue pendiente: un timeout o un
+       * estado desconocido conservan `PENDING_RECONCILIATION`, nunca éxito.
+       */
       if (!states.every((state) => state === 'APPLIED')) {
         reconciled.push(operation);
         continue;

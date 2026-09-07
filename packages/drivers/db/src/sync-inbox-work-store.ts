@@ -313,6 +313,15 @@ export class DrizzleSyncInboxWorkStore implements SyncInboxWorkStore {
         'select count(*) from sync_inbox_event where event_id = ?'
       ).pluck().get(eventId) as number;
       if (custody === 0) return 'NONE';
+      /**
+       * Una discrepancia prevalece sobre lo pendiente: el origen debe poder
+       * distinguir «todavía no» de «abierto a revisión», porque el segundo no
+       * se resuelve esperando.
+       */
+      const discrepancies = this.handle.sqlite.prepare(
+        "select count(*) from sync_inbox_work where event_id = ? and state = 'DISCREPANCY'"
+      ).pluck().get(eventId) as number;
+      if (discrepancies > 0) return 'DISCREPANCY';
       const pending = this.handle.sqlite.prepare(
         "select count(*) from sync_inbox_work where event_id = ? and state <> 'APPLIED'"
       ).pluck().get(eventId) as number;

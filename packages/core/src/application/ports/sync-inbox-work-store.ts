@@ -102,6 +102,7 @@ export interface SyncInboxWorkStore {
 /**
  * Progreso de aplicación de un hecho ya recibido. `NONE` significa que este
  * receptor no tiene custodia del evento; nunca se responde `APPLIED` por
- * desconocerlo.
+ * desconocerlo. `DISCREPANCY` distingue una aplicación abierta a revisión de
+ * una que simplemente todavía no ocurrió: esperar no la resuelve.
  */
-export type SyncApplicationProgress = 'APPLIED' | 'PENDING' | 'NONE';
+export type SyncApplicationProgress = 'APPLIED' | 'PENDING' | 'DISCREPANCY' | 'NONE';

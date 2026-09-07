@@ -59,8 +59,9 @@ const operations = (
     new DrizzleAuditWriter(handle)
   );
 
-const probe = (states: Readonly<Record<string, 'APPLIED' | 'PENDING' | 'UNKNOWN'>>):
-RemoteApplicationProbe => ({
+const probe = (
+  states: Readonly<Record<string, 'APPLIED' | 'PENDING' | 'DISCREPANCY' | 'UNKNOWN'>>
+): RemoteApplicationProbe => ({
   applicationOf: async (eventId) => states[eventId] ?? 'UNKNOWN'
 });
 
@@ -263,6 +264,38 @@ describe('operaciones distribuidas de stock', () => {
     await coordinated.reconcile(probe({ 'event-a': 'APPLIED', 'event-b': 'PENDING' }));
 
     expect(statusOf(handle)).toBe('PENDING_RECONCILIATION');
+    handle.close();
+  });
+
+  it('una discrepancia remota exige revisión en vez de seguir esperando', async () => {
+    const handle = migrated();
+    const coordinated = operations(handle, link('node-coordinator', true));
+    const started = await coordinated.begin({
+      kind: 'SALE_RETURN', fingerprint: 'sale-005', reason: 'Producto defectuoso.'
+    }, context);
+    if (!started.ok) throw new Error('the operation should have started');
+    await coordinated.recordLocalEffect(
+      started.value.operationId, ['event-a', 'event-b'], context.originNodeId
+    );
+
+    const reconciled = await coordinated.reconcile(
+      probe({ 'event-a': 'APPLIED', 'event-b': 'DISCREPANCY' })
+    );
+
+    expect(reconciled[0]?.status).toBe('NEEDS_REVIEW');
+    expect(statusOf(handle)).toBe('NEEDS_REVIEW');
+    /** La evidencia nombra el hecho que lo causó, para poder revisarlo. */
+    expect(JSON.parse(handle.sqlite.prepare(`
+      select evidence from sync_coordinated_step where step = 'COORDINATOR_EFFECT'
+    `).pluck().get() as string)).toEqual({
+      eventIds: ['event-b'], reasonCode: 'SYNC_REMOTE_APPLICATION_DISCREPANCY'
+    });
+
+    /** Revisión pendiente: un ciclo posterior no la reabre ni la completa sola. */
+    moment = new Date(STARTED_AT.getTime() + 60_000);
+    await coordinated.reconcile(probe({ 'event-a': 'APPLIED', 'event-b': 'APPLIED' }));
+    expect(statusOf(handle)).toBe('NEEDS_REVIEW');
+    moment = STARTED_AT;
     handle.close();
   });
 

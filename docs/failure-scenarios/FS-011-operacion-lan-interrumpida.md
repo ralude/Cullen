@@ -2,12 +2,13 @@
 
 ## Respaldo actual
 
-**Implementado parcialmente al 2026-09-07; no habilitado como flujo LAN completo.**
+**Implementado al 2026-09-07 salvo la compensación explícita; no habilitado como piloto.**
 [ADR-0026, D3](../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) aprueba
 conexión inicial para compras, aprobación de conteos y devoluciones, e intención pendiente
 de conciliación ante interrupción. Existen intención durable, estado por paso, restricción de
-enlace, lectura visible y consulta autenticada de progreso. Falta implementar el efecto remoto
-autoritativo de cada operación y probar la interrupción en sus fronteras reales.
+enlace, lectura visible, consulta autenticada de progreso, el efecto remoto autoritativo de
+cada operación y los cortes probados en sus fronteras reales. Falta la compensación explícita
+de un rechazo definitivo con efectos previos.
 
 ## Riesgo
 
@@ -65,9 +66,10 @@ y registran el movimiento autoritativo de forma idempotente; la disponibilidad v
 identidades y saldos por lote sin poblar `stock_items` del POS. `SaleReturned.v2` obtiene la
 salida aplicada por `GET /sync/v1/sale-issues/:eventId` antes de cualquier efecto local, y el
 coordinador la revalida contra sus movimientos `SALE_ISSUE`; `SaleReturned.v1` conserva su
-consumo comercial y no restituye stock, porque no transporta lote ni costo. Faltan los cortes
-entre cada frontera concreta. Un rechazo comercial definitivo después de efectos previos queda
-`NEEDS_REVIEW`; la compensación explícita tampoco está automatizada.
+consumo comercial y no restituye stock, porque no transporta lote ni costo. La conciliación
+distingue `APPLIED`, `DISCREPANCY` y estados desconocidos, y los cortes entre cada frontera
+están probados. Un rechazo comercial definitivo después de efectos previos queda
+`NEEDS_REVIEW`; la compensación explícita **no** está automatizada.
 
 ## Retry
 
@@ -116,11 +118,10 @@ renderer y `FiscalPrinterFake`.
 
 La persistencia y reconciliación genéricas están cubiertas por
 `packages/drivers/db/src/coordinated-operations.integration.test.ts`; el transporte real de la
-consulta y la aplicación positiva de compra, conteo y devolución, por
-`apps/server/src/sync/lan-sync.e2e.test.ts`.
-Los cortes entre cada paso remoto siguen abiertos en
-[10.03](../cronograma/fase-10-sincronizacion/plan-10.03-servidor-receptor.md) y
-[10.04](../cronograma/fase-10-sincronizacion/plan-10.04-offline-reconexion.md).
+consulta, la aplicación positiva de compra, conteo y devolución y los cortes entre cada paso
+remoto, por `apps/server/src/sync/lan-sync.e2e.test.ts`. La compensación explícita de un
+rechazo definitivo conserva su gate en
+[10.03](../cronograma/fase-10-sincronizacion/plan-10.03-servidor-receptor.md).
 
 ## Documentos relacionados
 

@@ -16,8 +16,14 @@ export interface CoordinatorLink {
   isReachable(): Promise<boolean>;
 }
 
-/** Resultado de consultar al coordinador si ya aplicó un hecho. */
-export type RemoteApplicationState = 'APPLIED' | 'PENDING' | 'UNKNOWN';
+/**
+ * Resultado de consultar al coordinador si ya aplicó un hecho.
+ *
+ * `DISCREPANCY` es un resultado definitivo que exige revisión, distinto de
+ * `PENDING` —todavía no— y de `UNKNOWN` —no se pudo preguntar—: solo el primero
+ * cierra la espera, y ninguno de los tres vale como aplicación.
+ */
+export type RemoteApplicationState = 'APPLIED' | 'PENDING' | 'DISCREPANCY' | 'UNKNOWN';
 
 /**
  * Consulta de progreso en el coordinador. Es una lectura: no reenvía el hecho,

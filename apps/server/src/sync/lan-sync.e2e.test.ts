@@ -8,6 +8,7 @@ import {
   application,
   StockItem,
   type BusinessEventV1,
+  type ExecutionContext,
   type SyncNodeRegistration
 } from '@supermarket/core';
 import { Money, Quantity, type SyncEnvelopeV1 } from '@supermarket/shared';
@@ -267,7 +268,12 @@ const stockedItem = (available: number): StockItem => {
 
 const startCoordinator = async (
   available: number,
-  name = 'coordinator'
+  name = 'coordinator',
+  /**
+   * Un arranque posterior sobre el mismo archivo es un **reinicio**: la
+   * historia ya está en SQLite y volver a sembrarla la reescribiría.
+   */
+  seed = true
 ): Promise<Coordinator> => {
   const handle = openDatabase(join(directory, `${name}.sqlite`));
   applyMigrations(handle.sqlite);
@@ -277,18 +283,20 @@ const startCoordinator = async (
   const registry = new SqliteSyncNodeRegistry(handle);
   const stockItems = new DrizzleStockItemRepository(handle);
 
-  await unitOfWork.execute(() => stockItems.save(stockedItem(available)));
-  await unitOfWork.execute(() => registry.register(node({
-    nodeId: COORDINATOR,
-    role: 'COORDINATOR',
-    credentialFingerprint: coordinatorCertificate.fingerprint
-  })));
-  for (const [nodeId, certificate] of Object.entries(terminalCertificates)) {
+  if (seed) {
+    await unitOfWork.execute(() => stockItems.save(stockedItem(available)));
     await unitOfWork.execute(() => registry.register(node({
-      nodeId,
-      terminalId: nodeId.replace('node-terminal-', 'terminal-00'),
-      credentialFingerprint: certificate.fingerprint
+      nodeId: COORDINATOR,
+      role: 'COORDINATOR',
+      credentialFingerprint: coordinatorCertificate.fingerprint
     })));
+    for (const [nodeId, certificate] of Object.entries(terminalCertificates)) {
+      await unitOfWork.execute(() => registry.register(node({
+        nodeId,
+        terminalId: nodeId.replace('node-terminal-', 'terminal-00'),
+        credentialFingerprint: certificate.fingerprint
+      })));
+    }
   }
 
   const app = buildSyncApp({
@@ -481,6 +489,89 @@ afterEach(async () => {
 
 const first = (): Terminal => terminals.get('node-terminal-1') as Terminal;
 const second = (): Terminal => terminals.get('node-terminal-2') as Terminal;
+
+const terminalContext = (terminal: Terminal): ExecutionContext => ({
+  actorId: 'user-001',
+  actorRoleCodes: ['ADMIN'],
+  terminalId: terminal.terminalId,
+  originNodeId: terminal.nodeId,
+  correlationId: `correlation-coordinated-${terminal.terminalId}`
+});
+
+const coordinatedFor = (
+  terminal: Terminal,
+  reachable: boolean
+): application.CoordinatedStockOperations =>
+  new application.CoordinatedStockOperations(
+    new SqliteCoordinatedOperationStore(terminal.handle),
+    { coordinatorNodeId: COORDINATOR, isReachable: async () => reachable },
+    clock,
+    terminal.unitOfWork,
+    ids
+  );
+
+const probeFor = (terminal: Terminal): HttpsRemoteApplicationProbe =>
+  new HttpsRemoteApplicationProbe({
+    host: 'localhost',
+    port: coordinator.port,
+    destinationNodeId: COORDINATOR,
+    key: (terminalCertificates[terminal.nodeId] as NodeCertificate).privateKeyPem,
+    cert: (terminalCertificates[terminal.nodeId] as NodeCertificate).certificatePem,
+    ca: [coordinatorCertificate.certificatePem],
+    timeoutMilliseconds: 2_000
+  });
+
+/** El coordinador confirma la custodia, pero el ACK se pierde en el camino. */
+const lossyRelayFor = (terminal: Terminal): application.OutboxRelay =>
+  new application.OutboxRelay(COORDINATOR, terminal.outbox, {
+    publish: async (envelope: SyncEnvelopeV1) => {
+      await new HttpsSyncEventPublisher({
+        host: 'localhost',
+        port: coordinator.port,
+        destinationNodeId: COORDINATOR,
+        key: (terminalCertificates[terminal.nodeId] as NodeCertificate).privateKeyPem,
+        cert: (terminalCertificates[terminal.nodeId] as NodeCertificate).certificatePem,
+        ca: [coordinatorCertificate.certificatePem]
+      }).publish(envelope);
+      throw new Error('connection reset before the acknowledgement arrived');
+    }
+  }, terminal.unitOfWork, clock, { jitter: () => 0 });
+
+/** Ciclos del consumidor hasta drenar dependencias; el reloj avanza en cada uno. */
+const applyInbox = async (cycles = 3): Promise<void> => {
+  for (let cycle = 0; cycle < cycles; cycle += 1) {
+    moment = new Date(moment.getTime() + 300_000);
+    await coordinator.processor.runBatch();
+  }
+};
+
+const operationsOf = (
+  terminal: Terminal,
+  kind: string
+): unknown[] => terminal.handle.sqlite.prepare(
+  'select fingerprint, status from sync_coordinated_operation where kind = ?'
+).all(kind);
+
+const custodyOf = (eventId: string): number => coordinator.handle.sqlite
+  .prepare('select count(*) from sync_inbox_event where event_id = ?').pluck().get(eventId) as number;
+
+const deliveryStatusOf = (terminal: Terminal, eventId: string): string | undefined =>
+  terminal.handle.sqlite.prepare('select status from sync_delivery where event_id = ?')
+    .pluck().get(eventId) as string | undefined;
+
+/**
+ * Reinicio real de ambos extremos: se cierran el listener y los dos archivos
+ * SQLite, y se vuelven a abrir sobre la misma historia. Nada se resiembra.
+ */
+const restartNodes = async (): Promise<void> => {
+  const nodeIds = [...terminals.keys()];
+  await coordinator.app.close();
+  coordinator.handle.close();
+  for (const terminal of terminals.values()) terminal.handle.close();
+  terminals.clear();
+  coordinator = await startCoordinator(0, 'coordinator', false);
+  for (const nodeId of nodeIds) terminals.set(nodeId, openTerminal(nodeId));
+};
 
 describe('LAN de una tienda con coordinador y dos terminales', () => {
   it('aplica una recepción en el coordinador sin inventario POS duplicado', async () => {
@@ -1060,5 +1151,143 @@ describe('LAN de una tienda con coordinador y dos terminales', () => {
 
     await expect(probe.saleIssuesOf(`event-sale-${terminal.terminalId}`))
       .resolves.toEqual({ state: 'UNKNOWN', lines: [] });
+  });
+
+  /**
+   * Escenario 11 del plan de 10.04: corte entre cada paso de las tres
+   * operaciones coordinadas. Cada flujo prueba intención sin efecto, commit
+   * local antes de la entrega, commit remoto antes del ACK, reinicio de ambos
+   * nodos, reentrega del mismo `eventId` y consulta de aplicación.
+   */
+  it('corta entre cada paso de compra, conteo y devolución y recupera la misma intención',
+    async () => {
+      /** La devolución restituye una salida que el coordinador ya aplicó. */
+      await enqueueSale(first(), 2);
+      await grantAuthority(first());
+      await relayFor(first()).runBatch();
+      await applyInbox();
+      expect(await balance()).toBe(8);
+
+      const flows = [
+        {
+          kind: 'PURCHASE_RECEIPT_COMPLETION' as const,
+          aggregateType: 'PurchaseReceipt',
+          build: purchaseReceiptEvent,
+          reference: 'purchase-line-001',
+          balanceAfter: 11
+        },
+        {
+          kind: 'STOCK_COUNT_APPROVAL' as const,
+          aggregateType: 'StockCount',
+          build: stockCountApprovedEvent,
+          reference: 'count-line-001',
+          balanceAfter: 14
+        },
+        {
+          kind: 'SALE_RETURN' as const,
+          aggregateType: 'SaleReturn',
+          build: saleReturnedV2Event,
+          reference: 'return-line-terminal-001',
+          balanceAfter: 16
+        }
+      ];
+
+      for (const flow of flows) {
+        const event = flow.build(first().nodeId, first().terminalId);
+
+        /** Paso 0: sin enlace no se registra intención ni se toca nada. */
+        await expect(coordinatedFor(first(), false).begin({
+          kind: flow.kind, fingerprint: event.aggregateId, reason: 'Operación coordinada.'
+        }, terminalContext(first()))).resolves.toMatchObject({
+          ok: false, error: { code: 'SYNC_COORDINATION_REQUIRED' }
+        });
+        expect(operationsOf(first(), flow.kind)).toEqual([]);
+
+        /** Paso 1: intención durable antes del primer efecto. */
+        const started = await coordinatedFor(first(), true).begin({
+          kind: flow.kind, fingerprint: event.aggregateId, reason: 'Operación coordinada.'
+        }, terminalContext(first()));
+        if (!started.ok) throw new Error('the coordinated operation should have started');
+        expect(operationsOf(first(), flow.kind))
+          .toEqual([{ fingerprint: event.aggregateId, status: 'PENDING_RECONCILIATION' }]);
+
+        /** Paso 2: commit local del único hecho de integración, antes de entregar. */
+        await first().unitOfWork.execute(() => first().outbox.enqueue([event]));
+        await coordinatedFor(first(), true)
+          .recordLocalEffect(started.value.operationId, [event.eventId], first().nodeId);
+        await claimAuthority(first(), flow.aggregateType, event.aggregateId);
+        await coordinatedFor(first(), true).reconcile(probeFor(first()));
+        expect(operationsOf(first(), flow.kind))
+          .toEqual([{ fingerprint: event.aggregateId, status: 'PENDING_RECONCILIATION' }]);
+
+        /** Paso 3: el coordinador confirma la custodia y el ACK se pierde. */
+        await lossyRelayFor(first()).runBatch();
+        expect(custodyOf(event.eventId)).toBe(1);
+        expect(deliveryStatusOf(first(), event.eventId)).toBe('PENDING');
+        await coordinatedFor(first(), true).reconcile(probeFor(first()));
+        expect(operationsOf(first(), flow.kind))
+          .toEqual([{ fingerprint: event.aggregateId, status: 'PENDING_RECONCILIATION' }]);
+
+        /** Paso 4: reinicio de ambos nodos; la intención y la custodia sobreviven. */
+        await restartNodes();
+        expect(operationsOf(first(), flow.kind))
+          .toEqual([{ fingerprint: event.aggregateId, status: 'PENDING_RECONCILIATION' }]);
+
+        /** Paso 5: reentrega del mismo `eventId`; la custodia no se duplica. */
+        moment = new Date(moment.getTime() + 300_000);
+        await relayFor(first()).runBatch();
+        expect(custodyOf(event.eventId)).toBe(1);
+        expect(deliveryStatusOf(first(), event.eventId)).toBe('PUBLISHED');
+
+        /** Paso 6: aplicación autoritativa y conciliación por consulta. */
+        await applyInbox();
+        await expect(coordinator.workStore.applicationProgress(event.eventId))
+          .resolves.toBe('APPLIED');
+        const reconciled = await coordinatedFor(first(), true).reconcile(probeFor(first()));
+        expect(reconciled.map(({ status }) => status)).toEqual(['COMPLETED']);
+
+        /** El efecto es único y el POS nunca escribió stock. */
+        expect(coordinator.handle.sqlite.prepare(
+          'select count(*) from stock_movements where reference_id = ?'
+        ).pluck().get(`${event.eventId}:${flow.reference}`)).toBe(1);
+        expect(first().handle.sqlite.prepare('select count(*) from stock_items')
+          .pluck().get()).toBe(0);
+        expect(await balance()).toBe(flow.balanceAfter);
+      }
+    });
+
+  /**
+   * Cierre del escenario 11: un rechazo definitivo del coordinador no deja la
+   * intención esperando para siempre ni se compensa solo. Queda `NEEDS_REVIEW`
+   * con la evidencia del hecho que lo causó.
+   */
+  it('lleva a revisión la intención cuya aplicación quedó en discrepancia', async () => {
+    const terminal = first();
+    /** Doce unidades sobre diez disponibles: la salida no puede aplicarse. */
+    await enqueueSale(terminal, 12);
+    await grantAuthority(terminal);
+
+    const started = await coordinatedFor(terminal, true).begin({
+      kind: 'SALE_RETURN',
+      fingerprint: `sale-${terminal.terminalId}`,
+      reason: 'Venta que el coordinador no podrá aplicar.'
+    }, terminalContext(terminal));
+    if (!started.ok) throw new Error('the coordinated operation should have started');
+    await coordinatedFor(terminal, true).recordLocalEffect(
+      started.value.operationId, [`event-sale-${terminal.terminalId}`], terminal.nodeId
+    );
+    await relayFor(terminal).runBatch();
+    await applyInbox();
+
+    await expect(coordinator.workStore.applicationProgress(`event-sale-${terminal.terminalId}`))
+      .resolves.toBe('DISCREPANCY');
+    const reconciled = await coordinatedFor(terminal, true).reconcile(probeFor(terminal));
+
+    expect(reconciled.map(({ status }) => status)).toEqual(['NEEDS_REVIEW']);
+    /** La venta sigue válida y el coordinador no queda negativo. */
+    expect(await balance()).toBe(10);
+    expect(coordinator.handle.sqlite.prepare(
+      "select count(*) from sync_discrepancy where status = 'OPEN'"
+    ).pluck().get()).toBe(1);
   });
 });

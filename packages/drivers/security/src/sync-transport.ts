@@ -211,9 +211,11 @@ export class HttpsRemoteApplicationProbe implements RemoteApplicationProbe {
             }
             resolve(body.progress === 'APPLIED'
               ? 'APPLIED'
-              : body.progress === 'PENDING' || body.progress === 'NONE'
-                ? 'PENDING'
-                : 'UNKNOWN');
+              : body.progress === 'DISCREPANCY'
+                ? 'DISCREPANCY'
+                : body.progress === 'PENDING' || body.progress === 'NONE'
+                  ? 'PENDING'
+                  : 'UNKNOWN');
           } catch {
             resolve('UNKNOWN');
           }

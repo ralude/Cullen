@@ -1,8 +1,8 @@
 # Plan de ejecución 10.04: operación offline y reconexión
 
 - Fecha: 2026-09-06.
-- Estado: **en progreso**. Cortes 1–3 implementados; corte 4 abierto en el escenario 11 y en
-  los gates que dependen del cierre de 10.03.
+- Estado: **en progreso**. Cortes 1–4 implementados, incluido el escenario 11; quedan los
+  gates de verificación final CA-04-11 y CA-04-12.
 - Decisiones: [secuencia y registro D1–D8](./plan-secuencia-y-decisiones.md).
 - ADR: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado.
 - Alcance: LAN operativa del MVP de referencia no certificado; no sincronización cloud.
@@ -140,8 +140,8 @@ Hardware fiscal continúa fake y toda representación fiscal mantiene `SIMULACIO
 
 ## Criterios de aceptación
 
-- [ ] CA-04-01: 10.03 y D6/D8 están cerradas antes de iniciar implementación. D6/D8 están
-  cerradas; 10.03 sigue abierta en CA-03-10.
+- [x] ~~CA-04-01~~: 10.03 y D6/D8 están cerradas antes de iniciar implementación. CA-03-10
+  quedó cerrado con la conciliación entre fronteras; 10.03 solo conserva CA-03-16.
 - [x] ~~CA-04-02~~: venta offline completa con persistencia local; la ruta no espera al destino.
 - [x] ~~CA-04-03~~: worker único, lotes acotados, arranque/cierre y recuperación de claims probados;
   no hay llamadas de red en transacciones SQLite.
@@ -155,9 +155,10 @@ Hardware fiscal continúa fake y toda representación fiscal mantiene `SIMULACIO
   dato ausente o vencido no se presenta como vigente.
 - [x] ~~CA-04-08~~: concesiones vencidas/revocadas y restricciones LAN de D5 se aplican en backend;
   sesiones conservan ADR-0011 y no se comparten credenciales por eventos.
-- [ ] CA-04-09: los once escenarios se prueban con SQLite independiente, transporte real donde
-  corresponda y fallos reproducibles; Internet y LAN se distinguen. La consulta de progreso
-  real está probada, pero no los pasos remotos concretos del escenario 11.
+- [x] ~~CA-04-09~~: los once escenarios se prueban con SQLite independiente, transporte real
+  donde corresponda y fallos reproducibles; Internet y LAN se distinguen. El escenario 11
+  corta entre cada paso de compra, conteo y devolución, reinicia ambos nodos y reentrega el
+  mismo `eventId`.
 - [x] ~~CA-04-10~~: referencias llegan a dos terminales sin confundir ACKs; no se duplica inventario
   del coordinador al sumar proyecciones POS ni se omiten efectos locales de caja.
 - [ ] CA-04-11: `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
@@ -219,8 +220,8 @@ Avances implementados y probados:
   alto que el nodo observó, de modo que atrasar el reloj del equipo no la amplía.
 - **Restricciones LAN de D5.** Completar una compra, aprobar un conteo y procesar una
   devolución exigen enlace con el coordinador antes del primer efecto y fallan sin tocar nada;
-  un nodo standalone conserva su atomicidad local. Compra y conteo ya aplican el efecto remoto;
-  devolución sigue abierta.
+  un nodo standalone conserva su atomicidad local. Las tres aplican su efecto remoto; la
+  devolución consulta antes la salida que el coordinador ya aplicó.
 - **Presentación.** `apps/desktop` muestra los cinco estados con su significado, la
   conectividad como dato separado, las pendientes de entrega, aplicación, pausa, bloqueo y
   discrepancia, la antigüedad de cada referencia y las operaciones distribuidas pendientes de
@@ -230,12 +231,12 @@ Avances implementados y probados:
   venta y la conciliación genérica por transporte real contra
   `GET /sync/v1/applications/:eventId`. Compra, conteo y devolución prueban la aplicación
   positiva por transporte real, incluida la lectura autenticada de la salida aplicada en
-  `GET /sync/v1/sale-issues/:eventId`; los cortes entre sus fronteras siguen pendientes.
+  `GET /sync/v1/sale-issues/:eventId`. El escenario 11 corta entre cada paso de las tres
+  operaciones, reinicia ambos nodos, reentrega el mismo `eventId` y lleva a `NEEDS_REVIEW` la
+  intención cuya aplicación quedó en discrepancia.
 
 Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
 
-- El escenario 11 completo: cortes y reinicios entre cada paso real de compra, conteo y
-  devolución.
 - La **compensación explícita** de un rechazo definitivo con efectos previos ya comprometidos:
   la operación queda `NEEDS_REVIEW` con la evidencia de cada paso y se resuelve con los casos
   de uso existentes, no con un paso automático.
