@@ -1,9 +1,10 @@
 # Plan de ejecución 10.03: servidor receptor y base operativa LAN
 
 - Fecha: 2026-09-06.
-- Estado: **en progreso**. Cortes 0–4 implementados: el corte 3 aplica compra, conteo y
-  devolución y concilia `APPLIED`, `DISCREPANCY` y estados desconocidos. CA-03-10 queda
-  cerrado; CA-03-16 sigue abierto hasta la verificación final.
+- Estado: **completado el 2026-09-07**. Cortes 0–4 implementados: el corte 3 aplica compra,
+  conteo y devolución y concilia `APPLIED`, `DISCREPANCY` y estados desconocidos. CA-03-01 a
+  CA-03-16 quedan cerrados; la compensación explícita conserva su gate propio, fuera del
+  alcance de esta sub-fase.
 - Predecesora: 10.02 completada. Sucesora: 10.04, solo tras cerrar esta sub-fase.
 - Decisiones: [secuencia y registro D1–D8](./plan-secuencia-y-decisiones.md).
 - ADR: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado; detalle contractual en el corte 0.
@@ -221,7 +222,7 @@ LAN; no puede depender del publisher de red para completar un efecto local oblig
   custodia; no se reinterpretan publicaciones históricas como ACK de red.
 - [x] ~~CA-03-15~~: API de operadores sigue en loopback; solo el transporte técnico aprobado se
   expone; no se registran bodies, PINs, claves, tokens, PII ni stacks públicos.
-- [ ] CA-03-16: `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
+- [x] ~~CA-03-16~~: `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
   y `git diff --check` aprobados; documentación, escenarios e índices reflejan lo probado.
 
 ## Superficies previstas y cierre
@@ -234,8 +235,9 @@ LAN; no puede depender del publisher de red para completar un efecto local oblig
 - Arquitectura, ADR complementario, FS-004–FS-008 y escenario adicional si la coordinación
   aprobada introduce fallos que no caben en las fichas existentes.
 
-No se marca 10.03 completa por tener solo intención, estado y endpoint de progreso. Los efectos
-remotos concretos y sus pruebas deben cerrar CA-03-10 antes de dar por terminada la sub-fase.
+10.03 no se marcó completa por tener solo intención, estado y endpoint de progreso: se cerró
+el 2026-09-07 con los efectos remotos concretos de compra, conteo y devolución, su conciliación
+y sus pruebas de corte, que es lo que CA-03-10 exigía.
 
 ## Estado de implementación, 2026-09-06
 
@@ -303,10 +305,9 @@ Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
   la autorización que ya existe; no la editan.
 - La **incorporación de tiendas con historia**, que conserva su gate independiente.
 
-### Verificación de la auditoría del 2026-09-07
+### Verificación de cierre del 2026-09-07
 
-Las 44 pruebas directamente relacionadas de contratos, coordinación y LAN pasan; `pnpm
-typecheck` (diez paquetes), `pnpm lint` y `git diff --check` pasan. La suite completa ejecutó
-864 pruebas en 144 archivos: 863 pasaron y una regla ESLint agotó su timeout bajo carga; al
-repetir ese archivo aislado pasaron sus 6 pruebas. Falta una ejecución completa verde para
-cerrar CA-03-16. Migraciones 0036–0039 tienen cobertura de upgrade y reapertura.
+`pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck` (diez paquetes) y
+`git diff --check` pasan. La suite completa ejecutó **903 pruebas en 148 archivos, todas
+verdes**, y las pruebas arquitectónicas de fronteras también pasan. Migraciones 0036–0042
+tienen cobertura de upgrade y reapertura.

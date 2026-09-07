@@ -2,8 +2,9 @@
 
 - Fecha: 2026-09-06.
 - Estado: **planificación completada; ejecución parcial**.
-- Implementación: 10.03 → 10.04 ya ejecuta los pasos remotos autoritativos de compra y conteo;
-  falta devolución y cerrar la conciliación con cortes entre fronteras.
+- Implementación: 10.03 → 10.04 ejecuta los pasos remotos autoritativos de compra, conteo y
+  devolución, con conciliación y cortes probados entre cada frontera. 10.03 quedó cerrada;
+  10.04 espera la verificación manual de interfaz de CA-04-11.
 - Autoridad: [AGENTS.md](../../../AGENTS.md), arquitectura y ADRs aceptados.
 - Decisión normativa: [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md).
 
@@ -101,8 +102,8 @@ Estos puntos son trabajo planificado, no solicitudes de respuesta pendientes:
 - [x] ~~Resolver D4–D6, coordinación interrumpida, costo y D8 con preguntas concretas.~~
 - [x] ~~Registrar ADR-0026 y enlazar las decisiones normativas y escenarios afectados.~~
 - [x] ~~Planificar 10.03 y 10.04 con cortes secuenciales y criterios verificables.~~
-- [ ] Ejecutar la secuencia completa y cerrar los gates CA-03 y CA-04. CA-03-10 y el escenario
-  11 de CA-04-09 siguen abiertos.
+- [ ] Ejecutar la secuencia completa y cerrar los gates CA-03 y CA-04. CA-03 quedó cerrado por
+  completo; de CA-04 solo falta la verificación manual de interfaz de CA-04-11.
 
 Verificación del árbol de trabajo el 2026-09-06: `pnpm install --frozen-lockfile` aprobado;
 `pnpm test`: 667 pruebas en 124 archivos; `pnpm typecheck`: diez paquetes; `pnpm lint`
@@ -117,18 +118,20 @@ Planes detallados: [10.03](./plan-10.03-servidor-receptor.md) y
 
 El conjunto completo de referencias, los tres consumidores, el snapshot de costo, las
 concesiones aplicadas en backend y la presentación en `apps/desktop` están implementados. La
-coordinación conserva intención, estado por paso y consulta de progreso, y ya ejecuta compra
-y conteo autoritativos. Devolución y los cortes de conciliación siguen abiertos; por eso los
-gates 10.03 y Fase 10 permanecen abiertos.
+coordinación conserva intención, estado por paso y consulta de progreso, y ejecuta compra,
+conteo y devolución autoritativos con su conciliación de `APPLIED`, `DISCREPANCY` y estados
+desconocidos. 10.03 cerró el 2026-09-07; Fase 10 permanece abierta solo por la verificación
+manual de interfaz de CA-04-11.
 
 De los gates de ejecución que permanecían:
 
 - **Antes de endpoints LAN** y **antes de habilitar terminales** quedaron cumplidos y probados.
-- **Antes de efectos comerciales LAN** sigue abierto para devolución y para los cortes entre
-  cada frontera; compra y conteo ya respetan el orden aprobado sin segunda autoridad en el POS.
-- **Antes del worker** no se respetó como gate secuencial: el worker está compuesto aunque
-  10.03 continúa abierta. Debe revalidarse después de cerrar CA-03-10; su existencia actual no
-  habilita Fase 11.
+- **Antes de efectos comerciales LAN** quedó cumplido: compra, conteo y devolución respetan el
+  orden aprobado sin segunda autoridad en el POS, y los cortes entre cada frontera están
+  probados.
+- **Antes del worker** no se respetó como gate secuencial: el worker se compuso mientras 10.03
+  seguía abierta. Al cerrar CA-03-10 se revalidó con los once escenarios LAN; su existencia no
+  habilita Fase 11 por sí sola.
 - **Antes del piloto** sigue abierto por definición: la validación profesional y fiscal no es
   trabajo de esta fase, y las ocho horas siguen siendo la decisión del MVP de prueba.
 - **Antes de incorporar bases con historia** sigue abierto y conserva su plan específico de

@@ -56,10 +56,10 @@ brecha y no debe interpretarse como comportamiento vigente.
 ## Escenario LAN
 
 La planificación LAN agrega [FS-011: operación comercial LAN interrumpida](./FS-011-operacion-lan-interrumpida.md)
-— implementado parcialmente en 10.03–10.04: la intención, el resultado durable por paso y la
-consulta de progreso están probados, pero los efectos remotos autoritativos de compra, conteo y
-devolución no existen todavía. No se promete atomicidad entre dos SQLite; el orden de pasos y la
-compensación explícita conservan gates propios. El número continúa el catálogo sin renumerar
+— implementado en 10.03–10.04 salvo la compensación explícita: la intención, el resultado
+durable por paso, la consulta de progreso, los efectos remotos autoritativos de compra, conteo
+y devolución y los cortes entre cada frontera están probados. No se promete atomicidad entre
+dos SQLite; la compensación explícita de un rechazo definitivo conserva su gate propio. El número continúa el catálogo sin renumerar
 FS-009/FS-010, que siguen siendo post-MVP.
 
 ## Escenarios post-MVP pendientes

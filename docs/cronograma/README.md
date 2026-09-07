@@ -17,7 +17,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 8 | Integracion serial | Suspendida por dependencia externa |
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | Perfiles 9B.14–9B.18 y configuración 9B.10 completados 2026-09-05; 9B.08 diferida y 9B.09 trasladada a Fase 11 |
-| 10 | Sincronizacion | En progreso; 10.01 y 10.02 completadas; 10.03/10.04 abiertas en la coordinación remota de stock |
+| 10 | Sincronizacion | En progreso; 10.01 y 10.02 completadas; 10.03 cerrada salvo su verificación final y 10.04 abierta en la verificación manual de UI |
 | 11 | Seguridad | Pendiente; bloqueada hasta cerrar Fase 10 |
 | 12 | Optimizacion | Pendiente |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
@@ -40,13 +40,16 @@ autoritativo, referencias y consolidación comercial—; el conjunto cerrado de 
 catálogo, categorías, unidades, métodos de pago, políticas operativas, tasas confirmadas,
 concesiones de operador y disponibilidad informativa; el costo conocido al vender con
 `SaleCompleted.v2`; la infraestructura durable de intención, paso y consulta de progreso; y el
-estado visible con la antigüedad real de cada referencia. Migraciones 0028–0039.
+estado visible con la antigüedad real de cada referencia; los efectos remotos autoritativos de
+compra, conteo y devolución con su conciliación de `APPLIED`, `DISCREPANCY` y estados
+desconocidos; y los once escenarios de corte. Migraciones 0028–0042.
 
-10.03 y 10.04 siguen abiertas: faltan los efectos remotos autoritativos de compra, conteo y
-devolución y el escenario de caída entre sus pasos reales. La implementación actual registra
-evidencia que el coordinador no recibe, por lo que esas intenciones no pueden completarse. La
-compensación explícita de un rechazo definitivo conserva un gate separado. Tampoco se adelantan
-la administración de usuarios y roles de 11.02, tiendas con historia, piloto ni producción.
+10.03 y 10.04 siguen abiertas solo en su verificación final: `pnpm install --frozen-lockfile`,
+`pnpm test`, `pnpm typecheck`, `pnpm lint` y `git diff --check` pasan, pero falta la
+verificación manual de la interfaz que CA-04-11 exige donde no hay infraestructura de
+interacción DOM. La compensación explícita de un rechazo definitivo conserva un gate separado.
+Tampoco se adelantan la administración de usuarios y roles de 11.02, tiendas con historia,
+piloto ni producción.
 
 El 2026-09-06 se planificó la secuencia restante **10.03 → 10.04** en el
 [registro de decisiones y gates](./fase-10-sincronizacion/plan-secuencia-y-decisiones.md),
@@ -54,8 +57,8 @@ con planes de [receptor LAN](./fase-10-sincronizacion/plan-10.03-servidor-recept
 [operación offline/reconexión](./fase-10-sincronizacion/plan-10.04-offline-reconexion.md).
 El usuario confirmó LAN operativa completa, nodos nuevos de prueba y alta manual auditable
 de confianza. La planificación incorpora las brechas de referencias, bootstrap y entrega
-por terminal de ADR-0023. Esa planificación se ejecutó salvo el flujo remoto de D3, reabierto
-por la auditoría del 2026-09-07.
+por terminal de ADR-0023. Esa planificación se ejecutó completa, incluido el flujo remoto de D3
+que la auditoría del 2026-09-07 había reabierto.
 Las preguntas de negocio se resolvieron en la misma sesión y quedaron en
 [ADR-0026](../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md), aceptado para
 el MVP de prueba: operaciones de stock conectadas con conciliación recuperable, concesiones

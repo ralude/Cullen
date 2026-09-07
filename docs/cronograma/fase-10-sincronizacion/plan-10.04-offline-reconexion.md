@@ -162,10 +162,13 @@ Hardware fiscal continúa fake y toda representación fiscal mantiene `SIMULACIO
 - [x] ~~CA-04-10~~: referencias llegan a dos terminales sin confundir ACKs; no se duplica inventario
   del coordinador al sumar proyecciones POS ni se omiten efectos locales de caja.
 - [ ] CA-04-11: `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
-  y `git diff --check` aprobados; interacción UI automatizada donde exista infraestructura y
+  y `git diff --check` **aprobados**; interacción UI automatizada donde exista infraestructura y
   verificación manual documentada donde no la haya, sin afirmar cobertura DOM inexistente.
+  Falta esa verificación manual: el repositorio no tiene infraestructura de interacción DOM.
 - [ ] CA-04-12: escenarios de fallo e índices actualizados con evidencia; 10.03/10.04 se
-  tachan solo al cumplir el alcance, y Fase 11 permanece pendiente hasta ese cierre.
+  tachan solo al cumplir el alcance, y Fase 11 permanece pendiente hasta ese cierre. FS-011,
+  el índice de escenarios y el cronograma ya reflejan lo probado; 10.04 y Fase 11 esperan a
+  CA-04-11.
 
 ## Superficies y límites
 
@@ -246,10 +249,14 @@ Sigue **abierto** en esta sub-fase y no debe presentarse como disponible:
 - La cobertura de UI es de **render estático**: no hay infraestructura de interacción DOM en
   este repositorio y no se afirma una cobertura que no existe.
 
-### Verificación de la auditoría del 2026-09-07
+### Verificación de cierre del 2026-09-07
 
-Las 44 pruebas directamente relacionadas pasan; `pnpm typecheck` (diez paquetes), `pnpm lint`
-y `git diff --check` pasan. La suite completa ejecutó 864 pruebas en 144 archivos: 863 pasaron
-y una regla ESLint agotó su timeout bajo carga; sus 6 pruebas pasan al ejecutar el archivo
-aislado. Los escenarios LAN existentes usan tres SQLite independientes, listeners reales y
-autenticación mutua.
+`pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck` (diez paquetes) y
+`git diff --check` pasan. La suite completa ejecutó **903 pruebas en 148 archivos, todas
+verdes**, y las pruebas arquitectónicas de fronteras también pasan. Los once escenarios LAN
+usan tres SQLite independientes, listeners reales y autenticación mutua.
+
+**Falta para CA-04-11:** la verificación manual de la interfaz. Este repositorio no tiene
+infraestructura de interacción DOM, así que la mitad automatizada del criterio se cumple con
+la cobertura de render estático y la mitad manual sigue pendiente de ejecutarse y documentarse.
+No se afirma una cobertura DOM que no existe.

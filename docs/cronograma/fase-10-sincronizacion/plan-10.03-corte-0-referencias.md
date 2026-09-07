@@ -248,9 +248,8 @@ vacía. Cubre CA-REF-05 y cierra CA-REF-01 a CA-REF-08.
 ## Fuera del vertical inicial de catálogo
 
 Concesiones y disponibilidad informativa reutilizarán este mecanismo en cortes siguientes.
-Las tasas confirmadas ya se incorporaron en el vertical descrito más abajo. Mientras no se
-entregue el conjunto cerrado restante, la terminal no puede declararse lista para operar y
-10.03 sigue abierta.
+Las tasas confirmadas ya se incorporaron en el vertical descrito más abajo. El conjunto
+cerrado quedó completo el 2026-09-07 y 10.03 cerró con él.
 
 ## Corte siguiente: métodos de pago
 

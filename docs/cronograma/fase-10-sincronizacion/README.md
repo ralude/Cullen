@@ -1,11 +1,11 @@
 # Fase 10: Sincronizacion
 
-- **Estado:** En progreso — 10.01 y 10.02 cerradas; 10.03 y 10.04 aplican y concilian compra,
-  conteo y devolución, y quedan pendientes de su verificación final
+- **Estado:** En progreso — 10.01, 10.02 y 10.03 cerradas; 10.04 solo espera la verificación
+  manual de interfaz de CA-04-11
 - **Indice:** [Cronograma](../README.md)
 - **Precedida por:** [Fase 9B - Perfiles operativos](../fase-09b-perfiles/README.md), insertada por la [replanificacion del 2026-09-04](../replanificacion-fase-09b.md)
 - **Siguiente:** [Fase 11 - Seguridad](../fase-11-seguridad/README.md), bloqueada hasta cerrar
-  10.03 y 10.04
+  10.04
 
 ## Proposito
 
@@ -15,10 +15,9 @@ Permitir operacion offline-first entre terminales autonomas y el nodo coordinado
 
 - [~~10.01 Sync queue~~](./10.01-sync-queue.md) — **completada 2026-09-05**
 - [~~10.02 Protocolo de eventos~~](./10.02-protocolo-eventos.md) — **completada 2026-09-06**
-- [10.03 Servidor receptor](./10.03-servidor-receptor.md) — **en progreso**: falta la
-  verificación final de CA-03-16
+- [~~10.03 Servidor receptor~~](./10.03-servidor-receptor.md) — **completada 2026-09-07**
 - [10.04 Offline y reconexion](./10.04-offline-reconexion.md) — **en progreso**: falta la
-  verificación final de CA-04-11 y CA-04-12
+  verificación manual de interfaz de CA-04-11
 
 ## Ejecución
 
