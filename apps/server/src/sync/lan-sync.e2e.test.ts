@@ -13,6 +13,7 @@ import {
 import { Money, Quantity, type SyncEnvelopeV1 } from '@supermarket/shared';
 import {
   HttpsRemoteApplicationProbe,
+  HttpsRemoteSaleIssueProbe,
   HttpsSyncEventPublisher
 } from '@supermarket/driver-security';
 import { UnavailableExchangeRateProvider } from '@supermarket/driver-exchange-rate';
@@ -27,6 +28,7 @@ import {
   DrizzleSyncReceptionStore,
   SqliteCoordinatedOperationStore,
   SqliteCommercialProjection,
+  SqliteSaleIssueEvidenceReader,
   openDatabase,
   SqliteSyncNodeRegistry,
   SqliteUnitOfWork,
@@ -272,6 +274,9 @@ const startCoordinator = async (
     ),
     /** Progreso de aplicación: la lectura con la que el origen concilia. */
     applicationProgress: (eventId) => workStore.applicationProgress(eventId),
+    /** Salida aplicada: la evidencia con la que una devolución restituye. */
+    saleIssueEvidence: (saleEventId) =>
+      new SqliteSaleIssueEvidenceReader(handle).findBySaleEventId(saleEventId),
     https: {
       key: coordinatorCertificate.privateKeyPem,
       cert: coordinatorCertificate.certificatePem,
@@ -869,5 +874,88 @@ describe('LAN de una tienda con coordinador y dos terminales', () => {
       (entry) => (entry as { status: string }).status === 'PUBLISHED'
     )).toBe(true);
     expect(saleIssues()).toBe(1);
+  });
+
+  /**
+   * Frontera previa de la devolución del escenario 11: la terminal pregunta al
+   * coordinador qué salió realmente antes de tocar nada. Mientras la salida no
+   * esté aplicada no hay evidencia con la que restituir, y la respuesta llega
+   * por el mismo transporte autenticado que todo lo demás.
+   */
+  it('entrega la salida aplicada solo cuando el coordinador ya la aplicó', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+    await grantAuthority(terminal);
+
+    const probe = new HttpsRemoteSaleIssueProbe({
+      host: 'localhost',
+      port: coordinator.port,
+      destinationNodeId: COORDINATOR,
+      key: (terminalCertificates[terminal.nodeId] as NodeCertificate).privateKeyPem,
+      cert: (terminalCertificates[terminal.nodeId] as NodeCertificate).certificatePem,
+      ca: [coordinatorCertificate.certificatePem],
+      timeoutMilliseconds: 2_000
+    });
+    const saleEventId = `event-sale-${terminal.terminalId}`;
+
+    /** Sin custodia todavía, el coordinador no reconoce la venta. */
+    await expect(probe.saleIssuesOf(saleEventId))
+      .resolves.toEqual({ state: 'NONE', lines: [] });
+
+    await relayFor(terminal).runBatch();
+    /** Con custodia pero sin efecto aplicado, sigue sin haber qué restituir. */
+    await expect(probe.saleIssuesOf(saleEventId))
+      .resolves.toEqual({ state: 'PENDING', lines: [] });
+
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      moment = new Date(moment.getTime() + 300_000);
+      await coordinator.processor.runBatch();
+    }
+
+    await expect(probe.saleIssuesOf(saleEventId)).resolves.toEqual({
+      state: 'APPLIED',
+      lines: [{
+        saleItemId: `line-${terminal.terminalId}`,
+        productId: 'product-1',
+        stockItemId: 'stock-1',
+        batchId: null,
+        quantityScaled: 2,
+        quantityScale: 0,
+        unitCost: null
+      }]
+    });
+    /** La consulta es una lectura: no aplicó otra salida ni movió el saldo. */
+    expect(saleIssues()).toBe(1);
+    expect(await balance()).toBe(8);
+  });
+
+  /**
+   * La evidencia de la salida es tan sensible como cualquier otro hecho: un
+   * cliente sin certificado confiable no la obtiene, aunque conozca el
+   * `eventId`.
+   */
+  it('no entrega la salida aplicada a un cliente sin identidad confiable', async () => {
+    const terminal = first();
+    await enqueueSale(terminal, 2);
+    await grantAuthority(terminal);
+    await relayFor(terminal).runBatch();
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      moment = new Date(moment.getTime() + 300_000);
+      await coordinator.processor.runBatch();
+    }
+
+    const intruder = issueNodeCertificate('node-intruso');
+    const probe = new HttpsRemoteSaleIssueProbe({
+      host: 'localhost',
+      port: coordinator.port,
+      destinationNodeId: COORDINATOR,
+      key: intruder.privateKeyPem,
+      cert: intruder.certificatePem,
+      ca: [coordinatorCertificate.certificatePem],
+      timeoutMilliseconds: 2_000
+    });
+
+    await expect(probe.saleIssuesOf(`event-sale-${terminal.terminalId}`))
+      .resolves.toEqual({ state: 'UNKNOWN', lines: [] });
   });
 });

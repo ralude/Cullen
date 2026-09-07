@@ -44,7 +44,12 @@ const syncApp = syncConfiguration
      * Solo el nodo que aplica hechos ajenos reporta progreso: es la lectura
      * con la que el origen de una operación distribuida concilia su intención.
      */
-    applicationProgress: runtime.syncDelivery.applicationProgress
+    applicationProgress: runtime.syncDelivery.applicationProgress,
+    /**
+     * La salida aplicada solo la reporta quien es autoridad de stock: es la
+     * evidencia con la que una devolución restituye lote y costo originales.
+     */
+    saleIssueEvidence: runtime.syncDelivery.saleIssueEvidence
   }, syncConfiguration))
   : null;
 

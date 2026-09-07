@@ -1,9 +1,12 @@
 import { request, type RequestOptions } from 'node:https';
 import { InfrastructureError, SYNC_LIMITS_V1, type SyncEnvelopeV1 } from '@supermarket/shared';
 import type {
+  AppliedSaleIssueLine,
   EventPublisher,
   RemoteApplicationProbe,
-  RemoteApplicationState
+  RemoteApplicationState,
+  RemoteSaleIssueProbe,
+  SaleIssueEvidence
 } from '@supermarket/core';
 
 export const SYNC_DESTINATION_HEADER = 'x-sync-destination-node-id';
@@ -222,6 +225,138 @@ export class HttpsRemoteApplicationProbe implements RemoteApplicationProbe {
         () => { call.destroy(); }
       );
       call.on('error', () => { resolve('UNKNOWN'); });
+      call.end();
+    });
+  }
+}
+
+const SYNC_SALE_ISSUES_PATH = '/sync/v1/sale-issues';
+/**
+ * Cota del cuerpo aceptado para la evidencia de una salida. Es mayor que la de
+ * un ACK porque transporta una línea por lote realmente consumido, y la misma
+ * que acota el sobre para no aceptar una respuesta que ningún emisor podría
+ * haber producido.
+ */
+const MAX_EVIDENCE_BYTES = SYNC_LIMITS_V1.maxEnvelopeBytes;
+
+const UNAVAILABLE: SaleIssueEvidence = { state: 'UNKNOWN', lines: [] };
+
+const asLine = (value: unknown): AppliedSaleIssueLine | null => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const line = value as Record<string, unknown>;
+  const cost = line.unitCost;
+  if (typeof line.saleItemId !== 'string' || typeof line.productId !== 'string' ||
+    typeof line.stockItemId !== 'string' ||
+    (line.batchId !== null && typeof line.batchId !== 'string') ||
+    !Number.isSafeInteger(line.quantityScaled) || (line.quantityScaled as number) <= 0 ||
+    !Number.isSafeInteger(line.quantityScale) || (line.quantityScale as number) < 0) {
+    return null;
+  }
+  let unitCost: AppliedSaleIssueLine['unitCost'] = null;
+  if (cost !== null && cost !== undefined) {
+    if (typeof cost !== 'object' || Array.isArray(cost)) return null;
+    const money = cost as Record<string, unknown>;
+    if (!Number.isSafeInteger(money.minorUnits) || (money.minorUnits as number) < 0 ||
+      typeof money.currencyCode !== 'string' || !/^[A-Z]{3}$/.test(money.currencyCode)) {
+      return null;
+    }
+    unitCost = { minorUnits: money.minorUnits as number, currencyCode: money.currencyCode };
+  }
+  return {
+    saleItemId: line.saleItemId,
+    productId: line.productId,
+    stockItemId: line.stockItemId,
+    batchId: line.batchId as string | null,
+    quantityScaled: line.quantityScaled as number,
+    quantityScale: line.quantityScale as number,
+    unitCost
+  };
+};
+
+/**
+ * Consulta al coordinador la salida que ya aplicó para una venta, de modo que
+ * una devolución LAN restituya el lote y el costo originales en vez de
+ * inventarlos (ADR-0026 D3).
+ *
+ * Falla cerrada como la consulta de progreso: un timeout, un cuerpo no
+ * contractual, una respuesta de otro evento o una línea inválida valen
+ * `UNKNOWN`. Solo `APPLIED` con líneas legibles habilita la restitución.
+ */
+export class HttpsRemoteSaleIssueProbe implements RemoteSaleIssueProbe {
+  constructor(private readonly configuration: SyncTransportConfiguration) {}
+
+  saleIssuesOf(saleEventId: string): Promise<SaleIssueEvidence> {
+    if (!/^[A-Za-z0-9_:.-]{1,128}$/.test(saleEventId)) return Promise.resolve(UNAVAILABLE);
+
+    const options: RequestOptions = {
+      host: this.configuration.host,
+      port: this.configuration.port,
+      path: `${SYNC_SALE_ISSUES_PATH}/${encodeURIComponent(saleEventId)}`,
+      method: 'GET',
+      key: this.configuration.key,
+      cert: this.configuration.cert,
+      ca: [...this.configuration.ca],
+      rejectUnauthorized: true,
+      minVersion: 'TLSv1.3',
+      headers: {
+        accept: 'application/json',
+        [SYNC_DESTINATION_HEADER]: this.configuration.destinationNodeId
+      }
+    };
+
+    return new Promise<SaleIssueEvidence>((resolve) => {
+      const call = request(options, (response) => {
+        const contentType = response.headers['content-type'] ?? '';
+        const chunks: Buffer[] = [];
+        let size = 0;
+        response.on('data', (chunk: Buffer) => {
+          size += chunk.length;
+          if (size > MAX_EVIDENCE_BYTES) {
+            response.destroy();
+            resolve(UNAVAILABLE);
+            return;
+          }
+          chunks.push(chunk);
+        });
+        response.on('end', () => {
+          if (response.statusCode !== 200 || !contentType.includes('application/json') ||
+            contentType.includes('problem+json')) {
+            resolve(UNAVAILABLE);
+            return;
+          }
+          try {
+            const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+              eventId?: unknown; state?: unknown; lines?: unknown;
+            };
+            /** La evidencia de otro evento no responde por este. */
+            if (body.eventId !== saleEventId) {
+              resolve(UNAVAILABLE);
+              return;
+            }
+            if (body.state === 'PENDING' || body.state === 'DISCREPANCY' ||
+              body.state === 'NONE') {
+              resolve({ state: body.state, lines: [] });
+              return;
+            }
+            if (body.state !== 'APPLIED' || !Array.isArray(body.lines)) {
+              resolve(UNAVAILABLE);
+              return;
+            }
+            const lines = body.lines.map(asLine);
+            resolve(lines.some((line) => line === null)
+              ? UNAVAILABLE
+              : { state: 'APPLIED', lines: lines as AppliedSaleIssueLine[] });
+          } catch {
+            resolve(UNAVAILABLE);
+          }
+        });
+      });
+
+      call.setTimeout(
+        this.configuration.timeoutMilliseconds ?? DEFAULT_TIMEOUT_MILLISECONDS,
+        () => { call.destroy(); }
+      );
+      call.on('error', () => { resolve(UNAVAILABLE); });
       call.end();
     });
   }

@@ -8,6 +8,7 @@ import Fastify, {
 } from 'fastify';
 import type {
   application,
+  SaleIssueEvidence,
   SyncApplicationProgress,
   SyncSenderContext
 } from '@supermarket/core';
@@ -20,6 +21,7 @@ import {
 export const SYNC_EVENTS_ROUTE = '/sync/v1/events';
 export const SYNC_AGGREGATES_ROUTE = '/sync/v1/aggregates';
 export const SYNC_APPLICATIONS_ROUTE = '/sync/v1/applications';
+export const SYNC_SALE_ISSUES_ROUTE = '/sync/v1/sale-issues';
 export const SYNC_DESTINATION_HEADER = 'x-sync-destination-node-id';
 
 export type SyncTransportDependencies = {
@@ -34,12 +36,21 @@ export type SyncTransportDependencies = {
    * Ausente en una terminal, que no aplica hechos de otros nodos.
    */
   readonly applicationProgress?: (eventId: string) => Promise<SyncApplicationProgress>;
+  /**
+   * Salida de venta ya aplicada por el inventario autoritativo, que la
+   * terminal necesita para restituir con el lote y el costo originales.
+   * Ausente en una terminal, que no es autoridad de stock.
+   */
+  readonly saleIssueEvidence?: (saleEventId: string) => Promise<SaleIssueEvidence>;
   readonly https?: {
     readonly key: string;
     readonly cert: string;
     readonly ca: readonly string[];
   };
 };
+
+/** Identidad de evento aceptada en una ruta de lectura; acota el parámetro. */
+const EVENT_ID_PATTERN = /^[A-Za-z0-9_:.-]{1,128}$/;
 
 /**
  * Códigos de recepción y su estado HTTP. Un rechazo permanente y una
@@ -219,12 +230,38 @@ export const buildSyncApp = (dependencies: SyncTransportDependencies): FastifyIn
           'This node does not report application progress.', 404);
       }
       const eventId = request.params.eventId;
-      if (!/^[A-Za-z0-9_:.-]{1,128}$/.test(eventId)) {
+      if (!EVENT_ID_PATTERN.test(eventId)) {
         return sendProblem(reply, request, 'SYNC_REQUEST_INVALID',
           'The event identifier is malformed.', 400);
       }
       const progress = await dependencies.applicationProgress(eventId);
       return reply.code(200).type('application/json').send({ eventId, progress });
+    }
+  );
+
+  /**
+   * Salida de venta ya aplicada, para que el origen de una devolución restituya
+   * el lote y el costo que realmente salieron en lugar de inventarlos
+   * (ADR-0026 D3). Es de solo lectura y responde líneas únicamente cuando el
+   * efecto está confirmado: una venta pendiente o en discrepancia devuelve su
+   * estado sin líneas, que es lo que impide crear la devolución.
+   */
+  app.get<{ Params: { eventId: string } }>(
+    `${SYNC_SALE_ISSUES_ROUTE}/:eventId`,
+    async (request, reply) => {
+      const sender = await authenticate(request, reply);
+      if (!sender) return reply;
+      if (!dependencies.saleIssueEvidence) {
+        return sendProblem(reply, request, 'SYNC_ROUTE_NOT_FOUND',
+          'This node does not hold authoritative stock.', 404);
+      }
+      const eventId = request.params.eventId;
+      if (!EVENT_ID_PATTERN.test(eventId)) {
+        return sendProblem(reply, request, 'SYNC_REQUEST_INVALID',
+          'The event identifier is malformed.', 400);
+      }
+      const evidence = await dependencies.saleIssueEvidence(eventId);
+      return reply.code(200).type('application/json').send({ eventId, ...evidence });
     }
   );
 

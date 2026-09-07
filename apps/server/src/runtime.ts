@@ -6,6 +6,7 @@ import {
   VerifySession,
   type Clock,
   type OutboxStore,
+  type SaleIssueEvidence,
   type SyncApplicationProgress,
   type SyncNodeRegistry,
   type UnitOfWork
@@ -29,6 +30,7 @@ import {
   SqliteCoordinatedOperationStore,
   SqliteOperatorGrantSource,
   SqliteSaleCostSnapshotProvider,
+  SqliteSaleIssueEvidenceReader,
   DrizzleAggregateAuthorityRegistry,
   SqliteSyncNodeRegistry,
   DrizzlePaymentMethodRepository,
@@ -115,6 +117,11 @@ export type SecurityRuntime = {
     readonly renewOperatorGrants: application.PublishOperatorGrants;
     /** Progreso de aplicación que este nodo reporta al origen de una operación. */
     readonly applicationProgress: (eventId: string) => Promise<SyncApplicationProgress>;
+    /**
+     * Salida de venta ya aplicada por este nodo, con la que el origen de una
+     * devolución restituye el lote y el costo originales.
+     */
+    readonly saleIssueEvidence: (saleEventId: string) => Promise<SaleIssueEvidence>;
   };
   /** Coordinación LAN de las operaciones que cambian stock. */
   readonly coordinatedOperations: application.CoordinatedStockOperations;
@@ -183,6 +190,7 @@ export const createSecurityRuntime = (
   const syncNodeRegistry = new SqliteSyncNodeRegistry(handle);
   const aggregateAuthorities = new DrizzleAggregateAuthorityRegistry(handle);
   const syncInboxWork = new DrizzleSyncInboxWorkStore(handle);
+  const saleIssueEvidence = new SqliteSaleIssueEvidenceReader(handle);
   const syncConnectivity = new ObservedSyncConnectivity();
   const referenceProjection = new SqliteCatalogReferenceProjection(handle);
   /**
@@ -244,6 +252,7 @@ export const createSecurityRuntime = (
         clock, unitOfWork, ids, auditWriter
       ),
       applicationProgress: (eventId) => syncInboxWork.applicationProgress(eventId),
+      saleIssueEvidence: (saleEventId) => saleIssueEvidence.findBySaleEventId(saleEventId),
       /**
        * El consumidor autoritativo del coordinador se une a la transaccion del
        * procesador y conserva el costo del origen: un hecho sincronizado no se

@@ -128,6 +128,13 @@ export type {
   RemoteApplicationState
 } from './coordinator-link.js';
 export type {
+  AppliedSaleIssueLine,
+  RemoteSaleIssueProbe,
+  SaleIssueApplicationState,
+  SaleIssueEvidence,
+  SaleIssueEvidenceReader
+} from './sale-issue-evidence.js';
+export type {
   CommercialProjection,
   ProjectedCashMovement,
   ProjectedFiscalEntry,

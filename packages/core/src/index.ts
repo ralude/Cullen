@@ -163,7 +163,12 @@ export type {
   CoordinatedStepState,
   CoordinatorLink,
   RemoteApplicationProbe,
-  RemoteApplicationState
+  RemoteApplicationState,
+  AppliedSaleIssueLine,
+  RemoteSaleIssueProbe,
+  SaleIssueApplicationState,
+  SaleIssueEvidence,
+  SaleIssueEvidenceReader
 } from './application/ports/index.js';
 export type {
   CommercialProjection,

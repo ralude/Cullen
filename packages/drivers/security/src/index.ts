@@ -110,6 +110,7 @@ export const loadNodeIdentity = (path = defaultNodeIdentityPath()): NodeIdentity
 
 export {
   HttpsRemoteApplicationProbe,
+  HttpsRemoteSaleIssueProbe,
   HttpsSyncEventPublisher,
   ObservedSyncConnectivity,
   SYNC_DESTINATION_HEADER
