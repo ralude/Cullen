@@ -11,6 +11,7 @@ coverage/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.owner
 logs/
 .DS_Store
 Thumbs.db
