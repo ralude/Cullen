@@ -1,6 +1,8 @@
 import {
   application,
+  AuditedAuthorizationService,
   AuthenticateOperator,
+  DeferredDenialUnitOfWork,
   ProvisionInitialAdmin,
   RevokeSession,
   VerifySession,
@@ -57,6 +59,7 @@ import {
   openDatabase,
   SqliteAuthenticationStore,
   SqliteAuthorizationService,
+  SqliteTransactionState,
   SqliteDiscountPolicyProvider,
   SqliteFinancialTransactionTaxPolicyProvider,
   SqliteOperationalMasterDataStore,
@@ -158,12 +161,22 @@ export const createSecurityRuntime = (
   const ids = new UuidV7Generator();
   const simulatedReportsEnabled = fiscalConfiguration.executionTarget === 'SIMULATOR'
     && fiscalConfiguration.reportConsent === 'ALLOW_SIMULATED_X_AND_Z';
-  const unitOfWork = new SqliteUnitOfWork(handle.sqlite);
+  const transactions = new SqliteUnitOfWork(handle.sqlite);
   const fiscalDayRepository = new DrizzleFiscalDayRepository(handle);
-  const authorization = new SqliteAuthorizationService(store);
   const eventStore = new DrizzleBusinessEventStore(handle);
   const outboxStore = new DrizzleOutboxStore(handle);
   const auditWriter = new DrizzleAuditWriter(handle);
+  /**
+   * Punto único de decisión de autorización: deniega como siempre y deja la
+   * decisión negada como evidencia auditable, en su propia transacción. La
+   * unidad de trabajo que reciben los casos de uso asienta las denegaciones
+   * que se decidieron ya dentro de la transacción del comando.
+   */
+  const authorization = new AuditedAuthorizationService(
+    new SqliteAuthorizationService(store), auditWriter, transactions,
+    new SqliteTransactionState(handle.sqlite), ids, clock
+  );
+  const unitOfWork = new DeferredDenialUnitOfWork(transactions, authorization);
   const idempotencyStore = new DrizzleIdempotencyStore(handle);
   const productRepository = new DrizzleProductRepository(handle);
   const catalogReadRepository = new DrizzleCatalogReadRepository(handle);

@@ -1,4 +1,9 @@
 export {
+  AUTHORIZATION_DENIED_ACTION,
+  AuditedAuthorizationService,
+  DeferredDenialUnitOfWork
+} from './audited-authorization.js';
+export {
   AUTH_POLICY,
   AuthenticateOperator,
   ProvisionInitialAdmin,

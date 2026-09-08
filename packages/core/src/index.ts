@@ -38,7 +38,9 @@ export type {
 } from './application/fiscal/index.js';
 export {
   AUTH_POLICY,
+  AuditedAuthorizationService,
   AuthenticateOperator,
+  DeferredDenialUnitOfWork,
   ProvisionInitialAdmin,
   RevokeSession,
   VerifySession
@@ -129,6 +131,7 @@ export type {
   OperationalPolicyWriter,
   OperationalMasterDataStore,
   PolicyActivation,
+  TransactionState,
   UnitOfWork,
   UnitOfMeasureRepository,
   AuditReportRepository,

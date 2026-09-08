@@ -33,6 +33,7 @@ export type { DeviceRepository } from './device-repository.js';
 export type { SupplierRepository } from './supplier-repository.js';
 export type { PurchaseReceiptRepository } from './purchase-receipt-repository.js';
 export type { UnitOfWork } from './unit-of-work.js';
+export type { TransactionState } from './transaction-state.js';
 export type { BusinessEventStore } from './business-event-store.js';
 export type { AuditEntry, AuditWriter } from './audit-writer.js';
 export type { EventPublisher } from './event-publisher.js';

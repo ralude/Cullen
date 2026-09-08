@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { UnitOfWork } from '@supermarket/core';
+import type { TransactionState, UnitOfWork } from '@supermarket/core';
 import { AppError, InfrastructureError } from '@supermarket/shared';
 
 const sqliteCode = (error: unknown): string =>
@@ -60,5 +60,17 @@ export class SqliteUnitOfWork implements UnitOfWork {
       if (this.sqlite.inTransaction) this.sqlite.exec('rollback');
       throw mapDatabaseError(error);
     }
+  }
+}
+
+/**
+ * Estado de la transacción de este nodo. Lo consulta el punto de decisión de
+ * autorización para no anidar la escritura de su evidencia.
+ */
+export class SqliteTransactionState implements TransactionState {
+  constructor(private readonly sqlite: Database.Database) {}
+
+  get isActive(): boolean {
+    return this.sqlite.inTransaction;
   }
 }
