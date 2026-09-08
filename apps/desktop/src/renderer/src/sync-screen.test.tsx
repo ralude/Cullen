@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   CoordinatedOperationResponse,
+  OperationalDiagnosticsResponse,
   SyncDestinationStatusResponse
 } from '@supermarket/shared';
 import type { OperationApi } from './api-client.js';
@@ -75,8 +76,14 @@ const pendingOperation: CoordinatedOperationResponse = {
   ]
 };
 
+const diagnostics = (): OperationalDiagnosticsResponse => ({
+  observedAt: '2026-09-06T12:00:00.000Z',
+  deliveries: [], salesAttention: [], trace: null
+});
+
 const screenApi = (overrides: Partial<OperationApi> = {}): OperationApi => ({
   getSyncStatus: vi.fn(async () => status()),
+  getOperationalDiagnostics: vi.fn(async () => diagnostics()),
   listSyncNodes: vi.fn(async () => []),
   listCoordinatedOperations: vi.fn(async () => [pendingOperation]),
   ...overrides

@@ -37,6 +37,7 @@ const desktopApi = (overrides: Partial<DesktopApi> = {}): DesktopApi => ({
   capabilities: vi.fn(async () => ({ fiscalMode: 'SIMULATION', simulatedReportsEnabled: false })),
   listSyncNodes: vi.fn(async () => []),
   getSyncStatus: vi.fn(async () => { throw new Error('no consultado en esta prueba'); }),
+  getOperationalDiagnostics: vi.fn(async () => { throw new Error('no consultado en esta prueba'); }),
   listCoordinatedOperations: vi.fn(async () => []),
   ...overrides
 } as unknown as DesktopApi);

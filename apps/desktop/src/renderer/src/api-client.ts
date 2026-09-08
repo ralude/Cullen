@@ -36,6 +36,7 @@ import {
   setSaleRecipientContract,
   listCashRegistersContract,
   getSyncStatusContract,
+  getOperationalDiagnosticsContract,
   listSyncNodesContract,
   listCoordinatedOperationsContract,
   listCategoriesContract,
@@ -165,6 +166,7 @@ import {
   type CashRegisterResponse,
   type CoordinatedOperationResponse,
   type SyncDestinationStatusResponse,
+  type OperationalDiagnosticsResponse,
   type SyncNodeResponse,
   type CategoryResponse,
   type PaymentMethodResponse,
@@ -667,6 +669,15 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
     fetcher,
     path(getSyncStatusContract.path, destinationNodeId),
     { method: getSyncStatusContract.method }
+  ),
+  getOperationalDiagnostics: (
+    destinationNodeId: string, correlationId?: string
+  ): Promise<OperationalDiagnosticsResponse> => requestJson(
+    fetcher,
+    `${path(getOperationalDiagnosticsContract.path, destinationNodeId)}${
+      correlationId ? `?correlationId=${encodeURIComponent(correlationId)}` : ''
+    }`,
+    { method: getOperationalDiagnosticsContract.method }
   ),
   listSyncNodes: (): Promise<readonly SyncNodeResponse[]> => requestJson(
     fetcher, listSyncNodesContract.path, { method: listSyncNodesContract.method }

@@ -4,6 +4,7 @@ import {
   isPermissionGranted,
   listSyncNodesContract,
   type CoordinatedOperationResponse,
+  type OperationalDiagnosticsResponse,
   type SyncDestinationStatusResponse,
   type SyncNodeResponse,
   type SyncReferenceEntryResponse,
@@ -62,6 +63,17 @@ const COORDINATED_STATE_LABELS: Record<'PENDING' | 'APPLIED' | 'REJECTED', strin
   PENDING: 'Pendiente',
   APPLIED: 'Aplicado',
   REJECTED: 'Rechazado'
+};
+
+const SALE_ATTENTION_LABELS: Record<
+  OperationalDiagnosticsResponse['salesAttention'][number]['state'], string
+> = {
+  LOCAL_REJECTED: 'Rechazo local de inventario',
+  DELIVERY_PENDING: 'Entrega pendiente',
+  DELIVERY_BLOCKED: 'Entrega pausada o bloqueada',
+  APPLICATION_PENDING: 'Aplicación remota pendiente',
+  APPLICATION_UNKNOWN: 'Aplicación remota sin confirmar',
+  DISCREPANCY: 'Discrepancia abierta'
 };
 
 /**
@@ -128,6 +140,8 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
   const [nodes, setNodes] = useState<readonly SyncNodeResponse[]>([]);
   const [destination, setDestination] = useState('');
   const [status, setStatus] = useState<SyncDestinationStatusResponse | null>(null);
+  const [diagnostics, setDiagnostics] = useState<OperationalDiagnosticsResponse | null>(null);
+  const [correlationId, setCorrelationId] = useState('');
   const [pending, setPending] = useState<readonly CoordinatedOperationResponse[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -153,11 +167,15 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
     setLoading(true);
     setError(null);
     try {
-      const [nextStatus, operations] = await Promise.all([
+      const [nextStatus, nextDiagnostics, operations] = await Promise.all([
         api.getSyncStatus(destination.trim()),
+        api.getOperationalDiagnostics(
+          destination.trim(), correlationId.trim() || undefined
+        ),
         api.listCoordinatedOperations('PENDING_RECONCILIATION')
       ]);
       setStatus(nextStatus);
+      setDiagnostics(nextDiagnostics);
       setPending(operations);
       setNotice(`Lectura tomada el ${new Date(nextStatus.observedAt).toLocaleString('es-VE')}.`);
     } catch (nextError) {
@@ -208,6 +226,16 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
                 />
               )}
           </label>
+          <label>
+            Correlación (opcional)
+            <input
+              value={correlationId}
+              onChange={(event) => setCorrelationId(event.target.value)}
+              placeholder="correlation-id"
+              minLength={8}
+              maxLength={128}
+            />
+          </label>
           <ActionButton
             className="primary-button"
             type="submit"
@@ -220,6 +248,94 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
         {!canReview && (
           <p className="muted">Esta sesión no tiene permiso para revisar la recepción.</p>
         )}
+      </section>
+
+      <section className="panel">
+        <p className="eyebrow">Ventas</p>
+        <h3>Ventas completadas que requieren atención</h3>
+        {diagnostics === null
+          ? <EmptyState>Consulta un destino para revisar efectos pendientes.</EmptyState>
+          : diagnostics.salesAttention.length === 0
+            ? <EmptyState>Sin ventas con efectos pendientes conocidos.</EmptyState>
+            : (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Venta</th><th>Estado</th><th>Evidencia</th><th>Antigüedad</th><th>Correlación</th></tr></thead>
+                  <tbody>
+                    {diagnostics.salesAttention.map((sale) => (
+                      <tr key={`${sale.eventId}:${sale.state}`}>
+                        <td>{sale.saleId}</td>
+                        <td>{SALE_ATTENTION_LABELS[sale.state]}</td>
+                        <td>{sale.errorCode ?? sale.evidenceState}</td>
+                        <td>{referenceAge(sale.ageMilliseconds)}</td>
+                        <td>{sale.correlationId}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+      </section>
+
+      <section className="panel">
+        <p className="eyebrow">Outbox</p>
+        <h3>Intentos, lease y próximo reintento</h3>
+        {diagnostics === null
+          ? <EmptyState>Consulta un destino para revisar sus entregas.</EmptyState>
+          : diagnostics.deliveries.length === 0
+            ? <EmptyState>Sin entregas materializadas para este destino.</EmptyState>
+            : (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Evento</th><th>Estado</th><th>Intentos</th><th>Lease</th><th>Próximo intento</th><th>Error</th></tr></thead>
+                  <tbody>
+                    {diagnostics.deliveries.map((delivery) => (
+                      <tr key={delivery.eventId}>
+                        <td>{delivery.eventType}<br /><span className="muted">{delivery.eventId}</span></td>
+                        <td>{delivery.status}</td>
+                        <td>{delivery.attempts} (ciclo: {delivery.cycleAttempts})</td>
+                        <td>{delivery.leaseUntil === null ? '—' : new Date(delivery.leaseUntil).toLocaleString('es-VE')}</td>
+                        <td>{new Date(delivery.nextAttemptAt).toLocaleString('es-VE')}</td>
+                        <td>{delivery.lastError ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+      </section>
+
+      <section className="panel">
+        <p className="eyebrow">Correlación</p>
+        <h3>Recorrido durable de la operación</h3>
+        {diagnostics === null || diagnostics.trace === null
+          ? <EmptyState>Indica una correlación para seguir ledger, outbox, entregas y auditoría.</EmptyState>
+          : (
+            <>
+              <p>
+                Ledger: {diagnostics.trace.events.length} · Outbox: {diagnostics.trace.outbox.length}
+                {' '}· Entregas: {diagnostics.trace.deliveries.length} · Auditorías: {diagnostics.trace.audits.length}
+              </p>
+              {diagnostics.trace.audits.some((entry) => entry.costEvidence !== null) && (
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Entidad</th><th>Costo unitario</th><th>Moneda</th><th>Fuente</th></tr></thead>
+                    <tbody>
+                      {diagnostics.trace.audits.filter((entry) => entry.costEvidence !== null)
+                        .map((entry) => (
+                          <tr key={entry.auditId}>
+                            <td>{entry.entityId}</td>
+                            <td>{entry.costEvidence?.unitCostMinorUnits ?? 'Desconocido'}</td>
+                            <td>{entry.costEvidence?.currencyCode ?? '—'}</td>
+                            <td>{entry.costEvidence?.source ?? '—'}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
       </section>
 
       <section className="panel">

@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
   CoordinatedOperationResponse,
+  OperationalDiagnosticsResponse,
   SyncDestinationStatusResponse,
   SyncNodeResponse
 } from '@supermarket/shared';
 import { ApiProblemError, type OperationApi } from './api-client.js';
 import { SyncScreen } from './operation-screens.js';
-import { click, deferred, mount, select, settle, submit } from './testing/dom.js';
+import { click, deferred, mount, select, settle, submit, type as typeText } from './testing/dom.js';
 
 /**
  * Interacción real de la pantalla de sincronización (CA-04-06, CA-04-07 y
@@ -102,9 +103,17 @@ const pendingReturn: CoordinatedOperationResponse = {
   ]
 };
 
+const diagnostics = (
+  overrides: Partial<OperationalDiagnosticsResponse> = {}
+): OperationalDiagnosticsResponse => ({
+  observedAt: '2026-09-07T12:00:00.000Z',
+  deliveries: [], salesAttention: [], trace: null, ...overrides
+});
+
 const screenApi = (overrides: Partial<OperationApi> = {}): OperationApi => ({
   listSyncNodes: vi.fn(async () => nodes),
   getSyncStatus: vi.fn(async () => status()),
+  getOperationalDiagnostics: vi.fn(async () => diagnostics()),
   listCoordinatedOperations: vi.fn(async () => [pendingReturn]),
   ...overrides
 } as unknown as OperationApi);
@@ -127,6 +136,7 @@ describe('interacción de la pantalla de sincronización', () => {
     expect(screen.get<HTMLSelectElement>('select').value).toBe('node-coordinator');
     /** Montar la pantalla no consulta un estado: el operador decide cuándo. */
     expect(api.getSyncStatus).not.toHaveBeenCalled();
+    expect(api.getOperationalDiagnostics).not.toHaveBeenCalled();
     expect(screen.text()).toContain('Consulta un destino para ver su estado.');
   });
 
@@ -138,6 +148,7 @@ describe('interacción de la pantalla de sincronización', () => {
     await submit(screen.get<HTMLFormElement>('form'));
 
     expect(api.getSyncStatus).toHaveBeenCalledWith('node-terminal-2');
+    expect(api.getOperationalDiagnostics).toHaveBeenCalledWith('node-terminal-2', undefined);
     expect(api.listCoordinatedOperations).toHaveBeenCalledWith('PENDING_RECONCILIATION');
     const text = screen.text();
     expect(text).toContain('Al día');
@@ -183,6 +194,47 @@ describe('interacción de la pantalla de sincronización', () => {
     expect(row?.textContent).toContain('sale-001');
     expect(row?.textContent).toContain('Efectos locales: Aplicado');
     expect(row?.textContent).toContain('Efectos del coordinador: Pendiente');
+  });
+
+  it('muestra la venta pendiente, los intentos y la evidencia de costo correlacionada', async () => {
+    const detailed = diagnostics({
+      deliveries: [{
+        eventId: 'event-sale-001', eventType: 'SaleCompleted', aggregateId: 'sale-001',
+        correlationId: 'correlation-sale-001', destinationNodeId: 'node-coordinator',
+        status: 'PROCESSING', attempts: 3, cycleAttempts: 2,
+        nextAttemptAt: '2026-09-07T12:01:00.000Z',
+        leaseUntil: '2026-09-07T12:00:30.000Z', publishedAt: null,
+        lastError: 'SYNC_TEMPORARY', occurredAt: '2026-09-07T11:00:00.000Z',
+        ageMilliseconds: 3_600_000
+      }],
+      salesAttention: [{
+        saleId: 'sale-001', eventId: 'event-sale-001', correlationId: 'correlation-sale-001',
+        originNodeId: 'node-terminal-1', terminalId: 'terminal-001', errorCode: null,
+        state: 'DELIVERY_PENDING', evidenceState: 'PROCESSING',
+        occurredAt: '2026-09-07T11:00:00.000Z', ageMilliseconds: 3_600_000
+      }],
+      trace: {
+        events: [], outbox: [], deliveries: [], audits: [{
+          auditId: 'audit-stock', action: 'SALE_STOCK_ISSUED', entityType: 'StockItem',
+          entityId: 'stock-item-001', occurredAt: '2026-09-07T11:00:00.000Z',
+          costEvidence: { unitCostMinorUnits: 800, currencyCode: 'USD', source: 'LOCAL_AVERAGE' }
+        }]
+      }
+    });
+    const api = screenApi({ getOperationalDiagnostics: vi.fn(async () => detailed) });
+    const screen = await render(api);
+    await typeText(screen.get<HTMLInputElement>('input[placeholder="correlation-id"]'), 'correlation-sale-001');
+
+    await submit(screen.get<HTMLFormElement>('form'));
+
+    expect(api.getOperationalDiagnostics).toHaveBeenCalledWith(
+      'node-coordinator', 'correlation-sale-001'
+    );
+    expect(screen.text()).toContain('Entrega pendiente');
+    expect(screen.text()).toContain('3 (ciclo: 2)');
+    expect(screen.text()).toContain('SYNC_TEMPORARY');
+    expect(screen.text()).toContain('800');
+    expect(screen.text()).toContain('LOCAL_AVERAGE');
   });
 
   it('anuncia el estado ocupado mientras la lectura viaja y lo libera al responder', async () => {
@@ -241,5 +293,6 @@ describe('interacción de la pantalla de sincronización', () => {
     /** Aunque se fuerce el envío, el renderer no inventa una lectura. */
     await submit(screen.get<HTMLFormElement>('form'));
     expect(api.getSyncStatus).not.toHaveBeenCalled();
+    expect(api.getOperationalDiagnostics).not.toHaveBeenCalled();
   });
 });
