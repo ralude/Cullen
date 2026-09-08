@@ -1,10 +1,11 @@
 # Fase 11: Seguridad
 
 - **Estado:** Habilitada el 2026-09-07 al cerrar la Fase 10; **planificada el 2026-09-07**. En
-  ejecución desde el 2026-09-08: entregados el corte 0 de 11.05 —redacción de logs
-  técnicos—, el corte 1 de 11.02 —evidencia auditable de la decisión de autorización— y los
-  permisos de identidad con su transición para bases ya provisionadas (corte mínimo
-  11.01–11.03 adelantado y completado)
+  ejecución desde el 2026-09-08: entregados el corte 0 de 11.05 —redacción de logs técnicos— y
+  la 11.02 completa —autorización auditable, administración de identidad, enrolamiento local de
+  credenciales, contratos, pantalla y pruebas de separación real— (corte mínimo 11.01–11.03
+  adelantado y completado). 11.04 quedó desbloqueada al aceptarse ADR-0029; su implementación
+  sigue pendiente
 - **Indice:** [Cronograma](../README.md)
 - **Plan de fase:** [secuencia restante y decisiones de activación](./plan-secuencia-y-decisiones.md)
 
@@ -30,12 +31,12 @@ sub-fase 9B.09. La Fase 11 vuelve a ser la unica duena de identidad y autorizaci
 - [11.01 Autenticacion](./11.01-autenticacion.md) — corte mínimo completado; sin ampliaciones
   planificadas para esta fase.
 - [11.02 Roles y permisos](./11.02-roles-permisos.md) —
-  [plan](./plan-11.02-roles-permisos.md); corte 1 y permisos de identidad entregados el
-  2026-09-08
+  [plan](./plan-11.02-roles-permisos.md); completada el 2026-09-08
 - [11.03 JWT y sesiones](./11.03-jwt-sesiones.md) —
   [plan](./plan-11.03-jwt-sesiones.md)
 - [11.04 Encriptacion](./11.04-encriptacion.md) —
-  [plan](./plan-11.04-encriptacion.md)
+  [plan](./plan-11.04-encriptacion.md); desbloqueada el 2026-09-08 por
+  [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md), sin implementación
 - [11.05 Hardening de logs](./11.05-hardening-logs.md) —
   [plan](./plan-11.05-hardening-logs.md); corte 0 de redacción entregado el 2026-09-08
 
@@ -44,9 +45,12 @@ sub-fase 9B.09. La Fase 11 vuelve a ser la unica duena de identidad y autorizaci
 El [plan de fase](./plan-secuencia-y-decisiones.md) fija la secuencia: corte 0 de redacción de
 11.05 adelantado —entregado el 2026-09-08—, luego 11.02, 11.03, 11.04 y los cortes restantes
 de 11.05. El orden responde a dependencias reales, no a la numeración. D1–D5 quedaron cerradas el
-2026-09-08 por [ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md); las tres
-decisiones D7–D9 siguen abiertas y bloquean los cortes de protección en reposo, que requieren
-un ADR nuevo.
+2026-09-08 por [ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md) y el
+enrolamiento de credenciales que declaraba pendiente por
+[ADR-0028](../../architecture/adr/0028-enrolamiento-local-de-credenciales.md); D7–D9 quedaron
+cerradas el mismo día por
+[ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md), de modo que 11.04 ya
+no espera decisiones sino implementación.
 D6 recoge el loopback obligatorio de `apps/server/AGENTS.md` y ADR-0026, y no bloquea la
 validación del host en 11.03. Los cortes independientes conservan sus prerrequisitos explícitos.
 

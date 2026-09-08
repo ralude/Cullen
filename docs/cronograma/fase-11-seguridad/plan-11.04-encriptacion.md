@@ -1,7 +1,8 @@
 # Plan de ejecución 11.04: protección de datos en reposo
 
 - Fecha: 2026-09-07.
-- Estado: **planificado, sin iniciar**. Bloqueado por D7–D9 de la
+- Estado: **planificado, sin iniciar; desbloqueado el 2026-09-08**. D7–D9 quedaron respondidas
+  en [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md), aceptado, según la
   [secuencia y decisiones de Fase 11](./plan-secuencia-y-decisiones.md).
 - Especificación: [11.04 Encriptacion](./11.04-encriptacion.md).
 - Deuda de origen: [auditoría 2026-09-04](./auditoria-puntos-clave-2026-09-04.md), punto 5.
@@ -18,8 +19,9 @@ Leer antes de implementar: AGENTS.md y el `AGENTS.md` de `packages/drivers/db` y
 arquitectura de persistencia; ADR-0003, ADR-0009 y ADR-0011; el ADR de protección de datos en
 reposo que cierre D7–D9.
 
-Antes de escribir código: D7–D9 respondidas. El corte 1 es documental y puede ejecutarse antes
-para que la decisión de D7 se tome sobre un inventario real y no sobre una intuición.
+Antes de escribir código: D7–D9 respondidas. Lo están desde el 2026-09-08 en ADR-0029, cuyo
+inventario se levantó sobre el árbol real y no sobre una intuición. El corte 1 se reduce a
+publicar y enlazar esa clasificación donde gobierne, sin mantener una segunda copia.
 
 ## Línea base comprobada
 
@@ -78,7 +80,9 @@ Independiente de D7. Cierra la mitad más concreta del punto 5 de la auditoría.
 
 ## Corte 3: claves y cifrado donde sea necesario
 
-Depende de D7. El alcance cambia por completo según la respuesta.
+Depende de D7, ya respondida: **ADR-0029 D7.1 descartó cifrar el archivo SQLite** y eligió la
+segunda vía, de modo que el punto 2 es el alcance real y el punto 1 queda como registro de la
+alternativa descartada.
 
 1. Si D7 elige cifrar el archivo SQLite: la dependencia nueva se justifica en el ADR con la
    necesidad concreta, se evalúa su efecto sobre migraciones, respaldos y `vacuum into`, y se
@@ -109,8 +113,8 @@ Depende de D9.
 
 ## Criterios de aceptación
 
-- [ ] CA-11.04-01: D7–D9 están respondidas y registradas en un ADR aceptado antes de implementar
-  los cortes 3 y 4.
+- [x] CA-11.04-01: D7–D9 están respondidas y registradas en un ADR aceptado antes de implementar
+  los cortes 3 y 4 (ADR-0029, 2026-09-08).
 - [ ] CA-11.04-02: existe una clasificación publicada de datos sensibles con retención y acceso por
   cada elemento del inventario, y las brechas no cubiertas están declaradas.
 - [ ] CA-11.04-03: el arranque real migra por la ruta con respaldo, validación y restauración; una

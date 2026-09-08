@@ -1,9 +1,8 @@
 # Plan de ejecución 11.02: roles, permisos y administración de identidad
 
 - Fecha: 2026-09-07.
-- Estado: **corte 1 entregado el 2026-09-08** y primer punto del corte 2 —permisos de
-  identidad y transición de bases ya provisionadas— entregado el mismo día; el resto del
-  corte 2 y los cortes 3–4 siguen planificados. D1–D5
+- Estado: **cortes 1 a 4 entregados el 2026-09-08**; la sub-fase queda completada con la
+  limitación de concurrencia declarada en su especificación. D1–D5
   quedaron respondidas en
   [ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md), aceptado, según la
   [secuencia y decisiones de Fase 11](./plan-secuencia-y-decisiones.md).
@@ -122,7 +121,7 @@ de cambiar su contrato. No inventar `sale.complete` ni declarar cubierta esa res
 una prueba de anulación. Cualquier otra brecha de autorización se contrasta con su fuente
 normativa antes de corregirla en su corte.
 
-## Corte 2: casos de uso de administración de identidad
+## Corte 2: casos de uso de administración de identidad — entregado el 2026-09-08
 
 Aplica ADR-0027, que responde D1–D5. Trabaja outside-in: prueba observable primero,
 implementación mínima después.
@@ -144,33 +143,42 @@ implementación mínima después.
    anterior. La transición no escribe auditoría de negocio: no la decide un actor, y su
    evidencia es la propia versión de esquema. Declarar los permisos en sus contratos llega
    con el corte 3.
-2. **Casos de uso**, en verbo + sustantivo y con códigos de error estables:
+2. [x] **Casos de uso**, en verbo + sustantivo y con códigos de error estables:
    `CreateOperator`, `UpdateOperator`, `ChangeOperatorStatus`, `AssignOperatorRoles`,
    `CreateRole`, `UpdateRolePermissions`, `ChangeRoleStatus`. Cada uno autoriza antes de leer o
    persistir, exactamente como ADR-0012 fija para catálogo y moneda.
-3. **Credenciales.** El PIN entra solo por el mecanismo existente: `PinHasher.hash` y la tabla
+3. [x] **Credenciales.** El PIN entra solo por el mecanismo existente: `PinHasher.hash` y la tabla
    `identity_credentials`. Nunca se devuelve, se registra ni viaja de vuelta al renderer. La
    validación de 6–12 dígitos reutiliza la política ya publicada en `AUTH_POLICY`, no una copia.
    El alcance concreto del restablecimiento lo fija ADR-0027 D3: caducar la credencial vigente,
    PIN temporal bajo `identity.credential.reset` y cambio propio, con sesión restringida
    mientras el cambio siga pendiente.
-4. **Atomicidad del cambio de autorización.** Toda modificación de roles, permisos o estado
+4. [x] **Atomicidad del cambio de autorización.** Toda modificación de roles, permisos o estado
    incrementa `identity_users.authorization_version` de los usuarios afectados dentro de la
    misma transacción, de modo que sus sesiones vivas queden invalidadas por el mecanismo que ya
    existe. Un cambio de permisos de un rol afecta a todos sus portadores: la transacción debe
    alcanzarlos a todos, no solo al usuario editado.
-5. **Bloqueo de auto-exclusión.** Según ADR-0027 D4, evaluado dentro de la transacción con
+5. [x] **Bloqueo de auto-exclusión.** Según ADR-0027 D4, evaluado dentro de la transacción con
    `BEGIN IMMEDIATE`, como ya hace el resto del store de autenticación. Dos administradores que
    se retiran el permiso a la vez no pueden dejar el sistema sin administración: la prueba de
    concurrencia es parte del corte, no un extra.
-6. **Auditoría de negocio.** Alta, cambio de rol, cambio de permisos de un rol y desactivación
+6. [x] **Auditoría de negocio.** Alta, cambio de rol, cambio de permisos de un rol y desactivación
    son operaciones sensibles: identifican actor, terminal, timestamp y motivo, con `before` y
    `after` sin credenciales.
-7. **Ownership en LAN.** Según ADR-0027 D5. Como la identidad pertenece al coordinador, el caso
+7. [x] **Ownership en LAN.** Según ADR-0027 D5. Como la identidad pertenece al coordinador, el caso
    de uso no se compone en una terminal y el intento falla con `IDENTITY_NOT_OWNED_BY_NODE`, un
    código estable y no un error genérico.
 
-## Corte 3: contratos HTTP y pantalla de administración
+## Corte 3: contratos HTTP y pantalla de administración — entregado el 2026-09-08
+
+Entregado: `packages/shared/src/http/v1/identity.contracts.ts` con diez contratos,
+`apps/server/src/routes/identity.ts`, la composición en `apps/server/src/runtime.ts` y la
+pantalla `apps/desktop/src/renderer/src/screens/identity.tsx`. El directorio publica
+`ownedByThisNode`, que sale de la misma comprobación que rechaza el comando, para que una
+terminal declare que la administración pertenece al coordinador en vez de ofrecer formularios
+condenados. Los dos caminos de la credencial propia —`PUT /api/v1/auth/pin` y el canje del
+enrolamiento sin sesión— viven en `apps/desktop/src/renderer/src/screens/credential.tsx`, y
+`requirePrincipal` restringe centralmente la sesión con credencial caducada.
 
 1. Publicar `identity.contracts.ts` en `packages/shared/src/http/v1/`, declarando el campo
    `permission` de cada comando. La prueba de contratos lo cruzará contra la constante real; ese
@@ -189,7 +197,17 @@ implementación mínima después.
 6. Cobertura de interacción sobre `jsdom` con el arnés de
    `apps/desktop/src/renderer/src/testing/dom.ts`, como el resto de las pantallas ya cubiertas.
 
-## Corte 4: pruebas de separación real
+## Corte 4: pruebas de separación real — entregado el 2026-09-08
+
+Entregado: `apps/server/src/permission-enforcement.contract.test.ts` recorre los 81 contratos
+con permiso declarado —caso permitido y denegado— derivando cada cuerpo del propio esquema;
+`apps/server/src/routes/identity.contract.test.ts` cubre alta sin acceso, enrolamiento, sesión
+restringida, ownership, último administrador y revocación en vivo;
+`packages/drivers/db/src/identity-administration.integration.test.ts` cubre el invariante bajo
+escrituras que compiten y la atomicidad de `authorization_version`;
+`apps/server/src/routes/identity-confinement.test.ts` barre la base entera buscando PIN y
+tickets. Recorrer todos los contratos encontró una brecha real en `IssueSaleInvoice`, que leía
+la venta antes de que nadie autorizara; corregida en el mismo corte.
 
 Cierra las tres tareas de deuda de la auditoría. No es un corte de retoque: es el que demuestra
 que la fase sirvió para algo.
@@ -223,32 +241,41 @@ que la fase sirvió para algo.
 - [x] CA-11.02-02: una denegación de autorización deja evidencia auditable con actor, permiso,
   terminal, nodo, UTC y correlation ID, sin credenciales. Se confirma en una `UnitOfWork`
   independiente, permanece tras reabrir SQLite y no produce efectos de negocio.
-- [ ] CA-11.02-03: existen `identity.user.manage`, `identity.role.manage` e
+- [x] CA-11.02-03: existen `identity.user.manage`, `identity.role.manage` e
   `identity.credential.reset` como constantes de aplicación, incorporadas a `ADMIN_PERMISSIONS`
   y declaradas por sus contratos.
-- [ ] CA-11.02-04: el administrador da de alta un operador, crea un rol, le asigna permisos, cambia
+- [x] CA-11.02-04: el administrador da de alta un operador, crea un rol, le asigna permisos, cambia
   el rol de un operador y lo desactiva, todo desde la interfaz y sin CLI.
-- [ ] CA-11.02-05: cada cambio de autorización incrementa `authorization_version` de **todos** los
+- [x] CA-11.02-05: cada cambio de autorización incrementa `authorization_version` de **todos** los
   usuarios afectados en la misma transacción, y las sesiones vivas correspondientes quedan
   invalidadas en la siguiente petición.
-- [ ] CA-11.02-06: ningún cambio puede dejar el sistema sin administración; el bloqueo se evalúa
-  dentro de la transacción y resiste dos intentos concurrentes.
-- [ ] CA-11.02-07: el PIN entra solo por el mecanismo de credenciales existente y no aparece en
+- [x] CA-11.02-06: ningún cambio puede dejar el sistema sin administración; el bloqueo se evalúa
+  dentro de la transacción, después de escribir y por efecto, de modo que cubre cualquier forma
+  del cambio. `openDatabase` toma un cerrojo por archivo dentro del proceso, así que la
+  concurrencia se prueba interleaving dos comandos sobre la misma conexión: exactamente uno
+  confirma y siempre queda un administrador. Dos procesos reales quedan cubiertos por
+  `BEGIN IMMEDIATE`, no por esta prueba.
+- [x] CA-11.02-07: el PIN entra solo por el mecanismo de credenciales existente y no aparece en
   respuestas, logs, auditoría ni estado del renderer; hay prueba automatizada de ello.
-- [ ] CA-11.02-08: alta, cambio de rol, cambio de permisos y desactivación quedan auditados con
+- [x] CA-11.02-08: alta, cambio de rol, cambio de permisos y desactivación quedan auditados con
   actor, terminal, timestamp, motivo, `before` y `after`.
-- [ ] CA-11.02-09: existe una prueba de contrato por cada permiso que publican las pantallas de 9B,
-  con caso permitido y denegado.
-- [ ] CA-11.02-10: los comandos y permisos identificados en el corte 1 se prueban sobre SQLite
-  real con decisión auditable antes de efectos de negocio. La especificación aclara si «venta»
-  exige restringir `CompleteSale`; hasta resolverlo, no se considera cubierta esa parte de la
-  deuda por la prueba de `VoidSale` ni se cambia `permission: null`.
-- [ ] CA-11.02-11: un cajero con permisos parciales ve una navegación derivada distinta y el
+- [x] CA-11.02-09: existe una prueba de contrato por cada permiso que publican las pantallas de 9B,
+  con caso permitido y denegado. La prueba recorre **todos** los contratos que declaran permiso,
+  no solo los de 9B, de modo que un endpoint nuevo no puede nacer sin cobertura.
+- [x] CA-11.02-10: los comandos y permisos identificados en el corte 1 se prueban sobre SQLite
+  real con decisión auditable antes de efectos de negocio. La especificación resolvió la
+  ambigüedad el 2026-09-08: completar una venta **no** exige permiso adicional y
+  `completeSaleContract` conserva `permission: null`, con su justificación; restringir el cobro
+  en el futuro sería una decisión normativa propia.
+- [x] CA-11.02-11: un cajero con permisos parciales ve una navegación derivada distinta y el
   servidor rechaza igual lo que la interfaz oculta.
-- [ ] CA-11.02-12: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes; las pruebas arquitectónicas
-  de fronteras pasan; la especificación 11.02 y el cronograma reflejan lo entregado.
-- [ ] CA-11.02-14: los dos caminos de restablecimiento de PIN de ADR-0027 D3 funcionan y están
-  separados por permiso; una credencial marcada para cambio produce una sesión que solo puede
+- [x] CA-11.02-12: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes —170 archivos y 1114
+  pruebas el 2026-09-08—; las pruebas arquitectónicas de fronteras pasan, ampliadas con sondas
+  de capa para identidad; la especificación 11.02 y el cronograma reflejan lo entregado.
+- [x] CA-11.02-14: los dos caminos de restablecimiento de PIN funcionan y están separados por
+  permiso —caducidad con `identity.user.manage` y enrolamiento con `identity.credential.reset`,
+  que [ADR-0028](../../architecture/adr/0028-enrolamiento-local-de-credenciales.md) puso en
+  lugar del PIN temporal de ADR-0027 D3—; una credencial marcada para cambio produce una sesión que solo puede
   cambiar el PIN o cerrar sesión, y cualquier otra petición recibe `AUTH_PIN_CHANGE_REQUIRED`.
   El cambio propio exige el PIN actual. Ningún camino registra, devuelve ni muestra un PIN.
 - [x] CA-11.02-13: el ADR define destinatarios y mecanismo de habilitación de los permisos de

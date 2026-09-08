@@ -108,8 +108,10 @@ trabajo futuro. La Fase 12 conserva la optimización medida y la Fase 8 sigue su
 
 D1–D5 quedaron respondidas el 2026-09-08 en
 [ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md), aceptado: 11.02 ya no
-está bloqueada por ellas. D7–D9 siguen abiertas y sus respuestas no se inventan en la
-implementación. D6 conserva su identificador por trazabilidad, pero es una restricción ya
+está bloqueada por ellas. D7–D9 quedaron respondidas el mismo día en
+[ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md), aceptado: 11.04 ya no
+está bloqueada por decisiones, solo por implementación.
+D6 conserva su identificador por trazabilidad, pero es una restricción ya
 fijada por fuentes superiores y no bloquea 11.03. Los cortes independientes conservan los
 prerrequisitos de sus planes.
 
@@ -156,7 +158,28 @@ había previsto.
   futura requeriría cambiar las fuentes normativas aplicables, no solo ampliar ADR-0011 desde
   este plan. La falta de validación en código no reabre la decisión de arquitectura.
 
-### Bloquean 11.04
+### Cerradas para 11.04 por ADR-0029 el 2026-09-08
+
+Las tres decisiones tienen respuesta normativa en
+[ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md). Se resumen aquí para
+trazabilidad; la fuente es el ADR.
+
+- **D7 — cifrado en reposo.** No se cifra el archivo SQLite operativo ni se adopta SQLCipher: en
+  un servicio desatendido la clave estaría al alcance del mismo atacante que hoy puede leer el
+  archivo, así que compraría una promesa y no una protección. La protección real es la ACL del
+  directorio de datos verificada en arranque —fail closed— más cifrado AES-256-GCM de respaldos
+  y secretos de configuración, con la clave custodiada por el almacén del sistema operativo y
+  nunca junto al ciphertext. El ADR declara explícitamente lo que no protege.
+- **D8 — retención.** Cinco respaldos de migración, 30 días de logs técnicos, 7 días de
+  artefactos de diagnóstico, 30 días para sesiones cerradas y tickets de enrolamiento
+  consumidos. `audit_log` no se purga: es evidencia. El acceso se limita a la cuenta de servicio
+  y a los administradores locales.
+- **D9 — rotación.** Rotan la clave de cifrado —anual o ante sospecha, conservando la anterior
+  hasta que caduque el último respaldo que cifró— y el material TLS de LAN al vencer. La
+  identidad de nodo no rota, porque es trazabilidad y no secreto; el PIN no caduca por tiempo y
+  se caduca por decisión auditada. La rotación se ejecuta en la máquina y no se expone por HTTP.
+
+### Redacción original de las preguntas D7–D9
 
 - **D7 — cifrado en reposo.** ¿Se cifra el archivo SQLite —lo que implica una dependencia nueva
   del tipo SQLCipher y su justificación documentada—, o la protección se apoya en ACL del
@@ -173,8 +196,12 @@ había previsto.
 
 D1–D5 quedaron registradas el 2026-09-08 en
 [ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md), aceptado, incluida la
-transición de bases ya provisionadas. D6 aplica AGENTS.md y ADR-0026 sin un ADR nuevo. D7–D9
-siguen requiriendo un ADR de protección de datos en reposo.
+transición de bases ya provisionadas; el enrolamiento de credenciales que aquel declaró
+pendiente lo cierra
+[ADR-0028](../../architecture/adr/0028-enrolamiento-local-de-credenciales.md), aceptado el
+2026-09-08. D6 aplica AGENTS.md y ADR-0026 sin un ADR nuevo. D7–D9 quedaron registradas el
+2026-09-08 en [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md),
+aceptado; escribirlo no completa 11.04, que sigue pendiente de implementación.
 Primero el ADR, después la implementación: no se mantienen dos especificaciones independientes.
 
 ## Gates de ejecución que permanecen
