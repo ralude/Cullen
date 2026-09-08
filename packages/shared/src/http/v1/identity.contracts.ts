@@ -31,6 +31,12 @@ export type IdentityDirectoryResponse = {
   readonly operators: readonly IdentityOperatorResponse[];
   readonly roles: readonly IdentityRoleResponse[];
   readonly permissionCodes: readonly string[];
+  /**
+   * Si este nodo administra la identidad o solo la recibe del coordinador.
+   * La interfaz lo usa para no ofrecer una capacidad que el nodo no tiene;
+   * el servidor vuelve a rechazar el comando de todos modos.
+   */
+  readonly ownedByThisNode: boolean;
 };
 
 export type CreateOperatorRequest = {
@@ -130,11 +136,12 @@ export const getIdentityDirectoryContract = {
     response: {
       200: {
         type: 'object', additionalProperties: false,
-        required: ['operators', 'roles', 'permissionCodes'],
+        required: ['operators', 'roles', 'permissionCodes', 'ownedByThisNode'],
         properties: {
           operators: { type: 'array', items: operatorSchema },
           roles: { type: 'array', items: roleSchema },
-          permissionCodes: { type: 'array', items: { type: 'string' } }
+          permissionCodes: { type: 'array', items: { type: 'string' } },
+          ownedByThisNode: { type: 'boolean' }
         }
       },
       401: problemDetailsSchema, 403: problemDetailsSchema

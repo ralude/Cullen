@@ -109,7 +109,9 @@ describe('reports screen over simulated HTTP transport', () => {
       currentSession: async () => { throw new Error('unused'); },
       login: async () => { throw new Error('unused'); },
       logout: async () => undefined,
-      capabilities: async () => ({ fiscalMode: 'SIMULATION' as const, simulatedReportsEnabled: false })
+      capabilities: async () => ({ fiscalMode: 'SIMULATION' as const, simulatedReportsEnabled: false }),
+      changeOwnPin: async () => undefined,
+      completeCredentialEnrollment: async () => ({ operatorCode: 'OP001' })
     } satisfies DesktopApi, {
       getSale: vi.fn(), startSale: vi.fn(), addSaleItem: vi.fn(), removeSaleItem: vi.fn(),
       applySaleDiscount: vi.fn(), registerSalePayments: vi.fn(), completeSale: vi.fn(), returnSale: vi.fn(), issueSaleInvoice: vi.fn(), createCashRegister: vi.fn(),
@@ -122,7 +124,11 @@ describe('reports screen over simulated HTTP transport', () => {
       savePaymentMethod: vi.fn(), activateDiscountPolicy: vi.fn(), activateTaxPolicy: vi.fn(),
       getSalesReport: vi.fn(), getInventoryReport: vi.fn(), getShift: vi.fn(), getSaleHistory: vi.fn(),
       startPurchaseReceipt: vi.fn(), completePurchaseReceipt: vi.fn(), reversePurchaseReceipt: vi.fn(),
-      getCurrentExchangeRate: vi.fn(), getExchangeRateHistory: vi.fn(), getSuggestedExchangeRate: vi.fn(), updateExchangeRate: vi.fn(), printXReport: vi.fn(), printZReport: vi.fn(), listCategories: vi.fn(), listUnitsOfMeasure: vi.fn(), listPaymentMethods: vi.fn(), listCashRegisters: vi.fn(), listSuppliers: vi.fn(), createSupplier: vi.fn(), updateSupplier: vi.fn(), changeSupplierStatus: vi.fn(), correctSupplierTaxIdentity: vi.fn(), openStockCount: vi.fn(), recordStockCountLine: vi.fn(), closeStockCount: vi.fn(), approveStockCount: vi.fn(), rejectStockCount: vi.fn(), getStockCount: vi.fn(), listStockCounts: vi.fn(), createBranch: vi.fn(), updateBranch: vi.fn(), changeBranchStatus: vi.fn(), getBranch: vi.fn(), listBranches: vi.fn(), declareDevice: vi.fn(), updateDevice: vi.fn(), changeDeviceStatus: vi.fn(), listDevices: vi.fn(), getSyncStatus: vi.fn(), listSyncNodes: vi.fn(), listCoordinatedOperations: vi.fn()
+      getCurrentExchangeRate: vi.fn(), getExchangeRateHistory: vi.fn(), getSuggestedExchangeRate: vi.fn(), updateExchangeRate: vi.fn(), printXReport: vi.fn(), printZReport: vi.fn(), listCategories: vi.fn(), listUnitsOfMeasure: vi.fn(), listPaymentMethods: vi.fn(), listCashRegisters: vi.fn(), listSuppliers: vi.fn(), createSupplier: vi.fn(), updateSupplier: vi.fn(), changeSupplierStatus: vi.fn(), correctSupplierTaxIdentity: vi.fn(), openStockCount: vi.fn(), recordStockCountLine: vi.fn(), closeStockCount: vi.fn(), approveStockCount: vi.fn(), rejectStockCount: vi.fn(), getStockCount: vi.fn(), listStockCounts: vi.fn(), createBranch: vi.fn(), updateBranch: vi.fn(), changeBranchStatus: vi.fn(), getBranch: vi.fn(), listBranches: vi.fn(), declareDevice: vi.fn(), updateDevice: vi.fn(), changeDeviceStatus: vi.fn(), listDevices: vi.fn(), getSyncStatus: vi.fn(), listSyncNodes: vi.fn(), listCoordinatedOperations: vi.fn(),
+      getIdentityDirectory: vi.fn(), createOperator: vi.fn(), updateOperator: vi.fn(),
+      changeOperatorStatus: vi.fn(), assignOperatorRoles: vi.fn(), expireOperatorCredential: vi.fn(),
+      createRole: vi.fn(), updateRolePermissions: vi.fn(), changeRoleStatus: vi.fn(),
+      authorizeCredentialEnrollment: vi.fn()
     }) as OperationApi;
     return api;
   };

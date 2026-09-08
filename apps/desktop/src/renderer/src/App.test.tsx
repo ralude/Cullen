@@ -7,6 +7,16 @@ import {
   type AppViewState, type NodeConnection
 } from './App.js';
 
+/** El shell exige la superficie de sesión; ninguna prueba de render la ejerce. */
+const apiStub = {
+  currentSession: async () => { throw new Error('not used'); },
+  capabilities: async () => ({ fiscalMode: 'SIMULATION' as const, simulatedReportsEnabled: false }),
+  login: async () => { throw new Error('not used'); },
+  logout: async () => undefined,
+  changeOwnPin: async () => undefined,
+  completeCredentialEnrollment: async () => ({ operatorCode: 'OP001' })
+} satisfies DesktopApi;
+
 const render = (state: AppViewState, route = '#/', connection: NodeConnection = 'online'): string => renderToStaticMarkup(
   <AppView
     state={state}
@@ -20,6 +30,10 @@ const render = (state: AppViewState, route = '#/', connection: NodeConnection = 
     onLogin={() => undefined}
     onLogout={() => undefined}
     onRetry={() => undefined}
+    onPinChanged={() => undefined}
+    showsEnrollment={false}
+    onToggleEnrollment={() => undefined}
+    api={apiStub}
   />
 );
 
@@ -28,7 +42,9 @@ describe('desktop renderer base states', () => {
     currentSession,
     capabilities: async () => ({ fiscalMode: 'SIMULATION', simulatedReportsEnabled: false }),
     login: async () => { throw new Error('not used'); },
-    logout: async () => undefined
+    logout: async () => undefined,
+    changeOwnPin: async () => undefined,
+    completeCredentialEnrollment: async () => ({ operatorCode: 'OP001' })
   });
 
   it('derives signed-out and connection-error states during startup', async () => {

@@ -160,6 +160,11 @@ describe('identity HTTP contracts', () => {
 
     expect(created.statusCode).toBe(409);
     expect(created.json()).toMatchObject({ code: 'IDENTITY_NOT_OWNED_BY_NODE' });
+    /** El directorio publica la misma verdad que hace fallar al comando. */
+    const directory = await app.inject({
+      method: 'GET', url: '/api/v1/identity', headers: { cookie }
+    });
+    expect(directory.json<IdentityDirectoryResponse>().ownedByThisNode).toBe(false);
     /** El enrolamiento sí es local: la terminal conserva esa capacidad. */
     const enrollment = await app.inject({
       method: 'POST', url: '/api/v1/identity/credential-enrollments', headers: { cookie },
@@ -173,7 +178,8 @@ describe('identity HTTP contracts', () => {
     const directory = await app.inject({
       method: 'GET', url: '/api/v1/identity', headers: { cookie }
     });
-    const { operators, roles } = directory.json<IdentityDirectoryResponse>();
+    const { operators, roles, ownedByThisNode } = directory.json<IdentityDirectoryResponse>();
+    expect(ownedByThisNode).toBe(true);
     const administrator = operators.find((operator) => operator.operatorCode === 'OP001');
     const adminRole = roles.find((role) => role.code === 'ADMIN');
     expect(administrator).toBeDefined();

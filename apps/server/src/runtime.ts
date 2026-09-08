@@ -266,7 +266,9 @@ export const createSecurityRuntime = (
     identityStore, auditWriter, unitOfWork, ids, clock, coordinatorLink
   );
   const identity = {
-    directory: new application.GetIdentityDirectory(identityStore, authorization),
+    directory: new application.GetIdentityDirectory(
+      identityStore, authorization, identityChanges
+    ),
     createOperator: new application.CreateOperator(
       identityStore, authorization, identityChanges, ids, clock
     ),

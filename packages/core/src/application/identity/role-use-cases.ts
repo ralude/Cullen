@@ -176,7 +176,8 @@ export class ChangeRoleStatus extends RoleCommand {
 export class GetIdentityDirectory {
   constructor(
     private readonly store: IdentityAdministrationStore,
-    private readonly authorization: AuthorizationService
+    private readonly authorization: AuthorizationService,
+    private readonly changes: IdentityChangeTransaction
   ) {}
 
   async execute(context: ExecutionContext): Promise<Result<IdentityDirectoryDto, AppError>> {
@@ -188,7 +189,8 @@ export class GetIdentityDirectory {
     return ok({
       operators: (await this.store.listOperators()).map(toOperatorDto),
       roles: (await this.store.listRoles()).map(toRoleDto),
-      permissionCodes: await this.store.listPermissionCodes()
+      permissionCodes: await this.store.listPermissionCodes(),
+      ownedByThisNode: this.changes.ownershipError() === null
     });
   }
 }

@@ -34,6 +34,12 @@ export type IdentityDirectoryDto = {
   readonly operators: readonly IdentityOperatorDto[];
   readonly roles: readonly IdentityRoleDto[];
   readonly permissionCodes: readonly string[];
+  /**
+   * Si este nodo administra la identidad o solo la recibe del coordinador
+   * (ADR-0027 D5). Lo publica la misma autoridad que rechaza el comando, para
+   * que la interfaz pueda decir la verdad en vez de deducirla.
+   */
+  readonly ownedByThisNode: boolean;
 };
 
 export type CreateOperatorInput = {

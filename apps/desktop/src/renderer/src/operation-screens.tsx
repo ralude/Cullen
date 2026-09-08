@@ -13,6 +13,7 @@ import { SalesScreen } from './screens/sales.js';
 import { SuppliersScreen } from './screens/suppliers.js';
 import { StockCountsScreen } from './screens/stock-counts.js';
 import { ConfigScreen } from './screens/config.js';
+import { IdentityScreen } from './screens/identity.js';
 import { SyncScreen } from './screens/sync.js';
 import type { ScreenProps } from './screens/shared.js';
 
@@ -24,6 +25,7 @@ export const routeScreen = (routeId: string, props: ScreenProps): React.JSX.Elem
   if (routeId === 'suppliers') return <SuppliersScreen {...props} />;
   if (routeId === 'counts') return <StockCountsScreen {...props} />;
   if (routeId === 'config') return <ConfigScreen {...props} />;
+  if (routeId === 'identity') return <IdentityScreen {...props} />;
   if (routeId === 'reports') return <ReportsScreen {...props} />;
   if (routeId === 'rates') return <CurrencyScreen {...props} />;
   if (routeId === 'sync') return <SyncScreen {...props} />;
@@ -48,6 +50,10 @@ export {
   StockCountsScreen, canWorkOnStockCounts, STOCK_COUNT_STATUS_LABELS
 } from './screens/stock-counts.js';
 export { ConfigScreen, canManageConfig, DEVICE_TYPE_LABELS } from './screens/config.js';
+export {
+  IdentityScreen, canAdministerIdentity, localAccessOf, toggleCode,
+  LOCAL_ACCESS_HINTS, LOCAL_ACCESS_LABELS, type LocalAccessState
+} from './screens/identity.js';
 export {
   ReportsScreen, loadOperationalReports, shiftOptionLabel, toCsv, toReportQuery,
   type OperationalReports

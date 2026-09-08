@@ -25,8 +25,10 @@ import {
   type SessionResponse
 } from '@supermarket/shared';
 import { ApiProblemError, createDesktopApi, type DesktopApi, type OperationApi } from './api-client.js';
+import { CredentialEnrollmentPanel, MandatoryPinChange } from './screens/credential.js';
 import {
-  canManageConfig, canManageSuppliers, canReviewSync, canWorkOnStockCounts, routeScreen
+  canAdministerIdentity, canManageConfig, canManageSuppliers, canReviewSync,
+  canWorkOnStockCounts, routeScreen
 } from './operation-screens.js';
 
 export const PRODUCT_NAME = 'Cullen';
@@ -130,6 +132,12 @@ const ROUTES: readonly AppRoute[] = [
     isReachable: canManageConfig
   },
   {
+    id: 'identity', hash: '#/identity', label: 'Identidad', title: 'Operadores y roles',
+    shortcut: 'i',
+    description: 'Alta de operadores, roles, permisos y enrolamiento de credenciales.',
+    isReachable: canAdministerIdentity
+  },
+  {
     id: 'sync', hash: '#/sync', label: 'Sync', title: 'Sincronización entre nodos',
     shortcut: 's',
     description: 'Estado del enlace, antigüedad de las referencias y operaciones pendientes.',
@@ -153,7 +161,7 @@ const NAVIGATION_GROUPS: readonly NavigationGroup[] = [
   { label: 'General', routes: ROUTES.filter(({ id }) => id === 'home') },
   { label: 'Caja', routes: ROUTES.filter(({ id }) => ['sales', 'cash', 'catalog'].includes(id)) },
   { label: 'Inventario', routes: ROUTES.filter(({ id }) => ['inventory', 'suppliers', 'counts'].includes(id)) },
-  { label: 'Administración', routes: ROUTES.filter(({ id }) => ['config', 'rates'].includes(id)) },
+  { label: 'Administración', routes: ROUTES.filter(({ id }) => ['config', 'rates', 'identity'].includes(id)) },
   { label: 'Supervisión y gerencia', routes: ROUTES.filter(({ id }) => ['reports', 'sync'].includes(id)) }
 ];
 
@@ -268,7 +276,11 @@ type AppViewProps = {
   readonly onLogin: (event: FormEvent<HTMLFormElement>) => void;
   readonly onLogout: () => void;
   readonly onRetry: () => void;
-  readonly api?: DesktopApi;
+  /** La sesión se relee: quien manda sobre el estado restringido es el nodo. */
+  readonly onPinChanged: () => void;
+  readonly showsEnrollment: boolean;
+  readonly onToggleEnrollment: () => void;
+  readonly api: DesktopApi;
 };
 
 const Brand = (): React.JSX.Element => (
@@ -323,6 +335,9 @@ export const AppView = ({
   onLogin,
   onLogout,
   onRetry,
+  onPinChanged,
+  showsEnrollment,
+  onToggleEnrollment,
   api
 }: AppViewProps): React.JSX.Element => {
   if (state.kind === 'loading') {
@@ -392,8 +407,28 @@ export const AppView = ({
           </label>
           {state.message && <p className="form-error" role="alert">{state.message}</p>}
           <button className="primary-button" type="submit">Ingresar</button>
+          <button type="button" onClick={onToggleEnrollment}>
+            {showsEnrollment ? 'Volver al ingreso' : 'Tengo un código de enrolamiento'}
+          </button>
         </form>
+        {showsEnrollment && <CredentialEnrollmentPanel api={api} />}
       </main>
+    );
+  }
+
+  /**
+   * Sesión con credencial caducada: el nodo solo admite cambiar el PIN y cerrar
+   * sesión (ADR-0028 D9). Ofrecer la operación normal sería simular una
+   * capacidad que el servidor ya rechaza.
+   */
+  if (state.session.credentialMustChange) {
+    return (
+      <MandatoryPinChange
+        api={api}
+        displayName={state.session.displayName}
+        onChanged={onPinChanged}
+        onLogout={onLogout}
+      />
     );
   }
 
@@ -445,12 +480,10 @@ export const AppView = ({
         <section className="workspace-content" aria-labelledby="workspace-title">
           <ScreenErrorBoundary key={route.id}>
             {isRouteReachable(route, state.session.permissionCodes)
-              ? (api
-                ? routeScreen(route.id, {
-                  api: api as OperationApi, capabilities: state.capabilities,
-                  permissionCodes: state.session.permissionCodes
-                })
-                : null) ?? (
+              ? routeScreen(route.id, {
+                api: api as OperationApi, capabilities: state.capabilities,
+                permissionCodes: state.session.permissionCodes
+              }) ?? (
                 <HomeScreen capabilities={state.capabilities} permissionCodes={state.session.permissionCodes} />
               )
               : (
@@ -476,6 +509,7 @@ export const App = ({ api = defaultApi }: { readonly api?: DesktopApi }): React.
   const [connection, setConnection] = useState<NodeConnection>('checking');
   const [operatorCode, setOperatorCode] = useState('');
   const [pin, setPin] = useState('');
+  const [showsEnrollment, setShowsEnrollment] = useState(false);
   const [route, setRoute] = useState(() => resolveRoute(
     typeof window === 'undefined' ? '#/' : window.location.hash || '#/'
   ));
@@ -551,6 +585,9 @@ export const App = ({ api = defaultApi }: { readonly api?: DesktopApi }): React.
       onLogin={(event) => { void login(event); }}
       onLogout={() => { void logout(); }}
       onRetry={() => { void loadSession(); }}
+      onPinChanged={() => { void loadSession(); }}
+      showsEnrollment={showsEnrollment}
+      onToggleEnrollment={() => setShowsEnrollment((value) => !value)}
       api={api}
     />
   );

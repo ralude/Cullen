@@ -457,3 +457,8 @@ td small { margin-top: 3px; color: #718078; }
   .is-busy::after,
   tr.is-new { animation: none; }
 }
+
+.panel fieldset { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin: 0; padding: 12px 14px; border: 1px solid #dbe4de; border-radius: 8px; }
+.panel legend { padding: 0 6px; color: #33443b; font-weight: 750; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.checkbox-row input { width: auto; min-height: auto; }

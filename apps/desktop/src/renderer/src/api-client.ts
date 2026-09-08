@@ -71,6 +71,18 @@ import {
   savePaymentMethodContract,
   activateDiscountPolicyContract,
   activateTaxPolicyContract,
+  getIdentityDirectoryContract,
+  createOperatorContract,
+  updateOperatorContract,
+  changeOperatorStatusContract,
+  assignOperatorRolesContract,
+  expireOperatorCredentialContract,
+  createRoleContract,
+  updateRolePermissionsContract,
+  changeRoleStatusContract,
+  authorizeCredentialEnrollmentContract,
+  changeOwnPinContract,
+  completeCredentialEnrollmentContract,
   logoutContract,
   startSaleContract,
   createProductContract,
@@ -156,7 +168,22 @@ import {
   type SyncNodeResponse,
   type CategoryResponse,
   type PaymentMethodResponse,
-  type UnitOfMeasureResponse
+  type UnitOfMeasureResponse,
+  type IdentityDirectoryResponse,
+  type IdentityOperatorResponse,
+  type IdentityRoleResponse,
+  type CreateOperatorRequest,
+  type UpdateOperatorRequest,
+  type ChangeOperatorStatusRequest,
+  type AssignOperatorRolesRequest,
+  type ExpireOperatorCredentialRequest,
+  type CreateRoleRequest,
+  type UpdateRolePermissionsRequest,
+  type ChangeRoleStatusRequest,
+  type AuthorizeCredentialEnrollmentRequest,
+  type CredentialEnrollmentResponse,
+  type ChangeOwnPinRequest,
+  type CompleteCredentialEnrollmentRequest
 } from '@supermarket/shared';
 
 export class ApiProblemError extends Error {
@@ -552,6 +579,74 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
     fetcher, printSimulatedZReportContract.path,
     { method: printSimulatedZReportContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
   ),
+  /**
+   * Administración de identidad. Ninguna de estas llamadas transporta un PIN
+   * ajeno: el enrolamiento devuelve un ticket de un solo uso que el operador
+   * canjea por su propio PIN en la terminal donde va a trabajar (ADR-0028).
+   */
+  getIdentityDirectory: (): Promise<IdentityDirectoryResponse> => requestJson(
+    fetcher, getIdentityDirectoryContract.path, { method: getIdentityDirectoryContract.method }
+  ),
+  createOperator: (input: CreateOperatorRequest): Promise<IdentityOperatorResponse> => requestJson(
+    fetcher, createOperatorContract.path,
+    { method: createOperatorContract.method, body: JSON.stringify(input) }
+  ),
+  updateOperator: (
+    userId: string, input: UpdateOperatorRequest
+  ): Promise<IdentityOperatorResponse> => requestJson(
+    fetcher, path(updateOperatorContract.path, userId),
+    { method: updateOperatorContract.method, body: JSON.stringify(input) }
+  ),
+  changeOperatorStatus: (
+    userId: string, input: ChangeOperatorStatusRequest
+  ): Promise<IdentityOperatorResponse> => requestJson(
+    fetcher, path(changeOperatorStatusContract.path, userId),
+    { method: changeOperatorStatusContract.method, body: JSON.stringify(input) }
+  ),
+  assignOperatorRoles: (
+    userId: string, input: AssignOperatorRolesRequest
+  ): Promise<IdentityOperatorResponse> => requestJson(
+    fetcher, path(assignOperatorRolesContract.path, userId),
+    { method: assignOperatorRolesContract.method, body: JSON.stringify(input) }
+  ),
+  expireOperatorCredential: (
+    userId: string, input: ExpireOperatorCredentialRequest
+  ): Promise<void> => requestJson(
+    fetcher, path(expireOperatorCredentialContract.path, userId),
+    { method: expireOperatorCredentialContract.method, body: JSON.stringify(input) }
+  ),
+  createRole: (input: CreateRoleRequest): Promise<IdentityRoleResponse> => requestJson(
+    fetcher, createRoleContract.path,
+    { method: createRoleContract.method, body: JSON.stringify(input) }
+  ),
+  updateRolePermissions: (
+    roleId: string, input: UpdateRolePermissionsRequest
+  ): Promise<IdentityRoleResponse> => requestJson(
+    fetcher, path(updateRolePermissionsContract.path, roleId),
+    { method: updateRolePermissionsContract.method, body: JSON.stringify(input) }
+  ),
+  changeRoleStatus: (
+    roleId: string, input: ChangeRoleStatusRequest
+  ): Promise<IdentityRoleResponse> => requestJson(
+    fetcher, path(changeRoleStatusContract.path, roleId),
+    { method: changeRoleStatusContract.method, body: JSON.stringify(input) }
+  ),
+  authorizeCredentialEnrollment: (
+    input: AuthorizeCredentialEnrollmentRequest
+  ): Promise<CredentialEnrollmentResponse> => requestJson(
+    fetcher, authorizeCredentialEnrollmentContract.path,
+    { method: authorizeCredentialEnrollmentContract.method, body: JSON.stringify(input) }
+  ),
+  changeOwnPin: (input: ChangeOwnPinRequest): Promise<void> => requestJson(
+    fetcher, changeOwnPinContract.path,
+    { method: changeOwnPinContract.method, body: JSON.stringify(input) }
+  ),
+  completeCredentialEnrollment: (
+    input: CompleteCredentialEnrollmentRequest
+  ): Promise<{ readonly operatorCode: string }> => requestJson(
+    fetcher, completeCredentialEnrollmentContract.path,
+    { method: completeCredentialEnrollmentContract.method, body: JSON.stringify(input) }
+  ),
   listCategories: (): Promise<readonly CategoryResponse[]> => requestJson(
     fetcher, listCategoriesContract.path, { method: listCategoriesContract.method }
   ),
@@ -586,6 +681,16 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
 });
 
 type FullDesktopApi = ReturnType<typeof createDesktopApi>;
-export type DesktopApi = Pick<FullDesktopApi, 'currentSession' | 'login' | 'logout' | 'capabilities'> &
-  Partial<Omit<FullDesktopApi, 'currentSession' | 'login' | 'logout' | 'capabilities'>>;
-export type OperationApi = Required<Omit<DesktopApi, 'currentSession' | 'login' | 'logout' | 'capabilities'>>;
+
+/**
+ * Superficie del ciclo de vida de la sesión: siempre presente porque el shell
+ * la necesita antes de conocer ningún permiso. Cambiar el PIN propio y canjear
+ * un enrolamiento entran aquí y no en las pantallas: la primera es lo único que
+ * una sesión con credencial caducada puede hacer y la segunda ocurre cuando
+ * todavía no hay sesión (ADR-0028).
+ */
+type SessionApiKeys = 'currentSession' | 'login' | 'logout' | 'capabilities'
+  | 'changeOwnPin' | 'completeCredentialEnrollment';
+export type DesktopApi = Pick<FullDesktopApi, SessionApiKeys> &
+  Partial<Omit<FullDesktopApi, SessionApiKeys>>;
+export type OperationApi = Required<Omit<DesktopApi, SessionApiKeys>>;

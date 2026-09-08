@@ -90,7 +90,7 @@ describe('identity administration over SQLite', () => {
         createRole: new CreateRole(store, authorization, changes, ids),
         updateRolePermissions: new UpdateRolePermissions(store, authorization, changes),
         changeRoleStatus: new ChangeRoleStatus(store, authorization, changes),
-        directory: new GetIdentityDirectory(store, authorization),
+        directory: new GetIdentityDirectory(store, authorization, changes),
         authorizeEnrollment: new AuthorizeCredentialEnrollment(
           store, authorization, tokens, auditWriter, unitOfWork, ids, clock
         ),
