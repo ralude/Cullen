@@ -6,6 +6,7 @@ import {
   HttpsSyncEventPublisher,
   loadNodeIdentity
 } from '@supermarket/driver-security';
+import { migrateNodeDatabase, readNodeStorage } from './node-storage.ts';
 import { createSecurityRuntime } from './runtime.ts';
 import { resolveOperatorHost } from './session-transport.ts';
 import { createDestinationRelays, fixedDestination } from './sync/destination-relays.ts';
@@ -22,8 +23,17 @@ const host = resolveOperatorHost();
 const port = Number.parseInt(process.env.SERVER_PORT ?? '3000', 10);
 const nodeIdentity = loadNodeIdentity(process.env.NODE_IDENTITY_PATH);
 const clientConfiguration = readSyncClientConfiguration();
+
+/**
+ * Actualización recuperable antes de componer nada: respalda, valida y, si la
+ * validación falla, restaura y aborta. Un nodo no atiende con una base a medio
+ * migrar ni migra sin poder respaldar (ADR-0029, 11.04).
+ */
+const storage = readNodeStorage();
+migrateNodeDatabase(storage);
+
 const runtime = createSecurityRuntime(
-  process.env.DATABASE_PATH ?? 'supermarket-node.sqlite',
+  storage.databasePath,
   nodeIdentity,
   {
     ...(process.env.FISCAL_EXECUTION_TARGET
