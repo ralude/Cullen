@@ -45,7 +45,7 @@ export const currentAccountSid = (): string => {
 const readAccess = (directory: string): readonly AccessEntry[] => {
   const script = [
     '$ErrorActionPreference = \'Stop\';',
-    `$acl = Get-Acl -LiteralPath ${literal(directory)};`,
+    `$acl = ([System.IO.DirectoryInfo]::new(${literal(directory)})).GetAccessControl();`,
     '$entries = @($acl.Access | ForEach-Object {',
     '  $id = $_.IdentityReference;',
     '  $sid = if ($id -is [System.Security.Principal.SecurityIdentifier])',
