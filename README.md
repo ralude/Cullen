@@ -207,21 +207,37 @@ pnpm install
 # Verificación completa
 pnpm pipeline
 
-# Nodo servidor (Fastify + SQLite)
-pnpm --filter @supermarket/server bootstrap-admin:dev   # provisiona el administrador inicial
-pnpm --filter @supermarket/server dev
+# 1. Administrador inicial. Pide código, nombre y PIN en el terminal.
+pnpm --filter @supermarket/server bootstrap-admin:dev
 
-# Catálogo de ejemplo para probar (opcional). Las tres opciones son obligatorias:
+# 2. Configuración operativa: caja, métodos de pago y políticas. Sin esto no hay
+#    turno ni cobro. Ningún valor fiscal tiene default: se declaran al ejecutarlo.
+pnpm --filter @supermarket/server bootstrap-operations:dev -- \
+  --database ./supermarket-node.sqlite --currency USD \
+  --discount-max-basis-points 1500 --igtf-basis-points 300 \
+  --igtf-payment-methods CARD --igtf-currencies USD
+
+# 3. Catálogo de ejemplo para probar (opcional). Las tres opciones son obligatorias:
 pnpm --filter @supermarket/server seed:products \
   --database ./supermarket-node.sqlite --currency USD --tax-rate-basis-points 1600
 
-# Terminal de escritorio (Electron + React)
+# 4. Nodo servidor (Fastify + SQLite)
+pnpm --filter @supermarket/server dev
+
+# 5. Terminal de escritorio (Electron + React)
 pnpm --filter @supermarket/desktop dev
 ```
 
+Los pasos 2 y 3 escriben en la base y exigen que el servidor **no** esté corriendo: SQLite admite
+un solo proceso dueño por nodo y, con el nodo activo, fallan con `DATABASE_NODE_LOCKED`.
+Autenticarse no basta para operar: sin el paso 2, abrir un turno falla con
+`CASH_REGISTER_NOT_FOUND` y cobrar con `POLICY_NOT_CONFIGURED`.
+
 Qué siembra ese catálogo, por qué se puede repetir y qué **no** hace —existencias, usuarios ni
 distribución automática a las terminales— está en
-[la guía de la seed](./docs/operacion/seed-de-catalogo-de-ejemplo.md).
+[la guía de la seed](./docs/operacion/seed-de-catalogo-de-ejemplo.md). El recorrido completo de
+una jornada —abrir caja, vender, facturar, cerrar con arqueo y leer el kardex— está en
+[la guía de operación diaria](./docs/operacion/operacion-diaria.md).
 
 Requiere Node.js 20.6+ (los scripts usan `--env-file` e `--import`; probado en Node 24) y pnpm 11.
 
@@ -303,6 +319,7 @@ docs/
 | [`docs/architecture/adr/`](./docs/architecture/adr) | 21 decisiones arquitectónicas con contexto, alternativas y consecuencias |
 | [`docs/cronograma/README.md`](./docs/cronograma/README.md) | Estado por fase y registro de replanificaciones |
 | [`docs/failure-scenarios/`](./docs/failure-scenarios/README.md) | Qué garantiza el sistema cuando algo falla a mitad de una operación |
+| [`docs/operacion/operacion-diaria.md`](./docs/operacion/operacion-diaria.md) | Recorrido de una jornada: abrir caja, vender, facturar, cerrar con arqueo y leer el kardex |
 | [`AGENTS.md`](./AGENTS.md) | Reglas operativas del proyecto — fuente única para colaboradores humanos y agentes de IA |
 
 ---
