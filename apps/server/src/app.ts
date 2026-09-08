@@ -38,6 +38,7 @@ import { registerStockCountRoutes } from './routes/stock-counts.ts';
 import { registerConfigRoutes } from './routes/config.ts';
 import { registerSyncRoutes } from './routes/sync.ts';
 import { registerIdentityRoutes } from './routes/identity.ts';
+import { sessionTokenOf } from './session-transport.ts';
 
 type FiscalReportUseCase = {
   execute(
@@ -261,10 +262,9 @@ export const requirePrincipal = async (
   dependencies: ServerDependencies,
   options: { readonly allowsPinChangeOnly?: boolean } = {}
 ): Promise<SessionPrincipal | null> => {
-  const cookie = request.headers.cookie?.split(';').map((part) => part.trim())
-    .find((part) => part.startsWith('pos_session='));
-  const rawToken = cookie ? decodeURIComponent(cookie.slice('pos_session='.length)) : '';
-  const result = await dependencies.verifySession.execute(rawToken);
+  const result = await dependencies.verifySession.execute(
+    sessionTokenOf(request.headers.cookie)
+  );
   if (!result.ok) {
     sendProblem(reply, request, 'UNAUTHORIZED', 'Session is invalid.', 401);
     return null;

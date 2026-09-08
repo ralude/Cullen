@@ -7,13 +7,18 @@ import {
   loadNodeIdentity
 } from '@supermarket/driver-security';
 import { createSecurityRuntime } from './runtime.ts';
+import { resolveOperatorHost } from './session-transport.ts';
 import { createDestinationRelays, fixedDestination } from './sync/destination-relays.ts';
 import { readSyncClientConfiguration, readSyncWorkerInterval } from './sync/lan-client.ts';
 import { readSyncListenerConfiguration, toTransportDependencies } from './sync/lan-listener.ts';
 import { buildSyncApp } from './sync/sync-app.ts';
 import { SyncWorker } from './sync/sync-worker.ts';
 
-const host = process.env.SERVER_HOST ?? '127.0.0.1';
+/**
+ * Se resuelve antes de componer nada: un host no permitido aborta el arranque
+ * sin abrir listeners ni tocar la base.
+ */
+const host = resolveOperatorHost();
 const port = Number.parseInt(process.env.SERVER_PORT ?? '3000', 10);
 const nodeIdentity = loadNodeIdentity(process.env.NODE_IDENTITY_PATH);
 const clientConfiguration = readSyncClientConfiguration();

@@ -10,6 +10,7 @@ import {
   type LoginRequest,
   type SessionResponse
 } from '@supermarket/shared';
+import { expiredSessionCookie, sessionCookie, sessionTokenOf } from '../session-transport.ts';
 import {
   createExecutionContext,
   requirePrincipal,
@@ -44,10 +45,7 @@ export const registerAuthRoutes = (app: FastifyInstance, dependencies: ServerDep
     if (!result.ok) {
       return sendProblem(reply, request, 'AUTHENTICATION_FAILED', 'Authentication failed.', 401);
     }
-    reply.header(
-      'set-cookie',
-      `pos_session=${encodeURIComponent(result.value.token)}; HttpOnly; SameSite=Strict; Path=/api/v1; Max-Age=28800`
-    );
+    reply.header('set-cookie', sessionCookie(result.value.token));
     return responseFrom(result.value.principal);
   });
 
@@ -106,12 +104,8 @@ export const registerAuthRoutes = (app: FastifyInstance, dependencies: ServerDep
       request, reply, dependencies, { allowsPinChangeOnly: true }
     );
     if (!principal) return;
-    const cookie = request.headers.cookie?.split(';').map((part) => part.trim())
-      .find((part) => part.startsWith('pos_session='));
-    await dependencies.revokeSession.execute(
-      cookie ? decodeURIComponent(cookie.slice('pos_session='.length)) : ''
-    );
-    reply.header('set-cookie', 'pos_session=; HttpOnly; SameSite=Strict; Path=/api/v1; Max-Age=0');
+    await dependencies.revokeSession.execute(sessionTokenOf(request.headers.cookie));
+    reply.header('set-cookie', expiredSessionCookie());
     return reply.code(204).send();
   });
 };
