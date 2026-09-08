@@ -495,7 +495,9 @@ export const createSecurityRuntime = (
         getSaleHistory: new application.GetSaleHistory(
           eventStore, saleReturnRepository, authorization
         ),
-        issueSaleInvoice: new application.IssueSaleInvoice(saleRepository, issueFiscalDocument)
+        issueSaleInvoice: new application.IssueSaleInvoice(
+          saleRepository, issueFiscalDocument, authorization
+        )
       },
       cash: {
         openShift: new application.OpenShift(

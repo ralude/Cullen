@@ -7,7 +7,7 @@ import { PaymentMethod } from '../../domain/currency/index.js';
 import { createSaleRecipientSnapshot, Payment, Sale } from '../../domain/sales/index.js';
 import type { ExecutionContext } from '../execution-context.js';
 import type { FiscalDocumentDto, IssueFiscalDocumentInput } from '../fiscal/index.js';
-import type { SaleRepository } from '../ports/index.js';
+import type { AuthorizationService, SaleRepository } from '../ports/index.js';
 import { IssueSaleInvoice } from './issue-sale-invoice.js';
 
 const context: ExecutionContext = {
@@ -46,6 +46,11 @@ const completedSale = (): Sale => {
   return sale;
 };
 
+/** Autorización concedida salvo que la prueba diga lo contrario. */
+const authorizationOf = (granted = true): AuthorizationService => ({
+  authorize: async () => granted
+});
+
 const repositoryOf = (sale: Sale | null): SaleRepository => ({
   save: async () => undefined,
   findById: async () => sale
@@ -75,7 +80,7 @@ describe('IssueSaleInvoice', () => {
     const sale = completedSale();
     sale.complete({ completedAt: new Date('2026-08-15T10:02:00.000Z'), eventId: 'event-004' });
     const received: IssueFiscalDocumentInput[] = [];
-    const useCase = new IssueSaleInvoice(repositoryOf(sale), issuerOf(received));
+    const useCase = new IssueSaleInvoice(repositoryOf(sale), issuerOf(received), authorizationOf());
 
     const result = await useCase.execute(
       { saleId: 'sale-001', reason: 'Emisión de factura' }, context
@@ -118,7 +123,7 @@ describe('IssueSaleInvoice', () => {
     });
     sale.complete({ completedAt: new Date('2026-08-15T10:02:00.000Z'), eventId: 'event-004' });
     const received: IssueFiscalDocumentInput[] = [];
-    const useCase = new IssueSaleInvoice(repositoryOf(sale), issuerOf(received));
+    const useCase = new IssueSaleInvoice(repositoryOf(sale), issuerOf(received), authorizationOf());
 
     const result = await useCase.execute({ saleId: 'sale-001', reason: 'Factura' }, context);
 
@@ -130,7 +135,9 @@ describe('IssueSaleInvoice', () => {
 
   it('refuses to invoice a sale that is not completed', async () => {
     const received: IssueFiscalDocumentInput[] = [];
-    const useCase = new IssueSaleInvoice(repositoryOf(completedSale()), issuerOf(received));
+    const useCase = new IssueSaleInvoice(
+      repositoryOf(completedSale()), issuerOf(received), authorizationOf()
+    );
 
     const result = await useCase.execute({ saleId: 'sale-001', reason: 'Factura' }, context);
 
@@ -142,7 +149,7 @@ describe('IssueSaleInvoice', () => {
     const sale = completedSale();
     sale.complete({ completedAt: new Date('2026-08-15T10:02:00.000Z'), eventId: 'event-004' });
     const received: IssueFiscalDocumentInput[] = [];
-    const useCase = new IssueSaleInvoice(repositoryOf(sale), issuerOf(received));
+    const useCase = new IssueSaleInvoice(repositoryOf(sale), issuerOf(received), authorizationOf());
 
     const result = await useCase.execute(
       { saleId: 'sale-001', reason: 'Factura' }, { ...context, terminalId: 'terminal-002' }
@@ -152,12 +159,30 @@ describe('IssueSaleInvoice', () => {
     expect(received).toEqual([]);
   });
 
+  /**
+   * Sin permiso la respuesta no depende de que la venta exista: consultarla
+   * primero convertía la denegación en un `SALE_NOT_FOUND` que revelaba su
+   * existencia y no dejaba evidencia de la decisión.
+   */
+  it('denies before reading the sale, so the answer does not reveal it', async () => {
+    const received: IssueFiscalDocumentInput[] = [];
+    const useCase = new IssueSaleInvoice(
+      repositoryOf(null), issuerOf(received), authorizationOf(false)
+    );
+
+    const result = await useCase.execute({ saleId: 'sale-001', reason: 'Factura' }, context);
+
+    expect(result).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
+    expect(received).toEqual([]);
+  });
+
   it('propagates the fiscal failure without inventing a document', async () => {
     const sale = completedSale();
     sale.complete({ completedAt: new Date('2026-08-15T10:02:00.000Z'), eventId: 'event-004' });
     const useCase = new IssueSaleInvoice(
       repositoryOf(sale),
-      issuerOf([], err(new ApplicationError('FISCAL_DEVICE_OPERATION_PENDING', 'Pending.')))
+      issuerOf([], err(new ApplicationError('FISCAL_DEVICE_OPERATION_PENDING', 'Pending.'))),
+      authorizationOf()
     );
 
     const result = await useCase.execute({ saleId: 'sale-001', reason: 'Factura' }, context);
