@@ -85,7 +85,7 @@ describe('desktop renderer base states', () => {
         actorId: 'user-1', displayName: 'Operador Uno', roleCodes: ['cashier'],
         permissionCodes: ['catalog.product.create'],
         idleExpiresAt: '2026-09-02T18:00:00.000Z',
-        absoluteExpiresAt: '2026-09-03T00:00:00.000Z'
+        absoluteExpiresAt: '2026-09-03T00:00:00.000Z', credentialMustChange: false
       },
       capabilities: { fiscalMode: 'SIMULATION', simulatedReportsEnabled: false }
     };
@@ -107,7 +107,7 @@ describe('desktop renderer base states', () => {
         actorId: 'user-1', displayName: 'Operador Uno', roleCodes: ['cashier'],
         permissionCodes: [],
         idleExpiresAt: '2026-09-02T18:00:00.000Z',
-        absoluteExpiresAt: '2026-09-03T00:00:00.000Z'
+        absoluteExpiresAt: '2026-09-03T00:00:00.000Z', credentialMustChange: false
       },
       capabilities: { fiscalMode: 'SIMULATION', simulatedReportsEnabled: false }
     };
@@ -179,7 +179,7 @@ describe('desktop renderer base states', () => {
         actorId: 'user-1', displayName: 'Operador Uno', roleCodes: ['cashier'],
         permissionCodes: [],
         idleExpiresAt: '2026-09-02T18:00:00.000Z',
-        absoluteExpiresAt: '2026-09-03T00:00:00.000Z'
+        absoluteExpiresAt: '2026-09-03T00:00:00.000Z', credentialMustChange: false
       },
       capabilities: { fiscalMode: 'SIMULATION', simulatedReportsEnabled: false }
     };
@@ -196,7 +196,7 @@ describe('desktop renderer base states', () => {
         actorId: 'user-1', displayName: 'Operador Uno', roleCodes: ['supervisor'],
         permissionCodes: ['reports.cash.read'],
         idleExpiresAt: '2026-09-02T18:00:00.000Z',
-        absoluteExpiresAt: '2026-09-03T00:00:00.000Z'
+        absoluteExpiresAt: '2026-09-03T00:00:00.000Z', credentialMustChange: false
       },
       capabilities: { fiscalMode: 'SIMULATION', simulatedReportsEnabled: false }
     };
@@ -213,7 +213,7 @@ describe('desktop renderer base states', () => {
         actorId: 'user-1', displayName: 'Operador Uno', roleCodes: ['cashier'],
         permissionCodes: [],
         idleExpiresAt: '2026-09-02T18:00:00.000Z',
-        absoluteExpiresAt: '2026-09-03T00:00:00.000Z'
+        absoluteExpiresAt: '2026-09-03T00:00:00.000Z', credentialMustChange: false
       },
       capabilities: { fiscalMode: 'SIMULATION', simulatedReportsEnabled: false }
     };

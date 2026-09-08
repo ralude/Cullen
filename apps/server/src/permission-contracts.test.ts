@@ -34,6 +34,18 @@ import {
   listDevicesContract,
   listOperationalMasterDataContract,
   listStockCountsContract,
+  getIdentityDirectoryContract,
+  createOperatorContract,
+  updateOperatorContract,
+  changeOperatorStatusContract,
+  assignOperatorRolesContract,
+  expireOperatorCredentialContract,
+  createRoleContract,
+  updateRolePermissionsContract,
+  changeRoleStatusContract,
+  authorizeCredentialEnrollmentContract,
+  changeOwnPinContract,
+  completeCredentialEnrollmentContract,
   getSyncStatusContract,
   listPausedDeliveriesContract,
   listSyncDiscrepanciesContract,
@@ -199,6 +211,34 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
     expectedPermission(publishCatalogBootstrapContract, application.SYNC_PERMISSIONS.PUBLISH_REFERENCES);
     expectedPermission(publishOperatorGrantsContract, application.SYNC_PERMISSIONS.PUBLISH_REFERENCES);
     expectedPermission(listCoordinatedOperationsContract, application.SYNC_PERMISSIONS.REVIEW_RECEPTION);
+  });
+
+  it('identidad', () => {
+    expectedPermission(
+      getIdentityDirectoryContract,
+      application.IDENTITY_PERMISSIONS.MANAGE_USERS,
+      application.IDENTITY_PERMISSIONS.MANAGE_ROLES
+    );
+    for (const contract of [createOperatorContract, updateOperatorContract,
+      changeOperatorStatusContract, assignOperatorRolesContract, expireOperatorCredentialContract]) {
+      expectedPermission(contract, application.IDENTITY_PERMISSIONS.MANAGE_USERS);
+    }
+    for (const contract of [createRoleContract, updateRolePermissionsContract,
+      changeRoleStatusContract]) {
+      expectedPermission(contract, application.IDENTITY_PERMISSIONS.MANAGE_ROLES);
+    }
+    expectedPermission(
+      authorizeCredentialEnrollmentContract,
+      application.IDENTITY_PERMISSIONS.RESET_CREDENTIAL
+    );
+    /**
+     * Las dos rutas que un operador ejerce sobre su propia credencial no
+     * declaran permiso: cambiar el PIN propio es parte de tener sesión y
+     * consumir un ticket de enrolamiento ocurre antes de poder tenerla
+     * (ADR-0028).
+     */
+    expect(changeOwnPinContract.permission).toBeNull();
+    expect(completeCredentialEnrollmentContract.permission).toBeNull();
   });
 
   it('venta', () => {

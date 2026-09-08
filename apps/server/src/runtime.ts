@@ -59,6 +59,7 @@ import {
   openDatabase,
   SqliteAuthenticationStore,
   SqliteAuthorizationService,
+  SqliteIdentityAdministrationStore,
   SqliteTransactionState,
   SqliteDiscountPolicyProvider,
   SqliteFinancialTransactionTaxPolicyProvider,
@@ -178,6 +179,7 @@ export const createSecurityRuntime = (
     new SqliteTransactionState(handle.sqlite), ids, clock
   );
   const unitOfWork = new DeferredDenialUnitOfWork(transactions, authorization);
+  const identityStore = new SqliteIdentityAdministrationStore(handle);
   const idempotencyStore = new DrizzleIdempotencyStore(handle);
   const productRepository = new DrizzleProductRepository(handle);
   const catalogReadRepository = new DrizzleCatalogReadRepository(handle);
@@ -222,9 +224,12 @@ export const createSecurityRuntime = (
    * en una terminal exige enlace antes del primer efecto y deja la intencion
    * pendiente de conciliacion hasta tener evidencia de todos sus pasos.
    */
+  const coordinatorLink = new ObservedCoordinatorLink(
+    coordinatorNodeId, syncConnectivity, referenceProjection
+  );
   const coordinatedOperations = new application.CoordinatedStockOperations(
     new SqliteCoordinatedOperationStore(handle),
-    new ObservedCoordinatorLink(coordinatorNodeId, syncConnectivity, referenceProjection),
+    coordinatorLink,
     clock,
     unitOfWork,
     ids,
@@ -252,6 +257,49 @@ export const createSecurityRuntime = (
     outboxStore,
     auditWriter
   ] as const;
+  /**
+   * Administración de identidad. Los comandos de operadores y roles fallan
+   * cerrado cuando este nodo no es dueño de la identidad; el enrolamiento de
+   * credenciales es local y funciona también en una terminal (ADR-0028).
+   */
+  const identityChanges = new application.IdentityChangeTransaction(
+    identityStore, auditWriter, unitOfWork, ids, clock, coordinatorLink
+  );
+  const identity = {
+    directory: new application.GetIdentityDirectory(identityStore, authorization),
+    createOperator: new application.CreateOperator(
+      identityStore, authorization, identityChanges, ids, clock
+    ),
+    updateOperator: new application.UpdateOperator(
+      identityStore, authorization, identityChanges
+    ),
+    changeOperatorStatus: new application.ChangeOperatorStatus(
+      identityStore, authorization, identityChanges
+    ),
+    assignOperatorRoles: new application.AssignOperatorRoles(
+      identityStore, authorization, identityChanges
+    ),
+    createRole: new application.CreateRole(identityStore, authorization, identityChanges, ids),
+    updateRolePermissions: new application.UpdateRolePermissions(
+      identityStore, authorization, identityChanges
+    ),
+    changeRoleStatus: new application.ChangeRoleStatus(
+      identityStore, authorization, identityChanges
+    ),
+    expireCredential: new application.ExpireOperatorCredential(
+      identityStore, authorization, auditWriter, unitOfWork, ids, clock
+    ),
+    authorizeEnrollment: new application.AuthorizeCredentialEnrollment(
+      identityStore, authorization, tokens, auditWriter, unitOfWork, ids, clock
+    ),
+    completeEnrollment: new application.CompleteCredentialEnrollment(
+      identityStore, pinHasher, tokens, auditWriter, unitOfWork, ids, clock
+    ),
+    changeOwnPin: new application.ChangeOwnPin(
+      identityStore, pinHasher, auditWriter, unitOfWork, ids, clock
+    )
+  };
+
   return {
     handle,
     fiscalPrinter,
@@ -339,6 +387,7 @@ export const createSecurityRuntime = (
       revokeSession: new RevokeSession(store, tokens, clock),
       nodeIdentity,
       simulatedReportsEnabled,
+      identity,
       catalog: {
         createProduct: new application.CreateProduct(
           ids, productRepository, categoryRepository, unitRepository, clock,

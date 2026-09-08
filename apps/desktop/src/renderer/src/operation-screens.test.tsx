@@ -30,7 +30,7 @@ const operationApi = (): OperationApi => {
   const base: DesktopApi = {
     currentSession: async () => ({
       actorId: 'actor', displayName: 'Operador', roleCodes: ['cashier'], permissionCodes: [],
-      idleExpiresAt: '', absoluteExpiresAt: ''
+      idleExpiresAt: '', absoluteExpiresAt: '', credentialMustChange: false
     }),
     login: async () => { throw new Error('unused'); },
     logout: async () => undefined,

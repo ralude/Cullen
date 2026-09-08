@@ -37,6 +37,7 @@ import { registerPurchaseReceiptRoutes } from './routes/purchase-receipts.ts';
 import { registerStockCountRoutes } from './routes/stock-counts.ts';
 import { registerConfigRoutes } from './routes/config.ts';
 import { registerSyncRoutes } from './routes/sync.ts';
+import { registerIdentityRoutes } from './routes/identity.ts';
 
 type FiscalReportUseCase = {
   execute(
@@ -178,6 +179,25 @@ export type ServerDependencies = {
     readonly retryDiscrepancy: application.RetrySyncDiscrepancy;
     readonly resolveDiscrepancy: application.ResolveSyncDiscrepancy;
   };
+  /**
+   * Administración de identidad y credenciales locales. El nodo la compone
+   * siempre: los comandos de operadores y roles fallan cerrado en una terminal
+   * (ADR-0027 D5) y el enrolamiento es local por definición (ADR-0028).
+   */
+  readonly identity: {
+    readonly directory: application.GetIdentityDirectory;
+    readonly createOperator: application.CreateOperator;
+    readonly updateOperator: application.UpdateOperator;
+    readonly changeOperatorStatus: application.ChangeOperatorStatus;
+    readonly assignOperatorRoles: application.AssignOperatorRoles;
+    readonly createRole: application.CreateRole;
+    readonly updateRolePermissions: application.UpdateRolePermissions;
+    readonly changeRoleStatus: application.ChangeRoleStatus;
+    readonly expireCredential: application.ExpireOperatorCredential;
+    readonly authorizeEnrollment: application.AuthorizeCredentialEnrollment;
+    readonly completeEnrollment: application.CompleteCredentialEnrollment;
+    readonly changeOwnPin: application.ChangeOwnPin;
+  };
   readonly close?: () => void | Promise<void>;
 };
 
@@ -195,7 +215,16 @@ const statusFor = (code: string): number => {
     return 409;
   }
   if (code === 'SUPPLIER_NOT_ACTIVE') return 409;
-  if (code.endsWith('_IN_USE')) return 409;
+  /**
+   * La identidad rechaza por conflicto de estado, no por entrada inválida: el
+   * código ya está tomado, el invariante no admite el cambio, el nodo no es
+   * dueño o el ticket de enrolamiento ya no es utilizable.
+   */
+  if (code === 'IDENTITY_LAST_ADMINISTRATOR' || code === 'IDENTITY_NOT_OWNED_BY_NODE') return 409;
+  if (code === 'IDENTITY_ENROLLMENT_EXPIRED' || code === 'IDENTITY_ENROLLMENT_CONSUMED') return 409;
+  if (code === 'IDENTITY_ENROLLMENT_NODE_MISMATCH') return 409;
+  if (code === 'AUTH_PIN_CHANGE_REQUIRED') return 403;
+  if (code.endsWith('_TAKEN') || code.endsWith('_IN_USE')) return 409;
   if (code === 'PURCHASE_RECEIPT_SOURCE_DUPLICATED' || code === 'PURCHASE_RECEIPT_NOT_DRAFT') return 409;
   if (code === 'SHIFT_HAS_OPEN_SALES') return 409;
   if (code === 'POLICY_NOT_CONFIGURED') return 409;
@@ -221,10 +250,16 @@ export const sendProblem = (
   return reply.code(status).type('application/problem+json').send(body);
 };
 
+/**
+ * Resuelve el principal de la sesión y aplica aquí —una sola vez, no ruta por
+ * ruta— la restricción de credencial marcada para cambio (ADR-0027 D3). Solo
+ * cambiar el PIN y cerrar sesión declaran `allowsPinChangeOnly`.
+ */
 export const requirePrincipal = async (
   request: FastifyRequest,
   reply: FastifyReply,
-  dependencies: ServerDependencies
+  dependencies: ServerDependencies,
+  options: { readonly allowsPinChangeOnly?: boolean } = {}
 ): Promise<SessionPrincipal | null> => {
   const cookie = request.headers.cookie?.split(';').map((part) => part.trim())
     .find((part) => part.startsWith('pos_session='));
@@ -235,6 +270,12 @@ export const requirePrincipal = async (
     return null;
   }
   principals.set(request, result.value);
+  if (result.value.credentialMustChange && options.allowsPinChangeOnly !== true) {
+    sendProblem(
+      reply, request, 'AUTH_PIN_CHANGE_REQUIRED', 'The operator must change the PIN first.', 403
+    );
+    return null;
+  }
   return result.value;
 };
 
@@ -367,6 +408,7 @@ export const buildApp = (
     registerStockCountRoutes(app, dependencies);
     registerConfigRoutes(app, dependencies);
     registerSyncRoutes(app, dependencies);
+    registerIdentityRoutes(app, dependencies);
     registerSupplierRoutes(app, dependencies);
     registerPurchaseReceiptRoutes(app, dependencies);
     registerFiscalDocumentRoutes(app, dependencies);
