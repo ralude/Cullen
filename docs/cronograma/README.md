@@ -18,7 +18,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
-| 11 | [Seguridad](./fase-11-seguridad/README.md) | En curso; [planificada](./fase-11-seguridad/plan-secuencia-y-decisiones.md) el 2026-09-07 y en ejecución desde el 2026-09-08 con el corte 0 de 11.05 entregado |
+| 11 | [Seguridad](./fase-11-seguridad/README.md) | En curso; [planificada](./fase-11-seguridad/plan-secuencia-y-decisiones.md) el 2026-09-07 y en ejecución desde el 2026-09-08: corte 0 de 11.05, corte 1 de 11.02 y permisos de identidad entregados |
 | 12 | Optimizacion | Pendiente; 12.04 suspendida con Fase 8; [12.05 mantenibilidad estructural](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) planificada, sin refactors |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
@@ -29,8 +29,11 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 
 **Fase actual:** Fase 11 - Seguridad, habilitada el 2026-09-07 al cerrar la Fase 10 y
 planificada el mismo día. El 2026-09-08 entregó el corte 0 de
-[11.05](./fase-11-seguridad/plan-11.05-hardening-logs.md): la redacción de secretos en los logs
-técnicos que la secuencia adelanta antes de 11.02; el resto de 11.05 sigue pendiente. D1–D5 quedaron cerradas el mismo día por
+[11.05](./fase-11-seguridad/plan-11.05-hardening-logs.md) —redacción de secretos en los logs
+técnicos—, el corte 1 de
+[11.02](./fase-11-seguridad/plan-11.02-roles-permisos.md) —evidencia auditable de la decisión
+de autorización— y los permisos de identidad con su transición para bases ya provisionadas;
+el resto de 11.02 y de 11.05 sigue pendiente. D1–D5 quedaron cerradas el mismo día por
 [ADR-0027](../architecture/adr/0027-administracion-de-identidad.md), que desbloquea 11.02; las
 decisiones D7–D9 del [plan de fase](./fase-11-seguridad/plan-secuencia-y-decisiones.md) siguen
 abiertas y bloquean 11.04. D6 aplica el loopback ya obligatorio y no bloquea la validación del host en 11.03.

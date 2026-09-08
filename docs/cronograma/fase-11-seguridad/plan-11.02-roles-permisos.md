@@ -1,7 +1,9 @@
 # Plan de ejecución 11.02: roles, permisos y administración de identidad
 
 - Fecha: 2026-09-07.
-- Estado: **corte 1 entregado el 2026-09-08**; cortes 2–4 planificados, sin iniciar. D1–D5
+- Estado: **corte 1 entregado el 2026-09-08** y primer punto del corte 2 —permisos de
+  identidad y transición de bases ya provisionadas— entregado el mismo día; el resto del
+  corte 2 y los cortes 3–4 siguen planificados. D1–D5
   quedaron respondidas en
   [ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md), aceptado, según la
   [secuencia y decisiones de Fase 11](./plan-secuencia-y-decisiones.md).
@@ -125,7 +127,7 @@ normativa antes de corregirla en su corte.
 Aplica ADR-0027, que responde D1–D5. Trabaja outside-in: prueba observable primero,
 implementación mínima después.
 
-1. **Permisos nuevos.** Agregar `packages/core/src/application/identity/permissions.ts` con
+1. [x] **Permisos nuevos.** Agregar `packages/core/src/application/identity/permissions.ts` con
    `identity.user.manage`, `identity.role.manage` e `identity.credential.reset` —el tercero lo
    introduce ADR-0027 D3—, siguiendo exactamente el patrón de los diez catálogos existentes.
    Incorporarlos a `ADMIN_PERMISSIONS` para bases nuevas. Para bases ya provisionadas, ADR-0027
@@ -135,6 +137,13 @@ implementación mínima después.
    Implementar esa transición sin recrear usuarios ni credenciales, con auditoría, revocación
    por versión e idempotencia. La migración es nueva y forward-only; no amplía el gate de
    tiendas con historia de ADR-0026.
+   **Entregado el 2026-09-08:** `IDENTITY_PERMISSIONS`, la migración 43
+   `identity_administration` —que concede los tres permisos al rol `ADMIN`, avanza la versión
+   de autorización de sus portadores y siembra los cuatro roles de D1 sin miembros— y
+   `packages/drivers/db/src/identity-administration-migration.test.ts` sobre una base
+   anterior. La transición no escribe auditoría de negocio: no la decide un actor, y su
+   evidencia es la propia versión de esquema. Declarar los permisos en sus contratos llega
+   con el corte 3.
 2. **Casos de uso**, en verbo + sustantivo y con códigos de error estables:
    `CreateOperator`, `UpdateOperator`, `ChangeOperatorStatus`, `AssignOperatorRoles`,
    `CreateRole`, `UpdateRolePermissions`, `ChangeRoleStatus`. Cada uno autoriza antes de leer o
@@ -242,7 +251,7 @@ que la fase sirvió para algo.
   separados por permiso; una credencial marcada para cambio produce una sesión que solo puede
   cambiar el PIN o cerrar sesión, y cualquier otra petición recibe `AUTH_PIN_CHANGE_REQUIRED`.
   El cambio propio exige el PIN actual. Ningún camino registra, devuelve ni muestra un PIN.
-- [ ] CA-11.02-13: el ADR define destinatarios y mecanismo de habilitación de los permisos de
+- [x] CA-11.02-13: el ADR define destinatarios y mecanismo de habilitación de los permisos de
   identidad en bases ya provisionadas. La transición está probada con un administrador anterior
   a 11.02, repetición, fallo/rollback, auditoría y revocación; no depende de repetir el bootstrap.
 

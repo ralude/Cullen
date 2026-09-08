@@ -1,8 +1,10 @@
 # Fase 11: Seguridad
 
 - **Estado:** Habilitada el 2026-09-07 al cerrar la Fase 10; **planificada el 2026-09-07**. En
-  ejecución desde el 2026-09-08: entregado el corte 0 de 11.05 —redacción de logs técnicos—,
-  que la secuencia adelanta antes de 11.02 (corte mínimo 11.01–11.03 adelantado y completado)
+  ejecución desde el 2026-09-08: entregados el corte 0 de 11.05 —redacción de logs
+  técnicos—, el corte 1 de 11.02 —evidencia auditable de la decisión de autorización— y los
+  permisos de identidad con su transición para bases ya provisionadas (corte mínimo
+  11.01–11.03 adelantado y completado)
 - **Indice:** [Cronograma](../README.md)
 - **Plan de fase:** [secuencia restante y decisiones de activación](./plan-secuencia-y-decisiones.md)
 
@@ -28,7 +30,8 @@ sub-fase 9B.09. La Fase 11 vuelve a ser la unica duena de identidad y autorizaci
 - [11.01 Autenticacion](./11.01-autenticacion.md) — corte mínimo completado; sin ampliaciones
   planificadas para esta fase.
 - [11.02 Roles y permisos](./11.02-roles-permisos.md) —
-  [plan](./plan-11.02-roles-permisos.md)
+  [plan](./plan-11.02-roles-permisos.md); corte 1 y permisos de identidad entregados el
+  2026-09-08
 - [11.03 JWT y sesiones](./11.03-jwt-sesiones.md) —
   [plan](./plan-11.03-jwt-sesiones.md)
 - [11.04 Encriptacion](./11.04-encriptacion.md) —
