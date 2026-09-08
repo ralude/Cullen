@@ -19,7 +19,11 @@ import type {
   SessionPrincipal,
   VerifySession
 } from '@supermarket/core';
-import { createRedactionOptions, describeError } from '@supermarket/driver-logging';
+import {
+  createRedactionOptions,
+  describeError,
+  technicalLogContext
+} from '@supermarket/driver-logging';
 import { AppError, type ProblemDetails, type Result } from '@supermarket/shared';
 import healthRoute from './routes/health.ts';
 import { registerAuthRoutes } from './routes/auth.ts';
@@ -363,14 +367,19 @@ export const buildApp = (
     const principal = principals.get(request);
     const errorCode = publicErrorCodes.get(request);
     request.log.info({
+      ...technicalLogContext({
       service: 'supermarket-server',
       module: 'http',
       correlationId: correlationId(request),
-      ...(dependencies ? { terminalId: dependencies.nodeIdentity.terminalId } : {}),
-      ...(principal ? { userId: principal.actorId } : {}),
+      ...(dependencies ? {
+        terminalId: dependencies.nodeIdentity.terminalId,
+        originNodeId: dependencies.nodeIdentity.originNodeId
+      } : {}),
+      ...(principal ? { actorId: principal.actorId } : {}),
       operation: `${request.method} ${request.routeOptions.url ?? 'unmatched'}`,
-      statusCode: reply.statusCode,
       ...(errorCode ? { errorCode } : {})
+      }),
+      statusCode: reply.statusCode,
     }, 'HTTP request completed');
   });
 
@@ -389,8 +398,19 @@ export const buildApp = (
      * petición. El stack queda en el log técnico y no en la respuesta.
      */
     request.log.error({
+      ...technicalLogContext({
+        service: 'supermarket-server',
+        module: 'http',
+        correlationId: correlationId(request),
+        operation: `${request.method} ${request.routeOptions.url ?? 'unmatched'}`,
+        ...(dependencies ? {
+          terminalId: dependencies.nodeIdentity.terminalId,
+          originNodeId: dependencies.nodeIdentity.originNodeId
+        } : {}),
+        ...(principals.get(request) ? { actorId: principals.get(request)!.actorId } : {}),
+        errorCode: 'INTERNAL_ERROR'
+      }),
       error: describeError(error),
-      correlationId: correlationId(request)
     }, 'Unhandled request error');
     sendProblem(reply, request, 'INTERNAL_ERROR', 'Unexpected server error.', 500);
   });

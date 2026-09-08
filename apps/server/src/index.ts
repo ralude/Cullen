@@ -1,5 +1,6 @@
 import { buildApp } from './app.ts';
 import { application } from '@supermarket/core';
+import { technicalLogContext } from '@supermarket/driver-logging';
 import {
   HttpsRemoteApplicationProbe,
   HttpsRemoteSaleIssueProbe,
@@ -164,10 +165,17 @@ const worker = destinationCycles
     } : {}),
     onError: (error, destinationNodeId) => {
       app.log.error({
-        service: 'supermarket-server',
-        module: 'sync',
+        ...technicalLogContext({
+          service: 'supermarket-server',
+          module: 'sync',
+          correlationId: 'sync-worker',
+          actorId: nodeIdentity.originNodeId,
+          terminalId: nodeIdentity.terminalId,
+          originNodeId: nodeIdentity.originNodeId,
+          operation: 'SYNC_WORKER_CYCLE',
+          errorCode: error instanceof Error && 'code' in error ? String(error.code) : 'UNKNOWN'
+        }),
         ...(destinationNodeId ? { destinationNodeId } : {}),
-        errorCode: error instanceof Error && 'code' in error ? String(error.code) : 'UNKNOWN'
       }, 'Sync worker cycle failed');
     }
   })

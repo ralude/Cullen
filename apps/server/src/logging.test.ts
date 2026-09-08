@@ -70,6 +70,16 @@ describe('technical logging of the operator API', () => {
     const unhandled = entries(lines).find((line) => line.msg === 'Unhandled request error');
     expect(unhandled?.error).toMatchObject({ type: 'Error', message: 'unexpected pin=[REDACTED]' });
     expect(unhandled?.err).toBeUndefined();
+    expect(unhandled).toMatchObject({
+      service: 'supermarket-server',
+      module: 'http',
+      actorId: null,
+      terminalId: null,
+      originNodeId: null,
+      operation: 'POST /test/failure',
+      errorCode: 'INTERNAL_ERROR'
+    });
+    expect(typeof unhandled?.correlationId).toBe('string');
     expect(JSON.stringify(unhandled)).not.toContain('123456');
   });
 
