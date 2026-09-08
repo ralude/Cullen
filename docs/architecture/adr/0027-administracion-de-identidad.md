@@ -2,6 +2,8 @@
 
 - Estado: Aceptado
 - Fecha: 2026-09-08
+- Actualizado por [ADR-0028](./0028-enrolamiento-local-de-credenciales.md) el 2026-09-08: el
+  camino de PIN temporal de D3 queda reemplazado por el enrolamiento local de credenciales.
 
 ## Contexto
 
@@ -70,9 +72,11 @@ se devuelve ni se muestra.
 1. **Caducar la credencial vigente** (`identity.user.manage`). El operador conserva su PIN
    actual, ingresa con él y la sesión resultante solo puede cambiar el PIN. Es la rotación
    ordinaria: no crea un momento en el que un tercero conozca la credencial.
-2. **PIN temporal** (`identity.credential.reset`, permiso nuevo y distinto del anterior). Para
-   el operador que olvidó su PIN: el administrador fija un PIN temporal de un solo uso, con
-   motivo obligatorio y auditoría. La credencial queda marcada para cambio inmediato.
+2. **Enrolamiento de credencial** (`identity.credential.reset`, permiso nuevo y distinto del
+   anterior). Para el operador que olvidó su PIN o que todavía no tiene credencial en ese
+   nodo. [ADR-0028](./0028-enrolamiento-local-de-credenciales.md) reemplazó aquí el PIN
+   temporal que este ADR había previsto: el administrador autoriza con motivo y auditoría, y
+   el propio operador establece su PIN en el nodo. Ningún tercero conoce la credencial.
 3. **Cambio propio.** Cualquier operador cambia su propio PIN presentando el actual. Exige
    sesión válida y ningún permiso adicional.
 

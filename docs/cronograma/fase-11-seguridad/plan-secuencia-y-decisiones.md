@@ -141,9 +141,11 @@ trazabilidad; la fuente es el ADR.
   de administración y falla con `IDENTITY_NOT_OWNED_BY_NODE`. Los cambios llegan por concesión,
   que no transporta credenciales.
 
-Brecha declarada por el ADR y no resuelta en 11.02: el enrolamiento de la credencial local de
-un operador en una terminal distinta a aquella donde se creó. La concesión no transporta
-credenciales y no habilita ese ingreso.
+La brecha de enrolamiento que ADR-0027 declaró quedó cerrada el 2026-09-08 por
+[ADR-0028](../../architecture/adr/0028-enrolamiento-local-de-credenciales.md): la credencial
+se materializa en el nodo donde se usa, mediante una autorización local de un solo uso, y
+ningún secreto viaja entre nodos. ADR-0028 reemplaza además el PIN temporal que ADR-0027 D3
+había previsto.
 
 ### Restricción vigente de 11.03
 
