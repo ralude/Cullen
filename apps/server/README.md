@@ -68,6 +68,10 @@ npm run bootstrap-operations:dev -- --database ./supermarket-node.sqlite \
   --igtf-basis-points 300 --igtf-payment-methods CARD --igtf-currencies USD
 ```
 
+Desde la aplicación, `POST /api/v1/config/cash-registers` (pantalla Configuración, permiso
+`config.cash_register.manage`) registra cajas adicionales para la terminal que las declara; este
+comando sigue siendo la vía para dejar el nodo operativo antes del primer ingreso.
+
 El comando crea una caja (`--cash-register-id`, `--cash-register-name`) cuyo
 terminal y nodo se toman de la misma identidad que usa el servidor, los métodos
 de pago `CASH` y `CARD` en la moneda indicada, y activa una versión de cada

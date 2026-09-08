@@ -8,6 +8,7 @@ import {
   declareDeviceContract,
   listOperationalMasterDataContract,
   saveCategoryContract,
+  createCashRegisterContract,
   savePaymentMethodContract,
   saveUnitContract,
   isPermissionGranted,
@@ -18,6 +19,7 @@ import {
   type DeviceResponse,
   type DeviceStatusResponse,
   type DeviceTypeResponse,
+  type CashRegisterResponse,
   type OperationalMasterDataResponse
 } from '@supermarket/shared';
 import { createIdempotencyKey } from '../api-client.js';
@@ -26,7 +28,7 @@ import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from
 const CONFIG_COMMAND_CONTRACTS = [
   createBranchContract, updateBranchContract, changeBranchStatusContract,
   declareDeviceContract, updateDeviceContract, changeDeviceStatusContract,
-  saveCategoryContract, saveUnitContract, savePaymentMethodContract,
+  saveCategoryContract, saveUnitContract, savePaymentMethodContract, createCashRegisterContract,
   activateDiscountPolicyContract, activateTaxPolicyContract
 ] as const;
 
@@ -68,6 +70,8 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
   const [unitName, setUnitName] = useState('');
   const [unitScale, setUnitScale] = useState('0');
   const [paymentCode, setPaymentCode] = useState('');
+  const [cashRegisterName, setCashRegisterName] = useState('');
+  const [cashRegisters, setCashRegisters] = useState<readonly CashRegisterResponse[]>([]);
   const [paymentName, setPaymentName] = useState('');
   const [paymentKind, setPaymentKind] = useState<'CASH' | 'CARD' | 'MOBILE_PAYMENT' | 'BANK_TRANSFER' | 'OTHER'>('CASH');
   const [paymentCurrency, setPaymentCurrency] = useState('VES');
@@ -90,21 +94,26 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
   const canManageDevices = isPermissionGranted(declareDeviceContract.permission, permissionCodes);
   const canManageCatalog = isPermissionGranted(saveCategoryContract.permission, permissionCodes);
   const canManagePayments = isPermissionGranted(savePaymentMethodContract.permission, permissionCodes);
+  const canManageCashRegisters = isPermissionGranted(
+    createCashRegisterContract.permission, permissionCodes
+  );
   const canManageTax = isPermissionGranted(activateTaxPolicyContract.permission, permissionCodes);
   const canReadOperational = isPermissionGranted(listOperationalMasterDataContract.permission, permissionCodes);
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
-      const [branchList, deviceList, operational] = await Promise.all([
+      const [branchList, deviceList, operational, registerList] = await Promise.all([
         canManageBranches ? api.listBranches() : Promise.resolve([]),
         canManageDevices ? api.listDevices() : Promise.resolve([]),
-        canReadOperational ? api.listOperationalMasterData() : Promise.resolve({ categories: [], units: [], paymentMethods: [] })
+        canReadOperational ? api.listOperationalMasterData() : Promise.resolve({ categories: [], units: [], paymentMethods: [] }),
+        canManageCashRegisters ? api.listCashRegisters() : Promise.resolve([])
       ]);
       setBranches(branchList); setDevices(deviceList); setMasterData(operational);
+      setCashRegisters(registerList);
     } catch (nextError) { setError(nextError); }
     finally { setLoading(false); }
-  }, [api, canManageBranches, canManageDevices, canReadOperational]);
+  }, [api, canManageBranches, canManageCashRegisters, canManageDevices, canReadOperational]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -193,7 +202,7 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
       </ScreenNote>
       <Feedback error={error} notice={notice} onDismiss={dismissFeedback} />
 
-      {(canManageCatalog || canManagePayments || canManageTax) && (
+      {(canManageCatalog || canManagePayments || canManageCashRegisters || canManageTax) && (
         <section className="panel">
           <div className="panel-heading"><h3>Configuración operativa</h3></div>
           <p>Las bajas conservan historia. Los cambios de política crean una versión con vigencia nueva.</p>
@@ -234,6 +243,40 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
                   void executeOperational(intent, (key) => api.saveUnit({ code: unit.code, name: unit.name, quantityScale: unit.quantityScale, isActive: !unit.isActive, reason: operationalReason }, key), 'Estado de unidad actualizado.');
                 }}>{unit.isActive ? 'Desactivar' : 'Reactivar'}</button>
               </div>)}
+            </>
+          )}
+          {canManageCashRegisters && (
+            <>
+              <form className="stack-form" onSubmit={(event) => {
+                event.preventDefault();
+                const intent = `cash-register:${cashRegisterName}:${operationalReason}`;
+                void executeOperational(
+                  intent,
+                  (key) => api.createCashRegister(
+                    { name: cashRegisterName, reason: operationalReason }, key
+                  ),
+                  'Caja registrada. Ya puedes abrir turno desde la pantalla de Caja.'
+                );
+              }}>
+                <h4>Cajas de esta terminal</h4>
+                <p className="muted">
+                  Sin al menos una caja no hay turno posible. La caja pertenece a la terminal que
+                  la declara y ese dueño no cambia.
+                </p>
+                <div className="form-grid">
+                  <label>Nombre<input value={cashRegisterName}
+                    onChange={(event) => setCashRegisterName(event.target.value)} required /></label>
+                </div>
+                <ActionButton type="submit" busy={loading}
+                  disabled={loading || !operationalReason.trim() || !cashRegisterName.trim()}>
+                  Registrar caja
+                </ActionButton>
+              </form>
+              {cashRegisters.map((register) => (
+                <div className="configuration-row" key={register.id}>
+                  <span title={register.id}>{register.name}</span>
+                </div>
+              ))}
             </>
           )}
           {canManagePayments && (

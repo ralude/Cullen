@@ -124,6 +124,7 @@ export type ServerDependencies = {
       readonly saveCategory: application.SaveCategory;
       readonly saveUnit: application.SaveUnit;
       readonly savePaymentMethod: application.SavePaymentMethod;
+      readonly createCashRegister: application.CreateCashRegister;
       readonly activateDiscountPolicy: application.ActivateDiscountPolicy;
       readonly activateTaxPolicy: application.ActivateFinancialTransactionTaxPolicy;
     };

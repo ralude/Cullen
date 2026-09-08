@@ -10,6 +10,8 @@ class FakeCashRegisterRepository implements CashRegisterRepository {
     return this.registers.find((register) => register.id === cashRegisterId) ?? null;
   }
 
+  async save(): Promise<void> { /* la lectura no persiste */ }
+
   async findAll(): Promise<readonly CashRegister[]> {
     return this.registers;
   }

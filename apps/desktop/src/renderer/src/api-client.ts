@@ -56,6 +56,7 @@ import {
   getStockCountContract,
   listStockCountsContract,
   createBranchContract,
+  createCashRegisterContract,
   updateBranchContract,
   changeBranchStatusContract,
   getBranchContract,
@@ -131,6 +132,8 @@ import {
   type StockCountResponse,
   type StockCountStatusResponse,
   type CreateBranchRequest,
+  type CreateCashRegisterRequest,
+  type CashRegisterConfigResponse,
   type UpdateBranchRequest,
   type ChangeBranchStatusRequest,
   type BranchResponse,
@@ -435,6 +438,10 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
   savePaymentMethod: (input: SavePaymentMethodRequest, idempotencyKey: string): Promise<OperationalMasterDataResponse['paymentMethods'][number]> => requestJson(
     fetcher, savePaymentMethodContract.path,
     { method: savePaymentMethodContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
+  ),
+  createCashRegister: (input: CreateCashRegisterRequest, idempotencyKey: string): Promise<CashRegisterConfigResponse> => requestJson(
+    fetcher, createCashRegisterContract.path,
+    { method: createCashRegisterContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
   ),
   activateDiscountPolicy: (input: ActivateDiscountPolicyRequest, idempotencyKey: string): Promise<PolicyActivationResponse> => requestJson(
     fetcher, activateDiscountPolicyContract.path,

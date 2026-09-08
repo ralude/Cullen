@@ -36,6 +36,8 @@ class FakeCashRegisterRepository implements CashRegisterRepository {
     return this.cashRegister;
   }
 
+  async save(): Promise<void> { /* la apertura no crea cajas */ }
+
   async findAll(): Promise<readonly CashRegister[]> {
     return this.cashRegister ? [this.cashRegister] : [];
   }

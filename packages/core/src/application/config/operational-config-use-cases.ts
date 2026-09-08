@@ -1,6 +1,7 @@
 import {
   ApplicationError, DomainError, Percentage, TaxRate, err, ok, type AppError, type Result
 } from '@supermarket/shared';
+import { CashRegister } from '../../domain/cash/index.js';
 import { Category, UnitOfMeasure } from '../../domain/catalog/index.js';
 import { PaymentMethod } from '../../domain/currency/index.js';
 import { CATALOG_PERMISSIONS } from '../catalog/permissions.js';
@@ -14,12 +15,12 @@ import type { ExecutionContext } from '../execution-context.js';
 import { toBusinessEvents, type DomainEventLike, type JsonValue } from '../events/index.js';
 import { executeIdempotentCommand } from '../idempotency/index.js';
 import type {
-  AuditWriter, AuthorizationService, Clock, IdGenerator, IdempotencyStore,
+  AuditWriter, AuthorizationService, CashRegisterRepository, Clock, IdGenerator, IdempotencyStore,
   OperationalMasterDataStore, OperationalPolicyWriter, OutboxStore, UnitOfWork
 } from '../ports/index.js';
 import type {
-  ActivateDiscountPolicyInput, ActivateTaxPolicyInput, CategoryConfigDto,
-  OperationalMasterDataDto, PaymentMethodConfigDto, PolicyActivationDto,
+  ActivateDiscountPolicyInput, ActivateTaxPolicyInput, CashRegisterConfigDto, CategoryConfigDto,
+  CreateCashRegisterInput, OperationalMasterDataDto, PaymentMethodConfigDto, PolicyActivationDto,
   SaveCategoryInput, SavePaymentMethodInput, SaveUnitInput, UnitConfigDto
 } from './dtos.js';
 import { CONFIG_PERMISSIONS } from './permissions.js';
@@ -30,6 +31,10 @@ const categoryDto = (value: Category): CategoryConfigDto => ({
 const unitDto = (value: UnitOfMeasure): UnitConfigDto => ({
   id: value.id, code: value.code, name: value.name,
   quantityScale: value.quantityScale, isActive: value.isActive
+});
+const cashRegisterDto = (value: CashRegister): CashRegisterConfigDto => ({
+  id: value.id, name: value.name, terminalId: value.terminalId,
+  originNodeId: value.originNodeId, isActive: value.isActive
 });
 const paymentDto = (value: PaymentMethod): PaymentMethodConfigDto => ({
   code: value.code, name: value.name, kind: value.kind,
@@ -227,5 +232,54 @@ export class ActivateFinancialTransactionTaxPolicy extends ConfigCommand {
       }
       return ok(value);
     });
+  }
+}
+
+/**
+ * Alta de la caja de esta terminal. Hasta ahora las cajas solo existían por
+ * `bootstrap-operations`, así que un nodo recién instalado no podía abrir turno
+ * desde la aplicación.
+ *
+ * El identificador, el terminal y el nodo los fija el proceso que atiende, no
+ * la petición: una caja pertenece a la terminal que la declara y ese dueño es
+ * inmutable (`docs/architecture/12-sincronizacion-y-ownership.md`). Por eso
+ * tampoco se publica como referencia distribuida.
+ */
+export class CreateCashRegister extends ConfigCommand {
+  constructor(
+    private readonly repository: CashRegisterRepository,
+    ...args: ConstructorParameters<typeof ConfigCommand>
+  ) { super(...args); }
+
+  execute(
+    input: CreateCashRegisterInput, context: ExecutionContext
+  ): Promise<Result<CashRegisterConfigDto, AppError>> {
+    return this.run(
+      'CreateCashRegister', input, context, CONFIG_PERMISSIONS.MANAGE_CASH_REGISTER,
+      async (now) => {
+        const name = input.name.trim();
+        const existing = await this.repository.findAll();
+        const duplicated = existing.some((register) =>
+          register.terminalId === context.terminalId
+          && register.originNodeId === context.originNodeId
+          && register.name.localeCompare(name, 'es', { sensitivity: 'base' }) === 0);
+        if (duplicated) {
+          return err(new ApplicationError(
+            'CASH_REGISTER_NAME_CONFLICT', 'This terminal already has a cash register with that name.'
+          ));
+        }
+        const register = CashRegister.create({
+          id: this.ids.generate(), name,
+          terminalId: context.terminalId, originNodeId: context.originNodeId
+        });
+        await this.repository.save(register);
+        const dto = cashRegisterDto(register);
+        await this.audit(
+          context, 'CASH_REGISTER_CREATED', 'CashRegister', register.id,
+          null, dto as unknown as JsonValue, input.reason, now
+        );
+        return ok(dto);
+      }
+    );
   }
 }

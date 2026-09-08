@@ -9,6 +9,7 @@ import {
   getBranchContract,
   listBranchesContract,
   listDevicesContract,
+  createCashRegisterContract,
   listOperationalMasterDataContract,
   saveCategoryContract,
   savePaymentMethodContract,
@@ -21,6 +22,7 @@ import {
   type ChangeBranchStatusRequest,
   type ChangeDeviceStatusRequest,
   type CreateBranchRequest,
+  type CreateCashRegisterRequest,
   type DeclareDeviceRequest,
   type DeviceStatusResponse,
   type SaveCategoryRequest,
@@ -80,6 +82,19 @@ export const registerConfigRoutes = (
       request.body, createExecutionContext(request, principal, dependencies)
     );
     return result.ok ? reply.send(result.value) : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
+  app.post<{ Body: CreateCashRegisterRequest }>(createCashRegisterContract.path, {
+    schema: createCashRegisterContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await dependencies.config.operational.createCashRegister.execute(
+      request.body, createExecutionContext(request, principal, dependencies)
+    );
+    return result.ok
+      ? reply.code(201).send(result.value)
+      : sendProblem(reply, request, result.error.code, result.error.message);
   });
 
   app.put<{ Body: SavePaymentMethodRequest }>(savePaymentMethodContract.path, {

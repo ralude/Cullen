@@ -35,6 +35,9 @@ vez, así que no queda ningún turno "pegado" tras un cierre.
 Requiere `cash.shift.open`. Durante la jornada, esta misma pantalla registra ingresos y retiros
 de efectivo con su motivo (`cash.movement.income`, `cash.movement.withdrawal`).
 
+Si el nodo no tiene ninguna caja, la pantalla lo dice y remite a **Configuración**, donde se
+registra con `config.cash_register.manage`. La caja pertenece a la terminal que la declara.
+
 ## 3. Vender — `Alt+2`
 
 La pantalla de Venta toma el turno abierto de la caja de la estación y lo muestra como

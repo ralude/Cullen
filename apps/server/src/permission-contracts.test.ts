@@ -13,6 +13,7 @@ import {
   completePurchaseReceiptContract,
   correctSupplierTaxIdentityContract,
   createProductContract,
+  createCashRegisterContract,
   createSupplierContract,
   createBranchContract,
   declareDeviceContract,
@@ -147,6 +148,7 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
     expectedPermission(saveCategoryContract, application.CATALOG_PERMISSIONS.UPDATE_PRODUCT);
     expectedPermission(saveUnitContract, application.CATALOG_PERMISSIONS.UPDATE_PRODUCT);
     expectedPermission(savePaymentMethodContract, application.CONFIG_PERMISSIONS.MANAGE_PAYMENT_METHOD);
+    expectedPermission(createCashRegisterContract, application.CONFIG_PERMISSIONS.MANAGE_CASH_REGISTER);
     expectedPermission(activateDiscountPolicyContract, application.CONFIG_PERMISSIONS.MANAGE_TAX);
     expectedPermission(activateTaxPolicyContract, application.CONFIG_PERMISSIONS.MANAGE_TAX);
     expectedPermission(

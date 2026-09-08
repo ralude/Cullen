@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type {
-  AuditEntry, AuditWriter, AuthorizationService, Clock, ExecutionContext, IdGenerator,
-  OperationalMasterDataStore, OperationalPolicyWriter, UnitOfWork
+  AuditEntry, AuditWriter, AuthorizationService, CashRegisterRepository, Clock, ExecutionContext,
+  IdGenerator, OperationalMasterDataStore, OperationalPolicyWriter, UnitOfWork
 } from '@supermarket/core';
+import { CashRegister } from '../../domain/cash/index.js';
 import { Category, UnitOfMeasure } from '../../domain/catalog/index.js';
 import { PaymentMethod } from '../../domain/currency/index.js';
 import {
-  ActivateDiscountPolicy, ListOperationalMasterData, SaveCategory, SavePaymentMethod, SaveUnit
+  ActivateDiscountPolicy, CreateCashRegister, ListOperationalMasterData, SaveCategory,
+  SavePaymentMethod, SaveUnit
 } from './operational-config-use-cases.js';
 import { CONFIG_PERMISSIONS } from './permissions.js';
 
@@ -42,6 +44,13 @@ class MemoryStore implements OperationalMasterDataStore {
     this.versions.set(key, next);
     return next;
   }
+}
+
+class MemoryCashRegisters implements CashRegisterRepository {
+  stored = new Map<string, CashRegister>();
+  findById = async (id: string) => this.stored.get(id) ?? null;
+  findAll = async () => [...this.stored.values()];
+  save = async (register: CashRegister) => { this.stored.set(register.id, register); };
 }
 
 const context: ExecutionContext = {
@@ -110,5 +119,52 @@ describe('operational configuration use cases', () => {
     expect(result).toMatchObject({ ok: true, value: { created: true, version: 2 } });
     expect(calls).toHaveLength(1);
     expect(audit.at(-1)).toMatchObject({ action: 'DISCOUNT_POLICY_ACTIVATED', reason: 'Ajuste aprobado' });
+  });
+
+  /**
+   * La caja solo existía por CLI, así que un nodo recién instalado no podía
+   * abrir turno desde la aplicación. Su terminal y su nodo los fija la
+   * identidad del proceso, nunca la petición.
+   */
+  it('registers a cash register owned by the terminal that declares it', async () => {
+    audit.length = 0;
+    const registers = new MemoryCashRegisters();
+    const useCase = new CreateCashRegister(
+      registers, allow(CONFIG_PERMISSIONS.MANAGE_CASH_REGISTER), ids, clock, unitOfWork, auditWriter
+    );
+
+    const created = await useCase.execute({ name: 'Caja 2', reason: 'Segunda estación' }, context);
+
+    expect(created).toMatchObject({ ok: true, value: { name: 'Caja 2' } });
+    const saved = [...registers.stored.values()][0];
+    expect(saved).toMatchObject({ terminalId: 'terminal-1', originNodeId: 'node-1', isActive: true });
+    expect(audit.at(-1)).toMatchObject({
+      action: 'CASH_REGISTER_CREATED', entityType: 'CashRegister', reason: 'Segunda estación'
+    });
+  });
+
+  it('refuses a duplicated cash register name on the same terminal', async () => {
+    const registers = new MemoryCashRegisters();
+    const useCase = new CreateCashRegister(
+      registers, allow(CONFIG_PERMISSIONS.MANAGE_CASH_REGISTER), ids, clock, unitOfWork, auditWriter
+    );
+    await useCase.execute({ name: 'Caja 1', reason: 'Alta' }, context);
+
+    const duplicated = await useCase.execute(
+      { name: '  caja 1  ', reason: 'Alta repetida' }, { ...context, idempotencyKey: 'intent-2' }
+    );
+
+    expect(duplicated).toMatchObject({ ok: false, error: { code: 'CASH_REGISTER_NAME_CONFLICT' } });
+    expect(registers.stored.size).toBe(1);
+  });
+
+  it('does not register a cash register without the configuration permission', async () => {
+    const registers = new MemoryCashRegisters();
+    const useCase = new CreateCashRegister(registers, allow(), ids, clock, unitOfWork, auditWriter);
+
+    const denied = await useCase.execute({ name: 'Caja 3', reason: 'Alta' }, context);
+
+    expect(denied).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
+    expect(registers.stored.size).toBe(0);
   });
 });

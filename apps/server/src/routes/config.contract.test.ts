@@ -202,4 +202,43 @@ describe('config (branches and devices) HTTP contracts', () => {
     expect(scaleDenied.statusCode).toBe(409);
     expect(scaleDenied.json()).toMatchObject({ code: 'UNIT_OF_MEASURE_SCALE_IN_USE' });
   });
+
+  /**
+   * Una caja solo existía por CLI: sin ella no hay turno posible, así que un
+   * nodo recién instalado no podía operar desde la aplicación.
+   */
+  it('registers a cash register for this terminal and offers it to the cash screen', async () => {
+    const { app, cookie } = await setup();
+
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/config/cash-registers',
+      headers: { cookie, 'idempotency-key': 'register-create-001' },
+      payload: { name: 'Caja 1', reason: 'Alta de la estación' }
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({
+      name: 'Caja 1', terminalId: 'terminal-001', originNodeId: 'node-001', isActive: true
+    });
+
+    // La caja recién creada ya es seleccionable para abrir turno.
+    const listed = await app.inject({ method: 'GET', url: '/api/v1/cash-registers', headers: { cookie } });
+    expect(listed.json()).toEqual([{ id: created.json().id, name: 'Caja 1' }]);
+
+    const shift = await app.inject({
+      method: 'POST', url: '/api/v1/cash/shifts',
+      headers: { cookie, 'idempotency-key': 'register-shift-001' },
+      payload: { cashRegisterId: created.json().id, openingFunds: [] }
+    });
+    expect(shift.statusCode).toBe(201);
+    expect(shift.json()).toMatchObject({ status: 'OPEN' });
+
+    const duplicated = await app.inject({
+      method: 'POST', url: '/api/v1/config/cash-registers',
+      headers: { cookie, 'idempotency-key': 'register-create-002' },
+      payload: { name: 'caja 1', reason: 'Alta repetida' }
+    });
+    expect(duplicated.statusCode).toBe(409);
+    expect(duplicated.json()).toMatchObject({ code: 'CASH_REGISTER_NAME_CONFLICT' });
+  });
 });

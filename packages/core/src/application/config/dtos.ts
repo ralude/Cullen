@@ -72,3 +72,20 @@ export type ActivateTaxPolicyInput = {
   eligibleCurrencies: readonly string[]; reason: string;
 };
 export type PolicyActivationDto = { created: boolean; policyId: string; version: number };
+
+/**
+ * Alta de la caja de esta terminal. El identificador, el terminal y el nodo no
+ * viajan en la entrada: los fija la identidad del proceso que atiende.
+ */
+export type CreateCashRegisterInput = {
+  name: string;
+  reason: string;
+};
+
+export type CashRegisterConfigDto = {
+  id: string;
+  name: string;
+  terminalId: string;
+  originNodeId: string;
+  isActive: boolean;
+};

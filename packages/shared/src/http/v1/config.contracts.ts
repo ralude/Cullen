@@ -359,3 +359,40 @@ export const activateTaxPolicyContract = {
   } }, response: { 200: policyActivationSchema, 400: problemDetailsSchema, 401: problemDetailsSchema, 403: problemDetailsSchema, 409: problemDetailsSchema, 503: problemDetailsSchema } },
   errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY']
 } as const satisfies HttpContractV1;
+
+export type CreateCashRegisterRequest = { readonly name: string; readonly reason: string };
+export type CashRegisterConfigResponse = {
+  readonly id: string; readonly name: string; readonly terminalId: string;
+  readonly originNodeId: string; readonly isActive: boolean;
+};
+
+const cashRegisterConfigSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['id', 'name', 'terminalId', 'originNodeId', 'isActive'],
+  properties: {
+    id: { type: 'string' }, name: { type: 'string' }, terminalId: { type: 'string' },
+    originNodeId: { type: 'string' }, isActive: { type: 'boolean' }
+  }
+} as const;
+
+/**
+ * Alta de la caja de esta terminal. El cuerpo solo declara nombre y motivo: el
+ * identificador, el terminal y el nodo los fija la identidad del proceso que
+ * atiende, para que una petición no pueda declarar una caja de otra terminal.
+ */
+export const createCashRegisterContract = {
+  method: 'POST', path: '/api/v1/config/cash-registers',
+  permission: 'config.cash_register.manage', idempotency: 'REQUIRED',
+  schema: {
+    headers,
+    body: {
+      type: 'object', additionalProperties: false, required: ['name', 'reason'],
+      properties: { name: { type: 'string', minLength: 1, maxLength: 200 }, reason }
+    },
+    response: { ...operationalMutationResponses, 201: cashRegisterConfigSchema }
+  },
+  errorCodes: [
+    'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'CASH_REGISTER_NAME_CONFLICT',
+    'CASH_REGISTER_NAME_REQUIRED', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY'
+  ]
+} as const satisfies HttpContractV1;

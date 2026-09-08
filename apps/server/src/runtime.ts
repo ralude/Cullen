@@ -526,6 +526,13 @@ export const createSecurityRuntime = (
           savePaymentMethod: new application.SavePaymentMethod(
             operationalMasterDataStore, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
           ),
+          /**
+           * La caja se declara sin publicarla como referencia: pertenece a la
+           * terminal que la crea y ese dueño no viaja a otros nodos.
+           */
+          createCashRegister: new application.CreateCashRegister(
+            cashRegisterRepository, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
+          ),
           activateDiscountPolicy: new application.ActivateDiscountPolicy(
             operationalPolicyWriter, authorization, ids, clock, unitOfWork, auditWriter, idempotencyStore
           ),

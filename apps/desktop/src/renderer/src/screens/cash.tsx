@@ -25,6 +25,8 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
   const [loading, setLoading] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<readonly PaymentMethodResponse[]>([]);
   const [cashRegisters, setCashRegisters] = useState<readonly CashRegisterResponse[]>([]);
+  /** Distingue «todavía no respondió» de «el nodo no tiene ninguna caja». */
+  const [registersLoaded, setRegistersLoaded] = useState(false);
   const [configuredCashRegisterId] = useState(() => readStorage(ACTIVE_CASH_REGISTER_KEY) ?? '');
   const intentKeys = useRef(new Map<string, string>());
   const intentKey = (intent: string): string => {
@@ -51,6 +53,7 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
     void api.listPaymentMethods().then(setPaymentMethods).catch(() => undefined);
     void api.listCashRegisters().then((registers) => {
       setCashRegisters(registers);
+      setRegistersLoaded(true);
       if (registers.length === 1) setCashRegisterId((current) => current || registers[0]!.id);
     }).catch(() => undefined);
   }, [api]);
@@ -144,6 +147,12 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
   return <div className="operation-screen">
     <ScreenNote>Apertura, movimientos y cierre se envían al turno dueño de la caja. Las diferencias quedan visibles para autorización.</ScreenNote>
     <Feedback error={error} notice={notice} onDismiss={dismissFeedback} />
+    {registersLoaded && cashRegisters.length === 0 && (
+      <p className="inline-status is-warning" role="status">
+        <span aria-hidden="true">!</span> Este nodo todavía no tiene ninguna caja registrada, así
+        que no hay turno que abrir. Regístrala en <a href="#/config">Configuración</a>.
+      </p>
+    )}
     <section className="panel"><div className="form-grid">
       {cashRegisters.length > 1
         ? <label>Caja asignada<select value={cashRegisterId} onChange={(event) => setCashRegisterId(event.target.value)} required><option value="">Selecciona</option>{cashRegisters.map((cashRegister) => <option key={cashRegister.id} value={cashRegister.id}>{cashRegister.name}</option>)}</select></label>
