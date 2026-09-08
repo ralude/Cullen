@@ -18,7 +18,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
-| 11 | [Seguridad](./fase-11-seguridad/README.md) | Habilitada al cerrar Fase 10; [planificada](./fase-11-seguridad/plan-secuencia-y-decisiones.md) el 2026-09-07, sin iniciar implementación |
+| 11 | [Seguridad](./fase-11-seguridad/README.md) | En curso; [planificada](./fase-11-seguridad/plan-secuencia-y-decisiones.md) el 2026-09-07 y en ejecución desde el 2026-09-08 con el corte 0 de 11.05 entregado |
 | 12 | Optimizacion | Pendiente; 12.04 suspendida con Fase 8; [12.05 mantenibilidad estructural](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) planificada, sin refactors |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
@@ -27,8 +27,11 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 16B | [Sistema de diseño propio](./fase-16b-sistema-diseno/README.md) | Planificada; post-MVP, sin iniciar |
 | 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
-**Fase actual:** Fase 11 - Seguridad, habilitada el 2026-09-07 al cerrar la Fase 10, planificada
-el mismo día y todavía sin iniciar implementación. Las ocho decisiones abiertas D1–D5 y D7–D9
+**Fase actual:** Fase 11 - Seguridad, habilitada el 2026-09-07 al cerrar la Fase 10 y
+planificada el mismo día. El 2026-09-08 entregó el corte 0 de
+[11.05](./fase-11-seguridad/plan-11.05-hardening-logs.md): la redacción de secretos en los logs
+técnicos que la secuencia adelanta antes de 11.02; el resto de 11.05 sigue pendiente. Las ocho
+decisiones abiertas D1–D5 y D7–D9
 del [plan de fase](./fase-11-seguridad/plan-secuencia-y-decisiones.md) bloquean sus cortes
 dependientes. D6 aplica el loopback ya obligatorio y no bloquea la validación del host en 11.03.
 **Fase 10, completada el 2026-09-07:** 10.01 entregó el outbox

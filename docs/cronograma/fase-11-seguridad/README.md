@@ -1,7 +1,8 @@
 # Fase 11: Seguridad
 
-- **Estado:** Habilitada el 2026-09-07 al cerrar la Fase 10; **planificada el 2026-09-07**, sin
-  iniciar implementación (corte mínimo 11.01–11.03 adelantado y completado)
+- **Estado:** Habilitada el 2026-09-07 al cerrar la Fase 10; **planificada el 2026-09-07**. En
+  ejecución desde el 2026-09-08: entregado el corte 0 de 11.05 —redacción de logs técnicos—,
+  que la secuencia adelanta antes de 11.02 (corte mínimo 11.01–11.03 adelantado y completado)
 - **Indice:** [Cronograma](../README.md)
 - **Plan de fase:** [secuencia restante y decisiones de activación](./plan-secuencia-y-decisiones.md)
 
@@ -33,14 +34,15 @@ sub-fase 9B.09. La Fase 11 vuelve a ser la unica duena de identidad y autorizaci
 - [11.04 Encriptacion](./11.04-encriptacion.md) —
   [plan](./plan-11.04-encriptacion.md)
 - [11.05 Hardening de logs](./11.05-hardening-logs.md) —
-  [plan](./plan-11.05-hardening-logs.md)
+  [plan](./plan-11.05-hardening-logs.md); corte 0 de redacción entregado el 2026-09-08
 
 ## Orden de ejecución
 
 El [plan de fase](./plan-secuencia-y-decisiones.md) fija la secuencia: corte 0 de redacción de
-11.05 adelantado, luego 11.02, 11.03, 11.04 y los cortes restantes de 11.05. El orden responde a
-dependencias reales, no a la numeración. Ocho decisiones (D1–D5 y D7–D9) siguen abiertas y
-bloquean los cortes dependientes de identidad y protección en reposo; requieren un ADR nuevo.
+11.05 adelantado —entregado el 2026-09-08—, luego 11.02, 11.03, 11.04 y los cortes restantes
+de 11.05. El orden responde a dependencias reales, no a la numeración. Ocho decisiones (D1–D5
+y D7–D9) siguen abiertas y bloquean los cortes dependientes de identidad y protección en
+reposo; requieren un ADR nuevo.
 D6 recoge el loopback obligatorio de `apps/server/AGENTS.md` y ADR-0026, y no bloquea la
 validación del host en 11.03. Los cortes independientes conservan sus prerrequisitos explícitos.
 

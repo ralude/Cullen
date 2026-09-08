@@ -1,7 +1,8 @@
 # Fase 11: secuencia restante y decisiones de activación
 
 - Fecha: 2026-09-07.
-- Estado: **planificación**. Ninguna sub-fase pendiente ha iniciado implementación.
+- Estado: **en ejecución**. El corte 0 de 11.05 se entregó el 2026-09-08; ninguna otra sub-fase
+  pendiente ha iniciado implementación.
 - Autoridad: [AGENTS.md](../../../AGENTS.md), [arquitectura](../../architecture/README.md) y
   ADR aceptados: [0006](../../architecture/adr/0006-errores-logs-auditoria.md),
   [0011](../../architecture/adr/0011-autenticacion-pin-y-sesiones-locales.md),
@@ -74,18 +75,18 @@ normativas. Cada afirmación tiene su archivo.
   llama `applyMigrations` directamente y omite respaldo, validación y restauración.
 - **No hay clasificación de datos sensibles ni política de retención** para SQLite, respaldos,
   identidad de nodo, material TLS, credenciales y artefactos de diagnóstico.
-- **`packages/drivers/logging/src/index.ts` es `export {}`.** La redacción actual se limita a
-  tres cabeceras declaradas en `apps/server/src/app.ts:298`; no hay redacción de cuerpos, y el
-  manejador global registra el error completo ante un fallo no previsto.
+- ~~**`packages/drivers/logging/src/index.ts` es `export {}`.**~~ Cerrado por el corte 0 el
+  2026-09-08: el driver exporta la redacción reutilizable, la censura actúa por nombre de campo
+  sobre cuerpos y cadenas de `cause`, y el manejador global registra el error descrito.
 
 ## Secuencia aprobada de trabajo
 
 El orden responde a dependencias reales, no a la numeración:
 
-1. **11.05, corte 0 — redacción, adelantado.** 11.02 introduce los primeros endpoints que
-   transportan un PIN en un cuerpo distinto al de login. La redacción y la prueba que la
-   sostiene deben existir antes, no después. Es un corte pequeño y aislado; no adelanta el
-   resto de 11.05.
+1. **11.05, corte 0 — redacción, adelantado. Entregado el 2026-09-08.** 11.02 introduce los
+   primeros endpoints que transportan un PIN en un cuerpo distinto al de login. La redacción y
+   la prueba que la sostiene deben existir antes, no después. Es un corte pequeño y aislado; no
+   adelanta el resto de 11.05.
 2. **11.02 — roles, permisos y administración de identidad.** Es la dependencia de todo lo
    demás: hasta que existan roles distintos de `ADMIN`, ninguna prueba de separación de
    responsabilidades demuestra nada y ADR-0015 no cambia lo que ve ningún operador.

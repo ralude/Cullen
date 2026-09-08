@@ -1,9 +1,10 @@
 # Plan de ejecución 11.05: hardening de logs y observabilidad segura
 
 - Fecha: 2026-09-07.
-- Estado: **planificado, sin iniciar**. El corte 0 está adelantado como prerrequisito de 11.02
-  según la [secuencia de Fase 11](./plan-secuencia-y-decisiones.md); los cortes 1–4 cierran la
-  fase.
+- Estado: **corte 0 entregado el 2026-09-08**; cortes 1–4 planificados, sin iniciar. El corte 0
+  estaba adelantado como prerrequisito de 11.02 según la
+  [secuencia de Fase 11](./plan-secuencia-y-decisiones.md); los cortes 1–4 cierran la fase y
+  siguen dependiendo de lo que produzcan 11.02, 11.03 y 11.04.
 - Especificación: [11.05 Hardening de logs](./11.05-hardening-logs.md).
 - Deuda de origen: [auditoría 2026-09-04](./auditoria-puntos-clave-2026-09-04.md), puntos 1
   (observabilidad, no corrección), 2 (evidencia del costo), 5 y 8.
@@ -24,18 +25,19 @@ fase porque correlacionan lo que 11.02, 11.03 y 11.04 producen.
 
 ## Línea base comprobada
 
-Línea base del 2026-09-07, corregida el 2026-09-08 contra la composición y FS-005.
+Línea base del 2026-09-07, corregida el 2026-09-08 contra la composición y FS-005. Las tres
+primeras afirmaciones las cerró el corte 0 el 2026-09-08 y se conservan actualizadas.
 
-- **El driver de logging está vacío.** `packages/drivers/logging/src/index.ts` es `export {}`.
-  Todo el logging vive hoy en la configuración de Pino de `apps/server/src/app.ts`.
-- **La redacción cubre tres cabeceras.** `apps/server/src/app.ts:298` redacta
-  `req.headers.authorization`, `req.headers.cookie` y `res.headers.set-cookie`. No hay redacción
-  de cuerpos ni de campos anidados.
-- **Los cuerpos no se registran hoy, pero nada lo impide.** `disableRequestLogging: true` y el
-  hook `onResponse` emiten un objeto curado con servicio, módulo, correlation ID, terminal,
-  actor, operación, estado y código de error. En cambio, el manejador global registra
-  `{ err: error }` completo para un fallo no previsto (`app.ts:337`): la cadena de `cause` de un
-  error de infraestructura puede arrastrar datos de entrada.
+- **El driver de logging ya tiene contenido.** `packages/drivers/logging` exporta la redacción
+  reutilizable (`createRedactionOptions`, `describeError`, `redactValue`); `apps/server/src/app.ts`
+  y `apps/server/src/sync/sync-app.ts` la consumen en lugar de declararla en línea.
+- **La redacción actúa por nombre de campo, no por posición.** Las tres cabeceras siguen
+  censuradas por ruta y, además, un `formatters.log` compartido censura cualquier campo sensible
+  a cualquier profundidad del objeto registrado, incluida la cadena de `cause`.
+- **El manejador global ya no registra el error crudo.** `disableRequestLogging: true` y el hook
+  `onResponse` siguen emitiendo un objeto curado con servicio, módulo, correlation ID, terminal,
+  actor, operación, estado y código de error; un fallo no previsto se registra descrito —tipo,
+  código estable, mensaje seguro y causas redactadas—, con el stack solo en el log técnico.
 - **La correlación básica ya existe.** Un `x-correlation-id` válido se reutiliza y si no se
   genera uno; viaja en la respuesta y en el `ExecutionContext`, y de ahí a la auditoría
   (`AuditEntry.correlationId`).
@@ -54,22 +56,28 @@ Línea base del 2026-09-07, corregida el 2026-09-08 contra la composición y FS-
   es hacer visible el rechazo local y su antigüedad, y comprobar la cobertura del atraso y las
   discrepancias remotas con el estado de sincronización existente; no falta componer el consumidor.
 
-## Corte 0: redacción, adelantado antes de 11.02
+## Corte 0: redacción, adelantado antes de 11.02 — entregado el 2026-09-08
 
 Corte pequeño y aislado. Existe antes de que 11.02 introduzca endpoints que transportan un PIN
 en un cuerpo distinto al de login.
 
-1. Prueba primero: un PIN, un token, un hash de credencial, una clave y un número de tarjeta
+1. [x] Prueba primero: un PIN, un token, un hash de credencial, una clave y un número de tarjeta
    presentes en la entrada de una petición fallida no aparecen en ninguna línea de log. La
-   prueba captura la salida del logger, no inspecciona el código.
-2. Ampliar la redacción a cuerpos y a `cause` anidado, por nombre de campo y no por posición.
-   Un campo nuevo con un nombre conocido queda redactado sin tocar la configuración.
-3. El manejador global deja de registrar el error crudo: registra tipo, código estable, mensaje
-   seguro y la cadena de causas ya redactada. El stack se conserva para diagnóstico local pero
-   nunca sale al cliente, como ya hace `sendProblem`.
-4. Dar contenido a `packages/drivers/logging` con la configuración de redacción reutilizable, en
-   lugar de mantenerla incrustada en `apps/server`. Es el paquete que existe para esto y hoy no
-   exporta nada.
+   prueba captura la salida del logger, no inspecciona el código
+   (`apps/server/src/logging.test.ts`, con un destino de log inyectado en `buildApp`).
+2. [x] Ampliar la redacción a cuerpos y a `cause` anidado, por nombre de campo y no por posición.
+   Un campo nuevo con un nombre conocido queda redactado sin tocar la configuración
+   (`packages/drivers/logging/src/redaction.ts`).
+3. [x] El manejador global deja de registrar el error crudo: registra tipo, código estable,
+   mensaje seguro y la cadena de causas ya redactada. El stack se conserva para diagnóstico
+   local pero nunca sale al cliente, como ya hace `sendProblem`.
+4. [x] Dar contenido a `packages/drivers/logging` con la configuración de redacción reutilizable,
+   en lugar de mantenerla incrustada en `apps/server`. El listener técnico de sincronización
+   consume la misma configuración y conserva su censura de cuerpos.
+
+Límite del corte: la redacción recorre objetos planos, arreglos y errores, que es la forma que
+produce el nodo al construir una línea de log. Un objeto de clase llega intacto al serializador
+de Pino, que lo cura, y sus cabeceras sensibles las cubre la lista de rutas del logger.
 
 ## Corte 1: logs técnicos y auditoría separados y verificables
 
@@ -123,12 +131,12 @@ Fases 4, 5 y 6.
 
 ## Criterios de aceptación
 
-- [ ] CA-11.05-01: PIN, token, hash de credencial, clave y número de tarjeta no aparecen en
+- [x] CA-11.05-01: PIN, token, hash de credencial, clave y número de tarjeta no aparecen en
   ninguna línea de log, incluidos cuerpos y cadenas de `cause`; hay prueba que captura la salida
   real del logger.
-- [ ] CA-11.05-02: el manejador global no registra el error crudo y ningún error público expone
+- [x] CA-11.05-02: el manejador global no registra el error crudo y ningún error público expone
   stack trace, ruta de archivo ni configuración.
-- [ ] CA-11.05-03: `packages/drivers/logging` exporta la configuración de redacción reutilizable
+- [x] CA-11.05-03: `packages/drivers/logging` exporta la configuración de redacción reutilizable
   y `apps/server` la consume, en lugar de declararla en línea.
 - [ ] CA-11.05-04: existe prueba de que ninguna evidencia de negocio depende solo del log
   técnico; la auditoría append-only conserva lo que el log puede perder.
