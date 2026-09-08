@@ -10,6 +10,7 @@ export default defineConfig({
       'packages/drivers/db/vitest.config.ts',
       'packages/drivers/exchange-rate/vitest.config.ts',
       'packages/drivers/fiscal/vitest.config.ts',
+      'packages/drivers/logging/vitest.config.ts',
       'packages/drivers/security/vitest.config.ts',
       'vitest.architecture.config.ts'
     ]

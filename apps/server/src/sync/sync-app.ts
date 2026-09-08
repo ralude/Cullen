@@ -6,6 +6,7 @@ import Fastify, {
   type FastifyReply,
   type FastifyRequest
 } from 'fastify';
+import { createRedactionOptions } from '@supermarket/driver-logging';
 import type {
   application,
   SaleIssueEvidence,
@@ -121,12 +122,7 @@ export const buildSyncApp = (dependencies: SyncTransportDependencies): FastifyIn
   const app = Fastify({
     bodyLimit: SYNC_LIMITS_V1.maxEnvelopeBytes,
     logController: new LogController({ disableRequestLogging: true }),
-    logger: {
-      redact: {
-        paths: ['req.headers.authorization', 'req.headers.cookie', 'req.body', 'res.body'],
-        censor: '[REDACTED]'
-      }
-    },
+    logger: createRedactionOptions(['req.body', 'res.body']),
     ...(dependencies.https
       ? {
         https: {

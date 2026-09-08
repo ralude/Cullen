@@ -25,6 +25,7 @@
     "@supermarket/driver-db": "workspace:*",
     "@supermarket/driver-exchange-rate": "workspace:*",
     "@supermarket/driver-fiscal": "workspace:*",
+    "@supermarket/driver-logging": "workspace:*",
     "@supermarket/driver-security": "workspace:*",
     "@supermarket/shared": "workspace:*",
     "fastify": "^5.6.0"

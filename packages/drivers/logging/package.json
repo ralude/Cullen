@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "description": "Driver de logs técnicos y auditoría, implementado progresivamente según el cronograma.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.7"
   }
 }

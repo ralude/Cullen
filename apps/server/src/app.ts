@@ -19,6 +19,7 @@ import type {
   SessionPrincipal,
   VerifySession
 } from '@supermarket/core';
+import { createRedactionOptions, describeError } from '@supermarket/driver-logging';
 import { AppError, type ProblemDetails, type Result } from '@supermarket/shared';
 import healthRoute from './routes/health.ts';
 import { registerAuthRoutes } from './routes/auth.ts';
@@ -289,15 +290,22 @@ const registerRendererAssets = (app: FastifyInstance): void => {
   app.get('/app', async (_request, reply) => reply.redirect('/app/', 308));
 };
 
-export const buildApp = (dependencies?: ServerDependencies): FastifyInstance => {
+/**
+ * Destino alternativo del logger técnico. Existe para que una prueba observe la
+ * salida real del logger compuesto, en lugar de inspeccionar su configuración.
+ */
+export type ServerLogDestination = { write(chunk: string): void };
+
+export const buildApp = (
+  dependencies?: ServerDependencies,
+  options?: { readonly logDestination?: ServerLogDestination }
+): FastifyInstance => {
   const app = Fastify({
     ajv: { customOptions: { removeAdditional: false } },
     logController: new LogController({ disableRequestLogging: true }),
     logger: {
-      redact: {
-        paths: ['req.headers.authorization', 'req.headers.cookie', 'res.headers.set-cookie'],
-        censor: '[REDACTED]'
-      }
+      ...createRedactionOptions(),
+      ...(options?.logDestination ? { stream: options.logDestination } : {})
     }
   });
 
@@ -334,7 +342,15 @@ export const buildApp = (dependencies?: ServerDependencies): FastifyInstance => 
       sendProblem(reply, request, error.code, error.message);
       return;
     }
-    request.log.error({ err: error, correlationId: correlationId(request) }, 'Unhandled request error');
+    /**
+     * Un fallo no previsto se registra descrito, nunca crudo: la cadena de
+     * `cause` de un error de infraestructura puede arrastrar la entrada de la
+     * petición. El stack queda en el log técnico y no en la respuesta.
+     */
+    request.log.error({
+      error: describeError(error),
+      correlationId: correlationId(request)
+    }, 'Unhandled request error');
     sendProblem(reply, request, 'INTERNAL_ERROR', 'Unexpected server error.', 500);
   });
 

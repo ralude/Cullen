@@ -99,6 +99,9 @@ importers:
       '@supermarket/driver-fiscal':
         specifier: workspace:*
         version: link:../../packages/drivers/fiscal
+      '@supermarket/driver-logging':
+        specifier: workspace:*
+        version: link:../../packages/drivers/logging
       '@supermarket/driver-security':
         specifier: workspace:*
         version: link:../../packages/drivers/security
@@ -203,6 +206,9 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@24.13.3)(jsdom@30.0.1)(supports-color@7.2.0)(tsx@4.23.13)
 
   packages/drivers/security:
     dependencies:
