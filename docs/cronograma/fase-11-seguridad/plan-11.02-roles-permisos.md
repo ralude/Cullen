@@ -42,9 +42,10 @@ Verificada sobre el árbol del 2026-09-07.
   `AUTH_ALREADY_PROVISIONED` si ya existe un operador. Se ejecuta solo por
   `apps/server/src/bootstrap-admin.ts`, que exige TTY interactivo.
 - **Autorización aplicada, decisión no auditada.** `SqliteAuthorizationService`
-  (`packages/drivers/db/src/authentication-store.ts:395`) resuelve por `hasPermission`. Cada
-  caso de uso sensible autoriza antes de producir efectos, pero devuelve `FORBIDDEN` de
-  inmediato sin escribir en `AuditWriter`: hoy no queda evidencia de un intento denegado.
+  (`packages/drivers/db/src/authentication-store.ts:395`) resuelve por `hasPermission`. Los
+  casos de uso con permiso explícito devuelven `FORBIDDEN` al denegar, antes de escribir en
+  `AuditWriter`: hoy no queda evidencia de ese intento. `CompleteSale` no llama a ese servicio
+  y su contrato declara `permission: null`; no existe un permiso general de completar venta.
 - **Revocación por cambio de autorización disponible y sin disparador.**
   `verifyAndTouchSession` invalida la sesión si `auth_sessions.authorization_version` difiere de
   `identity_users.authorization_version` (`authentication-store.ts:190`). Ningún caso de uso
@@ -63,28 +64,44 @@ responsabilidades. Eso no se corrige con más UI.
 
 ## Corte 1: la decisión de autorización deja evidencia
 
-Independiente de D1–D5, así que puede ejecutarse mientras se resuelven. Cierra la tarea
-«auditar decisiones de autorización» y la deuda de la auditoría sobre las cinco operaciones
-sensibles.
+Independiente de D1–D5 para los permisos existentes, así que puede ejecutarse mientras se
+resuelven. Cubre la auditoría de sus decisiones; la referencia genérica a «venta» en la deuda
+se concreta abajo sin introducir un permiso nuevo.
 
-1. Prueba outside-in primero: un actor sin permiso intenta una venta, una devolución, un ajuste,
-   un cambio de precio y un cierre de caja; cada intento falla sin efecto y deja una entrada de
-   auditoría con actor, permiso exigido, resultado, terminal, nodo, UTC y correlation ID.
+1. Prueba outside-in primero para `VoidSale` (`sale.void`), `ReturnSale` (`sale.return`),
+   `RegisterStockAdjustment` (`inventory.adjust`), `UpdatePrice`
+   (`catalog.price.update`) y `CloseShift` (`cash.shift.close`; incluir también la variante
+   `cash.shift.close.difference` cuando corresponda). Un actor sin el permiso exigido falla
+   sin efectos de negocio y deja auditoría con actor, permiso, resultado, terminal, nodo, UTC
+   y correlation ID. Usar los nombres y constantes existentes, verificados contra los contratos.
 2. Introducir un único punto de decisión reutilizable en aplicación, no una copia en cada caso
-   de uso. La forma mínima es envolver `AuthorizationService` con un decorador que registre la
-   decisión; el caso de uso conserva su llamada actual y su `FORBIDDEN`.
+   de uso. Evaluar un decorador de `AuthorizationService` para los controles previos; para
+   controles dentro de una transacción, separar decisión y persistencia como exige el punto 5.
+   Conservar los permisos y el `FORBIDDEN` existentes.
 3. La entrada de auditoría no puede contener el PIN, el token ni el hash de credencial. El
    campo `reason` nombra el permiso exigido, no el detalle interno de la consulta.
 4. Registrar denegación **y** concesión de las operaciones sensibles, o solo denegación, es una
    decisión de volumen: elegirla explícitamente en el corte y justificarla. Una auditoría que
    crece sin límite por cada lectura autorizada no es observabilidad, es ruido; 11.05 no la
    puede filtrar después sin perder evidencia.
-5. Escribir la denegación fuera de la transacción del efecto que no ocurrió: no hay agregado que
-   modificar y no debe abrirse una transacción para registrar un rechazo.
+5. Persistir la denegación en una `UnitOfWork` independiente de la transacción del comando
+   rechazado. `DrizzleAuditWriter.append` exige una transacción activa y
+   [las reglas del driver](../../../packages/drivers/db/AGENTS.md) prohíben escrituras sin ella
+   y transacciones anidadas. Confirmar la evidencia y devolver el rechazo sin modificar
+   agregados de negocio. Para controles previos, registrar antes de entrar en el comando. Si
+   la autorización se evalúa dentro de una transacción —como el permiso de cierre con
+   diferencia en `CloseShift`—, salir primero de ella sin efectos de negocio y persistir
+   después el rechazo; un decorador que abra otra `UnitOfWork` en esa llamada sería anidado.
+   Cubrir ambos puntos de decisión, comprobar la evidencia durable tras reabrir SQLite y
+   verificar que un fallo al persistirla no se presenta como denegación auditada con éxito.
 
-Límite: este corte no cambia ningún permiso exigido ni relaja una regla existente. Si una prueba
-descubre un caso de uso sensible que hoy no autoriza, se reporta y se corrige en su corte, no se
-convierte en refactor oportunista.
+Límite: este corte no cambia ningún permiso exigido ni relaja una regla existente. La prueba de
+`VoidSale` cubre la anulación, no demuestra que completar una venta exija un permiso adicional.
+`completeSaleContract` conserva `permission: null`: si la deuda de «venta» pretende restringir
+`CompleteSale`, debe resolverse esa ambigüedad en la especificación y decisión normativa antes
+de cambiar su contrato. No inventar `sale.complete` ni declarar cubierta esa restricción con
+una prueba de anulación. Cualquier otra brecha de autorización se contrasta con su fuente
+normativa antes de corregirla en su corte.
 
 ## Corte 2: casos de uso de administración de identidad
 
@@ -92,7 +109,14 @@ Depende de D1–D5. Trabaja outside-in: prueba observable primero, implementaci�
 
 1. **Permisos nuevos.** Agregar `packages/core/src/application/identity/permissions.ts` con
    `identity.user.manage` e `identity.role.manage`, siguiendo exactamente el patrón de los diez
-   catálogos existentes. Incorporarlos a `ADMIN_PERMISSIONS`.
+   catálogos existentes. Incorporarlos a `ADMIN_PERMISSIONS` para bases nuevas. Para bases ya
+   provisionadas, el ADR de identidad debe definir quién recibe esos permisos y el mecanismo
+   autorizado de actualización, de acuerdo con D4 y D5. Cambiar la constante no modifica los
+   permisos persistidos y repetir `ProvisionInitialAdmin` devuelve `AUTH_ALREADY_PROVISIONED`.
+   Implementar esa transición sin recrear usuarios ni credenciales, con auditoría, revocación
+   por versión e idempotencia. Si requiere migración, será nueva y forward-only; no se elige
+   aquí entre migración y operación de provisión controlada ni se amplía el gate de tiendas
+   con historia de ADR-0026.
 2. **Casos de uso**, en verbo + sustantivo y con códigos de error estables:
    `CreateOperator`, `UpdateOperator`, `ChangeOperatorStatus`, `AssignOperatorRoles`,
    `CreateRole`, `UpdateRolePermissions`, `ChangeRoleStatus`. Cada uno autoriza antes de leer o
@@ -143,9 +167,9 @@ que la fase sirvió para algo.
 1. **Una prueba de contrato por permiso publicado por las pantallas de 9B.** Un actor con el
    permiso pasa; el mismo actor sin él recibe `FORBIDDEN` sin efecto. La visibilidad del
    renderer nunca cuenta como autorización.
-2. **Los cinco flujos sensibles de la auditoría** —venta, devolución, ajuste, cambio de precio y
-   cierre de caja— con permisos efectivos aplicados antes de cualquier efecto y con decisión
-   auditable, sobre SQLite real y no con dobles.
+2. **Los comandos y permisos concretos del corte 1**, con permisos efectivos aplicados antes de
+   cualquier efecto de negocio y con decisión auditable, sobre SQLite real y no con dobles.
+   Mantener explícita la ambigüedad sobre completar venta hasta su resolución normativa.
 3. **Perfiles reales.** Crear un cajero con un rol sin permisos de catálogo y comprobar que la
    sesión recibe exactamente sus permisos, que la navegación derivada cambia y que el servidor
    sigue rechazando lo que la UI oculta.
@@ -156,13 +180,19 @@ que la fase sirvió para algo.
    simultáneas.
 6. **Ningún PIN en ninguna salida:** respuesta HTTP, log técnico, entrada de auditoría ni
    estado del renderer. Prueba automatizada, no revisión manual.
+7. **Actualización de una base ya provisionada.** Partir de SQLite anterior a 11.02 con un
+   administrador existente; aplicar el mecanismo aprobado y comprobar que puede administrar
+   identidad, conserva su ID e historia, no se alteran credenciales y no se conceden permisos
+   a destinatarios no autorizados. Repetir la actualización no duplica asignaciones ni evidencia;
+   un fallo revierte la transición y el cambio confirmado invalida las sesiones afectadas.
 
 ## Criterios de aceptación
 
 - [ ] CA-11.02-01: D1–D5 están respondidas y registradas en un ADR aceptado antes de la primera
   línea de implementación del corte 2.
 - [ ] CA-11.02-02: una denegación de autorización deja evidencia auditable con actor, permiso,
-  terminal, nodo, UTC y correlation ID, sin credenciales, y no produce ningún efecto.
+  terminal, nodo, UTC y correlation ID, sin credenciales. Se confirma en una `UnitOfWork`
+  independiente, permanece tras reabrir SQLite y no produce efectos de negocio.
 - [ ] CA-11.02-03: existen `identity.user.manage` e `identity.role.manage` como constantes de
   aplicación, incorporadas a `ADMIN_PERMISSIONS` y declaradas por sus contratos.
 - [ ] CA-11.02-04: el administrador da de alta un operador, crea un rol, le asigna permisos, cambia
@@ -178,12 +208,17 @@ que la fase sirvió para algo.
   actor, terminal, timestamp, motivo, `before` y `after`.
 - [ ] CA-11.02-09: existe una prueba de contrato por cada permiso que publican las pantallas de 9B,
   con caso permitido y denegado.
-- [ ] CA-11.02-10: venta, devolución, ajuste, cambio de precio y cierre de caja aplican permisos
-  efectivos antes de producir efectos, sobre SQLite real, y dejan la decisión auditable.
+- [ ] CA-11.02-10: los comandos y permisos identificados en el corte 1 se prueban sobre SQLite
+  real con decisión auditable antes de efectos de negocio. La especificación aclara si «venta»
+  exige restringir `CompleteSale`; hasta resolverlo, no se considera cubierta esa parte de la
+  deuda por la prueba de `VoidSale` ni se cambia `permission: null`.
 - [ ] CA-11.02-11: un cajero con permisos parciales ve una navegación derivada distinta y el
   servidor rechaza igual lo que la interfaz oculta.
 - [ ] CA-11.02-12: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes; las pruebas arquitectónicas
   de fronteras pasan; la especificación 11.02 y el cronograma reflejan lo entregado.
+- [ ] CA-11.02-13: el ADR define destinatarios y mecanismo de habilitación de los permisos de
+  identidad en bases ya provisionadas. La transición está probada con un administrador anterior
+  a 11.02, repetición, fallo/rollback, auditoría y revocación; no depende de repetir el bootstrap.
 
 ## Superficies y límites
 

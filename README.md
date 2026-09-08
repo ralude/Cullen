@@ -320,8 +320,8 @@ el árbol real, archivo por archivo, y eso destapó cuatro brechas que ninguna e
 nombrado — entre ellas que el mecanismo de revocación de sesión por cambio de autorización estaba
 completo del lado de la lectura y no tenía quién lo disparara. El
 [plan resultante](./docs/cronograma/fase-11-seguridad/plan-secuencia-y-decisiones.md) registra
-además **nueve decisiones abiertas que bloquean la implementación**, en vez de inventar la regla
-de negocio faltante y descubrir el error después.
+además las **decisiones pendientes de aprobación**, detalladas en el cronograma, en vez de
+inventar la regla de negocio faltante y descubrir el error después.
 
 ---
 

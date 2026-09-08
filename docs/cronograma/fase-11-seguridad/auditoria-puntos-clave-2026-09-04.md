@@ -40,7 +40,7 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
 ### 1. Venta completada sin efectos derivados
 
 - **Clasificación:** defecto comprobado de integración.
-- **Evidencia:** `apps/server/src/runtime.ts:206` compone `CompleteSale` con
+- **Evidencia al 2026-09-04:** `apps/server/src/runtime.ts:206` compone `CompleteSale` con
   outbox; no compone el relay ni los consumidores de caja e inventario.
   `apps/server/src/routes/sales.ts:125` devuelve la venta después del caso de
   uso. Los consumidores existen en `core`, pero la composición del servidor no
@@ -52,7 +52,8 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   movimiento de turno, salida de inventario, ledger, auditoría y outbox; debe
   repetir el caso tras reinicio y cubrir idempotencia. Un `COMPLETED` sin sus
   efectos derivados debe quedar visible como atención operativa.
-- **Estado al 2026-09-07:** cerrada la mitad de caja, abierta la de inventario.
+- **Estado al 2026-09-08:** composición local de caja e inventario cubierta; queda la
+  observabilidad de rechazos y atrasos en 11.05.
   `CompleteSale` compone `ApplySaleCompletedToShift` y asienta el cobro en el
   turno dentro de la misma transacción que completa la venta: el `Shift`
   pertenece a la terminal de origen
@@ -62,11 +63,15 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   `packages/drivers/db/src/sale-cash-effect.integration.test.ts` lo demuestra
   sobre SQLite con movimiento, saldo, ledger, outbox, auditoría e idempotencia.
   El cierre de turno exige además que no queden ventas en `DRAFT`
-  (`SHIFT_HAS_OPEN_SALES`, 409). **Sigue abierta la salida de inventario:** el
-  `StockItem` es el libro autoritativo del coordinador, y si un nodo autónomo
-  debe autoaplicar su propio `SaleCompleted` es una decisión de Fase 6 /
-  [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md)
-  que no se inventa aquí.
+  (`SHIFT_HAS_OPEN_SALES`, 409). Desde el 2026-09-07, `runtime.ts` también compone
+  `ApplySaleCompletedToInventory` para standalone y ventas propias del coordinador, dentro
+  de la transacción de `CompleteSale`. Un rechazo de negocio conserva la venta y registra
+  `SALE_STOCK_ISSUE_REJECTED`; un fallo de infraestructura revierte según FS-004.
+  Las terminales entregan el hecho al `InventoryAuthorityConsumer` del coordinador conforme
+  a [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md).
+  [FS-005](../../failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md) enlaza las pruebas
+  de aplicación local y rechazo. 11.05 debe presentar esa evidencia y el atraso remoto sin
+  confundir ausencia de stock local en el POS con una salida faltante en el coordinador.
 - **Escenarios relacionados:** [FS-005](../../failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md)
   y [ADR-0005](../../architecture/adr/0005-eventos-outbox.md).
 

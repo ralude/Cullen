@@ -24,7 +24,7 @@ fase porque correlacionan lo que 11.02, 11.03 y 11.04 producen.
 
 ## Línea base comprobada
 
-Verificada sobre el árbol del 2026-09-07.
+Línea base del 2026-09-07, corregida el 2026-09-08 contra la composición y FS-005.
 
 - **El driver de logging está vacío.** `packages/drivers/logging/src/index.ts` es `export {}`.
   Todo el logging vive hoy en la configuración de Pino de `apps/server/src/app.ts`.
@@ -45,10 +45,14 @@ Verificada sobre el árbol del 2026-09-07.
   publica los cinco estados, la conectividad como dato separado, pendientes de entrega y de
   aplicación, pausas, bloqueos, discrepancias abiertas y la antigüedad de catálogo, tasa,
   concesiones y disponibilidad; `apps/desktop` lo presenta. Se cerró en 10.04.
-- **La mitad de inventario del punto 1 sigue abierta.** `CompleteSale` ya asienta el cobro en el
-  turno dentro de la misma transacción, pero la salida de inventario derivada de
-  `SaleCompleted` no está compuesta en `apps/server/src/runtime.ts`. Una venta `COMPLETED` puede
-  no tener su salida aplicada y **hoy nada lo hace visible**.
+- **La composición de inventario ya existe.** `apps/server/src/runtime.ts` compone
+  `ApplySaleCompletedToInventory` en `CompleteSale` para standalone y ventas propias del
+  coordinador; una terminal con coordinador entrega el hecho para que lo aplique
+  `InventoryAuthorityConsumer` en el nodo autoritativo. Un rechazo local conserva la venta y
+  deja `SALE_STOCK_ISSUE_REJECTED` en auditoría, según
+  [FS-005](../../failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md). La brecha de 11.05
+  es hacer visible el rechazo local y su antigüedad, y comprobar la cobertura del atraso y las
+  discrepancias remotas con el estado de sincronización existente; no falta componer el consumidor.
 
 ## Corte 0: redacción, adelantado antes de 11.02
 
@@ -94,8 +98,12 @@ en un cuerpo distinto al de login.
 Este corte hace visible el problema. **No** implementa los consumidores: eso pertenece a las
 Fases 4, 5 y 6.
 
-1. Detectar y publicar una venta `COMPLETED` cuya salida de inventario todavía no se aplicó, con
-   su antigüedad. Es la mitad abierta del punto 1 de la auditoría y hoy no tiene ninguna señal.
+1. Detectar y publicar una venta `COMPLETED` sin salida aplicada, con su antigüedad y evidencia:
+   rechazo local auditado (`SALE_STOCK_ISSUE_REJECTED`), entrega/aplicación remota pendiente o
+   discrepancia del coordinador. Reutilizar la auditoría y el progreso durable existentes;
+   la ausencia de movimientos en el POS no prueba un fallo, porque el stock pertenece al
+   coordinador. No presentar un ACK de custodia como aplicación ni inventar un estado remoto
+   cuando no hay evidencia. Probar cada caso y que una salida aplicada no se marque pendiente.
 2. Publicar métricas o eventos de diagnóstico del outbox: pendientes por destino, intentos,
    estado del lease, siguiente intento por backoff, pausas y bloqueos. Buena parte del dato ya
    existe en el store de outbox y en `GetSyncStatus`; el corte lo expone como diagnóstico, sin
@@ -131,7 +139,9 @@ Fases 4, 5 y 6.
 - [ ] CA-11.05-07: el costo usado en una salida queda auditable, sin decidir la fórmula
   contable.
 - [ ] CA-11.05-08: una venta `COMPLETED` sin su salida de inventario aplicada es visible con su
-  antigüedad como atención operativa.
+  antigüedad como atención operativa, distinguiendo rechazo local, pendiente remoto y
+  discrepancia según evidencia durable. No se infiere falta de aplicación por no tener
+  movimientos locales en una terminal ni se presenta custodia como aplicación confirmada.
 - [ ] CA-11.05-09: el diagnóstico de outbox publica pendientes, intentos, lease, backoff, pausas
   y bloqueos por destino, sin secretos ni datos completos de pago.
 - [ ] CA-11.05-10: las discrepancias y la antigüedad de la sincronización quedan cubiertas —por
@@ -147,8 +157,9 @@ Configuración de redacción y formato en `packages/drivers/logging`; composici�
 manejadores en `apps/server`; lecturas de diagnóstico en aplicación, expuestas por la API local
 autenticada; presentación en `apps/desktop`.
 
-Fuera de alcance: componer el consumidor de inventario de `SaleCompleted`, que es de la Fase 6 y
-ADR-0026; corregir el redondeo de costo, que es de 9B.04; la política de resolución de
-discrepancias, que es de la Fase 10; el benchmark de crecimiento de la historia de inventario,
+Fuera de alcance: reimplementar o cambiar el consumidor existente de inventario de
+`SaleCompleted`, que es de la Fase 6 y ADR-0026; corregir el redondeo de costo, que es de 9B.04;
+la política de resolución de discrepancias, que es de la Fase 10; el benchmark de crecimiento
+de la historia de inventario,
 que es de la Fase 12; y cualquier reemplazo de la auditoría append-only por logs. Un log no es
 evidencia de negocio.

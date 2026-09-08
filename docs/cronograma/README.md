@@ -28,8 +28,9 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
 **Fase actual:** Fase 11 - Seguridad, habilitada el 2026-09-07 al cerrar la Fase 10, planificada
-el mismo día y todavía sin iniciar implementación. Las nueve decisiones D1-D9 del
-[plan de fase](./fase-11-seguridad/plan-secuencia-y-decisiones.md) bloquean el arranque.
+el mismo día y todavía sin iniciar implementación. Las ocho decisiones abiertas D1–D5 y D7–D9
+del [plan de fase](./fase-11-seguridad/plan-secuencia-y-decisiones.md) bloquean sus cortes
+dependientes. D6 aplica el loopback ya obligatorio y no bloquea la validación del host en 11.03.
 **Fase 10, completada el 2026-09-07:** 10.01 entregó el outbox
 durable ordenado por agregado con claims generacionales; 10.02 el protocolo de eventos de
 [ADR-0023](../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md); 10.03 el servidor
@@ -378,12 +379,20 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
   aunque la revocación por cambio de autorización ya esté implementada en la lectura de sesión,
   una denegación de permiso no deja rastro auditable, y el arranque real llama `applyMigrations`
   en vez de la ruta con respaldo y restauración que el driver ya ofrece. La planificación
-  registra nueve decisiones abiertas (D1-D9) que bloquean la implementación: siembra de roles,
+  registró inicialmente nueve decisiones abiertas (D1-D9): siembra de roles,
   ciclo de vida del operador, restablecimiento de PIN, definición de último administrador y
   dueño de la identidad en LAN para 11.02; alcance del transporte para 11.03; cifrado en reposo,
-  retención y rotación para 11.04. D1-D5 y D7-D9 requieren ADR nuevos y D6 amplía ADR-0011. La
-  planificación no inicia implementación ni adelanta trabajo de las Fases 4, 5, 6, 10 o 12, que
+  retención y rotación para 11.04. La revisión del 2026-09-08 corrigió D6: AGENTS.md y ADR-0026
+  ya exigen loopback, por lo que no requiere un ADR nuevo ni bloquea 11.03. D1-D5 y D7-D9
+  siguen abiertas y requieren ADR nuevos. La planificación no inicia implementación ni adelanta
+  trabajo de las Fases 4, 5, 6, 10 o 12, que
   conservan la propiedad de los puntos 1, 2, 8 y 9 de la auditoría.
+- El 2026-09-08 se corrigieron los planes de Fase 11 tras una segunda revisión: auditoría de
+  rechazos mediante `UnitOfWork` independiente; transición autorizada de permisos para bases ya
+  provisionadas; comandos y permisos concretos en las pruebas, con la ambigüedad de
+  `CompleteSale` pendiente de aclaración normativa; y línea base de inventario ajustada a la
+  composición ya existente. 11.05 distingue rechazo local, aplicación remota pendiente y
+  discrepancia. Las correcciones documentales no inician ni completan implementación.
 - La auditoría focal del 2026-09-04 quedó documentada en el [registro de puntos
   clave de la Fase 11](./fase-11-seguridad/auditoria-puntos-clave-2026-09-04.md).
   Confirma la base arquitectónica, pero deja como deudas trazables la composición

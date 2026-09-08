@@ -17,7 +17,8 @@
 
 ## Línea base comprobada
 
-Verificada sobre el árbol del 2026-09-07, antes de planificar. Cada afirmación tiene su archivo.
+Línea base del 2026-09-07, corregida en la revisión del 2026-09-08 contra código y fuentes
+normativas. Cada afirmación tiene su archivo.
 
 **Lo que ya existe y no se rehace:**
 
@@ -44,6 +45,11 @@ Verificada sobre el árbol del 2026-09-07, antes de planificar. Cada afirmación
   restauración (`packages/drivers/db/src/migrations.ts:359`).
 - `GetSyncStatus` ya deriva los cinco estados de sincronización, la antigüedad de referencias y
   las discrepancias abiertas (cerrado en 10.04).
+- `CompleteSale` ya compone la salida de inventario para standalone y ventas propias del
+  coordinador; los eventos de terminales se aplican en el coordinador mediante
+  `InventoryAuthorityConsumer` (`apps/server/src/runtime.ts`).
+  [FS-005](../../failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md) conserva la garantía
+  local y el rechazo auditable; 11.05 cubre su presentación y el atraso de aplicación remota.
 
 **Lo que falta y esta fase debe cerrar:**
 
@@ -54,6 +60,10 @@ Verificada sobre el árbol del 2026-09-07, antes de planificar. Cada afirmación
 - **Nada incrementa `authorization_version`.** El mecanismo de revocación por cambio de
   autorización existe en la lectura, pero ningún caso de uso lo dispara porque ningún caso de
   uso cambia roles ni permisos todavía.
+- **La base ya provisionada necesita una transición de permisos.** Agregar constantes a
+  `ADMIN_PERMISSIONS` no actualiza los roles persistidos. El ADR de identidad debe definir
+  destinatarios y mecanismo autorizado para habilitar los permisos nuevos sin repetir el
+  bootstrap; el corte 2 de 11.02 debe implementarlo y probarlo sobre una base anterior.
 - **Una denegación no deja rastro auditable.** Los `FORBIDDEN` de
   `packages/core/src/application/**` devuelven el error de inmediato, antes de tocar
   `AuditWriter`. La auditoría conserva lo que se hizo, no lo que se intentó sin permiso.
@@ -92,10 +102,11 @@ El orden responde a dependencias reales, no a la numeración:
 Son cortes internos, no sub-fases nuevas. No se renumera nada ni se declara implementado
 trabajo futuro. La Fase 12 conserva la optimización medida y la Fase 8 sigue suspendida.
 
-## Decisiones abiertas antes de implementar
+## Decisiones y restricciones antes de implementar
 
-Ninguna de estas está resuelta hoy. Se registran como preguntas de negocio o de arquitectura,
-no como trabajo planificado. Una respuesta no se inventa en la implementación.
+D1–D5 y D7–D9 siguen abiertas: sus respuestas no se inventan en la implementación. D6 conserva
+su identificador por trazabilidad, pero es una restricción ya fijada por fuentes superiores y
+no bloquea 11.03. Los cortes independientes conservan los prerrequisitos de sus planes.
 
 ### Bloquean 11.02
 
@@ -114,17 +125,22 @@ no como trabajo planificado. Una respuesta no se inventa en la implementación.
   persistible: ¿se cuenta por el permiso `identity.user.manage`, por un rol marcado como
   administrativo, o por ambos? El bloqueo debe evaluarse dentro de la misma transacción que el
   cambio, no como validación previa.
+  El ADR debe concretar también, junto con D5, los destinatarios y el mecanismo autorizado de
+  habilitación de `identity.user.manage` e `identity.role.manage` en bases ya provisionadas,
+  sin depender de permisos que esos administradores todavía no poseen.
 - **D5 — dueño de la identidad en LAN.** ADR-0026 ya hace del coordinador la autoridad de las
   concesiones de operador. ¿Los operadores se dan de alta solo en el coordinador y llegan a las
   terminales por concesión, o cada nodo administra su propia identidad? La frontera universal
   de un único nodo dueño por agregado exige responderlo antes de escribir el caso de uso.
 
-### Bloquean 11.03
+### Restricción vigente de 11.03
 
-- **D6 — alcance del transporte.** ¿La API de operadores permanece enlazada a loopback en todo
-  el MVP —y entonces un `SERVER_HOST` no loopback se rechaza sin excepción—, o existe un modo
-  LAN explícito con TLS, cookie `Secure` y su propia prueba de configuración insegura? De esto
-  depende si 11.03 es una restricción o una capacidad.
+- **D6 — loopback obligatorio; no es una decisión pendiente.**
+  [apps/server/AGENTS.md](../../../apps/server/AGENTS.md) y ADR-0026 D1 establecen que solo el
+  listener técnico de sincronización se expone en LAN. La API de operadores conserva loopback;
+  11.03 debe rechazar `SERVER_HOST` no loopback, incluso si existe material TLS. Una apertura
+  futura requeriría cambiar las fuentes normativas aplicables, no solo ampliar ADR-0011 desde
+  este plan. La falta de validación en código no reabre la decisión de arquitectura.
 
 ### Bloquean 11.04
 
@@ -141,8 +157,9 @@ no como trabajo planificado. Una respuesta no se inventa en la implementación.
 
 ### Registro normativo esperado
 
-D1–D5 requieren un ADR de administración de identidad. D6 amplía ADR-0011 y no debería
-contradecirlo desde otro documento. D7–D9 requieren un ADR de protección de datos en reposo.
+D1–D5 requieren un ADR de administración de identidad, incluida la transición de bases ya
+provisionadas. D6 aplica AGENTS.md y ADR-0026 sin un ADR nuevo. D7–D9 requieren un ADR de
+protección de datos en reposo.
 Primero el ADR, después la implementación: no se mantienen dos especificaciones independientes.
 
 ## Gates de ejecución que permanecen
@@ -154,6 +171,8 @@ Trabajo planificado, no preguntas pendientes:
   cambio que los provoca, probados bajo concurrencia sobre SQLite real.
 - **Antes de cerrar 11.02:** una prueba de contrato por cada permiso que publican las pantallas
   de 9B. La visibilidad del renderer no es autorización, y ADR-0015 lo dice explícitamente.
+  La deuda genérica de «venta» debe aclarar si pretende un permiso adicional para `CompleteSale`,
+  cuyo contrato actual declara `permission: null`; probar `VoidSale` no resuelve esa ambigüedad.
 - **Antes de cerrar cualquier sub-fase:** `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes. El
   punto 3 de la auditoría dejó `pnpm pipeline` como criterio de cierre de sub-fase.
 - **Antes de declarar la fase cerrada:** el criterio de salida es que toda operación sensible
@@ -164,9 +183,9 @@ Trabajo planificado, no preguntas pendientes:
 
 La Fase 11 no absorbe reglas de caja, inventario, costeo ni sincronización. En concreto:
 
-- La composición del consumidor de inventario para `SaleCompleted` (punto 1 de la auditoría,
-  mitad abierta) pertenece a la Fase 6 y a ADR-0026. 11.05 hace visible su ausencia; no la
-  implementa.
+- La composición existente del consumidor de inventario para `SaleCompleted` pertenece a la
+  Fase 6 y a ADR-0026. 11.05 hace visibles rechazos locales, atrasos y discrepancias de
+  aplicación remota; no reimplementa el consumidor ni modifica sus reglas.
 - El redondeo de costo al agotar existencia (punto 2) pertenece a 9B.04 y ADR-0016.
 - El empaquetado reproducible de la estación (punto 4) pertenece a su fase propietaria. 11.03
   solo verifica la frontera de sesión y transporte dentro de ese arranque.

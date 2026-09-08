@@ -2,7 +2,7 @@
 
 - Fecha: 2026-09-07.
 - Estado: **planificado, sin iniciar**. El corte mínimo pre-UI está completado; este plan cubre
-  solo el hardening pendiente. Bloqueado por D6 de la
+  solo el hardening pendiente. D6 recoge el loopback obligatorio ya decidido en la
   [secuencia y decisiones de Fase 11](./plan-secuencia-y-decisiones.md).
 - Especificación: [11.03 JWT y sesiones](./11.03-jwt-sesiones.md).
 - Deuda de origen: [auditoría 2026-09-04](./auditoria-puntos-clave-2026-09-04.md), puntos 4 y 6.
@@ -17,11 +17,12 @@ sesión tenga una política definida y probada por cada transporte permitido, y 
 sesión sobreviva a un arranque empaquetado sin el proxy de Vite.
 
 Leer antes de implementar: AGENTS.md y el `AGENTS.md` de `apps/server` y `apps/desktop`;
-arquitectura 03 (topología) y 12 (ownership); ADR-0011 y ADR-0026; el registro de la auditoría.
+arquitectura 07 (IPC y HTTP) y 12 (ownership); ADR-0011 y ADR-0026; el registro de la auditoría.
 
-Antes de escribir código: D6 respondida. El resto del corte no depende de 11.02, pero se ejecuta
-después para que las pruebas de configuración insegura puedan usar operadores con permisos
-distintos.
+No hay decisión pendiente sobre exposición: `apps/server/AGENTS.md` y ADR-0026 D1 exigen
+loopback para operadores. El orden general conserva 11.03 después de 11.02, pero la validación
+del host no depende de nuevos roles ni queda bloqueada por D6; las pruebas con perfiles distintos
+pueden añadirse cuando 11.02 los habilite.
 
 ## Línea base comprobada
 
@@ -57,23 +58,24 @@ Verificada sobre el árbol del 2026-09-07.
    y sin abrir el listener. No basta con registrar una advertencia.
 2. Implementar la validación en el composition root, junto al resto de la lectura de entorno, no
    dentro de una ruta ni de un hook.
-3. La forma exacta de la regla la fija D6: o loopback obligatorio sin excepción, o un modo LAN
-   explícito que exija TLS y material completo, como ya hace `readSyncListenerConfiguration`.
-   Reutilizar ese patrón de fallo cerrado en vez de inventar otro.
+3. Imponer loopback sin excepción para la API de operadores, conforme a D6 y sus fuentes
+   normativas. Tener TLS configurado para sincronización no permite exponer esa API en LAN.
+   Reutilizar el patrón de fallo cerrado de la composición sin introducir un modo LAN operativo.
 4. Un valor ausente conserva el default actual de loopback: la instalación existente no cambia
    de comportamiento por este corte.
 
 ## Corte 2: política de cookie por transporte
 
 1. Derivar los atributos de la cookie del transporte efectivo, en un único lugar. Hoy la cadena
-   está escrita a mano en dos puntos de `routes/auth.ts` (emisión y borrado): quedan
-   inconsistentes por construcción.
+   está escrita a mano en dos puntos de `routes/auth.ts` (emisión y borrado): centralizarla
+   para evitar que sus políticas diverjan.
 2. `Secure` se activa cuando el transporte lo permite, y su ausencia sobre loopback HTTP queda
    declarada como decisión, no como olvido. `HttpOnly`, `SameSite=Strict` y `Path=/api/v1` se
    conservan: el renderer no puede leer el token y ADR-0011 lo exige.
-3. Prueba de contrato por cada transporte que D6 habilite, verificando los atributos emitidos en
-   login y en logout. Una cookie de borrado con atributos distintos a los de emisión no borra
-   nada en el navegador.
+3. Probar login y logout sobre el transporte local permitido, incluyendo la ausencia de `Secure`
+   en loopback HTTP prevista por ADR-0011. Verificar que el borrado apunta a la misma cookie
+   (nombre, dominio y ruta) y conserva la política de protección. El HTTPS técnico de sync no
+   emite cookies de operador; estas pruebas no habilitan otro transporte operativo.
 4. Ningún atributo se vuelve configurable por entorno: se deriva del transporte, no se declara.
 
 ## Corte 3: suplantación y configuración insegura
@@ -83,8 +85,9 @@ Verificada sobre el árbol del 2026-09-07.
    garantía y no como detalle de implementación.
 2. Una cookie de sesión emitida en un nodo no vale en otro: probarlo con dos nodos de identidad
    distinta y bases separadas, como ya hacen las pruebas LAN de 10.04.
-3. Una configuración insegura —host expuesto sin TLS, material incompleto, identidad de nodo
-   ilegible o corrupta— aborta el arranque con código estable. `loadNodeIdentity` ya falla con
+3. Una configuración insegura —host de operadores no loopback, aun con TLS; material incompleto
+   cuando se habilita el listener técnico; identidad de nodo ilegible o corrupta— aborta el
+   arranque con código estable. `loadNodeIdentity` ya falla con
    `NODE_IDENTITY_LOAD_FAILED`; el corte añade la cobertura y el resto de los casos.
 4. Los mensajes públicos de estos fallos no revelan rutas de archivo, material ni configuración.
 
@@ -105,8 +108,9 @@ empaquetado pertenece a su fase propietaria** y esta sub-fase no lo implementa.
 
 ## Criterios de aceptación
 
-- [ ] CA-11.03-01: D6 está respondida y registrada en la fuente normativa correspondiente antes de
-  implementar el corte 1.
+- [ ] CA-11.03-01: la implementación respeta el loopback obligatorio de
+  `apps/server/AGENTS.md` y ADR-0026 D1; no existe excepción LAN para operadores por disponer de
+  TLS ni se trata D6 como aprobación pendiente.
 - [ ] CA-11.03-02: un `SERVER_HOST` que exponga la API de operadores fuera de lo permitido aborta
   el arranque con código estable y sin abrir el listener; hay prueba automatizada.
 - [ ] CA-11.03-03: un valor ausente conserva el comportamiento loopback actual, verificado por

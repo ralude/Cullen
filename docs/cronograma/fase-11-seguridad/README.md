@@ -39,8 +39,10 @@ sub-fase 9B.09. La Fase 11 vuelve a ser la unica duena de identidad y autorizaci
 
 El [plan de fase](./plan-secuencia-y-decisiones.md) fija la secuencia: corte 0 de redacción de
 11.05 adelantado, luego 11.02, 11.03, 11.04 y los cortes restantes de 11.05. El orden responde a
-dependencias reales, no a la numeración. Nueve decisiones (D1–D9) siguen abiertas y bloquean el
-inicio de la implementación de cada sub-fase; D1–D5 y D7–D9 requieren un ADR nuevo.
+dependencias reales, no a la numeración. Ocho decisiones (D1–D5 y D7–D9) siguen abiertas y
+bloquean los cortes dependientes de identidad y protección en reposo; requieren un ADR nuevo.
+D6 recoge el loopback obligatorio de `apps/server/AGENTS.md` y ADR-0026, y no bloquea la
+validación del host en 11.03. Los cortes independientes conservan sus prerrequisitos explícitos.
 
 ## Criterio de salida
 
