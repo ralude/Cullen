@@ -90,3 +90,12 @@ solo proceso dueño por nodo y, con el servidor activo, fallan con
 `DATABASE_NODE_LOCKED`.
 
 `SERVER_HOST` y `SERVER_PORT` permiten cambiar el bind y el puerto para desarrollo. El valor por defecto es loopback (`127.0.0.1`) para el modo standalone.
+
+## Interfaz servida por el nodo
+
+`RENDERER_DIST_PATH` publica el paquete compilado del renderer en `/app`. Es lo
+que usa la terminal instalada: la ventana de Electron pide `<nodo>/app/` en vez
+de abrir el paquete desde el disco, de modo que interfaz y API comparten origen
+y la cookie de sesión `SameSite=Strict` viaja en cada llamada. Sin esa variable
+el nodo arranca igual y `/app` no existe, que es el caso de desarrollo: ahí el
+renderer lo sirve `electron-vite` y reenvía `/api` a este nodo.

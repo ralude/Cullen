@@ -17,6 +17,7 @@
     "seed:products": "tsx src/seed-products.ts"
   },
   "dependencies": {
+    "@fastify/static": "^10.1.3",
     "@supermarket/core": "workspace:*",
     "@supermarket/driver-db": "workspace:*",
     "@supermarket/driver-exchange-rate": "workspace:*",

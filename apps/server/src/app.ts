@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import fastifyStatic from '@fastify/static';
 import Fastify, {
   LogController,
   type FastifyError,
@@ -250,6 +253,42 @@ export const createExecutionContext = (
   };
 };
 
+/**
+ * Sirve la interfaz empaquetada desde el propio nodo, bajo `/app`.
+ *
+ * El renderer llama a `/api/v1/...` con rutas relativas y la sesión viaja en
+ * una cookie `SameSite=Strict` con `Path=/api/v1`. Cargado desde `file://`, ese
+ * origen no existe y ninguna llamada llega con credenciales, así que la terminal
+ * instalada solo funciona si la interfaz comparte origen con su API. Una base
+ * URL absoluta no resolvería lo mismo: exigiría CORS con credenciales y una
+ * cookie `SameSite=None; Secure`, es decir TLS, en una conexión de loopback.
+ *
+ * En desarrollo no se registra nada: `electron-vite` sirve el renderer y
+ * proxifica `/api` hacia este nodo.
+ */
+const registerRendererAssets = (app: FastifyInstance): void => {
+  const root = process.env.RENDERER_DIST_PATH?.trim();
+  if (!root) return;
+  const resolved = resolve(root);
+  if (!existsSync(join(resolved, 'index.html'))) {
+    app.log.warn({ root: resolved }, 'Renderer bundle not found; /app stays unavailable');
+    return;
+  }
+  void app.register(async (scope) => {
+    /**
+     * Los estáticos resuelven sus propios fallos dentro de este contexto: una
+     * ruta que intenta salir del paquete no es un fallo del nodo, así que
+     * responde «no encontrado» en lugar de escalar a error interno y registrar
+     * una traza. El manejador global sigue gobernando el resto de la API.
+     */
+    scope.setErrorHandler((_error, request, reply) => {
+      sendProblem(reply, request, 'RESOURCE_NOT_FOUND', 'Resource was not found.');
+    });
+    await scope.register(fastifyStatic, { root: resolved, prefix: '/app/', index: 'index.html' });
+  });
+  app.get('/app', async (_request, reply) => reply.redirect('/app/', 308));
+};
+
 export const buildApp = (dependencies?: ServerDependencies): FastifyInstance => {
   const app = Fastify({
     ajv: { customOptions: { removeAdditional: false } },
@@ -300,6 +339,7 @@ export const buildApp = (dependencies?: ServerDependencies): FastifyInstance => 
   });
 
   app.register(healthRoute);
+  registerRendererAssets(app);
   if (dependencies) {
     registerAuthRoutes(app, dependencies);
     registerSystemRoutes(app, dependencies);
