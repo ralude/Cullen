@@ -8,6 +8,7 @@ import {
   VerifySession,
   type Clock,
   type OutboxStore,
+  type RemoteApplicationProbe,
   type RemoteSaleIssueProbe,
   type SaleIssueEvidence,
   type SyncApplicationProgress,
@@ -64,6 +65,7 @@ import {
   SqliteDiscountPolicyProvider,
   SqliteFinancialTransactionTaxPolicyProvider,
   SqliteOperationalMasterDataStore,
+  SqliteOperationalDiagnosticsReader,
   SqliteOpenSalesProbe,
   SqliteOperationalPolicyWriter,
   SqliteUnitOfWork,
@@ -152,7 +154,9 @@ export const createSecurityRuntime = (
    * terminal con transporte configurado; sin ella una devolución LAN no
    * empieza, porque no hay evidencia con la que restituir (ADR-0026 D3).
    */
-  saleIssueProbe?: RemoteSaleIssueProbe
+  saleIssueProbe?: RemoteSaleIssueProbe,
+  /** Consulta separada de custodia/aplicación para el diagnóstico de ventas. */
+  remoteApplicationProbe?: RemoteApplicationProbe
 ): SecurityRuntime => {
   const handle = openDatabase(databasePath);
   applyMigrations(handle.sqlite);
@@ -689,6 +693,10 @@ export const createSecurityRuntime = (
         getStatus: new application.GetSyncStatus(
           outboxStore, syncInboxWork, syncConnectivity, clock, authorization,
           new SqliteCatalogReferenceProjection(handle)
+        ),
+        getOperationalDiagnostics: new application.GetOperationalDiagnostics(
+          new SqliteOperationalDiagnosticsReader(handle), authorization, clock,
+          remoteApplicationProbe
         ),
         listPaused: new application.ListPausedDeliveries(outboxStore, authorization),
         resumeDelivery: new application.ResumeSyncDelivery(

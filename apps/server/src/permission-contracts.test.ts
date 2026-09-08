@@ -47,6 +47,7 @@ import {
   changeOwnPinContract,
   completeCredentialEnrollmentContract,
   getSyncStatusContract,
+  getOperationalDiagnosticsContract,
   listPausedDeliveriesContract,
   listSyncDiscrepanciesContract,
   listSyncNodesContract,
@@ -203,6 +204,7 @@ describe('el permiso declarado por cada contrato coincide con el que su caso de 
     expectedPermission(revokeSyncNodeContract, application.SYNC_PERMISSIONS.MANAGE_NODE);
     expectedPermission(listSyncNodesContract, application.SYNC_PERMISSIONS.MANAGE_NODE);
     expectedPermission(getSyncStatusContract, application.SYNC_PERMISSIONS.REVIEW_RECEPTION);
+    expectedPermission(getOperationalDiagnosticsContract, application.SYNC_PERMISSIONS.REVIEW_RECEPTION);
     expectedPermission(listPausedDeliveriesContract, application.SYNC_PERMISSIONS.REVIEW_RECEPTION);
     expectedPermission(listSyncDiscrepanciesContract, application.SYNC_PERMISSIONS.REVIEW_RECEPTION);
     expectedPermission(resumeSyncDeliveryContract, application.SYNC_PERMISSIONS.RESUME_DELIVERY);

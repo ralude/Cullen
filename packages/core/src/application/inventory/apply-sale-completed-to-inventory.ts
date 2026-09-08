@@ -169,7 +169,12 @@ export class ApplySaleCompletedToInventory {
             auditId: this.auditIdGenerator.generate(), actorId: event.actorId, actorRoleCodes: [],
             action: 'SALE_STOCK_ISSUED', entityType: 'StockItem', entityId: item.id,
             before: { balanceScaled: beforeBalance }, after: { balanceScaled: item.balance.scaledValue,
-              saleId: event.aggregateId, saleItemId: line.itemId }, reason: 'Completed sale applied to inventory.',
+              saleId: event.aggregateId, saleItemId: line.itemId, referenceId,
+              unitCostMinorUnits: unitCostAtIssue?.minorUnits ?? null,
+              costCurrencyCode: unitCostAtIssue?.currency ?? null,
+              costSource: this.costSource,
+              costSnapshotVersion: line.costSnapshot?.version ?? null },
+            reason: 'Completed sale applied to inventory.',
             terminalId: payload.terminalId, originNodeId: event.originNodeId,
             occurredAt: event.occurredAt, correlationId: event.correlationId
           });

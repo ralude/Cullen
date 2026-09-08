@@ -166,3 +166,10 @@ export type {
   SecretVaultProtection
 } from './secret-vault.js';
 export type { IdentityRetentionStore } from './identity-retention-store.js';
+export type {
+  DeliveryDiagnosticRecord,
+  OutboxDiagnosticRecord,
+  OperationalDiagnosticsReader,
+  OperationalTraceRecord,
+  SaleEffectRecord
+} from './operational-diagnostics-reader.js';

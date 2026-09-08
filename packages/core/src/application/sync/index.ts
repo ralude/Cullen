@@ -64,3 +64,11 @@ export type {
   CoordinatedOperationStepDto
 } from './coordinated-stock-operations.js';
 export { CommercialProjectionConsumer } from './commercial-projection-consumer.js';
+export { GetOperationalDiagnostics } from './operational-diagnostics.js';
+export type {
+  DeliveryDiagnosticDto,
+  OperationalDiagnosticsDto,
+  OperationalTraceDto,
+  SaleAttentionDto,
+  SaleAttentionState
+} from './operational-diagnostics.js';

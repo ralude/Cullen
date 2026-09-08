@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifySchema } from 'fastify';
 import {
   getSyncStatusContract,
+  getOperationalDiagnosticsContract,
   listPausedDeliveriesContract,
   listSyncDiscrepanciesContract,
   listSyncNodesContract,
@@ -17,6 +18,7 @@ import {
   type RevokeSyncNodeRequest,
   type PublishCatalogBootstrapRequest,
   type PublishOperatorGrantsRequest,
+  type OperationalDiagnosticsResponse,
   type SyncDiscrepancyActionRequest
 } from '@supermarket/shared';
 import {
@@ -134,6 +136,24 @@ export const registerSyncRoutes = (
       request.params.destinationNodeId,
       createExecutionContext(request, principal, dependencies)
     );
+    return result.ok
+      ? reply.send(result.value)
+      : sendProblem(reply, request, result.error.code, result.error.message);
+  });
+
+  app.get<{
+    Params: { destinationNodeId: string };
+    Querystring: { correlationId?: string };
+    Reply: OperationalDiagnosticsResponse;
+  }>(getOperationalDiagnosticsContract.path, {
+    schema: getOperationalDiagnosticsContract.schema as FastifySchema
+  }, async (request, reply) => {
+    const principal = await requirePrincipal(request, reply, dependencies);
+    if (!principal) return;
+    const result = await sync.getOperationalDiagnostics.execute({
+      destinationNodeId: request.params.destinationNodeId,
+      ...(request.query.correlationId ? { correlationId: request.query.correlationId } : {})
+    }, createExecutionContext(request, principal, dependencies));
     return result.ok
       ? reply.send(result.value)
       : sendProblem(reply, request, result.error.code, result.error.message);

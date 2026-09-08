@@ -178,6 +178,7 @@ export type ServerDependencies = {
     readonly publishOperatorGrants: application.PublishOperatorGrants;
     readonly listCoordinatedOperations: application.ListCoordinatedOperations;
     readonly getStatus: application.GetSyncStatus;
+    readonly getOperationalDiagnostics: application.GetOperationalDiagnostics;
     readonly listPaused: application.ListPausedDeliveries;
     readonly resumeDelivery: application.ResumeSyncDelivery;
     readonly listDiscrepancies: application.ListSyncDiscrepancies;

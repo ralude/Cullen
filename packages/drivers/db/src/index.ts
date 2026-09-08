@@ -47,6 +47,7 @@ export {
 export { DrizzleFiscalDayRepository } from './fiscal-day-repository.js';
 export { SqliteAuthenticationStore, SqliteAuthorizationService } from './authentication-store.js';
 export { SqliteIdentityAdministrationStore } from './identity-administration-store.js';
+export { SqliteOperationalDiagnosticsReader } from './operational-diagnostics.js';
 export {
   DrizzleCashRegisterRepository,
   DrizzleCategoryRepository,

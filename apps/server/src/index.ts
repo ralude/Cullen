@@ -55,6 +55,9 @@ await runNodeStartupMaintenance({
 
 /** El material TLS de LAN se abre en memoria; no se copia en claro a disco. */
 const clientConfiguration = readSyncClientConfiguration(process.env, materialProtection.readSecret);
+const remoteApplicationProbe = clientConfiguration
+  ? new HttpsRemoteApplicationProbe(clientConfiguration)
+  : undefined;
 
 const runtime = createSecurityRuntime(
   storage.databasePath,
@@ -68,7 +71,8 @@ const runtime = createSecurityRuntime(
       : {})
   },
   clientConfiguration?.destinationNodeId ?? null,
-  clientConfiguration ? new HttpsRemoteSaleIssueProbe(clientConfiguration) : undefined
+  clientConfiguration ? new HttpsRemoteSaleIssueProbe(clientConfiguration) : undefined,
+  remoteApplicationProbe
 );
 const app = buildApp(runtime.dependencies);
 
@@ -140,10 +144,10 @@ const worker = destinationCycles
      * Una terminal concilia sus operaciones distribuidas contra su
      * coordinador. Un nodo sin coordinador no tiene paso remoto que esperar.
      */
-    ...(clientConfiguration ? {
+    ...(remoteApplicationProbe ? {
       reconciliation: {
         operations: runtime.coordinatedOperations,
-        probe: new HttpsRemoteApplicationProbe(clientConfiguration)
+        probe: remoteApplicationProbe
       }
     } : {}),
     /**

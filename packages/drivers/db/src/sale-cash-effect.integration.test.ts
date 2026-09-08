@@ -6,16 +6,18 @@ import {
   CashRegister,
   PaymentMethod,
   Product,
+  StockItem,
   UnitOfMeasure,
   type FinancialTransactionTaxPolicyProvider
 } from '@supermarket/core';
-import { Money, TaxRate } from '@supermarket/shared';
+import { Money, Quantity, TaxRate } from '@supermarket/shared';
 import { DrizzleAuditWriter } from './audit-writer.js';
 import { DrizzleBusinessEventStore } from './business-event-store.js';
 import { openDatabase, type DatabaseHandle } from './connection.js';
 import { DrizzleIdempotencyStore } from './idempotency-store.js';
 import { applyMigrations } from './migrations.js';
 import { SqliteOpenSalesProbe } from './open-sales-probe.js';
+import { SqliteOperationalDiagnosticsReader } from './operational-diagnostics.js';
 import { DrizzleOutboxStore } from './outbox-store.js';
 import { DrizzleProductSnapshotProvider } from './product-snapshot-provider.js';
 import {
@@ -26,6 +28,7 @@ import {
   DrizzleProductRepository,
   DrizzleSaleRepository,
   DrizzleShiftRepository,
+  DrizzleStockItemRepository,
   DrizzleUnitOfMeasureRepository
 } from './repositories.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
@@ -79,6 +82,7 @@ const harness = async (): Promise<Harness> => {
   const methods = new DrizzlePaymentMethodRepository(handle);
   const shifts = new DrizzleShiftRepository(handle);
   const sales = new DrizzleSaleRepository(handle);
+  const stock = new DrizzleStockItemRepository(handle);
   const ledger = new DrizzleBusinessEventStore(handle);
   const outbox = new DrizzleOutboxStore(handle);
   const audit = new DrizzleAuditWriter(handle);
@@ -106,6 +110,17 @@ const harness = async (): Promise<Harness> => {
       priceHistoryId: 'history-001', recordedBy: 'user-001',
       occurredAt: OPENED_AT, eventId: 'event-product-created'
     }));
+    const item = StockItem.create({
+      id: 'stock-item-001', productId: 'product-001', unitCode: 'UNIT',
+      quantityScale: 0, tracksBatches: false
+    });
+    item.registerMovement({
+      id: 'receipt-001', type: 'PURCHASE_RECEIPT', quantity: Quantity.fromScaled(10, 0),
+      actorId: 'user-001', reason: 'Inventario inicial', referenceId: 'purchase-001',
+      occurredAt: OPENED_AT, eventId: 'stock-seed-event',
+      unitCost: Money.fromMinorUnits(800, 'USD')
+    });
+    await stock.save(item);
   });
 
   const open = new application.OpenShift(
@@ -117,7 +132,7 @@ const harness = async (): Promise<Harness> => {
   expect((await open.execute({
     cashRegisterId: 'register-001',
     openingFunds: [{ paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 5_000 }]
-  }, context)).ok).toBe(true);
+  }, { ...context, correlationId: 'open-correlation' })).ok).toBe(true);
 
   return {
     handle,
@@ -143,7 +158,14 @@ const harness = async (): Promise<Harness> => {
         shifts, methods, sequentialIds('cash-event'), sequentialIds('cash-audit'),
         application.ambientUnitOfWork, ledger, outbox, audit
       ),
-      unitOfWork, ledger, outbox, idempotency
+      unitOfWork, ledger, outbox, idempotency, {
+        application: new application.ApplySaleCompletedToInventory(
+          stock, sequentialIds('stock-event'), sequentialIds('stock-audit'),
+          application.ambientUnitOfWork, ledger, audit, 'LOCAL_AVERAGE', outbox
+        ),
+        auditWriter: audit,
+        auditIdGenerator: sequentialIds('stock-rejection-audit')
+      }
     ),
     closeShift: new application.CloseShift(
       shifts, methods, { authorize: async () => true },
@@ -206,10 +228,30 @@ describe('efecto de caja de una venta completada', () => {
     ).pluck().all()).toEqual(['ShiftOpened', 'CashMovementRegistered']);
     expect(kit.handle.sqlite.prepare(
       'select distinct event_type from outbox_event order by event_type'
-    ).pluck().all()).toEqual(['CashMovementRegistered', 'SaleCompleted', 'ShiftOpened']);
+    ).pluck().all()).toEqual([
+      'CashMovementRegistered', 'SaleCompleted', 'ShiftOpened', 'StockAvailabilityPublished'
+    ]);
     expect(kit.handle.sqlite.prepare(
       "select action from audit_log where action = 'SALE_PAYMENT_REGISTERED_IN_SHIFT'"
     ).pluck().all()).toEqual(['SALE_PAYMENT_REGISTERED_IN_SHIFT']);
+
+    const trace = await new SqliteOperationalDiagnosticsReader(kit.handle)
+      .trace(context.correlationId, 50);
+    expect(new Set(trace.events.map(({ eventType }) => eventType))).toEqual(new Set([
+      'SaleStarted', 'SaleItemAdded', 'PaymentRegistered',
+      'SaleCompleted', 'CashMovementRegistered', 'StockMovementRegistered'
+    ]));
+    expect(new Set(trace.outbox.map(({ eventType }) => eventType))).toEqual(new Set([
+      'SaleCompleted', 'CashMovementRegistered', 'StockAvailabilityPublished'
+    ]));
+    expect(trace.audits.map(({ action }) => action)).toEqual([
+      'SALE_PAYMENT_REGISTERED_IN_SHIFT', 'SALE_STOCK_ISSUED'
+    ]);
+    expect(trace.audits.at(-1)?.costEvidence).toEqual({
+      unitCostMinorUnits: 800,
+      currencyCode: 'USD',
+      source: 'LOCAL_AVERAGE'
+    });
     kit.handle.close();
   });
 

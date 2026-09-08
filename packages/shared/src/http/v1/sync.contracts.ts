@@ -184,6 +184,77 @@ export type SyncDestinationStatusResponse = {
   readonly observedAt: string;
 };
 
+export type OperationalDeliveryResponse = {
+  readonly eventId: string;
+  readonly eventType: string;
+  readonly aggregateId: string;
+  readonly correlationId: string;
+  readonly destinationNodeId: string;
+  readonly status: 'PENDING' | 'PROCESSING' | 'PUBLISHED' | 'BLOCKED' | 'PAUSED';
+  readonly attempts: number;
+  readonly cycleAttempts: number;
+  readonly nextAttemptAt: string;
+  readonly leaseUntil: string | null;
+  readonly publishedAt: string | null;
+  readonly lastError: string | null;
+  readonly occurredAt: string;
+  readonly ageMilliseconds: number;
+};
+
+export type SaleAttentionResponse = {
+  readonly saleId: string;
+  readonly eventId: string;
+  readonly correlationId: string;
+  readonly originNodeId: string;
+  readonly terminalId: string;
+  readonly errorCode: string | null;
+  readonly state: 'LOCAL_REJECTED' | 'DELIVERY_PENDING' | 'DELIVERY_BLOCKED'
+    | 'APPLICATION_PENDING' | 'APPLICATION_UNKNOWN' | 'DISCREPANCY';
+  readonly evidenceState: string;
+  readonly occurredAt: string;
+  readonly ageMilliseconds: number;
+};
+
+export type OperationalDiagnosticsResponse = {
+  readonly observedAt: string;
+  readonly deliveries: readonly OperationalDeliveryResponse[];
+  readonly salesAttention: readonly SaleAttentionResponse[];
+  readonly trace: null | {
+    readonly events: readonly {
+      readonly eventId: string;
+      readonly eventType: string;
+      readonly aggregateId: string;
+      readonly aggregateType: string;
+      readonly occurredAt: string;
+    }[];
+    readonly outbox: readonly {
+      readonly eventId: string;
+      readonly eventType: string;
+      readonly aggregateId: string;
+      readonly status: 'PENDING' | 'PROCESSING' | 'PUBLISHED' | 'BLOCKED';
+      readonly attempts: number;
+      readonly nextAttemptAt: string;
+      readonly leaseUntil: string | null;
+      readonly publishedAt: string | null;
+      readonly lastError: string | null;
+      readonly occurredAt: string;
+    }[];
+    readonly deliveries: readonly OperationalDeliveryResponse[];
+    readonly audits: readonly {
+      readonly auditId: string;
+      readonly action: string;
+      readonly entityType: string;
+      readonly entityId: string;
+      readonly occurredAt: string;
+      readonly costEvidence: null | {
+        readonly unitCostMinorUnits: number | null;
+        readonly currencyCode: string | null;
+        readonly source: string | null;
+      };
+    }[];
+  };
+};
+
 export type ResumeSyncDeliveryRequest = { readonly reason: string };
 
 export type SyncDiscrepancyActionRequest = { readonly reason: string };
@@ -251,6 +322,140 @@ const syncStatusResponseSchema = {
   }
 } as const;
 
+const deliveryDiagnosticSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'eventId', 'eventType', 'aggregateId', 'correlationId', 'destinationNodeId', 'status',
+    'attempts', 'cycleAttempts', 'nextAttemptAt', 'leaseUntil', 'publishedAt', 'lastError',
+    'occurredAt', 'ageMilliseconds'
+  ],
+  properties: {
+    eventId: { type: 'string' },
+    eventType: { type: 'string' },
+    aggregateId: { type: 'string' },
+    correlationId: { type: 'string' },
+    destinationNodeId: { type: 'string' },
+    status: { type: 'string', enum: ['PENDING', 'PROCESSING', 'PUBLISHED', 'BLOCKED', 'PAUSED'] },
+    attempts: { type: 'integer' },
+    cycleAttempts: { type: 'integer' },
+    nextAttemptAt: { type: 'string' },
+    leaseUntil: { type: ['string', 'null'] },
+    publishedAt: { type: ['string', 'null'] },
+    lastError: { type: ['string', 'null'] },
+    occurredAt: { type: 'string' },
+    ageMilliseconds: { type: 'integer' }
+  }
+} as const;
+
+const saleAttentionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'saleId', 'eventId', 'correlationId', 'originNodeId', 'terminalId', 'errorCode',
+    'state', 'evidenceState', 'occurredAt', 'ageMilliseconds'
+  ],
+  properties: {
+    saleId: { type: 'string' },
+    eventId: { type: 'string' },
+    correlationId: { type: 'string' },
+    originNodeId: { type: 'string' },
+    terminalId: { type: 'string' },
+    errorCode: { type: ['string', 'null'] },
+    state: {
+      type: 'string',
+      enum: [
+        'LOCAL_REJECTED', 'DELIVERY_PENDING', 'DELIVERY_BLOCKED',
+        'APPLICATION_PENDING', 'APPLICATION_UNKNOWN', 'DISCREPANCY'
+      ]
+    },
+    evidenceState: { type: 'string' },
+    occurredAt: { type: 'string' },
+    ageMilliseconds: { type: 'integer' }
+  }
+} as const;
+
+const operationalDiagnosticsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['observedAt', 'deliveries', 'salesAttention', 'trace'],
+  properties: {
+    observedAt: { type: 'string' },
+    deliveries: { type: 'array', items: deliveryDiagnosticSchema },
+    salesAttention: { type: 'array', items: saleAttentionSchema },
+    trace: {
+      anyOf: [
+        { type: 'null' },
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['events', 'outbox', 'deliveries', 'audits'],
+          properties: {
+            events: {
+              type: 'array',
+              items: {
+                type: 'object', additionalProperties: false,
+                required: ['eventId', 'eventType', 'aggregateId', 'aggregateType', 'occurredAt'],
+                properties: {
+                  eventId: { type: 'string' }, eventType: { type: 'string' },
+                  aggregateId: { type: 'string' }, aggregateType: { type: 'string' },
+                  occurredAt: { type: 'string' }
+                }
+              }
+            },
+            outbox: {
+              type: 'array',
+              items: {
+                type: 'object', additionalProperties: false,
+                required: [
+                  'eventId', 'eventType', 'aggregateId', 'status', 'attempts', 'nextAttemptAt',
+                  'leaseUntil', 'publishedAt', 'lastError', 'occurredAt'
+                ],
+                properties: {
+                  eventId: { type: 'string' }, eventType: { type: 'string' },
+                  aggregateId: { type: 'string' },
+                  status: { type: 'string', enum: ['PENDING', 'PROCESSING', 'PUBLISHED', 'BLOCKED'] },
+                  attempts: { type: 'integer' }, nextAttemptAt: { type: 'string' },
+                  leaseUntil: { type: ['string', 'null'] },
+                  publishedAt: { type: ['string', 'null'] },
+                  lastError: { type: ['string', 'null'] }, occurredAt: { type: 'string' }
+                }
+              }
+            },
+            deliveries: { type: 'array', items: deliveryDiagnosticSchema },
+            audits: {
+              type: 'array',
+              items: {
+                type: 'object', additionalProperties: false,
+                required: ['auditId', 'action', 'entityType', 'entityId', 'occurredAt', 'costEvidence'],
+                properties: {
+                  auditId: { type: 'string' }, action: { type: 'string' },
+                  entityType: { type: 'string' }, entityId: { type: 'string' },
+                  occurredAt: { type: 'string' },
+                  costEvidence: {
+                    anyOf: [
+                      { type: 'null' },
+                      {
+                        type: 'object', additionalProperties: false,
+                        required: ['unitCostMinorUnits', 'currencyCode', 'source'],
+                        properties: {
+                          unitCostMinorUnits: { type: ['integer', 'null'] },
+                          currencyCode: { type: ['string', 'null'] },
+                          source: { type: ['string', 'null'] }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+} as const;
+
 const pausedDeliverySchema = {
   type: 'object',
   additionalProperties: false,
@@ -315,6 +520,35 @@ export const getSyncStatusContract = {
     }
   },
   errorCodes: ['UNAUTHORIZED', 'FORBIDDEN', 'DATABASE_BUSY']
+} as const satisfies HttpContractV1;
+
+/**
+ * Diagnóstico allowlist: expone estados, IDs y evidencia de costo, nunca
+ * payloads de eventos, pagos ni cuerpos arbitrarios de auditoría.
+ */
+export const getOperationalDiagnosticsContract = {
+  method: 'GET',
+  path: '/api/v1/sync/destinations/:destinationNodeId/diagnostics',
+  permission: 'sync.reception.review',
+  idempotency: 'NONE',
+  schema: {
+    params: destinationParams,
+    querystring: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { correlationId: { type: 'string', minLength: 8, maxLength: 128 } }
+    },
+    response: {
+      200: operationalDiagnosticsSchema,
+      401: problemDetailsSchema,
+      403: problemDetailsSchema,
+      503: problemDetailsSchema
+    }
+  },
+  errorCodes: [
+    'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN',
+    'SYNC_DESTINATION_INVALID', 'CORRELATION_ID_INVALID', 'DATABASE_BUSY'
+  ]
 } as const satisfies HttpContractV1;
 
 export const listPausedDeliveriesContract = {
