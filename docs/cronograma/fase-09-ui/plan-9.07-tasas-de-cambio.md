@@ -159,8 +159,8 @@ siendo una entrada local confirmada.
 5. Reutilizar el driver `HttpExchangeRateProvider`/`UnavailableExchangeRateProvider`
    ya compuesto en el servidor con transporte simulado en sus propias pruebas.
 6. Extraer la lógica de lectura/sugerencia/confirmación del cliente desktop a
-   funciones puras testeables y cubrirlas con el nivel E2E aprobado en 9.02
-   (transporte HTTP simulado en Vitest, sin runner de navegador).
+   funciones puras testeables y cubrirlas con pruebas de interacción y
+   transporte HTTP simulado en Vitest.
 7. Implementar la pantalla con el shell y CSS existentes, sin design system ni
    estado global especulativo.
 8. Ejecutar pipeline y build; actualizar 9.07, el README de Fase 9 y el índice
@@ -191,9 +191,9 @@ pasa por `UpdateExchangeRate`.
   carga manual autorizada.~~
 - [x] ~~Ninguna credencial, body externo crudo o dato excluido aparece en logs,
   Problem Details o renderer.~~
-- [x] ~~E2E cubre tasa vigente, histórico, carga manual, confirmación, rechazo,
-  denegación y fallo offline de la sugerencia (a nivel de las funciones puras
-  del cliente que orquestan cada flujo).~~
+- [x] ~~Las pruebas de interacción cubren tasa vigente, histórico, carga manual,
+  confirmación, rechazo, denegación y fallo offline de la sugerencia a nivel de
+  las funciones puras del cliente que orquestan cada flujo.~~
 - [x] ~~Lint, typecheck, tests y build quedan verdes.~~
 
 ## Brechas conservadas
@@ -202,8 +202,8 @@ pasa por `UpdateExchangeRate`.
   `EXCHANGE_RATE_PROVIDER_NOT_CONFIGURED` de forma segura; elegir un proveedor
   real de negocio queda pendiente de una decisión posterior (ver Decisión
   diferida).
-- El nivel E2E es el aprobado en 9.02: funciones puras de lectura/confirmación
-  probadas con transporte HTTP simulado, sin runner de navegador ni Electron.
+- Estas coberturas son pruebas de interacción con transporte HTTP simulado. El
+  gate E2E real de Fase 9 está documentado en 9.02.
 - Vigencia solapada: confirmar una tasa no cierra automáticamente una anterior
   con `validUntil` abierto (comportamiento documentado en ADR-0014, no una
   omisión).

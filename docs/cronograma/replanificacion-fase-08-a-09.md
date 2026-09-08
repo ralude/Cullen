@@ -51,9 +51,10 @@ La Fase 8 se reanuda desde 8.00 cuando exista, para el perfil correspondiente:
 
 ## Efecto sobre los niveles de entrega
 
-Las fases 9–12 pueden completar un **MVP técnico en modo fiscal simulado**. Esta
+Las fases 9–12 pueden completar un **MVP técnico en modo fiscal simulado**. Mientras Fase 8 esté
+suspendida, 12.04 también queda suspendida y fuera del criterio de cierre de ese MVP: no existe
+una implementación serial real que medir u optimizar y el fake no la sustituye. Esta
 replanificación no habilita piloto, producción ni una declaración de
 compatibilidad fiscal real. Antes del gate de piloto y release deben reanudarse
 y completarse la Fase 8, sus dos perfiles exactos y toda la evidencia exigida
 por su criterio de salida.
-

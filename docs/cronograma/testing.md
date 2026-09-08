@@ -8,7 +8,11 @@ La piramide de pruebas prioriza reglas de dominio rapidas y deterministas, y agr
 2. **Integration:** SQLite real sobre bases temporales. No se usan mocks para guardar, leer o actualizar ventas y agregados persistidos.
 3. **Contract:** cada comando y puerto verifica su contrato. El protocolo fiscal cubre `OPEN`, `ITEM`, `PAYMENT` y `CLOSE`.
 4. **Simulation:** impresora virtual con ACK, NAK, sin papel, memoria llena, busy, timeout, CRC y puerto cerrado.
-5. **E2E:** flujos completos desde la interfaz y el transporte HTTP cuando la Fase 9 este disponible.
+5. **E2E:** flujo automatizado desde la aplicación React montada, mediante
+   `fetch` contra un listener Fastify real y con efectos verificados en SQLite
+   real. `app.inject`, un `fetch` simulado o un `DesktopApi` mock son pruebas de
+   contrato o interacción, no E2E. Electron solo se incorpora cuando el flujo
+   dependa de una frontera nativa que deba validarse.
 6. **Chaos:** fallos de sistema operativo, USB, red, Electron y cierre fiscal.
 
 ## Reglas por fase
@@ -24,7 +28,9 @@ La piramide de pruebas prioriza reglas de dominio rapidas y deterministas, y agr
   protocolo, SerialPortMock/fake de transporte, reconciliacion por evidencia y
   una suite hardware-in-the-loop separada por modelo y firmware. El
   consentimiento de X/Z simulados nunca habilita X/Z en hardware.
-- Fase 9: E2E de venta, caja, catalogo e inventario.
+- Fase 9: pruebas de interacción de venta, caja, catálogo e inventario, más un
+  E2E real del camino crítico de venta: ingreso, turno abierto, escaneo, cobro y
+  cierre persistido.
 - Fase 10: deduplicacion, ownership por agregado, reconexion y discrepancias de inventario.
 
 ## Escenarios de chaos testing

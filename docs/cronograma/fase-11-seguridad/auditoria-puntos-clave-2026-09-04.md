@@ -154,7 +154,7 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
 - **Evidencia:** el MVP conserva un almacén implícito por nodo y la autoridad
   futura queda en el coordinador. Dos terminales desconectadas pueden vender la
   misma última unidad; la política de reconciliación, cupos o bloqueo sigue
-  abierta en [ownership](../../architecture/12-sincronizacion-y-ownership.md:19).
+  abierta en [ownership](../../architecture/12-sincronizacion-y-ownership.md).
 - **Dueño del fix:** Fase 10.
 - **Criterio futuro:** elegir una política operativa, definir ownership,
   deduplicación, discrepancias y recuperación, y probarla con dos nodos. 11.03
@@ -179,4 +179,3 @@ que sustenta una garantía. Si cambia una decisión de arquitectura o de negocio
 primero se actualiza el ADR o la especificación correspondiente. Una tarea no se
 marca completada aquí por tener una prueba unitaria: debe cumplir el criterio
 end-to-end de su fase propietaria.
-

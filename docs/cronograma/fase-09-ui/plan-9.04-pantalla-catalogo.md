@@ -68,7 +68,7 @@ read model pequeño expresa mejor la consulta.
 3. Registrar rutas autenticadas y probar que no requieren permisos de mutación.
 4. Ampliar el cliente desktop y probar listado, barcode, creación, edición,
    precio, historial y denegación.
-5. Reutilizar el runner E2E aprobado en 9.02 e implementar una pantalla en dos
+5. Reutilizar la infraestructura de interacción aprobada en 9.02 e implementar una pantalla en dos
    áreas: selección/listado y detalle/formulario.
 6. Ejecutar pipeline y build; documentar el contrato y actualizar cronograma.
 

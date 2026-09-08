@@ -42,6 +42,15 @@ importers:
         specifier: ^19.1.1
         version: 19.2.8(react@19.2.8)
     devDependencies:
+      '@supermarket/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@supermarket/driver-db':
+        specifier: workspace:*
+        version: link:../../packages/drivers/db
+      '@supermarket/server':
+        specifier: workspace:*
+        version: link:../server
       '@types/node':
         specifier: ^24.3.0
         version: 24.13.3

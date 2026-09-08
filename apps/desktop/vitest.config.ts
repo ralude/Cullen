@@ -4,9 +4,9 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     /**
-     * Todas las pruebas de este paquete son del renderer, que corre en un
-     * navegador. `jsdom` habilita la interacción real —efectos, eventos y
-     * estado— sin cambiar las pruebas de render estático, que siguen valiendo.
+     * `jsdom` habilita la interacción del renderer y el montaje de `App` en el
+     * E2E de sistema. Ese E2E compone Fastify/SQLite desde código de prueba
+     * fuera del renderer; la aplicación de producción conserva su frontera.
      */
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts']

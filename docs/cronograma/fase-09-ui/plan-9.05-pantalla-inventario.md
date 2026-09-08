@@ -60,7 +60,7 @@ mismo dato.
 
 1. Probar y publicar el enriquecimiento de lotes en aplicación, shared y HTTP.
 2. Probar el cliente desktop para filtros, recepción y ajustes idempotentes.
-3. Probar con el runner E2E aprobado en 9.02 el recorrido observable con
+3. Probar con la infraestructura de interacción aprobada en 9.02 el recorrido observable con
    producto sin stock, sin lotes y con lotes.
 4. Implementar selector reutilizando la lectura de catálogo, resumen de saldo,
    filtros, tabla de movimientos y formularios de comando.

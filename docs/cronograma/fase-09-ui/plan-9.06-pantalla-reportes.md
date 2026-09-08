@@ -100,7 +100,7 @@ Aprobadas el 2026-09-03 en
 4. Publicar contratos HTTP y pruebas de éxito, sesión, permiso y ausencia de
    datos sensibles.
 5. Probar cliente y recorrido de consulta/exportación sin comandos reutilizando
-   el runner E2E aprobado en 9.02.
+   la infraestructura de interacción aprobada en 9.02.
 6. Probar por separado visibilidad y ejecución X/Z con capability, confirmación,
    permiso, consentimiento e idempotencia.
 7. Implementar presentación semántica y CSS existente, ejecutar pipeline/build
@@ -128,15 +128,16 @@ permanece separado detrás de capability, confirmación y consentimiento.
   la URL temporal después de iniciar la descarga.~~
 - [x] ~~Sin una proyección de Fase 10 se muestra únicamente el estado pendiente,
   sin datos ficticios.~~
-- [x] ~~E2E cubre consulta, denegación, exportación y guard X/Z simulado.~~
+- [x] ~~Las pruebas de interacción cubren consulta, denegación, exportación y
+  guard X/Z simulado.~~
 - [x] ~~Lint, typecheck, tests y build quedan verdes.~~
 
 ## Brechas conservadas
 
 - La API no publica una lectura de jornada fiscal actual; X/Z sigue dependiendo
   de una captura manual verificada por el servidor.
-- El nivel E2E es el aprobado en 9.02: recorrido de renderer con transporte HTTP
-  simulado, sin runner de navegador ni Electron.
+- Estas coberturas son de interacción del renderer con transporte HTTP
+  simulado. El gate E2E real de Fase 9 está documentado en 9.02.
 - La sincronización permanece como estado estático hasta la Fase 10.
 
 ## Fuera de alcance

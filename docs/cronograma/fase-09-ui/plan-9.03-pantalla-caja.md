@@ -69,7 +69,8 @@ se verifica junto con el flujo de 9.02 mediante Vitest.
 1. Cerrar configuración de estación, métodos de pago y motivo de diferencia.
 2. Crear primero los contratos y queries de lectura que falten, con pruebas de
    sesión, ownership y respuesta real sobre SQLite temporal.
-3. Reutilizar el runner E2E aprobado en 9.02; no configurar uno por pantalla.
+3. Reutilizar la infraestructura de interacción del renderer aprobada en 9.02;
+   no configurar un runner por pantalla.
 4. Probar el cliente HTTP y el recorrido de pantalla: sin turno, abierto, con
    movimientos, arqueo y cerrado.
 5. Implementar formularios nativos y tablas de lectura compactas.
@@ -95,7 +96,8 @@ que exista provisión remota de estación.
   `ShiftResponse.closingBalances`.
 - [ ] `FORBIDDEN`, fondos insuficientes y conflictos tienen mensaje en español
   y `correlationId` disponible.
-- [ ] Una prueba E2E cubre apertura, ambos tipos de movimiento, arqueo y cierre.
+- [ ] Una prueba de interacción cubre apertura, ambos tipos de movimiento,
+  arqueo y cierre.
 - [ ] El renderer no importa dominio, aplicación, DB, Node ni Electron.
 - [ ] Lint, typecheck, tests y build quedan verdes.
 

@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Servidor Fastify local o LAN.",
+  "exports": {
+    "./testing": "./src/testing.ts"
+  },
   "scripts": {
     "dev": "node --env-file=config/development.env --import tsx --watch src/index.ts",
     "start": "tsx src/index.ts",

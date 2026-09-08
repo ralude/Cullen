@@ -1,6 +1,7 @@
 # Fase 9B: Perfiles operativos y capacidades faltantes
 
-- **Estado:** Perfiles completados 2026-09-05; 9B.08 diferida y 9B.09 trasladada a Fase 11
+- **Estado:** ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 conserva el diferimiento
+  histórico y se ejecutará en Fase 13, y 9B.09 fue retirada y trasladada a Fase 11
 - **Índice:** [Cronograma](../README.md)
 - **Replanificación:** [Inserción de Fase 9B antes de Fase 10](../replanificacion-fase-09b.md)
 - **Política de alcance:** [ADR-0021, MVP de referencia no certificado](../../architecture/adr/0021-mvp-referencia-no-certificado.md)
@@ -109,3 +110,7 @@ genéricas. Mientras la Fase 8 esté suspendida, toda capacidad fiscal se rotula
 Cada perfil opera las capacidades disponibles desde vistas derivadas de permisos, sin ofrecer
 acciones que terminen en `FORBIDDEN`. Las capacidades diferidas tienen dueño y criterio de
 reapertura; ninguna se presenta como certificada.
+
+La fase se considera cerrada para el MVP técnico porque la decisión aprobada recortó 9B.08 del
+MVP y trasladó su ejecución multi-almacén a Fase 13; 9B.09 dejó de pertenecer a esta fase y su
+alcance se ejecuta en 11.02. Ninguna de las dos se presenta como capacidad implementada.

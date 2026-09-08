@@ -16,10 +16,10 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 7 | Driver fiscal fake | ~~Completada~~ |
 | 8 | Integracion serial | Suspendida por dependencia externa |
 | 9 | UI | ~~Completada~~ |
-| 9B | Perfiles operativos | Perfiles 9B.14–9B.18 y configuración 9B.10 completados 2026-09-05; 9B.08 diferida y 9B.09 trasladada a Fase 11 |
+| 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
 | 11 | [Seguridad](./fase-11-seguridad/README.md) | Habilitada al cerrar Fase 10; [planificada](./fase-11-seguridad/plan-secuencia-y-decisiones.md) el 2026-09-07, sin iniciar implementación |
-| 12 | Optimizacion | Pendiente |
+| 12 | Optimizacion | Pendiente; 12.04 suspendida con Fase 8 y excluida del cierre del MVP simulado |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
 | 15 | [Sincronización SQLite–PostgreSQL](./fase-15-sincronizacion-cloud/README.md) | Planificada; post-MVP, sin iniciar |
@@ -177,7 +177,7 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 - [~~Fase 7 - Driver fiscal fake~~](./fase-07-driver-fiscal-fake/README.md)
 - [Fase 8 - Integracion serial](./fase-08-integracion-serial/README.md)
 - [~~Fase 9 - UI~~](./fase-09-ui/README.md)
-- [Fase 9B - Perfiles operativos](./fase-09b-perfiles/README.md)
+- [~~Fase 9B - Perfiles operativos~~](./fase-09b-perfiles/README.md)
 - [~~Fase 10 - Sincronizacion~~](./fase-10-sincronizacion/README.md)
 - [Fase 11 - Seguridad](./fase-11-seguridad/README.md)
 - [Fase 12 - Optimizacion](./fase-12-optimizacion/README.md)
@@ -226,6 +226,9 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
   del fabricante ni el laboratorio requerido. La Fase 8 no se considera
   completada: la UI avanza con `FiscalPrinterFake` identificado como simulación
   y el piloto continúa bloqueado hasta reanudar y cerrar los dos perfiles.
+- La suspensión de Fase 8 arrastra 12.04 porque no existe una implementación serial real que
+  medir. El cierre del MVP técnico en modo simulado exige 12.01–12.03, no 12.04; el fake fiscal
+  no se usa como sustituto de parser, cola, CRC, transporte ni HIL.
 - El 2026-09-02 se cerró 9.00 y se trasladaron las lecturas especializadas a su
   consumidor dueño: catálogo 9.04, reportes 9.06 y tasas 9.07. La
   sincronización pendiente conserva su implementación en Fase 10; no se
@@ -358,6 +361,12 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
   falla cerrado con `EXCHANGE_RATE_PROVIDER_NOT_CONFIGURED` sin bloquear la
   tasa vigente, el histórico ni la carga manual. El avance a Fase 10 no inicia
   su implementación; solo refleja que Fase 9 no tiene tareas abiertas.
+- El 2026-09-07 se ratificó el gate de salida de Fase 9 con un E2E real del
+  camino crítico de venta: `App` montada → `fetch` → listener Fastify → SQLite.
+  El escenario automatiza ingreso, resolución del turno, escaneo, cobro y
+  finalización, y verifica la venta `COMPLETED` en la base. Las coberturas con
+  API o transporte simulados quedan clasificadas como interacción o contrato,
+  no como evidencia E2E autónoma.
 - El 2026-09-07 se planificaron las sub-fases pendientes de la Fase 11 en el
   [plan de secuencia y decisiones](./fase-11-seguridad/plan-secuencia-y-decisiones.md) y los
   planes de 11.02, 11.03, 11.04 y 11.05. La secuencia no sigue la numeración: el corte de

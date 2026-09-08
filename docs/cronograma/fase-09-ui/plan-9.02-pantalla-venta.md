@@ -25,8 +25,10 @@ no calcula IVA, IGTF, descuentos, conversiones, saldo ni elegibilidad de pago.
   pago ni una configuración de moneda de la estación.
 - `GetSale` recupera una venta conocida y valida ownership, pero no descubre
   una venta draft cuyo ID se haya perdido.
-- El repositorio no tiene todavía un runner E2E de navegador/Electron; las
-  pruebas actuales del renderer usan Vitest en entorno Node y render estático.
+- Al abrir este plan, el repositorio no tenía todavía un runner E2E de
+  navegador/Electron; las pruebas del renderer usaban Vitest en entorno Node y
+  render estático. La decisión aplicada y la evidencia vigente se registran más
+  abajo.
 
 ## Decisiones de frontera
 
@@ -112,10 +114,11 @@ renderer ni se deducen desde los productos de ejemplo.
 - La moneda y su escala se muestran como configuración visible de la estación.
   React solo formatea el DTO y convierte texto decimal a unidades menores; la
   política fiscal continúa en el servidor.
-- El nivel E2E adoptado para esta fase es un recorrido de renderer con
-  transporte HTTP simulado en Vitest (operation-screens.test.tsx); no se
-  incorpora un runner Electron adicional sin un comportamiento nativo que
-  validar.
+- Las suites con `DesktopApi` o transporte simulado son pruebas de interacción
+  o contrato. El gate E2E de la fase es
+  `apps/desktop/src/e2e/sale-flow.e2e.test.tsx`: `App` montada, `fetch` real,
+  listener Fastify real y SQLite real. No se incorpora un runner Electron
+  adicional porque este recorrido no depende de una frontera nativa.
 - La pérdida del almacenamiento web sigue siendo una brecha explícita. El
   reinicio normal sí recupera el ID de venta y las claves de intención.
 
@@ -126,20 +129,20 @@ ID, snapshot de venta, líneas, descuento, pagos mixtos, idempotencia, errores
 con correlación, finalización/anulación y rotulado fiscal de simulación. La
 brecha de pérdida total del almacenamiento web permanece explícita.
 
-- [ ] Una venta draft conocida reaparece después de reiniciar el renderer y se
-  valida nuevamente contra la API.
-- [ ] El operador puede agregar y quitar líneas por los contratos publicados.
-- [ ] Subtotal, descuentos, IVA, IGTF, total, pagado y saldo coinciden valor por
-  valor con `SaleResponse`; React no los recalcula.
-- [ ] Un lote de pagos mixtos conserva moneda y tasa explícita cuando aplica.
-- [ ] Cada retry incierto reutiliza la misma clave y una intención nueva usa una
-  clave distinta.
-- [ ] Los errores se traducen por código y muestran el `correlationId`.
-- [ ] Completar o anular limpia la referencia de venta activa.
-- [ ] `SIMULACION` permanece inequívoco durante todo el flujo.
-- [ ] Existe una prueba E2E del flujo principal sin SQLite, Node ni `core` en el
-  renderer.
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` y el build de escritorio pasan.
+- [x] ~~Una venta draft conocida reaparece después de reiniciar el renderer y se
+  valida nuevamente contra la API.~~
+- [x] ~~El operador puede agregar y quitar líneas por los contratos publicados.~~
+- [x] ~~Subtotal, descuentos, IVA, IGTF, total, pagado y saldo coinciden valor por
+  valor con `SaleResponse`; React no los recalcula.~~
+- [x] ~~Un lote de pagos mixtos conserva moneda y tasa explícita cuando aplica.~~
+- [x] ~~Cada retry incierto reutiliza la misma clave y una intención nueva usa una
+  clave distinta.~~
+- [x] ~~Los errores se traducen por código y muestran el `correlationId`.~~
+- [x] ~~Completar o anular limpia la referencia de venta activa.~~
+- [x] ~~`SIMULACION` permanece inequívoco durante todo el flujo.~~
+- [x] ~~Existe una prueba E2E real del flujo principal con SQLite y Fastify en la
+  composición de prueba, sin SQLite, Node ni `core` en el renderer.~~
+- [x] ~~`pnpm lint`, `pnpm typecheck`, `pnpm test` y el build de escritorio pasan.~~
 
 ## Fuera de alcance
 

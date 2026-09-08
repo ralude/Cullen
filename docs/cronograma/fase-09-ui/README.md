@@ -52,7 +52,9 @@ Ponytail no se aplica a la API, seguridad, dominio, persistencia ni pruebas de
 
 ## Criterio de salida
 
-Los flujos principales se pueden operar desde la UI y tienen pruebas E2E.
+Los flujos principales se pueden operar desde la UI y tienen pruebas de
+interacción. El camino crítico de venta tiene además un E2E real desde la
+aplicación React montada, por HTTP/Fastify, hasta SQLite.
 
 ## Resultado
 
@@ -61,6 +63,13 @@ autenticada, base React, venta, caja, catálogo, inventario, reportes/cierres y
 tasas de cambio. Toda capacidad fiscal visible sigue rotulada `SIMULACION`
 mientras la Fase 8 permanezca suspendida; ninguna pantalla declara emisión
 fiscal real, compatibilidad de hardware ni habilitación para piloto.
+
+El cierre fue ratificado el 2026-09-07 con
+`apps/desktop/src/e2e/sale-flow.e2e.test.tsx`: monta `App`, inicia un listener
+Fastify real, conserva la sesión HTTP, ejecuta ingreso, turno, escaneo, cobro y
+finalización, y verifica `COMPLETED` directamente en SQLite. Las suites con API
+o transporte simulados se denominan pruebas de interacción o contrato y no se
+usan por sí solas como evidencia E2E.
 
 9.07 cierra con una brecha de negocio explícita y no bloqueante: la fuente
 externa de sugerencia de tasa (proveedor, credenciales, pares por tienda)

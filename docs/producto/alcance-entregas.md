@@ -94,8 +94,10 @@ adelantar código de fases futuras ni sustituye los gates de piloto y producció
 ## Regla de avance
 
 Con la [replanificación aprobada](../cronograma/replanificacion-fase-08-a-09.md),
-completar las fases 0–7 y 9–12 demuestra el MVP técnico únicamente en modo
-fiscal simulado. La Fase 8 sigue siendo obligatoria para habilitar el piloto:
+completar las fases 0–7, 9–11 y las sub-fases 12.01–12.03 demuestra el MVP técnico únicamente en
+modo fiscal simulado. La sub-fase 12.04 permanece suspendida junto con Fase 8 y no bloquea ese
+cierre, porque solo puede medir una integración serial real y estable. La Fase 8 sigue siendo
+obligatoria para habilitar el piloto:
 debe reanudarse y completarse con sus dos perfiles exactos antes de cerrar el
 gate operativo. El paso a piloto o producción depende además de los demás
 gates; no se deduce únicamente de que las funcionalidades estén implementadas.
