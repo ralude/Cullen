@@ -92,7 +92,8 @@ export const ADMIN_PERMISSIONS = Object.freeze([
   ...Object.values(application.SUPPLIER_PERMISSIONS),
   ...Object.values(application.PURCHASE_RECEIPT_PERMISSIONS),
   ...Object.values(application.CONFIG_PERMISSIONS),
-  ...Object.values(application.SYNC_PERMISSIONS)
+  ...Object.values(application.SYNC_PERMISSIONS),
+  ...Object.values(application.IDENTITY_PERMISSIONS)
 ]) as readonly string[];
 
 export type SecurityRuntime = {

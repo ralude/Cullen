@@ -306,7 +306,7 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
         values (?, 'ADMIN', 'Administrador', 1, 1)
       `).run(input.roleId);
       const insertPermission = this.handle.sqlite.prepare(`
-        insert into identity_permissions (code, name, is_active) values (?, ?, 1)
+        insert or ignore into identity_permissions (code, name, is_active) values (?, ?, 1)
       `);
       const assignPermission = this.handle.sqlite.prepare(`
         insert into identity_role_permissions (role_id, permission_code) values (?, ?)

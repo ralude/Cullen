@@ -53,6 +53,7 @@ import { commercialProjectionSql } from './migrations/0039-commercial-projection
 import { stockAvailabilityBatchesSql } from './migrations/0040-stock-availability-batches.js';
 import { stockCountAvailabilityVersionSql } from './migrations/0041-stock-count-availability-version.js';
 import { saleReturnSaleEventSql } from './migrations/0042-sale-return-sale-event.js';
+import { identityAdministrationSql } from './migrations/0043-identity-administration.js';
 
 export type Migration = {
   readonly version: number;
@@ -228,6 +229,10 @@ export const migrations: readonly Migration[] = [{
   version: 42,
   name: 'sale_return_sale_event',
   sql: saleReturnSaleEventSql
+}, {
+  version: 43,
+  name: 'identity_administration',
+  sql: identityAdministrationSql
 }];
 
 const checksum = (migration: Migration): string => createHash('sha256')

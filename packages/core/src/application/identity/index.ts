@@ -20,3 +20,4 @@ export type {
   SessionTokenService
 } from './authentication.js';
 
+export { IDENTITY_PERMISSIONS } from './permissions.js';
