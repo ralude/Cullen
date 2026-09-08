@@ -388,7 +388,7 @@ describe('outbox delivery', () => {
 
       expect(applyMigrations(handle.sqlite)).toEqual([
         27, 28, 29, 30, 31, 32, 33, 34, 35,
-        36, 37, 38, 39, 40, 41, 42, 43
+        36, 37, 38, 39, 40, 41, 42, 43, 44
       ]);
       expect(handle.sqlite.prepare(
         'select event_id, status, attempts, last_error from outbox_event'

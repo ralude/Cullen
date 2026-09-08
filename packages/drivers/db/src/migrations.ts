@@ -54,6 +54,7 @@ import { stockAvailabilityBatchesSql } from './migrations/0040-stock-availabilit
 import { stockCountAvailabilityVersionSql } from './migrations/0041-stock-count-availability-version.js';
 import { saleReturnSaleEventSql } from './migrations/0042-sale-return-sale-event.js';
 import { identityAdministrationSql } from './migrations/0043-identity-administration.js';
+import { credentialEnrollmentSql } from './migrations/0044-credential-enrollment.js';
 
 export type Migration = {
   readonly version: number;
@@ -233,6 +234,10 @@ export const migrations: readonly Migration[] = [{
   version: 43,
   name: 'identity_administration',
   sql: identityAdministrationSql
+}, {
+  version: 44,
+  name: 'credential_enrollment',
+  sql: credentialEnrollmentSql
 }];
 
 const checksum = (migration: Migration): string => createHash('sha256')

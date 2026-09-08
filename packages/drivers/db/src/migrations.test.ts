@@ -77,7 +77,8 @@ describe('database migrations', () => {
       expect.objectContaining({ version: 40, name: 'stock_availability_batches' }),
       expect.objectContaining({ version: 41, name: 'stock_count_availability_version' }),
       expect.objectContaining({ version: 42, name: 'sale_return_sale_event' }),
-      expect.objectContaining({ version: 43, name: 'identity_administration' })
+      expect.objectContaining({ version: 43, name: 'identity_administration' }),
+      expect.objectContaining({ version: 44, name: 'credential_enrollment' })
     ]);
 
     const tables = handle.sqlite.prepare(
@@ -179,7 +180,7 @@ describe('database migrations', () => {
       ) values ('legacy-line', 'legacy-count', 'stock-001', null, 0, 5, 8, 3);
     `);
 
-    expect(applyMigrations(handle.sqlite)).toEqual([41, 42, 43]);
+    expect(applyMigrations(handle.sqlite)).toEqual([41, 42, 43, 44]);
     expect(handle.sqlite.prepare(`
       select stock_availability_version as version
       from stock_count_differences where line_id = 'legacy-line'
@@ -666,7 +667,7 @@ describe('database migrations', () => {
       );
     `);
 
-    expect(applyMigrations(handle.sqlite)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43]);
+    expect(applyMigrations(handle.sqlite)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44]);
     expect(handle.sqlite.prepare(`
       select last_dispatch_state as dispatchState,
         last_command_effect as commandEffect,
@@ -997,7 +998,7 @@ describe('database migrations', () => {
         1, 'COMPLETED', 2, 0);
     `);
 
-    expect(applyMigrations(handle.sqlite)).toEqual([20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43]);
+    expect(applyMigrations(handle.sqlite)).toEqual([20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44]);
 
     expect(handle.sqlite.prepare(`
       select recipient_country as country, recipient_normalized_value as identification

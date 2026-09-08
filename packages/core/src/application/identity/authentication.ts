@@ -31,6 +31,12 @@ export type SessionPrincipal = {
   readonly originNodeId: string;
   readonly idleExpiresAt: Date;
   readonly absoluteExpiresAt: Date;
+  /**
+   * La credencial local está marcada para cambio (ADR-0027 D3): la sesión es
+   * válida pero restringida al cambio de PIN. La restricción la aplica el nodo
+   * en el punto único donde resuelve el principal, no cada ruta.
+   */
+  readonly credentialMustChange: boolean;
 };
 
 export type AuthenticationCompletion =

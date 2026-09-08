@@ -354,9 +354,11 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
     absoluteExpiresAt: number,
     now: number
   ): SessionPrincipal {
-    const user = this.handle.sqlite.prepare(
-      'select display_name as displayName from identity_users where id = ?'
-    ).get(userId) as { displayName: string };
+    const user = this.handle.sqlite.prepare(`
+      select u.display_name as displayName, coalesce(c.must_change, 0) as mustChange
+      from identity_users u left join identity_credentials c on c.user_id = u.id
+      where u.id = ?
+    `).get(userId) as { displayName: string; mustChange: number };
     /**
      * Con concesión vigente, el principal lleva los roles y permisos que
      * publicó el coordinador; la copia local no es la autoridad de ese
@@ -387,7 +389,8 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
       terminalId,
       originNodeId,
       idleExpiresAt: new Date(idleExpiresAt),
-      absoluteExpiresAt: new Date(absoluteExpiresAt)
+      absoluteExpiresAt: new Date(absoluteExpiresAt),
+      credentialMustChange: user.mustChange === 1
     };
   }
 }

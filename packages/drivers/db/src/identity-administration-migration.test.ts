@@ -45,7 +45,7 @@ describe('identity administration transition', () => {
   it('grants the identity permissions to the provisioned administrator only', () => {
     const handle = provisionedBeforeIdentityAdministration();
     try {
-      expect(applyMigrations(handle.sqlite)).toEqual([43]);
+      expect(applyMigrations(handle.sqlite)).toEqual([43, 44]);
 
       const store = new SqliteAuthenticationStore(handle);
       for (const permission of IDENTITY_PERMISSIONS) {
