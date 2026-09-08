@@ -14,9 +14,18 @@ export type SyncListenerConfiguration = {
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
-const readPem = (variable: string, path: string): string => {
+/**
+ * Lectura del material TLS. Por omisión lee el archivo tal cual; el arranque
+ * real inyecta la lectura protegida, que abre el sobre en memoria cuando el
+ * material está sellado (ADR-0029 D7.3). El secreto no se copia a disco en
+ * claro para poder usarlo.
+ */
+export type MaterialReader = (path: string) => string;
+
+
+const readPem = (variable: string, path: string, readMaterial: MaterialReader): string => {
   try {
-    const content = readFileSync(path, 'utf8');
+    const content = readMaterial(path);
     if (content.trim().length === 0) throw new Error('empty');
     return content;
   } catch (cause) {
@@ -35,7 +44,8 @@ const readPem = (variable: string, path: string): string => {
  * escucha LAN, que es el modo standalone.
  */
 export const readSyncListenerConfiguration = (
-  environment: Environment = process.env
+  environment: Environment = process.env,
+  readMaterial: MaterialReader = (path) => readFileSync(path, 'utf8')
 ): SyncListenerConfiguration | null => {
   const declared = [
     environment.SYNC_LISTENER_PORT,
@@ -76,13 +86,15 @@ export const readSyncListenerConfiguration = (
     https: {
       key: readPem(
         'SYNC_LISTENER_TLS_KEY_PATH',
-        environment.SYNC_LISTENER_TLS_KEY_PATH as string
+        environment.SYNC_LISTENER_TLS_KEY_PATH as string,
+        readMaterial
       ),
       cert: readPem(
         'SYNC_LISTENER_TLS_CERT_PATH',
-        environment.SYNC_LISTENER_TLS_CERT_PATH as string
+        environment.SYNC_LISTENER_TLS_CERT_PATH as string,
+        readMaterial
       ),
-      ca: caPaths.map((path) => readPem('SYNC_LISTENER_TLS_CLIENT_CA_PATHS', path))
+      ca: caPaths.map((path) => readPem('SYNC_LISTENER_TLS_CLIENT_CA_PATHS', path, readMaterial))
     }
   };
 };

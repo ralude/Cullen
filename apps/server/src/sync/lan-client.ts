@@ -4,9 +4,18 @@ import type { SyncTransportConfiguration } from '@supermarket/driver-security';
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
-const readPem = (variable: string, path: string): string => {
+/**
+ * Lectura del material TLS. Por omisión lee el archivo tal cual; el arranque
+ * real inyecta la lectura protegida, que abre el sobre en memoria cuando el
+ * material está sellado (ADR-0029 D7.3). El secreto no se copia a disco en
+ * claro para poder usarlo.
+ */
+export type MaterialReader = (path: string) => string;
+
+
+const readPem = (variable: string, path: string, readMaterial: MaterialReader): string => {
   try {
-    const content = readFileSync(path, 'utf8');
+    const content = readMaterial(path);
     if (content.trim().length === 0) throw new Error('empty');
     return content;
   } catch (cause) {
@@ -25,7 +34,8 @@ const readPem = (variable: string, path: string): string => {
  * nodo no declara coordinador, que es el modo standalone.
  */
 export const readSyncClientConfiguration = (
-  environment: Environment = process.env
+  environment: Environment = process.env,
+  readMaterial: MaterialReader = (path) => readFileSync(path, 'utf8')
 ): SyncTransportConfiguration | null => {
   const declared = [
     environment.SYNC_COORDINATOR_NODE_ID,
@@ -76,9 +86,13 @@ export const readSyncClientConfiguration = (
     host: environment.SYNC_COORDINATOR_HOST as string,
     port,
     destinationNodeId: environment.SYNC_COORDINATOR_NODE_ID as string,
-    key: readPem('SYNC_CLIENT_TLS_KEY_PATH', environment.SYNC_CLIENT_TLS_KEY_PATH as string),
-    cert: readPem('SYNC_CLIENT_TLS_CERT_PATH', environment.SYNC_CLIENT_TLS_CERT_PATH as string),
-    ca: caPaths.map((path) => readPem('SYNC_CLIENT_TLS_CA_PATHS', path)),
+    key: readPem(
+      'SYNC_CLIENT_TLS_KEY_PATH', environment.SYNC_CLIENT_TLS_KEY_PATH as string, readMaterial
+    ),
+    cert: readPem(
+      'SYNC_CLIENT_TLS_CERT_PATH', environment.SYNC_CLIENT_TLS_CERT_PATH as string, readMaterial
+    ),
+    ca: caPaths.map((path) => readPem('SYNC_CLIENT_TLS_CA_PATHS', path, readMaterial)),
     ...(timeout === undefined ? {} : { timeoutMilliseconds: timeout })
   };
 };

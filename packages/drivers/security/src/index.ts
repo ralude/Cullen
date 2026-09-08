@@ -116,3 +116,10 @@ export {
   SYNC_DESTINATION_HEADER
 } from './sync-transport.js';
 export type { SyncTransportConfiguration } from './sync-transport.js';
+export { assertProtectedDirectory, currentAccountSid } from './data-directory.js';
+export { isSealed, open as openSealed, readSealHeader, seal } from './envelope.js';
+export type { SealHeader } from './envelope.js';
+export { DEVELOPMENT_VAULT_SIGNAL, FileSecretVault, openSecretVault } from './secret-vault.js';
+export type { SecretWrapper } from './secret-vault.js';
+export { SEALED_SUFFIX, loadFileProtection } from './protected-material.js';
+export type { FileProtection } from './protected-material.js';

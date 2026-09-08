@@ -328,26 +328,60 @@ const removeSidecars = (databasePath: string): void => {
   }
 };
 
+/**
+ * Protección del respaldo antes de publicarlo. La copia que `vacuum into`
+ * produce es texto claro y sale de la máquina en un pendrive o una carpeta
+ * compartida; el composition root la sella con la clave del nodo
+ * ([ADR-0029](../../../../docs/architecture/adr/0029-proteccion-de-datos-en-reposo.md) D7.3).
+ * Sin protección declarada el comportamiento es el anterior.
+ */
+export type BackupProtection = {
+  readonly suffix: string;
+  seal(sourcePath: string, targetPath: string): void;
+  open(sourcePath: string, targetPath: string): void;
+};
+
 const createBackup = (
   sqlite: Database.Database,
   databasePath: string,
   backupDirectory: string,
-  retention: number
+  retention: number,
+  protection?: BackupProtection
 ): string => {
   mkdirSync(backupDirectory, { recursive: true });
   const prefix = `${basename(databasePath)}.backup.`;
-  const backupPath = join(backupDirectory, `${prefix}${Date.now()}-${randomUUID()}.sqlite`);
-  sqlite.prepare('vacuum into ?').run(backupPath);
+  const stamp = `${Date.now()}-${randomUUID()}`;
+  /**
+   * El intermedio en claro vive junto a la base, dentro del perímetro
+   * protegido, y se borra antes de publicar el respaldo —también si el sellado
+   * falla—. El borrado es el del sistema de archivos: no se promete un borrado
+   * físico que el medio no garantiza.
+   */
+  const stagingPath = protection
+    ? `${databasePath}.backup-${stamp}.staging`
+    : join(backupDirectory, `${prefix}${stamp}.sqlite`);
+  sqlite.prepare('vacuum into ?').run(stagingPath);
 
-  const backup = openDatabase(backupPath);
+  const backup = openDatabase(stagingPath);
   try {
     validateDatabase(backup.sqlite);
   } finally {
     backup.close();
   }
 
+  let backupPath = stagingPath;
+  if (protection) {
+    backupPath = join(backupDirectory, `${prefix}${stamp}.sqlite${protection.suffix}`);
+    try {
+      protection.seal(stagingPath, backupPath);
+    } finally {
+      removeSidecars(stagingPath);
+      if (existsSync(stagingPath)) unlinkSync(stagingPath);
+    }
+  }
+
   const backups = readdirSync(backupDirectory)
-    .filter((name) => name.startsWith(prefix) && name.endsWith('.sqlite'))
+    .filter((name) => name.startsWith(prefix))
     .map((name) => join(backupDirectory, name))
     .sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs);
   for (const expired of backups.slice(Math.max(1, retention))) unlinkSync(expired);
@@ -357,6 +391,7 @@ const createBackup = (
 export type MigrationOptions = {
   readonly backupDirectory: string;
   readonly backupRetention?: number;
+  readonly backupProtection?: BackupProtection;
   readonly migrations?: readonly Migration[];
   readonly validate?: (handle: DatabaseHandle) => void;
 };
@@ -381,7 +416,8 @@ export const migrateDatabase = (
         handle.sqlite,
         resolvedPath,
         resolve(options.backupDirectory),
-        options.backupRetention ?? 5
+        options.backupRetention ?? 5,
+        options.backupProtection
       );
     }
     const appliedVersions = applyMigrations(handle.sqlite, options.migrations ?? migrations);
@@ -392,7 +428,9 @@ export const migrateDatabase = (
     handle.close();
     if (backupPath) {
       removeSidecars(resolvedPath);
-      copyFileSync(backupPath, resolvedPath);
+      /** Restaurar un respaldo sellado exige abrirlo con la clave que lo cifró. */
+      if (options.backupProtection) options.backupProtection.open(backupPath, resolvedPath);
+      else copyFileSync(backupPath, resolvedPath);
     }
     if (error instanceof InfrastructureError && error.code !== 'DATABASE_MIGRATION_VALIDATION_FAILED') {
       throw error;

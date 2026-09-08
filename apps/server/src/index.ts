@@ -4,9 +4,11 @@ import {
   HttpsRemoteApplicationProbe,
   HttpsRemoteSaleIssueProbe,
   HttpsSyncEventPublisher,
-  loadNodeIdentity
+  loadFileProtection,
+  loadNodeIdentity,
+  openSecretVault
 } from '@supermarket/driver-security';
-import { migrateNodeDatabase, readNodeStorage } from './node-storage.ts';
+import { migrateNodeDatabase, prepareNodeStorage, readNodeStorage } from './node-storage.ts';
 import { createSecurityRuntime } from './runtime.ts';
 import { resolveOperatorHost } from './session-transport.ts';
 import { createDestinationRelays, fixedDestination } from './sync/destination-relays.ts';
@@ -22,15 +24,24 @@ import { SyncWorker } from './sync/sync-worker.ts';
 const host = resolveOperatorHost();
 const port = Number.parseInt(process.env.SERVER_PORT ?? '3000', 10);
 const nodeIdentity = loadNodeIdentity(process.env.NODE_IDENTITY_PATH);
-const clientConfiguration = readSyncClientConfiguration();
 
 /**
- * Actualización recuperable antes de componer nada: respalda, valida y, si la
- * validación falla, restaura y aborta. Un nodo no atiende con una base a medio
- * migrar ni migra sin poder respaldar (ADR-0029, 11.04).
+ * Perímetro protegido, clave del nodo y actualización recuperable, en ese
+ * orden y antes de componer nada (ADR-0029, 11.04). El nodo verifica la ACL
+ * efectiva de donde escribe, abre su almacén de claves —sin degradar a una
+ * clave en disco si no está disponible—, sella el respaldo antes de publicarlo
+ * y aborta restaurando si la actualización deja la base inválida.
  */
 const storage = readNodeStorage();
-migrateNodeDatabase(storage);
+prepareNodeStorage(storage);
+const secretVault = openSecretVault(storage.keystoreDirectory);
+const materialProtection = await loadFileProtection({
+  vault: secretVault, nodeId: nodeIdentity.originNodeId, now: new Date()
+});
+migrateNodeDatabase(storage, { backupProtection: materialProtection });
+
+/** El material TLS de LAN se abre en memoria; no se copia en claro a disco. */
+const clientConfiguration = readSyncClientConfiguration(process.env, materialProtection.read);
 
 const runtime = createSecurityRuntime(
   storage.databasePath,
@@ -53,7 +64,7 @@ const app = buildApp(runtime.dependencies);
  * Una configuración incompleta aborta el arranque: no se degrada a un
  * transporte sin autenticación mutua ni se expone la API de operadores.
  */
-const syncConfiguration = readSyncListenerConfiguration();
+const syncConfiguration = readSyncListenerConfiguration(process.env, materialProtection.read);
 const syncApp = syncConfiguration
   ? buildSyncApp(toTransportDependencies({
     ...runtime.syncReception,

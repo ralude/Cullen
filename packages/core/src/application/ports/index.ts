@@ -158,3 +158,10 @@ export type {
   ProjectedShiftClosure,
   ProjectedShiftOpening
 } from './commercial-projection.js';
+export type {
+  ProtectionKey,
+  ProtectionKeyState,
+  ProtectionKeySummary,
+  SecretVault,
+  SecretVaultProtection
+} from './secret-vault.js';

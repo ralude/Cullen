@@ -1,7 +1,13 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { ApplicationError } from '@supermarket/shared';
-import { migrateDatabase, type DatabaseHandle, type MigrationResult } from '@supermarket/driver-db';
+import {
+  migrateDatabase,
+  type BackupProtection,
+  type DatabaseHandle,
+  type MigrationResult
+} from '@supermarket/driver-db';
+import { assertProtectedDirectory } from '@supermarket/driver-security';
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -10,6 +16,17 @@ export type NodeStorage = {
   /** Fuera del archivo operativo, para que una copia sobreviva a su corrupción. */
   readonly backupDirectory: string;
   readonly backupRetention: number;
+  /**
+   * Almacén de claves. Vive fuera del directorio de respaldos a propósito: una
+   * clave junto al material que protege no agrega ninguna frontera
+   * (ADR-0029 D7.3).
+   */
+  readonly keystoreDirectory: string;
+};
+
+const contains = (parent: string, child: string): boolean => {
+  const distance = relative(parent, child);
+  return distance === '' || (!distance.startsWith('..') && !/^[A-Za-z]:/.test(distance));
 };
 
 /** Retención normativa de los respaldos de migración (ADR-0029 D8). */
@@ -29,13 +46,40 @@ export const readNodeStorage = (environment: Environment = process.env): NodeSto
       'The backup retention must keep at least one copy.'
     );
   }
+  const backupDirectory = resolve(
+    environment.DATABASE_BACKUP_PATH ?? join(dirname(databasePath), 'backups')
+  );
+  const keystoreDirectory = resolve(
+    environment.NODE_KEYSTORE_PATH ?? join(dirname(databasePath), 'keys')
+  );
+  if (contains(backupDirectory, keystoreDirectory)) {
+    throw new ApplicationError(
+      'NODE_KEYSTORE_PATH_INVALID',
+      'The key store cannot live inside the backup directory.'
+    );
+  }
   return {
     databasePath,
-    backupDirectory: resolve(
-      environment.DATABASE_BACKUP_PATH ?? join(dirname(databasePath), 'backups')
-    ),
-    backupRetention: declared === undefined ? DEFAULT_BACKUP_RETENTION : Number.parseInt(declared, 10)
+    backupDirectory,
+    backupRetention: declared === undefined ? DEFAULT_BACKUP_RETENTION : Number.parseInt(declared, 10),
+    keystoreDirectory
   };
+};
+
+/**
+ * Prepara y verifica el perímetro protegido antes de escribir nada: la base y
+ * sus temporales, los respaldos y el almacén de claves. Crear el directorio
+ * hereda la ACL de su padre —la que fija el instalador—, y verificarla es lo
+ * que impide arrancar sobre una carpeta que cualquier cuenta puede leer
+ * (ADR-0029 D7.2).
+ */
+export const prepareNodeStorage = (storage: NodeStorage): void => {
+  for (const directory of [
+    dirname(storage.databasePath), storage.backupDirectory, storage.keystoreDirectory
+  ]) {
+    assertWritable(directory);
+    assertProtectedDirectory(directory);
+  }
 };
 
 /**
@@ -71,12 +115,17 @@ const assertWritable = (directory: string): void => {
  */
 export const migrateNodeDatabase = (
   storage: NodeStorage,
-  options: { readonly validate?: (handle: DatabaseHandle) => void } = {}
+  options: {
+    readonly validate?: (handle: DatabaseHandle) => void;
+    /** Sella el respaldo antes de publicarlo y lo abre para restaurarlo. */
+    readonly backupProtection?: BackupProtection;
+  } = {}
 ): MigrationResult => {
   assertWritable(storage.backupDirectory);
   return migrateDatabase(storage.databasePath, {
     backupDirectory: storage.backupDirectory,
     backupRetention: storage.backupRetention,
-    ...(options.validate ? { validate: options.validate } : {})
+    ...(options.validate ? { validate: options.validate } : {}),
+    ...(options.backupProtection ? { backupProtection: options.backupProtection } : {})
   });
 };
