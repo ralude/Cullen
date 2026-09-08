@@ -1,8 +1,9 @@
 # Plan de ejecución 11.02: roles, permisos y administración de identidad
 
 - Fecha: 2026-09-07.
-- Estado: **planificado, sin iniciar**. Desbloqueado el 2026-09-08: D1–D5 quedaron respondidas
-  en [ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md), aceptado, según la
+- Estado: **corte 1 entregado el 2026-09-08**; cortes 2–4 planificados, sin iniciar. D1–D5
+  quedaron respondidas en
+  [ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md), aceptado, según la
   [secuencia y decisiones de Fase 11](./plan-secuencia-y-decisiones.md).
 - Especificación: [11.02 Roles y permisos](./11.02-roles-permisos.md).
 - Deuda de origen: [auditoría 2026-09-04](./auditoria-puntos-clave-2026-09-04.md), puntos 3 y 7.
@@ -66,29 +67,31 @@ Consecuencia operativa: el único rol que existe es `ADMIN`, con los 50 permisos
 cambia hoy lo que ve ningún operador, y las pantallas de 9B no demuestran separación real de
 responsabilidades. Eso no se corrige con más UI.
 
-## Corte 1: la decisión de autorización deja evidencia
+## Corte 1: la decisión de autorización deja evidencia — entregado el 2026-09-08
 
 Independiente de las decisiones de identidad para los permisos existentes, así que pudo
 planificarse antes de resolverlas. Cubre la auditoría de sus decisiones; la referencia genérica
 a «venta» en la deuda se concreta abajo sin introducir un permiso nuevo.
 
-1. Prueba outside-in primero para `VoidSale` (`sale.void`), `ReturnSale` (`sale.return`),
+1. [x] Prueba outside-in primero para `VoidSale` (`sale.void`), `ReturnSale` (`sale.return`),
    `RegisterStockAdjustment` (`inventory.adjust`), `UpdatePrice`
    (`catalog.price.update`) y `CloseShift` (`cash.shift.close`; incluir también la variante
    `cash.shift.close.difference` cuando corresponda). Un actor sin el permiso exigido falla
    sin efectos de negocio y deja auditoría con actor, permiso, resultado, terminal, nodo, UTC
    y correlation ID. Usar los nombres y constantes existentes, verificados contra los contratos.
-2. Introducir un único punto de decisión reutilizable en aplicación, no una copia en cada caso
-   de uso. Evaluar un decorador de `AuthorizationService` para los controles previos; para
+2. [x] Introducir un único punto de decisión reutilizable en aplicación, no una copia en cada
+   caso de uso. Evaluar un decorador de `AuthorizationService` para los controles previos; para
    controles dentro de una transacción, separar decisión y persistencia como exige el punto 5.
    Conservar los permisos y el `FORBIDDEN` existentes.
-3. La entrada de auditoría no puede contener el PIN, el token ni el hash de credencial. El
+3. [x] La entrada de auditoría no puede contener el PIN, el token ni el hash de credencial. El
    campo `reason` nombra el permiso exigido, no el detalle interno de la consulta.
-4. Registrar denegación **y** concesión de las operaciones sensibles, o solo denegación, es una
-   decisión de volumen: elegirla explícitamente en el corte y justificarla. Una auditoría que
-   crece sin límite por cada lectura autorizada no es observabilidad, es ruido; 11.05 no la
-   puede filtrar después sin perder evidencia.
-5. Persistir la denegación en una `UnitOfWork` independiente de la transacción del comando
+4. [x] Registrar denegación **y** concesión de las operaciones sensibles, o solo denegación, es
+   una decisión de volumen: elegirla explícitamente en el corte y justificarla. Una auditoría
+   que crece sin límite por cada lectura autorizada no es observabilidad, es ruido; 11.05 no la
+   puede filtrar después sin perder evidencia. **Decidido: solo la denegación.** La concesión ya
+   queda evidenciada por la entrada de negocio que el propio comando escribe al tener efecto, y
+   una lectura autorizada no produce ninguna.
+5. [x] Persistir la denegación en una `UnitOfWork` independiente de la transacción del comando
    rechazado. `DrizzleAuditWriter.append` exige una transacción activa y
    [las reglas del driver](../../../packages/drivers/db/AGENTS.md) prohíben escrituras sin ella
    y transacciones anidadas. Confirmar la evidencia y devolver el rechazo sin modificar
@@ -98,6 +101,16 @@ a «venta» en la deuda se concreta abajo sin introducir un permiso nuevo.
    después el rechazo; un decorador que abra otra `UnitOfWork` en esa llamada sería anidado.
    Cubrir ambos puntos de decisión, comprobar la evidencia durable tras reabrir SQLite y
    verificar que un fallo al persistirla no se presenta como denegación auditada con éxito.
+
+Entregado: `AuditedAuthorizationService` y `DeferredDenialUnitOfWork`
+(`packages/core/src/application/identity/audited-authorization.ts`), compuestos en
+`apps/server/src/runtime.ts` sobre `SqliteAuthorizationService`. La denegación decidida dentro
+de la transacción del comando se difiere y se asienta al salir de ella; el puerto
+`TransactionState` informa si hay una activa sin exponer el motor. Pruebas:
+`apps/server/src/authorization-audit.contract.test.ts` sobre SQLite real —incluida la evidencia
+tras reabrir la base— y
+`packages/core/src/application/identity/audited-authorization.test.ts` para el fallo al
+persistir la evidencia. Ningún caso de uso cambió su firma ni su permiso.
 
 Límite: este corte no cambia ningún permiso exigido ni relaja una regla existente. La prueba de
 `VoidSale` cubre la anulación, no demuestra que completar una venta exija un permiso adicional.
@@ -198,7 +211,7 @@ que la fase sirvió para algo.
 
 - [x] CA-11.02-01: D1–D5 están respondidas y registradas en un ADR aceptado antes de la primera
   línea de implementación del corte 2 (ADR-0027, 2026-09-08).
-- [ ] CA-11.02-02: una denegación de autorización deja evidencia auditable con actor, permiso,
+- [x] CA-11.02-02: una denegación de autorización deja evidencia auditable con actor, permiso,
   terminal, nodo, UTC y correlation ID, sin credenciales. Se confirma en una `UnitOfWork`
   independiente, permanece tras reabrir SQLite y no produce efectos de negocio.
 - [ ] CA-11.02-03: existen `identity.user.manage`, `identity.role.manage` e
