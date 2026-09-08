@@ -1,5 +1,5 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { mkdirSync, readdirSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { ApplicationError } from '@supermarket/shared';
 import {
   migrateDatabase,
@@ -128,4 +128,26 @@ export const migrateNodeDatabase = (
     ...(options.validate ? { validate: options.validate } : {}),
     ...(options.backupProtection ? { backupProtection: options.backupProtection } : {})
   });
+};
+
+/**
+ * Convierte las copias históricas creadas antes de ADR-0029. Dejarlas en claro
+ * hasta que la retención las alcance mantendría abierta la fuga que 11.04
+ * pretende cerrar.
+ */
+export const sealLegacyMigrationBackups = (
+  storage: NodeStorage,
+  protection: BackupProtection
+): readonly string[] => {
+  const prefix = `${basename(storage.databasePath)}.backup.`;
+  const sealed: string[] = [];
+  for (const name of readdirSync(storage.backupDirectory)) {
+    if (!name.startsWith(prefix) || name.endsWith(protection.suffix)) continue;
+    const source = join(storage.backupDirectory, name);
+    const target = `${source}${protection.suffix}`;
+    protection.seal(source, target);
+    unlinkSync(source);
+    sealed.push(target);
+  }
+  return sealed;
 };

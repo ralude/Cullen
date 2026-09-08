@@ -4,6 +4,7 @@ import type {
   EnrollmentConsumption,
   IdentityAdministrationStore,
   IdentityOperatorSummary,
+  IdentityRetentionStore,
   IdentityRoleSummary,
   IdentityWriteOutcome
 } from '@supermarket/core';
@@ -43,7 +44,7 @@ const applied = (affectedUserIds: readonly string[]): IdentityWriteOutcome =>
  * escribir y antes de confirmar.
  */
 export class SqliteIdentityAdministrationStore
-implements IdentityAdministrationStore, CredentialEnrollmentStore {
+implements IdentityAdministrationStore, CredentialEnrollmentStore, IdentityRetentionStore {
   constructor(private readonly handle: DatabaseHandle) {}
 
   async listOperators(): Promise<readonly IdentityOperatorSummary[]> {
@@ -435,6 +436,37 @@ implements IdentityAdministrationStore, CredentialEnrollmentStore {
       if (changes !== 1) return false;
       this.bumpAuthorization([input.userId]);
       return true;
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  /**
+   * Sesiones cuyo vencimiento absoluto quedó fuera del plazo declarado
+   * (ADR-0029 D8). Revocar una sesión impide usarla, pero no adelanta la fecha
+   * desde la que empieza su retención.
+   */
+  async purgeExpiredSessions(threshold: Date): Promise<number> {
+    requireTransaction(this.handle.sqlite);
+    try {
+      return this.handle.sqlite.prepare(`
+        delete from auth_sessions
+        where absolute_expires_at < ?
+      `).run(threshold.getTime()).changes;
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+
+  /** Tickets consumidos o vencidos: pasado el plazo ya no detectan un replay. */
+  async purgeConsumedEnrollments(threshold: Date): Promise<number> {
+    requireTransaction(this.handle.sqlite);
+    try {
+      return this.handle.sqlite.prepare(`
+        delete from identity_credential_enrollments
+        where (consumed_at is not null and consumed_at < ?)
+           or expires_at < ?
+      `).run(threshold.getTime(), threshold.getTime()).changes;
     } catch (error) {
       throw mapDatabaseError(error);
     }

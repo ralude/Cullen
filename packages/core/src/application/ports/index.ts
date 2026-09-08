@@ -165,3 +165,4 @@ export type {
   SecretVault,
   SecretVaultProtection
 } from './secret-vault.js';
+export type { IdentityRetentionStore } from './identity-retention-store.js';

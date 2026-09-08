@@ -10,4 +10,5 @@ export * from './fiscal/index.js';
 export * from './reporting/index.js';
 export * from './identity/index.js';
 export * from './idempotency/index.js';
+export * from './security/index.js';
 export * from './sync/index.js';

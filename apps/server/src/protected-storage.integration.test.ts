@@ -9,10 +9,17 @@ import {
   currentAccountSid,
   isSealed,
   loadFileProtection,
-  openSecretVault
+  openSecretVault,
+  readSealHeader
 } from '@supermarket/driver-security';
-import { migrateNodeDatabase, prepareNodeStorage, readNodeStorage } from './node-storage.ts';
+import {
+  migrateNodeDatabase,
+  prepareNodeStorage,
+  readNodeStorage,
+  sealLegacyMigrationBackups
+} from './node-storage.ts';
 import { readSyncListenerConfiguration } from './sync/lan-listener.ts';
+import { rotateNodeProtectedMaterial } from './node-maintenance.ts';
 
 /**
  * Protección del material en reposo sobre el arranque real (11.04, cortes 3 y 4).
@@ -104,6 +111,22 @@ describe('material protegido del nodo', () => {
     }
   });
 
+  it('sella los respaldos históricos antes de conservarlos', async () => {
+    const root = temporary();
+    const storage = storageIn(root);
+    mkdirSync(dirname(storage.databasePath), { recursive: true });
+    migrateNodeDatabase(storage);
+    const legacy = migrateNodeDatabase(storage).backupPath!;
+    expect(readFileSync(legacy).toString('binary')).toContain('SQLite format 3');
+
+    const protection = await protectionFor(storage.keystoreDirectory);
+    const converted = sealLegacyMigrationBackups(storage, protection);
+
+    expect(converted).toHaveLength(1);
+    expect(readdirSync(storage.backupDirectory)).not.toContain(legacy.split(/[\\/]/).at(-1));
+    expect(isSealed(readFileSync(converted[0]!))).toBe(true);
+  });
+
   it('restaura desde el respaldo sellado cuando la actualización falla', async () => {
     const root = temporary();
     const storage = storageIn(root);
@@ -132,6 +155,51 @@ describe('material protegido del nodo', () => {
     /** La restauración tampoco deja intermedios en claro. */
     expect(readdirSync(dirname(storage.databasePath))
       .filter((name) => name.includes('.staging'))).toEqual([]);
+  });
+
+  it('rota sin inutilizar respaldos anteriores y cifra los nuevos con la clave activa', async () => {
+    const root = temporary();
+    const storage = storageIn(root);
+    mkdirSync(dirname(storage.databasePath), { recursive: true });
+    migrateNodeDatabase(storage);
+    const vault = openSecretVault(storage.keystoreDirectory, DEVELOPMENT);
+    const before = await loadFileProtection({
+      vault, nodeId: 'node-001', now: new Date('2026-01-01T00:00:00.000Z')
+    });
+    const previousBackup = migrateNodeDatabase(storage, { backupProtection: before }).backupPath!;
+
+    const rotated = await rotateNodeProtectedMaterial({
+      databasePath: storage.databasePath,
+      nodeIdentity: { originNodeId: 'node-001', terminalId: 'terminal-001' },
+      vault,
+      input: { reason: 'Rotación anual.', referencedKeyIds: [before.keyId] }
+    });
+    const after = await loadFileProtection({
+      vault, nodeId: 'node-001', now: new Date('2026-09-08T12:00:00.000Z')
+    });
+
+    expect(rotated.retiredKeyId).toBe(before.keyId);
+    expect(after.keyId).not.toBe(before.keyId);
+    const restored = join(root, 'previous.sqlite');
+    after.open(previousBackup, restored);
+    const restoredHandle = openDatabase(restored);
+    try {
+      expect(restoredHandle.sqlite.pragma('integrity_check', { simple: true })).toBe('ok');
+    } finally {
+      restoredHandle.close();
+    }
+    const nextBackup = migrateNodeDatabase(storage, { backupProtection: after }).backupPath!;
+    expect(readSealHeader(readFileSync(previousBackup)).keyId).toBe(before.keyId);
+    expect(readSealHeader(readFileSync(nextBackup)).keyId).toBe(after.keyId);
+
+    const audit = openDatabase(storage.databasePath);
+    try {
+      expect(audit.sqlite.prepare(`
+        select action from audit_log where action = 'SECURITY_PROTECTION_KEY_ROTATED'
+      `).pluck().get()).toBe('SECURITY_PROTECTION_KEY_ROTATED');
+    } finally {
+      audit.close();
+    }
   });
 
   it('rechaza un respaldo manipulado, de otro nodo o con clave ausente', async () => {
@@ -183,20 +251,39 @@ describe('material protegido del nodo', () => {
     const sealedKey = join(material, 'key.pem.sealed');
     protection.seal(plainKey, sealedKey);
     rmSync(plainKey);
-    const certificate = join(material, 'cert.pem');
-    writeFileSync(certificate, '-----BEGIN CERTIFICATE-----publico-----END CERTIFICATE-----');
+    const certificate = join(material, 'cert.pem.sealed');
+    const plainCertificate = join(material, 'cert.pem');
+    writeFileSync(plainCertificate, '-----BEGIN CERTIFICATE-----publico-----END CERTIFICATE-----');
+    protection.seal(plainCertificate, certificate);
+    rmSync(plainCertificate);
 
     const configuration = readSyncListenerConfiguration({
       SYNC_LISTENER_PORT: '8443',
       SYNC_LISTENER_TLS_KEY_PATH: sealedKey,
       SYNC_LISTENER_TLS_CERT_PATH: certificate,
       SYNC_LISTENER_TLS_CLIENT_CA_PATHS: certificate
-    }, protection.read);
+    }, protection.readSecret);
 
     expect(configuration?.https.key).toContain('clave-lan');
     /** El archivo publicado sigue sellado: solo la memoria vio la clave. */
     expect(readFileSync(sealedKey, 'utf8')).not.toContain('clave-lan');
     expect(readdirSync(material)).not.toContain('key.pem');
+  });
+
+  it('rechaza material TLS en claro en el arranque protegido', async () => {
+    const root = temporary();
+    const protection = await protectionFor(join(root, 'keys'));
+    const plain = join(root, 'key.pem');
+    writeFileSync(plain, '-----BEGIN PRIVATE KEY-----secreto-----END PRIVATE KEY-----');
+
+    expect(() => readSyncListenerConfiguration({
+      SYNC_LISTENER_PORT: '8443',
+      SYNC_LISTENER_TLS_KEY_PATH: plain,
+      SYNC_LISTENER_TLS_CERT_PATH: plain,
+      SYNC_LISTENER_TLS_CLIENT_CA_PATHS: plain
+    }, protection.readSecret)).toThrowError(expect.objectContaining({
+      code: 'SYNC_LISTENER_MATERIAL_UNREADABLE'
+    }));
   });
 
   it.runIf(windows)('verifica la ACL del perímetro antes de escribir', () => {

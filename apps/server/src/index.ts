@@ -8,7 +8,13 @@ import {
   loadNodeIdentity,
   openSecretVault
 } from '@supermarket/driver-security';
-import { migrateNodeDatabase, prepareNodeStorage, readNodeStorage } from './node-storage.ts';
+import {
+  migrateNodeDatabase,
+  prepareNodeStorage,
+  readNodeStorage,
+  sealLegacyMigrationBackups
+} from './node-storage.ts';
+import { runNodeStartupMaintenance } from './node-maintenance.ts';
 import { createSecurityRuntime } from './runtime.ts';
 import { resolveOperatorHost } from './session-transport.ts';
 import { createDestinationRelays, fixedDestination } from './sync/destination-relays.ts';
@@ -38,10 +44,16 @@ const secretVault = openSecretVault(storage.keystoreDirectory);
 const materialProtection = await loadFileProtection({
   vault: secretVault, nodeId: nodeIdentity.originNodeId, now: new Date()
 });
+sealLegacyMigrationBackups(storage, materialProtection);
 migrateNodeDatabase(storage, { backupProtection: materialProtection });
+await runNodeStartupMaintenance({
+  databasePath: storage.databasePath,
+  nodeIdentity,
+  protection: secretVault.protection
+});
 
 /** El material TLS de LAN se abre en memoria; no se copia en claro a disco. */
-const clientConfiguration = readSyncClientConfiguration(process.env, materialProtection.read);
+const clientConfiguration = readSyncClientConfiguration(process.env, materialProtection.readSecret);
 
 const runtime = createSecurityRuntime(
   storage.databasePath,
@@ -64,7 +76,7 @@ const app = buildApp(runtime.dependencies);
  * Una configuración incompleta aborta el arranque: no se degrada a un
  * transporte sin autenticación mutua ni se expone la API de operadores.
  */
-const syncConfiguration = readSyncListenerConfiguration(process.env, materialProtection.read);
+const syncConfiguration = readSyncListenerConfiguration(process.env, materialProtection.readSecret);
 const syncApp = syncConfiguration
   ? buildSyncApp(toTransportDependencies({
     ...runtime.syncReception,

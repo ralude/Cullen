@@ -63,3 +63,5 @@ export type {
   UpdateOperatorInput,
   UpdateRolePermissionsInput
 } from './identity-dtos.js';
+export { ApplyIdentityRetention, IDENTITY_RETENTION_DAYS } from './retention.js';
+export type { IdentityRetentionDto } from './retention.js';

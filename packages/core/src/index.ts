@@ -51,7 +51,9 @@ export {
   DeferredDenialUnitOfWork,
   ENROLLMENT_TTL_MS,
   ExpireOperatorCredential,
+  ApplyIdentityRetention,
   GetIdentityDirectory,
+  IDENTITY_RETENTION_DAYS,
   IDENTITY_LAST_ADMINISTRATOR,
   IDENTITY_NOT_OWNED_BY_NODE,
   IDENTITY_PERMISSIONS,
@@ -62,6 +64,12 @@ export {
   UpdateRolePermissions,
   VerifySession
 } from './application/identity/index.js';
+export { RecordProtectionUse, RotateProtectedMaterial } from './application/security/index.js';
+export type {
+  ProtectionUseDto,
+  ProtectedMaterialRotationDto,
+  RotateProtectedMaterialInput
+} from './application/security/index.js';
 export type {
   AssignOperatorRolesInput,
   AuthorizeCredentialEnrollmentInput,
@@ -168,6 +176,7 @@ export type {
   EnrollableOperator,
   EnrollmentConsumption,
   IdentityAdministrationStore,
+  IdentityRetentionStore,
   IdentityOperatorSummary,
   IdentityRoleSummary,
   IdentityWriteOutcome,

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AppError } from '@supermarket/shared';
 import { isSealed, open, readSealHeader, seal } from './envelope.js';
+import { loadFileProtection } from './protected-material.js';
 import { FileSecretVault, openSecretVault } from './secret-vault.js';
 
 /**
@@ -193,5 +194,33 @@ describe('sobre cifrado', () => {
     expect(published).not.toContain('BEGIN PRIVATE KEY');
     expect(published).not.toContain('secreto');
     expect(readdirSync(directory)).toEqual(['material.sealed']);
+  });
+
+  it('vuelve a sellar secretos con la clave activa y rechaza texto claro', async () => {
+    const vault = vaultOf();
+    const directory = mkdtempSync(join(tmpdir(), 'cullen-reseal-'));
+    directories.push(directory);
+    const source = join(directory, 'source.pem');
+    const protectedPath = join(directory, 'secret.pem.sealed');
+    writeFileSync(source, 'secreto-configurado');
+
+    const first = await loadFileProtection({
+      vault, nodeId: 'node-001', now: new Date('2026-01-01T00:00:00.000Z')
+    });
+    first.seal(source, protectedPath);
+    expect(first.keyIdOf(protectedPath)).toBe(first.keyId);
+    expect(() => first.readSecret(source)).toThrowError(expect.objectContaining({
+      code: 'SECRET_MATERIAL_NOT_SEALED'
+    }));
+
+    await vault.rotate(new Date('2026-09-08T12:00:00.000Z'));
+    const second = await loadFileProtection({
+      vault, nodeId: 'node-001', now: new Date('2026-09-08T12:00:00.000Z')
+    });
+    second.reseal(protectedPath);
+
+    expect(second.keyIdOf(protectedPath)).toBe(second.keyId);
+    expect(second.readSecret(protectedPath)).toBe('secreto-configurado');
+    expect(readdirSync(directory).filter((name) => name.endsWith('.staging'))).toEqual([]);
   });
 });

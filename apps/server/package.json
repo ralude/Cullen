@@ -17,6 +17,7 @@
     "bootstrap-admin:dev": "tsx --env-file=config/development.env src/bootstrap-admin.ts",
     "bootstrap-operations": "tsx src/bootstrap-operations.ts",
     "bootstrap-operations:dev": "tsx --env-file=config/development.env src/bootstrap-operations.ts",
+    "rotate-protected-material": "tsx src/rotate-protected-material.ts",
     "seed:products": "tsx src/seed-products.ts"
   },
   "dependencies": {
