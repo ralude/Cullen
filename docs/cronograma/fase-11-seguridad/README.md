@@ -1,11 +1,7 @@
 # Fase 11: Seguridad
 
-- **Estado:** Habilitada el 2026-09-07 al cerrar la Fase 10; **planificada el 2026-09-07**. En
-  ejecución desde el 2026-09-08: entregados el corte 0 de 11.05 —redacción de logs técnicos— y
-  la 11.02 completa —autorización auditable, administración de identidad, enrolamiento local de
-  credenciales, contratos, pantalla y pruebas de separación real— (corte mínimo 11.01–11.03
-  adelantado y completado). 11.04 quedó desbloqueada al aceptarse ADR-0029; su implementación
-  sigue pendiente
+- **Estado:** Completada el 2026-09-08. La frontera empaquetada de Electron sigue declarada en 11.03 y en el
+  gate de piloto, sin presentarse como cubierta.
 - **Indice:** [Cronograma](../README.md)
 - **Plan de fase:** [secuencia restante y decisiones de activación](./plan-secuencia-y-decisiones.md)
 
@@ -33,12 +29,12 @@ sub-fase 9B.09. La Fase 11 vuelve a ser la unica duena de identidad y autorizaci
 - [11.02 Roles y permisos](./11.02-roles-permisos.md) —
   [plan](./plan-11.02-roles-permisos.md); completada el 2026-09-08
 - [11.03 JWT y sesiones](./11.03-jwt-sesiones.md) —
-  [plan](./plan-11.03-jwt-sesiones.md)
+  [plan](./plan-11.03-jwt-sesiones.md); hardening local completado, brecha empaquetada declarada
 - [11.04 Encriptacion](./11.04-encriptacion.md) —
-  [plan](./plan-11.04-encriptacion.md); desbloqueada el 2026-09-08 por
-  [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md), sin implementación
+  [plan](./plan-11.04-encriptacion.md); implementada según
+  [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md)
 - [11.05 Hardening de logs](./11.05-hardening-logs.md) —
-  [plan](./plan-11.05-hardening-logs.md); corte 0 de redacción entregado el 2026-09-08
+  [plan](./plan-11.05-hardening-logs.md); cortes 0–4 implementados el 2026-09-08
 
 ## Orden de ejecución
 
@@ -50,7 +46,7 @@ enrolamiento de credenciales que declaraba pendiente por
 [ADR-0028](../../architecture/adr/0028-enrolamiento-local-de-credenciales.md); D7–D9 quedaron
 cerradas el mismo día por
 [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md), de modo que 11.04 ya
-no espera decisiones sino implementación.
+quedó implementada conforme a esa decisión.
 D6 recoge el loopback obligatorio de `apps/server/AGENTS.md` y ADR-0026, y no bloquea la
 validación del host en 11.03. Los cortes independientes conservan sus prerrequisitos explícitos.
 

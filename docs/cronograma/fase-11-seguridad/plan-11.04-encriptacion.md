@@ -1,7 +1,8 @@
 # Plan de ejecución 11.04: protección de datos en reposo
 
 - Fecha: 2026-09-07.
-- Estado: **planificado, sin iniciar; desbloqueado el 2026-09-08**. D7–D9 quedaron respondidas
+- Estado: **completado el 2026-09-08**.
+  D7–D9 quedaron respondidas
   en [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md), aceptado, según la
   [secuencia y decisiones de Fase 11](./plan-secuencia-y-decisiones.md).
 - Especificación: [11.04 Encriptacion](./11.04-encriptacion.md).
@@ -113,25 +114,34 @@ Depende de D9.
 
 ## Criterios de aceptación
 
+Evidencia automatizada: `protected-storage.integration.test.ts` cubre migración segura,
+respaldo AES-256-GCM, restauración, rechazo de TLS plano y conservación de respaldos con claves
+anteriores; `secret-vault.test.ts` y `data-directory.test.ts` fijan custodia y ACL; las pruebas
+de retención y rotación cubren purga y evidencia auditable. La pérdida del almacén del sistema
+operativo sigue siendo irrecuperable por decisión expresa de ADR-0029.
+La rotación operativa y la dependencia de confianza TLS están documentadas en
+[rotación de material protegido](../../operacion/rotacion-material-protegido.md); la emisión y
+distribución concretas continúan subordinadas a la PKI aprobada para cada instalación.
+
 - [x] CA-11.04-01: D7–D9 están respondidas y registradas en un ADR aceptado antes de implementar
   los cortes 3 y 4 (ADR-0029, 2026-09-08).
-- [ ] CA-11.04-02: existe una clasificación publicada de datos sensibles con retención y acceso por
+- [x] CA-11.04-02: existe una clasificación publicada de datos sensibles con retención y acceso por
   cada elemento del inventario, y las brechas no cubiertas están declaradas.
-- [ ] CA-11.04-03: el arranque real migra por la ruta con respaldo, validación y restauración; una
+- [x] CA-11.04-03: el arranque real migra por la ruta con respaldo, validación y restauración; una
   migración inválida restaura y aborta con código estable sin abrir el servidor.
-- [ ] CA-11.04-04: un directorio de respaldo no escribible aborta el arranque en vez de continuar
+- [x] CA-11.04-04: un directorio de respaldo no escribible aborta el arranque en vez de continuar
   sin respaldo.
-- [ ] CA-11.04-05: una migración correcta deja respaldo verificable, aplica versiones y purga según
+- [x] CA-11.04-05: una migración correcta deja respaldo verificable, aplica versiones y purga según
   la retención declarada.
-- [ ] CA-11.04-06: el cifrado y el almacenamiento de claves que D7 decida están implementados,
+- [x] CA-11.04-06: el cifrado y el almacenamiento de claves que D7 decida están implementados,
   auditables y probados; una base o respaldo protegido sigue siendo migrable y restaurable.
-- [ ] CA-11.04-07: ninguna clave, material TLS ni ruta de secreto aparece en logs, respuestas, IPC
+- [x] CA-11.04-07: ninguna clave, material TLS ni ruta de secreto aparece en logs, respuestas, IPC
   ni renderer; hay prueba automatizada.
-- [ ] CA-11.04-08: la rotación de material deja evidencia auditable y no inutiliza lo cifrado
+- [x] CA-11.04-08: la rotación de material deja evidencia auditable y no inutiliza lo cifrado
   anteriormente sin un procedimiento probado.
-- [ ] CA-11.04-09: el ensayo de respaldo y restauración con datos representativos está automatizado
+- [x] CA-11.04-09: el ensayo de respaldo y restauración con datos representativos está automatizado
   o documentado como procedimiento reproducible, y no expone secretos.
-- [ ] CA-11.04-10: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes; la especificación 11.04, el
+- [x] CA-11.04-10: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes; la especificación 11.04, el
   gate de piloto y el registro de auditoría reflejan lo entregado.
 
 ## Superficies y límites

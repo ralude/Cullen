@@ -1,7 +1,8 @@
 # Registro de auditoría focal — 2026-09-04
 
 - **Fase relacionada:** Fase 11 - Seguridad y fases propietarias de cada capacidad
-- **Estado:** Deuda documentada; no implica que una tarea esté completada
+- **Estado:** Seguimiento actualizado el 2026-09-08; conserva abiertas solo las deudas que no
+  tienen evidencia de cierre
 - **Alcance:** revisión selectiva de composición, persistencia, dominio, desktop,
   cronograma y pruebas. No es una auditoría exhaustiva del árbol ni una
   certificación de seguridad o fiscalidad.
@@ -35,6 +36,10 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   las dos unidades, existencia cero y valor -1; una entrada posterior de 100
   centavos queda con promedio 99.
 
+Revalidación del 2026-09-08: `pnpm pipeline` aprobó lint, typecheck y 1.182 pruebas en 186
+archivos. Esta cifra actualiza la salud transversal; no altera la evidencia histórica de la
+ejecución del 2026-09-04.
+
 ## Deudas asignadas por fase
 
 ### 1. Venta completada sin efectos derivados
@@ -52,8 +57,8 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   movimiento de turno, salida de inventario, ledger, auditoría y outbox; debe
   repetir el caso tras reinicio y cubrir idempotencia. Un `COMPLETED` sin sus
   efectos derivados debe quedar visible como atención operativa.
-- **Estado al 2026-09-08:** composición local de caja e inventario cubierta; queda la
-  observabilidad de rechazos y atrasos en 11.05.
+- **Estado al 2026-09-08:** cerrado. La composición local de caja e inventario y la
+  observabilidad de rechazos y atrasos están cubiertas.
   `CompleteSale` compone `ApplySaleCompletedToShift` y asienta el cobro en el
   turno dentro de la misma transacción que completa la venta: el `Shift`
   pertenece a la terminal de origen
@@ -70,8 +75,10 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   Las terminales entregan el hecho al `InventoryAuthorityConsumer` del coordinador conforme
   a [ADR-0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md).
   [FS-005](../../failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md) enlaza las pruebas
-  de aplicación local y rechazo. 11.05 debe presentar esa evidencia y el atraso remoto sin
-  confundir ausencia de stock local en el POS con una salida faltante en el coordinador.
+  de aplicación local y rechazo. `GetOperationalDiagnostics`, su adaptador SQLite, contrato
+  local autenticado y pantalla presentan esa evidencia y el atraso remoto sin confundir
+  ausencia de stock local en el POS con una salida faltante en el coordinador. La traza
+  allowlist une ledger, outbox y auditoría sin exponer payloads de pago.
 - **Escenarios relacionados:** [FS-005](../../failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md)
   y [ADR-0005](../../architecture/adr/0005-eventos-outbox.md).
 
@@ -88,6 +95,9 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   siguiente recepción o el margen.
 - **Relación con Fase 11:** 11.05 debe conservar evidencia auditable del costo
   usado; no debe decidir la fórmula contable.
+- **Estado al 2026-09-08:** la evidencia quedó cerrada en `SALE_STOCK_ISSUED` y en la lectura
+  correlacionada —importe menor, moneda y fuente—. El defecto contable de residuo sigue abierto
+  en 9B.04 y no fue reinterpretado por 11.05.
 
 ### 3. Contratos TypeScript sin consolidar
 
@@ -103,6 +113,8 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   DTOs, mappers e inputs sincronizados.
 - **Relación con Fase 11:** 11.02 debe incluir pruebas de autorización de las
   operaciones nuevas una vez que sus contratos estén consolidados.
+- **Estado al 2026-09-08:** cerrado. El pipeline completo está verde y la prueba genérica de
+  permisos recorre todos los contratos autenticados publicados.
 
 ### 4. Estación instalada y arranque seguro
 
@@ -130,6 +142,10 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   ruta segura, validar integridad y demostrar restauración después de una
   migración fallida. El gate de piloto también exige backup automático y ensayo
   de recuperación.
+- **Estado al 2026-09-08:** cerrado para actualizaciones. El composition root usa migración con
+  respaldo AES-256-GCM, valida, restaura y aborta ante fallo; verifica ACL del directorio y
+  conserva claves anteriores referenciadas durante la rotación. El backup operativo periódico
+  independiente de actualizaciones continúa abierto en el gate de piloto.
 
 ### 6. Transporte, host y cookie de sesión
 
@@ -142,6 +158,10 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   composición LAN segura, o activar un modo LAN con transporte autenticado,
   política de cookie adecuada y pruebas de configuración insegura. El arranque
   local debe conservar el límite de nodo y terminal derivado del servidor.
+- **Estado al 2026-09-08:** cerrado para el servidor local. `SERVER_HOST` no loopback aborta,
+  la cookie se deriva en una fuente única y las pruebas fijan suplantación, configuración
+  insegura y aislamiento de sesión entre bases/nodos. El arranque empaquetado permanece como
+  deuda separada del punto 4.
 
 ### 7. Identidad de operadores y separación de responsabilidades
 
@@ -152,6 +172,8 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
 - **Criterio futuro:** alta, cambio de rol, desactivación y bloqueo de autoexclusión
   del último administrador, con permisos efectivos y auditoría. Las pantallas de
   9B no deben presentarse como separación real hasta cerrar este punto.
+- **Estado al 2026-09-08:** cerrado por 11.02, incluida la contención multiproceso del último
+  administrador sobre SQLite real, enrolamiento local, revocación de sesiones y pantalla.
 
 ### 8. Inventario offline y sincronización futura
 
@@ -165,6 +187,10 @@ caja, inventario, costeo o sincronización que tienen otro dueño.
   deduplicación, discrepancias y recuperación, y probarla con dos nodos. 11.03
   debe proteger el transporte y 11.05 debe hacer visible la antigüedad,
   discrepancia y estado de sincronización.
+- **Estado al 2026-09-08:** cerrado para el MVP de referencia por ADR-0026, Fase 10 y 11.05:
+  ownership, deduplicación, discrepancias, recuperación, antigüedad y atención visible están
+  implementados. Se conserva explícitamente la ausencia de garantía de stock global durante
+  desconexión; no es una promesa pendiente oculta.
 
 ### 9. Crecimiento de la historia de inventario
 

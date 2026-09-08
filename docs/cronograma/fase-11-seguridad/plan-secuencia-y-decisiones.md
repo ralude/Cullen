@@ -1,8 +1,8 @@
 # Fase 11: secuencia restante y decisiones de activación
 
 - Fecha: 2026-09-07.
-- Estado: **en ejecución**. El corte 0 de 11.05 se entregó el 2026-09-08; ninguna otra sub-fase
-  pendiente ha iniciado implementación.
+- Estado: **completado el 2026-09-08**. La brecha de estación empaquetada continúa en su fase propietaria y en el gate
+  de piloto.
 - Autoridad: [AGENTS.md](../../../AGENTS.md), [arquitectura](../../architecture/README.md) y
   ADR aceptados: [0006](../../architecture/adr/0006-errores-logs-auditoria.md),
   [0011](../../architecture/adr/0011-autenticacion-pin-y-sesiones-locales.md),
@@ -53,29 +53,23 @@ normativas. Cada afirmación tiene su archivo.
   [FS-005](../../failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md) conserva la garantía
   local y el rechazo auditable; 11.05 cubre su presentación y el atraso de aplicación remota.
 
-**Lo que falta y esta fase debe cerrar:**
+**Lo que esta fase cerró el 2026-09-08:**
 
-- **No existe ningún camino para crear un operador.** El único escritor de identidad es
-  `ProvisionInitialAdmin`, que se niega a ejecutarse si ya hay un operador
-  (`AUTH_ALREADY_PROVISIONED`) y solo corre por CLI interactivo local
-  (`apps/server/src/bootstrap-admin.ts`). No hay contrato `identity`, ni ruta, ni pantalla.
-- **Nada incrementa `authorization_version`.** El mecanismo de revocación por cambio de
-  autorización existe en la lectura, pero ningún caso de uso lo dispara porque ningún caso de
-  uso cambia roles ni permisos todavía.
-- **La base ya provisionada necesita una transición de permisos.** Agregar constantes a
-  `ADMIN_PERMISSIONS` no actualiza los roles persistidos. El ADR de identidad debe definir
-  destinatarios y mecanismo autorizado para habilitar los permisos nuevos sin repetir el
-  bootstrap; el corte 2 de 11.02 debe implementarlo y probarlo sobre una base anterior.
-- **Una denegación no deja rastro auditable.** Los `FORBIDDEN` de
-  `packages/core/src/application/**` devuelven el error de inmediato, antes de tocar
-  `AuditWriter`. La auditoría conserva lo que se hizo, no lo que se intentó sin permiso.
-- **`SERVER_HOST` acepta cualquier valor** (`apps/server/src/index.ts:16`) y la cookie de sesión
-  se emite sin `Secure` (`apps/server/src/routes/auth.ts:42`). El default loopback es lo único
-  que impide hoy exponer la API de operadores.
-- **El arranque real no usa la ruta segura de migración:** `apps/server/src/runtime.ts:153`
-  llama `applyMigrations` directamente y omite respaldo, validación y restauración.
-- **No hay clasificación de datos sensibles ni política de retención** para SQLite, respaldos,
-  identidad de nodo, material TLS, credenciales y artefactos de diagnóstico.
+- ~~**No existe ningún camino para crear un operador.**~~ La administración autenticada, los
+  contratos y la pantalla quedaron implementados; `ProvisionInitialAdmin` permanece limitado
+  al primer arranque local.
+- ~~**Nada incrementa `authorization_version`.**~~ Los cambios de roles, permisos y estado lo
+  incrementan de forma atómica e invalidan sesiones anteriores.
+- ~~**La base ya provisionada necesita una transición de permisos.**~~ La migración y el
+  bootstrap de permisos autorizados cubren la transición definida por ADR-0027.
+- ~~**Una denegación no deja rastro auditable.**~~ El servicio de autorización auditada y la
+  unidad de trabajo diferida conservan el intento sin aplicar el efecto prohibido.
+- ~~**`SERVER_HOST` acepta cualquier valor.**~~ La API de operadores falla cerrado fuera de
+  loopback y la cookie tiene una única política derivada del transporte permitido.
+- ~~**El arranque real no usa la ruta segura de migración.**~~ Migra con respaldo cifrado,
+  validación y restauración antes de abrir listeners.
+- ~~**No hay clasificación de datos sensibles ni política de retención.**~~ ADR-0029 la fija y
+  el arranque aplica ACL, cifrado, retención y rotación del material protegido.
 - ~~**`packages/drivers/logging/src/index.ts` es `export {}`.**~~ Cerrado por el corte 0 el
   2026-09-08: el driver exporta la redacción reutilizable, la censura actúa por nombre de campo
   sobre cuerpos y cadenas de `cause`, y el manejador global registra el error descrito.
@@ -88,18 +82,14 @@ El orden responde a dependencias reales, no a la numeración:
    primeros endpoints que transportan un PIN en un cuerpo distinto al de login. La redacción y
    la prueba que la sostiene deben existir antes, no después. Es un corte pequeño y aislado; no
    adelanta el resto de 11.05.
-2. **11.02 — roles, permisos y administración de identidad.** Es la dependencia de todo lo
-   demás: hasta que existan roles distintos de `ADMIN`, ninguna prueba de separación de
-   responsabilidades demuestra nada y ADR-0015 no cambia lo que ve ningún operador.
-3. **11.03 — transporte y sesión.** Cierra host, cookie y suplantación. Va después de 11.02
-   porque la prueba de configuración insegura gana valor cuando existen operadores con permisos
-   distintos, y antes de 11.04 porque la protección en reposo no compensa un transporte
-   abierto.
-4. **11.04 — protección de datos en reposo.** Clasifica lo que 11.02 y 11.03 acaban de fijar
-   como sensible, conecta el arranque real a la migración con respaldo y decide claves.
-5. **11.05, cortes 1–4 — observabilidad segura.** Va al final porque correlaciona lo que las
-   tres anteriores producen y porque su criterio incluye hacer visible el atraso de entrega,
-   cuya corrección pertenece a las Fases 4, 5 y 6.
+2. **11.02 — roles, permisos y administración de identidad. Entregada el 2026-09-08.** Es la
+   dependencia de lo demás: los roles distintos de `ADMIN` permiten probar separación real.
+3. **11.03 — transporte y sesión. Entregada el 2026-09-08.** Cierra host, cookie y suplantación;
+   la prueba de la estación empaquetada permanece declarada en su fase propietaria.
+4. **11.04 — protección de datos en reposo. Entregada el 2026-09-08.** Clasifica el material,
+   conecta la migración segura y protege respaldos y secretos con custodia del sistema operativo.
+5. **11.05, cortes 1–4 — observabilidad segura. Entregados el 2026-09-08.** Correlaciona los
+   efectos y hace visible el atraso sin absorber su corrección.
 
 Son cortes internos, no sub-fases nuevas. No se renumera nada ni se declara implementado
 trabajo futuro. La Fase 12 conserva la optimización medida y la Fase 8 sigue suspendida.
@@ -201,12 +191,14 @@ pendiente lo cierra
 [ADR-0028](../../architecture/adr/0028-enrolamiento-local-de-credenciales.md), aceptado el
 2026-09-08. D6 aplica AGENTS.md y ADR-0026 sin un ADR nuevo. D7–D9 quedaron registradas el
 2026-09-08 en [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md),
-aceptado; escribirlo no completa 11.04, que sigue pendiente de implementación.
+aceptado; su implementación quedó completada el mismo día y conserva el ADR como fuente.
 Primero el ADR, después la implementación: no se mantienen dos especificaciones independientes.
 
 ## Gates de ejecución que permanecen
 
-Trabajo planificado, no preguntas pendientes:
+Estos gates se cumplieron al cerrar la fase el 2026-09-08 y se conservan como registro de los
+requisitos que gobernaron cada cierre; no describen trabajo pendiente. Fueron trabajo
+planificado, no preguntas pendientes:
 
 - **Antes de habilitar cualquier alta de identidad:** el bloqueo de auto-exclusión, el
   incremento de `authorization_version` y la revocación de sesiones deben ser atómicos con el

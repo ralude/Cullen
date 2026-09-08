@@ -1,7 +1,7 @@
 # Plan de ejecución 11.05: hardening de logs y observabilidad segura
 
 - Fecha: 2026-09-07.
-- Estado: **corte 0 entregado el 2026-09-08**; cortes 1–4 planificados, sin iniciar. El corte 0
+- Estado: **completado el 2026-09-08**. El corte 0
   estaba adelantado como prerrequisito de 11.02 según la
   [secuencia de Fase 11](./plan-secuencia-y-decisiones.md); los cortes 1–4 cierran la fase y
   siguen dependiendo de lo que produzcan 11.02, 11.03 y 11.04.
@@ -131,6 +131,13 @@ Fases 4, 5 y 6.
 
 ## Criterios de aceptación
 
+Evidencia automatizada: `audit-separation.test.ts` fija que la auditoría sobrevive a la pérdida
+del log técnico; `sale-cash-effect.integration.test.ts` sigue una correlación por venta, caja,
+inventario, ledger, outbox y auditoría y verifica el costo; `sync-diagnostics.contract.test.ts`
+prueba el allowlist HTTP sin payloads de pago; `sync-screen.interaction.test.tsx` prueba su
+presentación operativa. La antigüedad de referencias y discrepancias continúa proviniendo de
+10.04, sin un segundo cálculo paralelo.
+
 - [x] CA-11.05-01: PIN, token, hash de credencial, clave y número de tarjeta no aparecen en
   ninguna línea de log, incluidos cuerpos y cadenas de `cause`; hay prueba que captura la salida
   real del logger.
@@ -138,24 +145,24 @@ Fases 4, 5 y 6.
   stack trace, ruta de archivo ni configuración.
 - [x] CA-11.05-03: `packages/drivers/logging` exporta la configuración de redacción reutilizable
   y `apps/server` la consume, en lugar de declararla en línea.
-- [ ] CA-11.05-04: existe prueba de que ninguna evidencia de negocio depende solo del log
+- [x] CA-11.05-04: existe prueba de que ninguna evidencia de negocio depende solo del log
   técnico; la auditoría append-only conserva lo que el log puede perder.
-- [ ] CA-11.05-05: los campos transversales tienen un formato estable y compartido entre HTTP,
+- [x] CA-11.05-05: los campos transversales tienen un formato estable y compartido entre HTTP,
   worker de sincronización y errores.
-- [ ] CA-11.05-06: una venta se puede seguir por correlation ID desde la petición hasta el
+- [x] CA-11.05-06: una venta se puede seguir por correlation ID desde la petición hasta el
   movimiento de turno, la salida de inventario, el ledger, el outbox y la auditoría.
-- [ ] CA-11.05-07: el costo usado en una salida queda auditable, sin decidir la fórmula
+- [x] CA-11.05-07: el costo usado en una salida queda auditable, sin decidir la fórmula
   contable.
-- [ ] CA-11.05-08: una venta `COMPLETED` sin su salida de inventario aplicada es visible con su
+- [x] CA-11.05-08: una venta `COMPLETED` sin su salida de inventario aplicada es visible con su
   antigüedad como atención operativa, distinguiendo rechazo local, pendiente remoto y
   discrepancia según evidencia durable. No se infiere falta de aplicación por no tener
   movimientos locales en una terminal ni se presenta custodia como aplicación confirmada.
-- [ ] CA-11.05-09: el diagnóstico de outbox publica pendientes, intentos, lease, backoff, pausas
+- [x] CA-11.05-09: el diagnóstico de outbox publica pendientes, intentos, lease, backoff, pausas
   y bloqueos por destino, sin secretos ni datos completos de pago.
-- [ ] CA-11.05-10: las discrepancias y la antigüedad de la sincronización quedan cubiertas —por
+- [x] CA-11.05-10: las discrepancias y la antigüedad de la sincronización quedan cubiertas —por
   lo que 10.04 ya publica o por lo que este corte añada—, con la brecha declarada si queda
   alguna.
-- [ ] CA-11.05-11: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes; la especificación 11.05,
+- [x] CA-11.05-11: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes; la especificación 11.05,
   el registro de auditoría y el cronograma reflejan lo entregado y lo que sigue abierto en otra
   fase.
 

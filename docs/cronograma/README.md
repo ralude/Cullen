@@ -18,7 +18,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
-| 11 | [Seguridad](./fase-11-seguridad/README.md) | En curso; [planificada](./fase-11-seguridad/plan-secuencia-y-decisiones.md) el 2026-09-07 y en ejecución desde el 2026-09-08: corte 0 de 11.05 y 11.02 completa; 11.04 desbloqueada por ADR-0029, sin implementación |
+| 11 | [Seguridad](./fase-11-seguridad/README.md) | ~~Completada el 2026-09-08~~; empaquetado Electron conservado como deuda del gate de piloto |
 | 12 | Optimizacion | Pendiente; 12.04 suspendida con Fase 8; [12.05 mantenibilidad estructural](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) planificada, sin refactors |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
@@ -27,20 +27,12 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 16B | [Sistema de diseño propio](./fase-16b-sistema-diseno/README.md) | Planificada; post-MVP, sin iniciar |
 | 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
-**Fase actual:** Fase 11 - Seguridad, habilitada el 2026-09-07 al cerrar la Fase 10 y
-planificada el mismo día. El 2026-09-08 entregó el corte 0 de
-[11.05](./fase-11-seguridad/plan-11.05-hardening-logs.md) —redacción de secretos en los logs
-técnicos— y la
-[11.02](./fase-11-seguridad/plan-11.02-roles-permisos.md) completa: autorización auditable,
-administración de identidad desde la interfaz, enrolamiento local de credenciales, contratos
-con su permiso declarado y pruebas de separación real sobre los 81 contratos que lo declaran.
-El resto de 11.05 sigue pendiente. D1–D5 quedaron cerradas el mismo día por
-[ADR-0027](../architecture/adr/0027-administracion-de-identidad.md) y el enrolamiento que
-declaraba pendiente por
-[ADR-0028](../architecture/adr/0028-enrolamiento-local-de-credenciales.md); las decisiones
-D7–D9 del [plan de fase](./fase-11-seguridad/plan-secuencia-y-decisiones.md) quedaron cerradas
-por [ADR-0029](../architecture/adr/0029-proteccion-de-datos-en-reposo.md), de modo que 11.04
-espera implementación y no decisiones. D6 aplica el loopback ya obligatorio y no bloquea la validación del host en 11.03.
+**Fase actual:** Fase 11 - Seguridad quedó completada el 2026-09-08. Entregó autorización e
+identidad auditable, confinamiento del transporte de operadores, protección en reposo conforme
+a [ADR-0029](../architecture/adr/0029-proteccion-de-datos-en-reposo.md), retención, rotación y
+observabilidad correlacionada segura. `pnpm pipeline` cerró con 1.182 pruebas aprobadas en 186
+archivos. La Fase 12 permanece pendiente de inicio y su corte fiscal continúa suspendido con
+la Fase 8; este cierre no habilita el piloto.
 **Fase 10, completada el 2026-09-07:** 10.01 entregó el outbox
 durable ordenado por agregado con claims generacionales; 10.02 el protocolo de eventos de
 [ADR-0023](../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md); 10.03 el servidor
@@ -190,7 +182,7 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 - [~~Fase 9 - UI~~](./fase-09-ui/README.md)
 - [~~Fase 9B - Perfiles operativos~~](./fase-09b-perfiles/README.md)
 - [~~Fase 10 - Sincronizacion~~](./fase-10-sincronizacion/README.md)
-- [Fase 11 - Seguridad](./fase-11-seguridad/README.md)
+- [~~Fase 11 - Seguridad~~](./fase-11-seguridad/README.md)
 - [Fase 12 - Optimizacion](./fase-12-optimizacion/README.md)
 
 ## Reglas de seguimiento
@@ -403,6 +395,18 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
   `CompleteSale` pendiente de aclaración normativa; y línea base de inventario ajustada a la
   composición ya existente. 11.05 distingue rechazo local, aplicación remota pendiente y
   discrepancia. Las correcciones documentales no inician ni completan implementación.
+- El 2026-09-08 se cerró la Fase 11. Se entregaron 11.01–11.05: autorización e identidad
+  auditable con contención multiproceso del último administrador, confinamiento del transporte
+  de operadores y política única de cookie, protección en reposo conforme a ADR-0029 —ACL
+  verificada, cifrado AES-256-GCM de respaldos y secretos, custodia por el almacén del sistema
+  operativo—, retención y rotación de clave con conservación de claves retiradas referenciadas,
+  separación de logs técnicos y auditoría append-only, y diagnóstico correlacionado con
+  allowlist y pantalla desktop. `pnpm pipeline` cerró verde con 1.182 pruebas en 186 archivos.
+  Quedan declaradas fuera de alcance y abiertas en el gate de piloto: el arranque empaquetado
+  de Electron, el backup operativo periódico independiente de actualizaciones y la sustitución
+  coordinada de certificados TLS dependiente de la PKI. La deuda contable de residuo/redondeo
+  de 9B.04 y la ausencia de garantía de stock global durante desconexión permanecen explícitas.
+  Este cierre no habilita el piloto ni inicia la Fase 12.
 - La auditoría focal del 2026-09-04 quedó documentada en el [registro de puntos
   clave de la Fase 11](./fase-11-seguridad/auditoria-puntos-clave-2026-09-04.md).
   Confirma la base arquitectónica, pero deja como deudas trazables la composición
@@ -422,7 +426,8 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 
 - [Fase 12.05 — Mantenibilidad estructural y eficiencia de contexto](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md)
   — añadida el 2026-09-08 con diagnóstico de hubs y baseline estática reproducible.
-  La ejecución espera el cierre de Fase 11; no cambia la fase activa ni el gate fiscal.
+  Con la Fase 11 cerrada el 2026-09-08 la ejecución queda desbloqueada, pero no cambia la fase
+  activa ni el gate fiscal y no se inician refactors.
 
 - [Evolución post-MVP: almacenes, nube y consulta web](./evolucion-post-mvp.md) — aprobada
   el 2026-09-06; secuencia 13 → 14 → 15 → 16 → 16B → 17 después del cierre técnico del MVP.

@@ -12,9 +12,19 @@ Separar funcionalidad terminada de capacidad real para instalar, operar, recuper
 ## Tareas mínimas para piloto
 
 - [ ] Configurar CI remoto obligatorio y umbrales de coverage acordados.
-- [ ] Generar instalador reproducible y definir firma de ejecutables.
-- [ ] Probar actualización, migración y rollback mediante backup.
-- [ ] Automatizar backup y ensayar restauración con datos representativos.
+- [ ] Generar instalador reproducible y definir firma de ejecutables. Incluye probar el
+  arranque empaquetado de Electron con el servidor local —sesión autenticada, una operación y
+  recuperación tras reinicio sin proxy de Vite—; 11.03 declaró esa frontera como brecha no
+  cubierta.
+- [ ] Coordinar con la PKI la emisión, distribución y sustitución de certificados TLS de LAN.
+  11.04 automatizó la rotación de la clave AES y el resellado de secretos; el reemplazo de
+  certificados sigue siendo un procedimiento coordinado (ver
+  [rotación de material protegido](../operacion/rotacion-material-protegido.md)).
+- [x] Probar actualización, migración y rollback mediante backup. La ruta real de arranque lo
+  cubre con respaldo cifrado, validación y restauración en 11.04.
+- [ ] Automatizar backup operativo periódico y ensayar restauración con datos representativos.
+  El respaldo automático previo a migración y su restauración ya tienen prueba; aún falta la
+  cadencia operativa independiente de una actualización.
 - [ ] Ejecutar chaos tests de energía, LAN, Electron y dispositivo fiscal.
 - [ ] Conservar dos perfiles fiscales aprobados por Fase 8, cada uno con
   fabricante/representante, hardware autorizado y una fila exacta de modelo,

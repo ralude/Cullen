@@ -1,8 +1,8 @@
 # Plan de ejecución 11.03: transporte y sesión (hardening)
 
 - Fecha: 2026-09-07.
-- Estado: **planificado, sin iniciar**. El corte mínimo pre-UI está completado; este plan cubre
-  solo el hardening pendiente. D6 recoge el loopback obligatorio ya decidido en la
+- Estado: **completado el 2026-09-08; brecha empaquetada declarada en el corte 4**.
+  D6 recoge el loopback obligatorio ya decidido en la
   [secuencia y decisiones de Fase 11](./plan-secuencia-y-decisiones.md).
 - Especificación: [11.03 JWT y sesiones](./11.03-jwt-sesiones.md).
 - Deuda de origen: [auditoría 2026-09-04](./auditoria-puntos-clave-2026-09-04.md), puntos 4 y 6.
@@ -108,27 +108,32 @@ empaquetado pertenece a su fase propietaria** y esta sub-fase no lo implementa.
 
 ## Criterios de aceptación
 
-- [ ] CA-11.03-01: la implementación respeta el loopback obligatorio de
+Evidencia: `session-transport.test.ts` fija host y cookie; `node-boundary.contract.test.ts`
+cubre suplantación, aislamiento entre nodos e identidad/configuración inválida. La estación
+empaquetada sigue sin escenario automatizado: CA-11.03-09 se satisface por su alternativa
+explícita de declarar la brecha, no por presentar el empaquetado como verificado.
+
+- [x] CA-11.03-01: la implementación respeta el loopback obligatorio de
   `apps/server/AGENTS.md` y ADR-0026 D1; no existe excepción LAN para operadores por disponer de
   TLS ni se trata D6 como aprobación pendiente.
-- [ ] CA-11.03-02: un `SERVER_HOST` que exponga la API de operadores fuera de lo permitido aborta
+- [x] CA-11.03-02: un `SERVER_HOST` que exponga la API de operadores fuera de lo permitido aborta
   el arranque con código estable y sin abrir el listener; hay prueba automatizada.
-- [ ] CA-11.03-03: un valor ausente conserva el comportamiento loopback actual, verificado por
+- [x] CA-11.03-03: un valor ausente conserva el comportamiento loopback actual, verificado por
   prueba.
-- [ ] CA-11.03-04: los atributos de la cookie se derivan del transporte en un único lugar y
+- [x] CA-11.03-04: los atributos de la cookie se derivan del transporte en un único lugar y
   coinciden entre emisión y borrado.
-- [ ] CA-11.03-05: existe una prueba de contrato de la cookie por cada transporte permitido,
+- [x] CA-11.03-05: existe una prueba de contrato de la cookie por cada transporte permitido,
   incluida `Secure` cuando corresponda.
-- [ ] CA-11.03-06: terminal y nodo del contexto de ejecución no son influenciables desde HTTP, y la
+- [x] CA-11.03-06: terminal y nodo del contexto de ejecución no son influenciables desde HTTP, y la
   prueba lo demuestra con cabecera, cuerpo y cookie.
-- [ ] CA-11.03-07: una sesión de un nodo no es válida en otro, probado con dos nodos y bases
+- [x] CA-11.03-07: una sesión de un nodo no es válida en otro, probado con dos nodos y bases
   independientes.
-- [ ] CA-11.03-08: una configuración insegura o una identidad de nodo ilegible abortan el arranque
+- [x] CA-11.03-08: una configuración insegura o una identidad de nodo ilegible abortan el arranque
   con código estable y mensaje público que no expone rutas ni material.
-- [ ] CA-11.03-09: el arranque empaquetado con servidor local queda verificado —autenticación,
+- [x] CA-11.03-09: el arranque empaquetado con servidor local queda verificado —autenticación,
   operación y recuperación tras reinicio, sin proxy de Vite— o la brecha queda declarada
   explícitamente como no cubierta.
-- [ ] CA-11.03-10: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes; ADR-0011 y la especificación
+- [x] CA-11.03-10: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes; ADR-0011 y la especificación
   11.03 reflejan cualquier política que este trabajo haya concretado.
 
 ## Superficies y límites

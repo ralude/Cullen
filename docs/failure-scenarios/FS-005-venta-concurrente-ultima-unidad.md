@@ -17,7 +17,7 @@ para la salida por venta.
 
 ## Riesgo
 
-### Precisión LAN: coordinador implementado, UI pendiente
+### Precisión LAN: coordinador y diagnóstico operativo implementados
 
 [ADR-0026, D3–D4](../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md)
 conserva la venta offline y concreta discrepancia única por evento/consumidor si no puede
@@ -30,10 +30,11 @@ negativo, se registra **una** discrepancia `STOCK_INSUFFICIENT` por evento y con
 `sync_discrepancy`, y solo evidencia de aplicación permite cerrarla. La prueba usa dos
 terminales con SQLite independiente y transporte real.
 
-Siguen siendo **brechas**: la presentación de la atención en la UI y la vigencia offline de
-las concesiones. El costo de la salida sincronizada queda **desconocido** mientras
-`SaleCompleted` no transporte el snapshot del origen; no se completa con el promedio del
-coordinador ni se revaloriza por una recepción tardía. Logs continúan limitados a IDs/códigos.
+Desde 11.05 la UI distingue rechazo local, entrega pendiente, aplicación remota pendiente o
+desconocida y discrepancia, con antigüedad y evidencia durable; un ACK de custodia no se muestra
+como aplicación. `SaleCompleted.v2` transporta el snapshot de costo conocido por el origen y el
+coordinador lo aplica solo si procede de su autoridad; un hecho v1 conserva costo desconocido.
+La brecha estructural permanece: desconectados, los nodos no prometen stock global simultáneo.
 
 ### Fallo de disponibilidad
 
@@ -44,8 +45,9 @@ dar al negocio una promesa falsa de disponibilidad global.
 ## Estado inicial
 
 - El `StockItem` autoritativo deriva saldo `1` de sus movimientos persistidos.
-- Cada venta completada publica un `SaleCompleted.v1` con `eventId`, línea,
-  producto y cantidad escalada.
+- Cada venta completada publica un `SaleCompleted.v2` con `eventId`, línea,
+  producto, cantidad escalada y snapshot de costo; un consumidor sigue aceptando v1 con costo
+  desconocido.
 - El repositorio procesa movimientos dentro de un `UnitOfWork` del nodo owner.
 
 ## Trigger del fallo
@@ -121,8 +123,10 @@ no debe asumirse como contrato vigente.
 - Auditoría `SALE_STOCK_ISSUED` con saldo antes/después, venta y línea, o
   `SALE_STOCK_ISSUE_REJECTED` con la venta y el código cuando la salida no pudo
   aplicarse y la venta se conservó.
-- La discrepancia offline debe ser auditable y visible como
-  `ATTENTION_REQUIRED`; su implementación pertenece a Fase 10.
+- Diagnóstico autenticado por correlación con ledger, outbox, intentos, lease, backoff y
+  auditoría; solo expone campos allowlist y la evidencia de costo aprobada.
+- La discrepancia offline es auditable y visible como `ATTENTION_REQUIRED`; la política de
+  resolución permanece en Fase 10.
 
 ## Impacto al usuario/negocio
 
@@ -137,7 +141,7 @@ proyección y no presentar disponibilidad local como garantía global.
 - `ApplySaleCompletedToInventory`.
 - `StockItem`, asignación FEFO y movimientos append-only.
 - `DrizzleStockItemRepository`, `SqliteUnitOfWork`, ledger y auditoría.
-- Nodo coordinador, sincronización y UI de discrepancias futuras.
+- Nodo coordinador, sincronización y UI de diagnóstico operativo.
 
 ## Pruebas asociadas
 
@@ -153,6 +157,10 @@ proyección y no presentar disponibilidad local como garantía global.
 - [`sales.contract.test.ts`](../../apps/server/src/routes/sales.contract.test.ts):
   `issues the sold stock when the node owns the inventory` y
   `keeps the completed sale when the sold product has no stock item`.
+- [`sale-cash-effect.integration.test.ts`](../../packages/drivers/db/src/sale-cash-effect.integration.test.ts):
+  correlación completa de venta, caja, inventario, ledger, outbox, auditoría y costo.
+- [`sync-diagnostics.contract.test.ts`](../../apps/server/src/routes/sync-diagnostics.contract.test.ts):
+  diagnóstico allowlist sin payloads de pago.
 - Brecha explícita: falta una prueba integrada con dos consumos distintos sobre
   saldo `1` y la prueba de discrepancia multi-terminal pertenece a Fase 10.
 
