@@ -1,7 +1,8 @@
 # Plan de ejecución 11.02: roles, permisos y administración de identidad
 
 - Fecha: 2026-09-07.
-- Estado: **planificado, sin iniciar**. Bloqueado por D1–D5 de la
+- Estado: **planificado, sin iniciar**. Desbloqueado el 2026-09-08: D1–D5 quedaron respondidas
+  en [ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md), aceptado, según la
   [secuencia y decisiones de Fase 11](./plan-secuencia-y-decisiones.md).
 - Especificación: [11.02 Roles y permisos](./11.02-roles-permisos.md).
 - Deuda de origen: [auditoría 2026-09-04](./auditoria-puntos-clave-2026-09-04.md), puntos 3 y 7.
@@ -9,7 +10,9 @@
   y [0015](../../architecture/adr/0015-permisos-efectivos-en-la-sesion.md), aceptados;
   [0011](../../architecture/adr/0011-autenticacion-pin-y-sesiones-locales.md) para credenciales;
   [0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) para
-  concesiones. Falta el ADR de administración de identidad que resuelva D1–D5.
+  concesiones;
+  [0027](../../architecture/adr/0027-administracion-de-identidad.md) para siembra de roles, ciclo
+  de vida del operador, restablecimiento de PIN, último administrador y ownership de identidad.
 - Alcance recuperado de la [sub-fase 9B.09 retirada](../fase-09b-perfiles/9b.09-usuarios-y-roles.md).
 
 ## Objetivo y prerrequisitos
@@ -20,10 +23,11 @@ uso ni dejar al sistema sin administración.
 
 Leer antes de implementar: AGENTS.md y el `AGENTS.md` de `packages/core`, `packages/drivers/db`,
 `apps/server` y `apps/desktop`; arquitectura 06 (casos de uso) y 12 (ownership); ADR-0011,
-0012, 0015 y 0026; el ADR de identidad que cierre D1–D5.
+0012, 0015, 0026 y 0027.
 
-Antes de escribir código: D1–D5 respondidas y registradas en su ADR. `pnpm typecheck` verde
-—el punto 3 de la auditoría lo dejó como condición de cierre de sub-fase—.
+Antes de escribir código: D1–D5 respondidas y registradas en ADR-0027, aceptado el 2026-09-08.
+`pnpm typecheck` verde —el punto 3 de la auditoría lo dejó como condición de cierre de
+sub-fase—.
 
 ## Línea base comprobada
 
@@ -64,9 +68,9 @@ responsabilidades. Eso no se corrige con más UI.
 
 ## Corte 1: la decisión de autorización deja evidencia
 
-Independiente de D1–D5 para los permisos existentes, así que puede ejecutarse mientras se
-resuelven. Cubre la auditoría de sus decisiones; la referencia genérica a «venta» en la deuda
-se concreta abajo sin introducir un permiso nuevo.
+Independiente de las decisiones de identidad para los permisos existentes, así que pudo
+planificarse antes de resolverlas. Cubre la auditoría de sus decisiones; la referencia genérica
+a «venta» en la deuda se concreta abajo sin introducir un permiso nuevo.
 
 1. Prueba outside-in primero para `VoidSale` (`sale.void`), `ReturnSale` (`sale.return`),
    `RegisterStockAdjustment` (`inventory.adjust`), `UpdatePrice`
@@ -105,18 +109,19 @@ normativa antes de corregirla en su corte.
 
 ## Corte 2: casos de uso de administración de identidad
 
-Depende de D1–D5. Trabaja outside-in: prueba observable primero, implementación mínima después.
+Aplica ADR-0027, que responde D1–D5. Trabaja outside-in: prueba observable primero,
+implementación mínima después.
 
 1. **Permisos nuevos.** Agregar `packages/core/src/application/identity/permissions.ts` con
-   `identity.user.manage` e `identity.role.manage`, siguiendo exactamente el patrón de los diez
-   catálogos existentes. Incorporarlos a `ADMIN_PERMISSIONS` para bases nuevas. Para bases ya
-   provisionadas, el ADR de identidad debe definir quién recibe esos permisos y el mecanismo
-   autorizado de actualización, de acuerdo con D4 y D5. Cambiar la constante no modifica los
-   permisos persistidos y repetir `ProvisionInitialAdmin` devuelve `AUTH_ALREADY_PROVISIONED`.
+   `identity.user.manage`, `identity.role.manage` e `identity.credential.reset` —el tercero lo
+   introduce ADR-0027 D3—, siguiendo exactamente el patrón de los diez catálogos existentes.
+   Incorporarlos a `ADMIN_PERMISSIONS` para bases nuevas. Para bases ya provisionadas, ADR-0027
+   D4 fija el destinatario —el rol `ADMIN`— y el mecanismo: una migración forward-only de datos,
+   idempotente y transaccional. Cambiar la constante no modifica los permisos persistidos y
+   repetir `ProvisionInitialAdmin` devuelve `AUTH_ALREADY_PROVISIONED`.
    Implementar esa transición sin recrear usuarios ni credenciales, con auditoría, revocación
-   por versión e idempotencia. Si requiere migración, será nueva y forward-only; no se elige
-   aquí entre migración y operación de provisión controlada ni se amplía el gate de tiendas
-   con historia de ADR-0026.
+   por versión e idempotencia. La migración es nueva y forward-only; no amplía el gate de
+   tiendas con historia de ADR-0026.
 2. **Casos de uso**, en verbo + sustantivo y con códigos de error estables:
    `CreateOperator`, `UpdateOperator`, `ChangeOperatorStatus`, `AssignOperatorRoles`,
    `CreateRole`, `UpdateRolePermissions`, `ChangeRoleStatus`. Cada uno autoriza antes de leer o
@@ -124,21 +129,24 @@ Depende de D1–D5. Trabaja outside-in: prueba observable primero, implementaci�
 3. **Credenciales.** El PIN entra solo por el mecanismo existente: `PinHasher.hash` y la tabla
    `identity_credentials`. Nunca se devuelve, se registra ni viaja de vuelta al renderer. La
    validación de 6–12 dígitos reutiliza la política ya publicada en `AUTH_POLICY`, no una copia.
-   El alcance concreto del restablecimiento lo fija D3.
+   El alcance concreto del restablecimiento lo fija ADR-0027 D3: caducar la credencial vigente,
+   PIN temporal bajo `identity.credential.reset` y cambio propio, con sesión restringida
+   mientras el cambio siga pendiente.
 4. **Atomicidad del cambio de autorización.** Toda modificación de roles, permisos o estado
    incrementa `identity_users.authorization_version` de los usuarios afectados dentro de la
    misma transacción, de modo que sus sesiones vivas queden invalidadas por el mecanismo que ya
    existe. Un cambio de permisos de un rol afecta a todos sus portadores: la transacción debe
    alcanzarlos a todos, no solo al usuario editado.
-5. **Bloqueo de auto-exclusión.** Según D4, evaluado dentro de la transacción con
+5. **Bloqueo de auto-exclusión.** Según ADR-0027 D4, evaluado dentro de la transacción con
    `BEGIN IMMEDIATE`, como ya hace el resto del store de autenticación. Dos administradores que
    se retiran el permiso a la vez no pueden dejar el sistema sin administración: la prueba de
    concurrencia es parte del corte, no un extra.
 6. **Auditoría de negocio.** Alta, cambio de rol, cambio de permisos de un rol y desactivación
    son operaciones sensibles: identifican actor, terminal, timestamp y motivo, con `before` y
    `after` sin credenciales.
-7. **Ownership en LAN.** Según D5. Si la identidad pertenece al coordinador, el caso de uso no
-   se compone en una terminal y el intento falla con un código estable, no con un error genérico.
+7. **Ownership en LAN.** Según ADR-0027 D5. Como la identidad pertenece al coordinador, el caso
+   de uso no se compone en una terminal y el intento falla con `IDENTITY_NOT_OWNED_BY_NODE`, un
+   código estable y no un error genérico.
 
 ## Corte 3: contratos HTTP y pantalla de administración
 
@@ -188,13 +196,14 @@ que la fase sirvió para algo.
 
 ## Criterios de aceptación
 
-- [ ] CA-11.02-01: D1–D5 están respondidas y registradas en un ADR aceptado antes de la primera
-  línea de implementación del corte 2.
+- [x] CA-11.02-01: D1–D5 están respondidas y registradas en un ADR aceptado antes de la primera
+  línea de implementación del corte 2 (ADR-0027, 2026-09-08).
 - [ ] CA-11.02-02: una denegación de autorización deja evidencia auditable con actor, permiso,
   terminal, nodo, UTC y correlation ID, sin credenciales. Se confirma en una `UnitOfWork`
   independiente, permanece tras reabrir SQLite y no produce efectos de negocio.
-- [ ] CA-11.02-03: existen `identity.user.manage` e `identity.role.manage` como constantes de
-  aplicación, incorporadas a `ADMIN_PERMISSIONS` y declaradas por sus contratos.
+- [ ] CA-11.02-03: existen `identity.user.manage`, `identity.role.manage` e
+  `identity.credential.reset` como constantes de aplicación, incorporadas a `ADMIN_PERMISSIONS`
+  y declaradas por sus contratos.
 - [ ] CA-11.02-04: el administrador da de alta un operador, crea un rol, le asigna permisos, cambia
   el rol de un operador y lo desactiva, todo desde la interfaz y sin CLI.
 - [ ] CA-11.02-05: cada cambio de autorización incrementa `authorization_version` de **todos** los
@@ -216,6 +225,10 @@ que la fase sirvió para algo.
   servidor rechaza igual lo que la interfaz oculta.
 - [ ] CA-11.02-12: `pnpm lint`, `pnpm typecheck` y `pnpm test` verdes; las pruebas arquitectónicas
   de fronteras pasan; la especificación 11.02 y el cronograma reflejan lo entregado.
+- [ ] CA-11.02-14: los dos caminos de restablecimiento de PIN de ADR-0027 D3 funcionan y están
+  separados por permiso; una credencial marcada para cambio produce una sesión que solo puede
+  cambiar el PIN o cerrar sesión, y cualquier otra petición recibe `AUTH_PIN_CHANGE_REQUIRED`.
+  El cambio propio exige el PIN actual. Ningún camino registra, devuelve ni muestra un PIN.
 - [ ] CA-11.02-13: el ADR define destinatarios y mecanismo de habilitación de los permisos de
   identidad en bases ya provisionadas. La transición está probada con un administrador anterior
   a 11.02, repetición, fallo/rollback, auditoría y revocación; no depende de repetir el bootstrap.

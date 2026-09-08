@@ -69,6 +69,7 @@ Incluye:
 - [ADR-0024: Inventario multi-almacén y consolidación cloud](./adr/0024-inventario-multi-almacen-y-consolidacion-cloud.md) — **aceptado para post-MVP**, implementación y especificaciones de detalle pendientes
 - [ADR-0025: Web interna Next.js y sistema de diseño de Cullen](./adr/0025-web-nextjs-y-sistema-de-diseno.md) — **aceptado para Fases 16 y 16B**, sin implementación
 - [ADR-0026: LAN operativa y recuperación entre nodos](./adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) — **aceptado e implementado parcialmente en Fase 10**; confianza, referencias, costo conocido, retry e infraestructura de conciliación listos; efectos remotos de compra/conteo/devolución y compensación explícita pendientes
+- [ADR-0027: Administración de identidad — siembra de roles, ciclo de vida, PIN y ownership](./adr/0027-administracion-de-identidad.md) — **aceptado**, resuelve D1–D5 de la Fase 11 y declara pendiente el enrolamiento de credenciales entre nodos
 
 ## Alcance del producto
 

@@ -30,10 +30,10 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 **Fase actual:** Fase 11 - Seguridad, habilitada el 2026-09-07 al cerrar la Fase 10 y
 planificada el mismo día. El 2026-09-08 entregó el corte 0 de
 [11.05](./fase-11-seguridad/plan-11.05-hardening-logs.md): la redacción de secretos en los logs
-técnicos que la secuencia adelanta antes de 11.02; el resto de 11.05 sigue pendiente. Las ocho
-decisiones abiertas D1–D5 y D7–D9
-del [plan de fase](./fase-11-seguridad/plan-secuencia-y-decisiones.md) bloquean sus cortes
-dependientes. D6 aplica el loopback ya obligatorio y no bloquea la validación del host en 11.03.
+técnicos que la secuencia adelanta antes de 11.02; el resto de 11.05 sigue pendiente. D1–D5 quedaron cerradas el mismo día por
+[ADR-0027](../architecture/adr/0027-administracion-de-identidad.md), que desbloquea 11.02; las
+decisiones D7–D9 del [plan de fase](./fase-11-seguridad/plan-secuencia-y-decisiones.md) siguen
+abiertas y bloquean 11.04. D6 aplica el loopback ya obligatorio y no bloquea la validación del host en 11.03.
 **Fase 10, completada el 2026-09-07:** 10.01 entregó el outbox
 durable ordenado por agregado con claims generacionales; 10.02 el protocolo de eventos de
 [ADR-0023](../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md); 10.03 el servidor

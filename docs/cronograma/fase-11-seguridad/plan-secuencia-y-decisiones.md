@@ -8,7 +8,8 @@
   [0011](../../architecture/adr/0011-autenticacion-pin-y-sesiones-locales.md),
   [0012](../../architecture/adr/0012-permisos-catalogo-moneda-y-politicas-operativas.md),
   [0015](../../architecture/adr/0015-permisos-efectivos-en-la-sesion.md) y
-  [0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md).
+  [0026](../../architecture/adr/0026-lan-operativa-y-recuperacion-entre-nodos.md) y
+  [0027](../../architecture/adr/0027-administracion-de-identidad.md).
 - Deuda de origen: [auditoría focal 2026-09-04](./auditoria-puntos-clave-2026-09-04.md), puntos
   3, 4, 5, 6, 7 y 8. Los puntos 1, 2 y 9 conservan otra fase propietaria.
 - Alcance: identidad, autorización, transporte, protección de datos y observabilidad segura del
@@ -105,34 +106,44 @@ trabajo futuro. La Fase 12 conserva la optimización medida y la Fase 8 sigue su
 
 ## Decisiones y restricciones antes de implementar
 
-D1–D5 y D7–D9 siguen abiertas: sus respuestas no se inventan en la implementación. D6 conserva
-su identificador por trazabilidad, pero es una restricción ya fijada por fuentes superiores y
-no bloquea 11.03. Los cortes independientes conservan los prerrequisitos de sus planes.
+D1–D5 quedaron respondidas el 2026-09-08 en
+[ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md), aceptado: 11.02 ya no
+está bloqueada por ellas. D7–D9 siguen abiertas y sus respuestas no se inventan en la
+implementación. D6 conserva su identificador por trazabilidad, pero es una restricción ya
+fijada por fuentes superiores y no bloquea 11.03. Los cortes independientes conservan los
+prerrequisitos de sus planes.
 
-### Bloquean 11.02
+### Cerradas para 11.02 por ADR-0027 el 2026-09-08
 
-- **D1 — siembra de roles.** ¿El sistema siembra `CASHIER`, `SUPERVISOR`, `INVENTORY` y
-  `MANAGER` con un conjunto sugerido de permisos, o todo rol se crea desde la pantalla?
-  ADR-0012 declara las asignaciones configurables, así que cualquier siembra debe ser un punto
-  de partida editable y no una regla fija. La pregunta es si existe y con qué permisos.
-- **D2 — ciclo de vida del operador.** ¿La desactivación es reversible? ¿Se puede reutilizar un
-  `operatorCode` liberado? ¿Un operador desactivado conserva su historia de auditoría bajo el
-  mismo `actorId`? El dominio ya expone `activate`/`deactivate`; falta la regla.
-- **D3 — restablecimiento de PIN.** No está especificado en ninguna fuente. ¿Un administrador
-  fija el PIN de otro operador, o solo puede forzar un cambio en el próximo ingreso? ¿El
-  operador puede cambiar su propio PIN? Cualquier respuesta debe conservar la regla de
-  ADR-0011: el PIN nunca se registra, se devuelve ni se muestra.
-- **D4 — definición de último administrador.** La regla de auto-exclusión necesita un criterio
-  persistible: ¿se cuenta por el permiso `identity.user.manage`, por un rol marcado como
-  administrativo, o por ambos? El bloqueo debe evaluarse dentro de la misma transacción que el
-  cambio, no como validación previa.
-  El ADR debe concretar también, junto con D5, los destinatarios y el mecanismo autorizado de
-  habilitación de `identity.user.manage` e `identity.role.manage` en bases ya provisionadas,
-  sin depender de permisos que esos administradores todavía no poseen.
-- **D5 — dueño de la identidad en LAN.** ADR-0026 ya hace del coordinador la autoridad de las
-  concesiones de operador. ¿Los operadores se dan de alta solo en el coordinador y llegan a las
-  terminales por concesión, o cada nodo administra su propia identidad? La frontera universal
-  de un único nodo dueño por agregado exige responderlo antes de escribir el caso de uso.
+Las cinco decisiones tienen respuesta normativa en
+[ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md). Se resumen aquí para
+trazabilidad; la fuente es el ADR.
+
+- **D1 — siembra de roles.** Se siembran `CASHIER`, `SUPERVISOR`, `INVENTORY` y `MANAGER` con
+  un conjunto sugerido y editable de permisos, sin asignarlos a ningún usuario. La siembra es
+  punto de partida, no regla fija, conforme ADR-0012.
+- **D2 — ciclo de vida del operador.** La desactivación es reversible, no existe eliminación,
+  `operatorCode` nunca queda libre ni se reutiliza, y `actorId` es inmutable: la auditoría
+  conserva la historia del operador desactivado. Desactivar incrementa `authorization_version`.
+- **D3 — restablecimiento de PIN.** Dos caminos separados por permiso: caducar la credencial
+  vigente con `identity.user.manage` y fijar un PIN temporal de un solo uso con
+  `identity.credential.reset`, con motivo y auditoría. Todo operador cambia su propio PIN
+  presentando el actual. Una credencial marcada para cambio produce una sesión restringida que
+  solo puede cambiar el PIN o cerrar sesión (`AUTH_PIN_CHANGE_REQUIRED`).
+- **D4 — último administrador y transición.** Administrador es el usuario activo cuyos permisos
+  efectivos incluyen `identity.user.manage`; el bloqueo se evalúa dentro de la transacción del
+  cambio con `BEGIN IMMEDIATE` y rechaza con `IDENTITY_LAST_ADMINISTRATOR`. Una base ya
+  provisionada recibe los tres permisos de identidad por migración forward-only de datos sobre
+  el rol `ADMIN`, idempotente, con incremento de `authorization_version` y sin tocar
+  credenciales.
+- **D5 — dueño de la identidad en LAN.** El coordinador es el nodo dueño; una instalación
+  standalone es su propio coordinador. Una terminal con coordinador no compone los casos de uso
+  de administración y falla con `IDENTITY_NOT_OWNED_BY_NODE`. Los cambios llegan por concesión,
+  que no transporta credenciales.
+
+Brecha declarada por el ADR y no resuelta en 11.02: el enrolamiento de la credencial local de
+un operador en una terminal distinta a aquella donde se creó. La concesión no transporta
+credenciales y no habilita ese ingreso.
 
 ### Restricción vigente de 11.03
 
@@ -156,11 +167,12 @@ no bloquea 11.03. Los cortes independientes conservan los prerrequisitos de sus 
   respaldos), con qué periodicidad y bajo qué permiso. La tarea de probar rotación y
   recuperación de claves no es ejecutable sin esta respuesta.
 
-### Registro normativo esperado
+### Registro normativo
 
-D1–D5 requieren un ADR de administración de identidad, incluida la transición de bases ya
-provisionadas. D6 aplica AGENTS.md y ADR-0026 sin un ADR nuevo. D7–D9 requieren un ADR de
-protección de datos en reposo.
+D1–D5 quedaron registradas el 2026-09-08 en
+[ADR-0027](../../architecture/adr/0027-administracion-de-identidad.md), aceptado, incluida la
+transición de bases ya provisionadas. D6 aplica AGENTS.md y ADR-0026 sin un ADR nuevo. D7–D9
+siguen requiriendo un ADR de protección de datos en reposo.
 Primero el ADR, después la implementación: no se mantienen dos especificaciones independientes.
 
 ## Gates de ejecución que permanecen
