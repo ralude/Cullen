@@ -19,7 +19,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
 | 11 | [Seguridad](./fase-11-seguridad/README.md) | Habilitada al cerrar Fase 10; [planificada](./fase-11-seguridad/plan-secuencia-y-decisiones.md) el 2026-09-07, sin iniciar implementación |
-| 12 | Optimizacion | Pendiente; 12.04 suspendida con Fase 8 y excluida del cierre del MVP simulado |
+| 12 | Optimizacion | Pendiente; 12.04 suspendida con Fase 8; [12.05 mantenibilidad estructural](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) planificada, sin refactors |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
 | 15 | [Sincronización SQLite–PostgreSQL](./fase-15-sincronizacion-cloud/README.md) | Planificada; post-MVP, sin iniciar |
@@ -400,6 +400,10 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 - El [hito transversal de cierre arquitectonico](./hito-cierre-arquitectonico.md) se completo el 2026-08-14 y habilito la continuacion desde 2.03.
 
 ## Documentos transversales
+
+- [Fase 12.05 — Mantenibilidad estructural y eficiencia de contexto](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md)
+  — añadida el 2026-09-08 con diagnóstico de hubs y baseline estática reproducible.
+  La ejecución espera el cierre de Fase 11; no cambia la fase activa ni el gate fiscal.
 
 - [Evolución post-MVP: almacenes, nube y consulta web](./evolucion-post-mvp.md) — aprobada
   el 2026-09-06; secuencia 13 → 14 → 15 → 16 → 16B → 17 después del cierre técnico del MVP.

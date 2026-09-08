@@ -1,0 +1,237 @@
+{
+  "revision": "a73dd33",
+  "date": "2026-09-08",
+  "method": "Lista inicial de inspección estática, no sesiones de ingeniería observadas. Los rangos de edición incluyen tests; las migraciones nuevas no figuran en inspect. Sin medición de tokens.",
+  "tasks": [
+    {
+      "id": "supplier",
+      "scenario": "Añadir un dato descriptivo opcional a Supplier, persistirlo y mostrarlo; sin cambiar identidad fiscal ni permisos.",
+      "contexts": [
+        "purchasing"
+      ],
+      "inspect": [
+        "packages/core/src/domain/purchasing/supplier.ts",
+        "packages/core/src/application/purchasing/supplier-use-cases.ts",
+        "packages/core/src/application/purchasing/dtos.ts",
+        "packages/core/src/application/ports/supplier-repository.ts",
+        "packages/drivers/db/src/supplier-repository.ts",
+        "packages/drivers/db/src/schema.ts",
+        "packages/drivers/db/src/migrations.ts",
+        "packages/shared/src/http/v1/supplier.contracts.ts",
+        "apps/server/src/routes/suppliers.ts",
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts",
+        "apps/desktop/src/renderer/src/screens/suppliers.tsx"
+      ],
+      "modifyEstimate": [
+        7,
+        10
+      ],
+      "compositionEstimate": 0,
+      "tests": [
+        "packages/core/src/domain/purchasing/supplier.test.ts",
+        "packages/core/src/application/purchasing/supplier-use-cases.test.ts",
+        "packages/drivers/db/src/supplier-repository.test.ts",
+        "packages/drivers/db/src/migrations.test.ts",
+        "apps/server/src/routes/suppliers.contract.test.ts"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/schema.ts",
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts"
+      ]
+    },
+    {
+      "id": "stock-item",
+      "scenario": "Ajustar una validación existente de StockItem al registrar un ajuste; conservar contrato, escala, costo y ownership.",
+      "contexts": [
+        "inventory"
+      ],
+      "inspect": [
+        "packages/core/src/domain/inventory/stock-item.ts",
+        "packages/core/src/domain/inventory/stock-movement.ts",
+        "packages/core/src/application/inventory/register-stock-adjustment.ts",
+        "packages/core/src/application/ports/stock-item-repository.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "packages/drivers/db/src/unit-of-work.ts",
+        "apps/server/src/runtime.ts",
+        "apps/server/src/routes/inventory.ts"
+      ],
+      "modifyEstimate": [
+        2,
+        4
+      ],
+      "compositionEstimate": 0,
+      "tests": [
+        "packages/core/src/domain/inventory/stock-item.test.ts",
+        "packages/core/src/application/inventory/inventory.test.ts",
+        "packages/drivers/db/src/repositories.test.ts",
+        "apps/server/src/routes/inventory.contract.test.ts"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts"
+      ]
+    },
+    {
+      "id": "complete-sale",
+      "scenario": "Modificar la coordinación de CompleteSale preservando cobro atómico local y el rechazo auditable de stock.",
+      "contexts": [
+        "sales",
+        "cash",
+        "inventory"
+      ],
+      "inspect": [
+        "packages/core/src/application/sales/complete-sale.ts",
+        "packages/core/src/domain/sales/sale.ts",
+        "packages/core/src/application/sales/dtos.ts",
+        "packages/core/src/application/sales/mappers.ts",
+        "packages/core/src/application/ports/sale-repository.ts",
+        "packages/core/src/application/cash/apply-sale-completed-to-shift.ts",
+        "packages/core/src/application/inventory/apply-sale-completed-to-inventory.ts",
+        "packages/core/src/application/events/persist-business-events.ts",
+        "packages/core/src/application/idempotency/execute-idempotent-command.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "packages/drivers/db/src/unit-of-work.ts",
+        "apps/server/src/runtime.ts",
+        "apps/server/src/routes/sales.ts"
+      ],
+      "modifyEstimate": [
+        3,
+        5
+      ],
+      "compositionEstimate": 1,
+      "tests": [
+        "packages/core/src/application/sales/complete-sale.test.ts",
+        "packages/core/src/application/cash/apply-sale-completed-to-shift.test.ts",
+        "packages/drivers/db/src/sale-cash-effect.integration.test.ts",
+        "apps/server/src/routes/sales.contract.test.ts",
+        "apps/desktop/src/e2e/sale-flow.e2e.test.tsx"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts"
+      ]
+    },
+    {
+      "id": "shift",
+      "scenario": "Modificar la precondición de cierre de Shift por ventas abiertas; revisar apertura para preservar el ciclo completo.",
+      "contexts": [
+        "cash",
+        "sales",
+        "currency"
+      ],
+      "inspect": [
+        "packages/core/src/domain/cash/shift.ts",
+        "packages/core/src/application/cash/open-shift.ts",
+        "packages/core/src/application/cash/close-shift.ts",
+        "packages/core/src/application/cash/payment-method-validation.ts",
+        "packages/core/src/application/cash/shift-idempotency.ts",
+        "packages/core/src/application/ports/shift-repository.ts",
+        "packages/core/src/application/ports/open-sales-probe.ts",
+        "packages/drivers/db/src/open-sales-probe.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts",
+        "apps/server/src/routes/cash.ts",
+        "apps/desktop/src/renderer/src/screens/cash.tsx"
+      ],
+      "modifyEstimate": [
+        2,
+        4
+      ],
+      "compositionEstimate": 0,
+      "tests": [
+        "packages/core/src/domain/cash/shift.test.ts",
+        "packages/core/src/application/cash/open-shift.test.ts",
+        "packages/core/src/application/cash/close-shift.test.ts",
+        "packages/drivers/db/src/cash-flow.integration.test.ts",
+        "apps/server/src/routes/cash.contract.test.ts"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts"
+      ]
+    },
+    {
+      "id": "report",
+      "scenario": "Añadir un campo derivable de datos existentes al reporte de inventario y su CSV, sin migración.",
+      "contexts": [
+        "reporting",
+        "inventory"
+      ],
+      "inspect": [
+        "packages/core/src/application/reporting/get-inventory-report.ts",
+        "packages/core/src/application/reporting/dtos.ts",
+        "packages/core/src/application/ports/reporting-repositories.ts",
+        "packages/core/src/application/reporting/row-limit.ts",
+        "packages/drivers/db/src/reporting-repositories.ts",
+        "packages/drivers/db/src/schema.ts",
+        "packages/shared/src/http/v1/reports.contracts.ts",
+        "apps/server/src/routes/reports.ts",
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts",
+        "apps/desktop/src/renderer/src/screens/reports.tsx",
+        "apps/desktop/src/renderer/src/screens/inventory.tsx"
+      ],
+      "modifyEstimate": [
+        5,
+        8
+      ],
+      "compositionEstimate": 0,
+      "tests": [
+        "packages/core/src/application/reporting/reporting.test.ts",
+        "packages/drivers/db/src/reporting-repositories.test.ts",
+        "apps/server/src/routes/reports.contract.test.ts",
+        "apps/desktop/src/renderer/src/reports-screen.test.tsx"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/reporting-repositories.ts",
+        "packages/drivers/db/src/schema.ts",
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts"
+      ]
+    },
+    {
+      "id": "sync-reference",
+      "scenario": "Extender una referencia de catálogo existente del productor al consumidor; conservar versión, deduplicación y ownership.",
+      "contexts": [
+        "catalog",
+        "sync"
+      ],
+      "inspect": [
+        "packages/core/src/application/events/sync-contracts.ts",
+        "packages/core/src/application/catalog/reference-publications.ts",
+        "packages/core/src/application/sync/publish-catalog-bootstrap.ts",
+        "packages/core/src/application/sync/catalog-reference-consumer.ts",
+        "packages/core/src/application/sync/process-sync-inbox.ts",
+        "packages/core/src/application/ports/catalog-reference-source.ts",
+        "packages/core/src/application/ports/catalog-reference-projection.ts",
+        "packages/drivers/db/src/catalog-reference-source.ts",
+        "packages/drivers/db/src/catalog-reference-projection.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "packages/drivers/db/src/sync-inbox-work-store.ts",
+        "apps/server/src/runtime.ts"
+      ],
+      "modifyEstimate": [
+        4,
+        7
+      ],
+      "compositionEstimate": 0,
+      "tests": [
+        "packages/core/src/application/events/sync-contracts.test.ts",
+        "packages/core/src/application/sync/catalog-reference-consumer.test.ts",
+        "packages/drivers/db/src/catalog-bootstrap.integration.test.ts",
+        "packages/drivers/db/src/catalog-reference-projection.integration.test.ts",
+        "apps/server/src/sync/reference-delivery.e2e.test.ts"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts"
+      ]
+    }
+  ]
+}

@@ -98,6 +98,11 @@ El estado de ejecución no se duplica aquí. Consulta el [cronograma maestro](..
 
 La estructura interna de `core` permite extraer `domain` y `application` a paquetes separados si el crecimiento lo justifica. Los drivers están separados por integración para aislar dependencias nativas y permitir reemplazos independientes.
 
+La [Fase 12.05](../cronograma/fase-12-optimizacion/12.05-mantenibilidad-estructural.md)
+planifica mejoras de localidad de cambio con una baseline de tareas y consumidores reales.
+Sus propuestas de estructura no describen código ya implementado ni sustituyen las reglas
+de capas y módulos; el diagnóstico y el estado se mantienen en el cronograma.
+
 Las obligaciones fiscales concretas deben validarse con fabricante o
 representante, evidencia vigente del modelo y asesoría tributaria antes de
 producción. La arquitectura no sustituye esa verificación ni la interpretación
