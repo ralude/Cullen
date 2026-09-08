@@ -91,6 +91,17 @@ solo proceso dueño por nodo y, con el servidor activo, fallan con
 
 `SERVER_HOST` y `SERVER_PORT` permiten cambiar el bind y el puerto para desarrollo. El valor por defecto es loopback (`127.0.0.1`) para el modo standalone.
 
+## Reportes fiscales X y Z
+
+El nodo solo publica `POST /api/v1/fiscal/reports/x` y `.../z` cuando arranca con
+`FISCAL_EXECUTION_TARGET=SIMULATOR` y
+`FISCAL_SIMULATED_REPORT_CONSENT=ALLOW_SIMULATED_X_AND_Z`. Sin ambas, esas rutas
+no existen y `GET /api/v1/system/capabilities` responde
+`simulatedReportsEnabled: false`, que es lo que la pantalla de Reportes usa para
+explicar por qué no ofrece la acción. Es una decisión de arranque: cambiarla
+exige reiniciar el nodo, y su resultado sigue siendo una simulación que no
+constituye un cierre fiscal legal.
+
 ## Interfaz servida por el nodo
 
 `RENDERER_DIST_PATH` publica el paquete compilado del renderer en `/app`. Es lo

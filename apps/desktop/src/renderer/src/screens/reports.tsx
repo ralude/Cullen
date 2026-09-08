@@ -411,7 +411,16 @@ export const ReportsScreen = ({
       </section>
       : <section className="panel">
         <p className="eyebrow">Acciones fiscales simuladas</p><h3>Reportes X y Z</h3>
-        <p className="muted">Los reportes simulados están deshabilitados por la configuración del nodo.</p>
+        <p className="muted">
+          Tu perfil los autoriza, pero están deshabilitados: este nodo arrancó sin declarar el
+          consentimiento de simulación, así que ni siquiera publica esas operaciones.
+        </p>
+        <p className="muted">
+          Para habilitarlos, quien administra el nodo lo inicia con
+          {' '}<code>FISCAL_EXECUTION_TARGET=SIMULATOR</code> y
+          {' '}<code>FISCAL_SIMULATED_REPORT_CONSENT=ALLOW_SIMULATED_X_AND_Z</code>, y lo reinicia.
+          Es una decisión de arranque: la interfaz no puede activarla.
+        </p>
       </section>)}
     {printedReport && <section className="panel">
       <p className="eyebrow">Resultado del simulador</p>

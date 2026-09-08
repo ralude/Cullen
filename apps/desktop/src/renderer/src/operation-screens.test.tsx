@@ -64,7 +64,16 @@ describe('operation screens', () => {
     expect(renderToStaticMarkup(<CashScreen {...props(['cash.shift.open'])} />)).toContain('Abrir caja');
     expect(renderToStaticMarkup(<CatalogScreen {...props()} />)).toContain('Buscar');
     expect(renderToStaticMarkup(<InventoryScreen {...props()} />)).toContain('Consultar kardex');
-    expect(renderToStaticMarkup(<ReportsScreen {...props(['fiscal.report.x'])} />)).toContain('deshabilitados');
+    const reports = renderToStaticMarkup(<ReportsScreen {...props(['fiscal.report.x'])} />);
+    expect(reports).toContain('deshabilitados');
+    /**
+     * Un panel que solo dice «deshabilitado» deja al operador sin salida: el
+     * nodo decide esto al arrancar, así que la pantalla nombra las dos
+     * variables que lo habilitan y aclara que la interfaz no puede activarlo.
+     */
+    expect(reports).toContain('FISCAL_EXECUTION_TARGET=SIMULATOR');
+    expect(reports).toContain('FISCAL_SIMULATED_REPORT_CONSENT=ALLOW_SIMULATED_X_AND_Z');
+    expect(reports).toContain('la interfaz no puede activarla');
   });
 
   it('does not render cash commands that the session cannot execute', () => {
