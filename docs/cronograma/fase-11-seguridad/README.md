@@ -1,8 +1,9 @@
 # Fase 11: Seguridad
 
-- **Estado:** Habilitada el 2026-09-07 al cerrar la Fase 10; sin iniciar (corte mínimo
-  11.01–11.03 adelantado y completado)
+- **Estado:** Habilitada el 2026-09-07 al cerrar la Fase 10; **planificada el 2026-09-07**, sin
+  iniciar implementación (corte mínimo 11.01–11.03 adelantado y completado)
 - **Indice:** [Cronograma](../README.md)
+- **Plan de fase:** [secuencia restante y decisiones de activación](./plan-secuencia-y-decisiones.md)
 
 ## Proposito
 
@@ -23,11 +24,23 @@ sub-fase 9B.09. La Fase 11 vuelve a ser la unica duena de identidad y autorizaci
 
 ## Sub-fases
 
-- [11.01 Autenticacion](./11.01-autenticacion.md)
-- [11.02 Roles y permisos](./11.02-roles-permisos.md)
-- [11.03 JWT y sesiones](./11.03-jwt-sesiones.md)
-- [11.04 Encriptacion](./11.04-encriptacion.md)
-- [11.05 Hardening de logs](./11.05-hardening-logs.md)
+- [11.01 Autenticacion](./11.01-autenticacion.md) — corte mínimo completado; sin ampliaciones
+  planificadas para esta fase.
+- [11.02 Roles y permisos](./11.02-roles-permisos.md) —
+  [plan](./plan-11.02-roles-permisos.md)
+- [11.03 JWT y sesiones](./11.03-jwt-sesiones.md) —
+  [plan](./plan-11.03-jwt-sesiones.md)
+- [11.04 Encriptacion](./11.04-encriptacion.md) —
+  [plan](./plan-11.04-encriptacion.md)
+- [11.05 Hardening de logs](./11.05-hardening-logs.md) —
+  [plan](./plan-11.05-hardening-logs.md)
+
+## Orden de ejecución
+
+El [plan de fase](./plan-secuencia-y-decisiones.md) fija la secuencia: corte 0 de redacción de
+11.05 adelantado, luego 11.02, 11.03, 11.04 y los cortes restantes de 11.05. El orden responde a
+dependencias reales, no a la numeración. Nueve decisiones (D1–D9) siguen abiertas y bloquean el
+inicio de la implementación de cada sub-fase; D1–D5 y D7–D9 requieren un ADR nuevo.
 
 ## Criterio de salida
 
