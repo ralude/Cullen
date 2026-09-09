@@ -56,7 +56,7 @@ ve una acción que el servidor le rechazaría.
 
 ## Verificación
 
-1.223 pruebas en 191 archivos, 31 ADR y 44 migraciones forward-only con checksum SHA-256.
+1.236 pruebas en 192 archivos, 31 ADR y 44 migraciones forward-only con checksum SHA-256.
 TypeScript estricto con `exactOptionalPropertyTypes`. El pipeline —lint, typecheck, suite completa
 y compilación de artefactos— corre en GitHub Actions sobre `windows-latest` en cada pull request y
 cada cambio de `main`.

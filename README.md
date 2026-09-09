@@ -7,7 +7,7 @@
 Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexagonal
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1223%20passing-2ea44f)](#calidad-verificable)
+[![Tests](https://img.shields.io/badge/tests-1236%20passing-2ea44f)](#calidad-verificable)
 [![ADRs](https://img.shields.io/badge/ADRs-31-blue)](./docs/architecture/adr)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](./LICENSE)
 
@@ -17,7 +17,7 @@ Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexag
 
 > **TL;DR (English)** — Offline-first POS and inventory platform for supermarkets. TypeScript
 > monorepo built with tactical DDD and hexagonal architecture: pure domain, use-case layer with
-> ports, swappable adapters. 1,223 tests across 191 files, 31 ADRs and 44 forward-only
+> ports, swappable adapters. 1,236 tests across 192 files, 31 ADRs and 44 forward-only
 > migrations, with architecture boundaries enforced by ESLint. Handles integer money arithmetic,
 > multi-currency, crash-recoverable fiscal state, idempotent commands, optimistic concurrency and
 > per-node aggregate ownership. LAN synchronization runs over mutually authenticated HTTPS with
@@ -165,7 +165,7 @@ React — y el build falla si alguien lo intenta.
 
 |                                                 |                           |
 | ----------------------------------------------- | ------------------------: |
-| Pruebas (Vitest, todas en verde)                | **1.223** en 191 archivos |
+| Pruebas (Vitest, todas en verde)                | **1.236** en 192 archivos |
 | Código de producción / código de prueba         |      53.3k / 34.4k líneas |
 | Clases de aplicación exportadas                 |                       129 |
 | Contratos HTTP v1 publicados                    |                       107 |
@@ -176,12 +176,12 @@ React — y el build falla si alguien lo intenta.
 | Triggers de invariante en SQLite                |                       125 |
 
 ```bash
-pnpm pipeline    # lint + typecheck + 1.223 pruebas
+pnpm pipeline    # lint + typecheck + 1.236 pruebas
 ```
 
 Ese mismo pipeline corre en
 [GitHub Actions sobre `windows-latest`](./.github/workflows/pipeline.yml) en cada pull request y
-cada cambio de `main`: instalación congelada, lint, typecheck, las 1.223 pruebas de los 191
+cada cambio de `main`: instalación congelada, lint, typecheck, las 1.236 pruebas de los 192
 archivos y la compilación de artefactos. La cifra es un check remoto, no solo una corrida en la
 máquina del autor.
 
