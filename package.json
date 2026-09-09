@@ -11,7 +11,8 @@
     "test:watch": "pnpm --filter @supermarket/shared test:watch",
     "lint": "eslint .",
     "seed:products": "pnpm --filter @supermarket/server seed:products",
-    "pipeline": "pnpm lint && pnpm typecheck && pnpm test"
+    "pipeline": "pnpm lint && pnpm typecheck && pnpm test",
+    "build:artifacts": "pnpm --filter @supermarket/server build && pnpm --filter @supermarket/desktop build"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

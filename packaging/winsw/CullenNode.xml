@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Supervisor del servicio del nodo Cullen (ADR-0030 D3).
+
+  WinSW arranca el bundle del servidor sobre el runtime Node embebido, lo
+  reinicia ante caída con retroceso y rota su salida estándar —el logger
+  estructurado— por tamaño dentro del directorio de logs protegido. No se
+  escribe un supervisor propio.
+
+  %BASE% lo resuelve WinSW al directorio de este archivo (…\Cullen\service).
+  Las variables específicas de instalación (LAN, TLS, coordinador) viven en
+  %ProgramData%\Cullen\node.env y las carga el propio proceso; aquí sólo van
+  las rutas estables del perímetro.
+-->
+<service>
+  <id>CullenNode</id>
+  <name>Cullen — nodo local</name>
+  <description>Nodo Fastify de la estación Cullen: API de operadores en loopback, transporte LAN técnico y entrega de sincronización.</description>
+
+  <executable>%BASE%\..\runtime\node.exe</executable>
+  <arguments>--env-file-if-exists="%ProgramData%\Cullen\node.env" "%BASE%\..\server\index.js"</arguments>
+  <workingdirectory>%BASE%\..\server</workingdirectory>
+
+  <onfailure action="restart" delay="10 sec" />
+  <onfailure action="restart" delay="30 sec" />
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>20 sec</stoptimeout>
+
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+  <logpath>%ProgramData%\Cullen\logs</logpath>
+
+  <env name="NODE_ENV" value="production" />
+  <env name="SERVER_PORT" value="3000" />
+  <env name="DATABASE_PATH" value="%ProgramData%\Cullen\db\node.sqlite" />
+  <env name="DATABASE_BACKUP_PATH" value="%ProgramData%\Cullen\backups" />
+  <env name="NODE_KEYSTORE_PATH" value="%ProgramData%\Cullen\keys" />
+  <env name="NODE_IDENTITY_PATH" value="%ProgramData%\Cullen\node-identity.json" />
+  <env name="RENDERER_DIST_PATH" value="%BASE%\..\app\renderer" />
+</service>
