@@ -98,6 +98,12 @@ ejecución del 2026-09-04.
 - **Estado al 2026-09-08:** la evidencia quedó cerrada en `SALE_STOCK_ISSUED` y en la lectura
   correlacionada —importe menor, moneda y fuente—. El defecto contable de residuo sigue abierto
   en 9B.04 y no fue reinterpretado por 11.05.
+- **Precisión del 2026-09-09:** el
+  [análisis del residuo](../fase-09b-perfiles/analisis-residuo-costeo.md) reprodujo el caso sobre
+  el árbol actual. La contaminación de la valoración ya no ocurre —una entrada posterior de 100
+  deja promedio 100, no 99—; lo que queda abierto es que una salida de más de una unidad que
+  agota la existencia descarta el residuo, sobrevalorando el COGS de ese ciclo en menos de media
+  unidad menor por unidad de la línea. La deuda sigue siendo de 9B.04.
 
 ### 3. Contratos TypeScript sin consolidar
 
