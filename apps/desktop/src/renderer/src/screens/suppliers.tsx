@@ -12,7 +12,7 @@ import {
   type UpdateSupplierRequest
 } from '@supermarket/shared';
 import { createIdempotencyKey } from '../api-client.js';
-import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
+import { ActionButton, EmptyState, Feedback, Modal, ScreenNote, type ScreenProps } from './shared.js';
 
 /** Contratos que convierten esta pantalla en trabajo real y no en una lectura. */
 const SUPPLIER_WORK_CONTRACTS = [
@@ -261,12 +261,15 @@ export const SuppliersScreen = ({ api, permissionCodes }: ScreenProps): React.JS
             {loading ? 'Consultando…' : 'Actualizar listado'}
           </ActionButton>
           {canCreate && (
-            <button type="button" onClick={() => setShowCreate((value) => !value)}>
-              {showCreate ? 'Cancelar' : 'Nuevo proveedor'}
-            </button>
+            <button type="button" onClick={() => setShowCreate(true)}>Nuevo proveedor</button>
           )}
         </div>
         {showCreate && canCreate && (
+          <Modal
+            title="Nuevo proveedor"
+            description="El maestro exige razón social, identidad fiscal y motivo."
+            onClose={() => setShowCreate(false)}
+          >
           <form className="stack-form" onSubmit={create}>
             <div className="form-grid">
               <label>Razón social
@@ -308,6 +311,7 @@ export const SuppliersScreen = ({ api, permissionCodes }: ScreenProps): React.JS
               {loading ? 'Registrando…' : 'Registrar proveedor'}
             </ActionButton>
           </form>
+          </Modal>
         )}
         {suppliers.length === 0 ? (
           <EmptyState>No hay proveedores registrados para este filtro.</EmptyState>

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { CapabilitiesResponse } from '@supermarket/shared';
 import { ApiProblemError, type OperationApi } from '../api-client.js';
 
@@ -204,3 +205,74 @@ export const section = async <T,>(load: () => Promise<T>): Promise<ReportSection
 export const SectionError = ({ error }: { readonly error: unknown }): React.JSX.Element => (
   <p className="form-error" role="alert">{problemMessage(error)}</p>
 );
+
+export type ModalProps = {
+  readonly title: string;
+  readonly description?: string;
+  readonly onClose: () => void;
+  readonly children: React.ReactNode;
+};
+
+/**
+ * Formulario secundario sobre la pantalla, no debajo de ella.
+ *
+ * Desplegar estos formularios en el flujo empujaba el contenido hacia abajo y
+ * obligaba a buscar el boton fuera de la vista para completar una accion que ya
+ * se habia iniciado. Encima, el foco entra en el dialogo, `Escape` lo cierra,
+ * el fondo queda inerte y el desplazamiento ocurre **dentro** del dialogo: la
+ * pagina de atras nunca se mueve.
+ */
+export const Modal = ({ title, description, onClose, children }: ModalProps): React.JSX.Element => {
+  const dialog = useRef<HTMLDivElement>(null);
+  const restoreFocus = useRef<Element | null>(null);
+
+  useEffect(() => {
+    restoreFocus.current = document.activeElement;
+    const focusable = dialog.current?.querySelector<HTMLElement>(
+      'input:not([type="hidden"]), select, textarea, button, [href], [tabindex]:not([tabindex="-1"])'
+    );
+    (focusable ?? dialog.current)?.focus();
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (restoreFocus.current instanceof HTMLElement) restoreFocus.current.focus();
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="modal-backdrop"
+      /** Solo el fondo cierra: un clic dentro del dialogo no debe perder lo escrito. */
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <div
+        className="modal"
+        ref={dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+      >
+        <div className="modal-header">
+          <div>
+            <h3>{title}</h3>
+            {description && <p className="muted">{description}</p>}
+          </div>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Cerrar">
+            ✕
+          </button>
+        </div>
+        <div className="modal-body">{children}</div>
+      </div>
+    </div>
+  );
+};
