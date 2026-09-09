@@ -164,7 +164,7 @@ describe('venta E2E sobre el nodo real', () => {
     await eventually(() => expect(screen.text()).toContain('Producto agregado al carrito.'));
     expect(screen.text()).toContain('Café');
 
-    const paymentButton = screen.button('Registrar lote de pagos');
+    const paymentButton = screen.button('Registrar cobro');
     await eventually(() => expect(paymentButton.disabled).toBe(false));
     await submit(paymentButton.closest('form')!);
     await eventually(() => expect(screen.text()).toContain('Pago registrado.'));

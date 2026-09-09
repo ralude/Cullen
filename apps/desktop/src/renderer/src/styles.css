@@ -459,8 +459,7 @@ tr.is-new { animation: row-flash 1400ms ease-out; }
 .empty-state { padding: 32px 20px; border: 1px dashed #bac7bf; border-radius: 10px; color: #64736a; text-align: center; }
 .screen-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .screen-toolbar button { margin-left: auto; }
-.sales-layout, .cash-layout, .inventory-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.8fr); align-items: start; gap: 20px; }
-.sales-side { display: grid; gap: 16px; }
+.cash-layout, .inventory-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.8fr); align-items: start; gap: 20px; }
 .total-figure { color: #1d6b4e; font-size: 1.7rem; }
 .totals { display: grid; gap: 9px; margin: 0; }
 .totals div { display: flex; justify-content: space-between; gap: 16px; }
@@ -509,7 +508,7 @@ td small { margin-top: 3px; color: #718078; }
   .workspace { grid-template-rows: auto auto; }
   .workspace-content { overflow-y: visible; }
   .sidebar-footer { display: none; }
-  .form-grid, .sales-layout, .cash-layout, .inventory-layout, .product-detail { grid-template-columns: 1fr; }
+  .form-grid, .cash-layout, .inventory-layout, .product-detail { grid-template-columns: 1fr; }
   .workspace-content { padding: 24px 16px; }
   .panel { padding: 18px; }
   .screen-toolbar button { margin-left: 0; }
@@ -589,3 +588,156 @@ td small { margin-top: 3px; color: #718078; }
 .stack-form > button,
 .modal-body .button-row button { justify-self: start; }
 .stack-form > .complete-button { justify-self: stretch; }
+
+/* --- Venta ---------------------------------------------------------------- */
+
+.sale-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.sale-toolbar > button { margin-left: auto; }
+
+/**
+ * El carrito manda y el ticket lo acompaña. La columna del ticket se queda
+ * pegada arriba mientras el carrito crece: el total y el botón de completar no
+ * deben desaparecer porque la venta tenga muchas líneas.
+ */
+.sale-workspace {
+  display: grid;
+  align-items: start;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1.6fr) minmax(330px, 400px);
+}
+
+.sale-cart { align-self: stretch; }
+
+.sale-ticket {
+  position: sticky;
+  top: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.sale-scan {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dce3de;
+  border-radius: 12px;
+  background: #f7faf8;
+}
+.sale-scan label { display: grid; gap: 7px; color: #33443b; font-size: 0.88rem; font-weight: 750; }
+.sale-scan .grow { flex: 1 1 260px; }
+.sale-scan label:not(.grow) { width: 96px; }
+
+.sale-lines th.numeric,
+.sale-lines td.numeric { text-align: right; }
+.sale-lines td strong { font-weight: 750; }
+
+.line-remove {
+  min-height: 30px;
+  padding: 2px 9px;
+  border: 1px solid #e4e9e5;
+  border-radius: 7px;
+  background: transparent;
+  color: #8a9a90;
+  cursor: pointer;
+}
+.line-remove:hover { border-color: #c45a4d; color: #982d22; }
+
+.totals-panel .grand-total dd { font-size: 1.9rem; letter-spacing: -0.03em; }
+
+.sale-balance {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 9px;
+  font-weight: 800;
+  text-align: center;
+}
+.sale-balance.is-pending { background: #fff0d7; color: #805100; }
+.sale-balance.is-settled { background: #e4f4eb; color: #15563e; }
+
+/**
+ * Métodos de pago como botones y no como lista desplegable: en una caja se
+ * elige de un golpe de vista, no abriendo un menú.
+ */
+.method-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  margin: 0;
+}
+.method-chips legend {
+  padding: 0 0 7px;
+  color: #33443b;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.chip {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 9px 13px;
+  border: 1px solid #bac7bf;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.88rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.chip input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.chip small { color: #718078; font-size: 0.72rem; }
+.chip:hover { border-color: #1d6b4e; }
+.chip.is-selected { border-color: #1d6b4e; background: #1d6b4e; color: #fff; }
+.chip.is-selected small { color: #b8d2c5; }
+.chip:has(input:focus-visible) { outline: 3px solid #e2a619; outline-offset: 3px; }
+
+.amount-field { display: flex; align-items: end; gap: 9px; }
+.amount-field .grow { flex: 1 1 auto; }
+.amount-field > button { flex: 0 0 auto; }
+
+.link-button {
+  justify-self: start;
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #1d6b4e;
+  font-weight: 750;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-button:hover { color: #15563e; }
+
+.sale-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sale-secondary button {
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid #cfdad3;
+  border-radius: 9px;
+  background: #fff;
+  color: #33443b;
+  font-size: 0.86rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.sale-secondary button:hover:not(:disabled) { border-color: #1d6b4e; }
+.sale-secondary button:disabled { cursor: not-allowed; opacity: 0.5; }
+.sale-secondary .danger-link { color: #982d22; }
+.sale-secondary .danger-link:hover { border-color: #c45a4d; }
+
+@media (max-width: 1100px) {
+  .sale-workspace { grid-template-columns: 1fr; }
+  .sale-ticket { position: static; }
+}

@@ -9,7 +9,7 @@ import {
 } from '@supermarket/shared';
 import { ApiProblemError, createIdempotencyKey, formatScaledDecimal, parseMinorUnits } from '../api-client.js';
 import {
-  ACTIVE_CASH_REGISTER_KEY, ACTIVE_SALE_KEY, ActionButton, EmptyState, Feedback, ScreenNote,
+  ACTIVE_CASH_REGISTER_KEY, ACTIVE_SALE_KEY, ActionButton, EmptyState, Feedback, Modal, ScreenNote,
   clearStorage, money, readStorage, writeStorage, type ScreenProps
 } from './shared.js';
 
@@ -72,6 +72,14 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
   const [saleReturn, setSaleReturn] = useState<SaleReturnResponse | null>(null);
   const [invoice, setInvoice] = useState<SimulatedFiscalDocumentResponse['document'] | null>(null);
   const [voidConfirming, setVoidConfirming] = useState(false);
+  /**
+   * Receptor, descuento y anulación son acciones ocasionales. Vivían como
+   * paneles fijos en la columna del ticket y empujaban el botón de completar
+   * fuera de la vista, de modo que cerrar una venta ya cobrada exigía bajar.
+   * Ahora se abren cuando hacen falta.
+   */
+  const [dialog, setDialog] = useState<'recipient' | 'discount' | 'void' | null>(null);
+  const [splitPayment, setSplitPayment] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -261,9 +269,11 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
     setSale(null); setError(null); setNotice(null); setHighlightedItemId(null);
     setBarcode(''); setQuantity('1'); setPaymentAmount(''); setPaymentAmount2('');
     setPaymentMethodCode2(''); setVoidReason(''); setVoidConfirming(false);
+    setDialog(null); setSplitPayment(false);
     setDiscountItemId(''); setDiscountBasisPoints(''); setDiscountReason(''); setReturnReason(''); setSaleReturn(null); setInvoice(null);
     setRecipientValue(''); setRecipientName(''); setRecipientAddress('');
   };
+  const closeDialog = useCallback((): void => { setDialog(null); setVoidConfirming(false); }, []);
   const shiftLabel = activeShiftLabel(shift, cashRegister?.name ?? null);
   const completionBlocker = saleCompletionBlocker(sale, scale);
   const voidAuthorized = isPermissionGranted(voidSaleContract.permission, permissionCodes);
@@ -323,46 +333,232 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
         </section>}
         <ActionButton className="primary-button" type="button" onClick={startAnotherSale}>Iniciar otra venta</ActionButton>
       </section> : <>
-        <div className="screen-toolbar"><span className="status-label">Venta {sale.id.slice(0, 8)} · {sale.status}</span><span className="status-label">{sale.items.length} líneas</span><span className="simulation-label">Fiscal · SIMULACIÓN</span><ActionButton type="button" onClick={() => void refresh(sale.id)} busy={loading} disabled={loading}>Actualizar</ActionButton></div>
-        <div className="sales-layout">
-          <section className="panel" aria-labelledby="cart-title"><div className="panel-heading"><div><p className="eyebrow">Carrito</p><h3 id="cart-title">Líneas de venta</h3></div><strong className="total-figure">{money(sale.totalMinorUnits, sale.currencyCode, scale)}</strong></div>
-            <form className="inline-form" onSubmit={addItem}><label className="grow">Barcode<input ref={barcodeInput} value={barcode} onChange={(event) => setBarcode(event.target.value)} autoFocus required /></label><label title="Se valida contra la unidad del producto: entera para unidades, decimal para productos pesados.">Cant.<input inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label><ActionButton className="primary-button" type="submit" busy={loading} disabled={loading || !barcode.trim()}>{loading ? 'Agregando…' : 'Agregar'}</ActionButton></form>
-            {sale.items.length === 0 ? <EmptyState>Escanea o escribe un barcode y presiona Enter para comenzar.</EmptyState> : <div className="table-wrap"><table><caption className="sr-only">Líneas actuales</caption><thead><tr><th>Producto</th><th>Cant.</th><th>Total</th><th /></tr></thead><tbody>{sale.items.map((item) => <tr key={item.id} className={item.id === highlightedItemId ? 'is-new' : undefined}><td><strong>{item.description}</strong><small>{item.unitCode}</small></td><td>{item.quantityScaled / (10 ** item.quantityScale)}</td><td>{money(item.totalMinorUnits, sale.currencyCode, scale)}</td><td><ActionButton type="button" onClick={() => removeItem(item.id)} disabled={loading}>Quitar</ActionButton></td></tr>)}</tbody></table></div>}
+        <div className="sale-toolbar">
+          <span className="status-label">Venta {sale.id.slice(0, 8)}</span>
+          <span className="status-label">{sale.items.length} líneas</span>
+          <span className="simulation-label">Fiscal · SIMULACIÓN</span>
+          <ActionButton type="button" onClick={() => void refresh(sale.id)} busy={loading} disabled={loading}>
+            Actualizar
+          </ActionButton>
+        </div>
+        <div className="sale-workspace">
+          <section className="panel sale-cart" aria-labelledby="cart-title">
+            <div className="panel-heading">
+              <div><p className="eyebrow">Carrito</p><h3 id="cart-title">Líneas de venta</h3></div>
+            </div>
+            {/* El foco vuelve siempre aquí: el lector es el instrumento principal de una caja. */}
+            <form className="sale-scan" onSubmit={addItem}>
+              <label className="grow">
+                Barcode
+                <input ref={barcodeInput} value={barcode} onChange={(event) => setBarcode(event.target.value)} placeholder="Escanea o escribe y presiona Enter" autoFocus required />
+              </label>
+              <label title="Se valida contra la unidad del producto: entera para unidades, decimal para productos pesados.">
+                Cant.
+                <input inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} required />
+              </label>
+              <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading || !barcode.trim()}>
+                {loading ? 'Agregando…' : 'Agregar'}
+              </ActionButton>
+            </form>
+            {sale.items.length === 0
+              ? <EmptyState>Escanea o escribe un barcode y presiona Enter para comenzar.</EmptyState>
+              : <div className="table-wrap"><table className="sale-lines">
+                <caption className="sr-only">Líneas actuales</caption>
+                <thead><tr><th>Producto</th><th className="numeric">Cant.</th><th className="numeric">Importe</th><th /></tr></thead>
+                <tbody>{sale.items.map((item) => (
+                  <tr key={item.id} className={item.id === highlightedItemId ? 'is-new' : undefined}>
+                    <td>
+                      <strong>{item.description}</strong>
+                      <small>
+                        {item.unitCode}
+                        {item.discountBasisPoints ? ' · −' + (item.discountBasisPoints / 100) + '%' : ''}
+                      </small>
+                    </td>
+                    <td className="numeric">{item.quantityScaled / (10 ** item.quantityScale)}</td>
+                    <td className="numeric">{money(item.totalMinorUnits, sale.currencyCode, scale)}</td>
+                    <td className="numeric">
+                      <button type="button" className="line-remove" onClick={() => removeItem(item.id)} disabled={loading} aria-label={'Quitar ' + item.description}>
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table></div>}
           </section>
-          <aside className="sales-side">
-            <section className="panel totals-panel" aria-labelledby="totals-title"><p className="eyebrow">Resumen calculado por API</p><h3 id="totals-title">Total a cobrar</h3><dl className="totals"><div><dt>Subtotal</dt><dd>{money(sale.subtotalMinorUnits, sale.currencyCode, scale)}</dd></div><div><dt>Descuentos</dt><dd>−{money(sale.discountTotalMinorUnits, sale.currencyCode, scale)}</dd></div><div><dt>IVA</dt><dd>{money(sale.taxTotalMinorUnits, sale.currencyCode, scale)}</dd></div><div className="grand-total"><dt>Total</dt><dd>{money(sale.totalMinorUnits, sale.currencyCode, scale)}</dd></div><div><dt>Pagado</dt><dd>{money(sale.paidTotalMinorUnits, sale.currencyCode, scale)}</dd></div><div><dt>Saldo</dt><dd>{money(sale.balanceMinorUnits, sale.currencyCode, scale)}</dd></div></dl></section>
-            <section className="panel" aria-labelledby="payment-title"><p className="eyebrow">Cobro</p><h3 id="payment-title">Registrar pagos mixtos</h3><form className="stack-form" onSubmit={registerPayment}><label>Método 1<select value={paymentMethodCode} onChange={(event) => setPaymentMethodCode(event.target.value)} required><option value="">Selecciona</option>{paymentMethods.map((method) => <option key={method.code} value={method.code}>{method.name} ({method.currencyCode})</option>)}</select></label><label>Importe 1 ({paymentCurrency || '…'})<input inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} placeholder="0,00" required /></label><p className="muted">Se sugiere el saldo pendiente: {money(sale.balanceMinorUnits, sale.currencyCode, scale)}.</p><label>Método 2 (opcional)<select value={paymentMethodCode2} onChange={(event) => setPaymentMethodCode2(event.target.value)}><option value="">Ninguno</option>{paymentMethods.map((method) => <option key={method.code} value={method.code}>{method.name} ({method.currencyCode})</option>)}</select></label>{paymentMethodCode2 && <label>Importe 2 ({paymentCurrency2 || '…'})<input inputMode="decimal" value={paymentAmount2} onChange={(event) => setPaymentAmount2(event.target.value)} placeholder="0,00" required={Boolean(paymentMethodCode2)} /></label>}<ActionButton className="primary-button" type="submit" busy={loading} disabled={loading || !paymentMethodCode}>{loading ? 'Registrando…' : 'Registrar lote de pagos'}</ActionButton></form></section>
-            <section className="panel" aria-labelledby="recipient-title"><p className="eyebrow">Receptor</p><h3 id="recipient-title">Identificación fiscal (opcional)</h3><p className="muted">La venta anónima es válida en simulación. El dato se guarda como copia en esta venta; no crea un cliente reutilizable.</p><form className="stack-form" onSubmit={setRecipient}><div className="form-grid"><label>País<input value={recipientCountry} onChange={(event) => setRecipientCountry(event.target.value)} maxLength={2} required /></label><label>Identificación<input value={recipientValue} onChange={(event) => setRecipientValue(event.target.value)} maxLength={64} placeholder="J-12345678-9" required /></label></div><label>Nombre o razón social (opcional)<input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} maxLength={200} /></label><label>Dirección (opcional)<input value={recipientAddress} onChange={(event) => setRecipientAddress(event.target.value)} maxLength={200} /></label><div className="button-row"><ActionButton type="submit" busy={loading} disabled={loading || !recipientValue.trim()}>{loading ? "Guardando…" : "Adjuntar receptor"}</ActionButton>{sale.recipient && <button type="button" onClick={clearRecipient} disabled={loading}>Quitar receptor</button>}</div></form>{sale.recipient ? <dl className="detail-grid"><div><dt>Identificación</dt><dd>{sale.recipient.type} {sale.recipient.normalizedValue}</dd></div><div><dt>Nombre</dt><dd>{sale.recipient.name ?? "—"}</dd></div><div><dt>Dirección</dt><dd>{sale.recipient.address ?? "—"}</dd></div></dl> : <p className="muted">Venta anónima.</p>}<span className="simulation-label">SIMULACIÓN · la captura no certifica una factura fiscal</span></section>
-            {isPermissionGranted(applySaleDiscountContract.permission, permissionCodes) && <section className="panel" aria-labelledby="discount-title"><p className="eyebrow">Autorización</p><h3 id="discount-title">Descuento de línea</h3><form className="stack-form" onSubmit={applyDiscount}><label>Línea<select value={discountItemId} onChange={(event) => setDiscountItemId(event.target.value)} required><option value="">Selecciona</option>{sale.items.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}</select></label><label>Porcentaje (puntos base)<input type="number" min="1" max="10000" value={discountBasisPoints} onChange={(event) => setDiscountBasisPoints(event.target.value)} required /></label><label>Motivo<input value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} maxLength={500} required /></label><ActionButton type="submit" busy={loading} disabled={loading}>{loading ? 'Solicitando…' : 'Solicitar descuento'}</ActionButton></form></section>}
-            {voidAuthorized && <section className="panel danger-panel" aria-labelledby="void-title">
-              <p className="eyebrow">Acción sensible</p><h3 id="void-title">Anular venta</h3>
-              <label>Motivo<input value={voidReason} onChange={(event) => changeVoidReason(event.target.value)} maxLength={500} required /></label>
-              {!voidReason.trim() && <p className="muted">Escribe el motivo para habilitar la anulación; queda auditada.</p>}
+
+          {/*
+            El ticket acompaña al carrito y no se desplaza con él: total, cobro
+            y el botón de completar quedan siempre a la vista. Antes vivían al
+            final de una columna de seis paneles y había que bajar para cerrar
+            una venta que ya estaba cobrada.
+          */}
+          <aside className="sale-ticket" aria-label="Ticket de la venta">
+            <section className="panel totals-panel" aria-labelledby="totals-title">
+              <p className="eyebrow">Calculado por el nodo</p>
+              <h3 id="totals-title" className="sr-only">Total a cobrar</h3>
+              <dl className="totals">
+                <div><dt>Subtotal</dt><dd>{money(sale.subtotalMinorUnits, sale.currencyCode, scale)}</dd></div>
+                {sale.discountTotalMinorUnits > 0 && (
+                  <div><dt>Descuentos</dt><dd>−{money(sale.discountTotalMinorUnits, sale.currencyCode, scale)}</dd></div>
+                )}
+                <div><dt>IVA</dt><dd>{money(sale.taxTotalMinorUnits, sale.currencyCode, scale)}</dd></div>
+                {sale.financialTransactionTaxMinorUnits > 0 && (
+                  <div><dt>IGTF</dt><dd>{money(sale.financialTransactionTaxMinorUnits, sale.currencyCode, scale)}</dd></div>
+                )}
+                <div className="grand-total"><dt>Total</dt><dd>{money(sale.totalMinorUnits, sale.currencyCode, scale)}</dd></div>
+                {sale.paidTotalMinorUnits > 0 && (
+                  <div><dt>Pagado</dt><dd>{money(sale.paidTotalMinorUnits, sale.currencyCode, scale)}</dd></div>
+                )}
+              </dl>
+              <p className={outstanding > 0 ? 'sale-balance is-pending' : 'sale-balance is-settled'} role="status">
+                {outstanding > 0
+                  ? 'Falta cobrar ' + money(outstanding, sale.currencyCode, scale)
+                  : 'Cobro cubierto'}
+              </p>
+            </section>
+
+            <section className="panel" aria-labelledby="payment-title">
+              <p className="eyebrow">Cobro</p>
+              <h3 id="payment-title">Registrar cobro</h3>
+              <form className="stack-form" onSubmit={registerPayment}>
+                <fieldset className="method-chips">
+                  <legend>Método</legend>
+                  {paymentMethods.map((method) => (
+                    <label key={method.code} className={method.code === paymentMethodCode ? 'chip is-selected' : 'chip'}>
+                      <input type="radio" name="paymentMethod" value={method.code} checked={method.code === paymentMethodCode} onChange={() => setPaymentMethodCode(method.code)} />
+                      <span>{method.name}</span>
+                      <small>{method.currencyCode}</small>
+                    </label>
+                  ))}
+                </fieldset>
+                <div className="amount-field">
+                  <label className="grow">
+                    Importe {paymentCurrency ? '(' + paymentCurrency + ')' : ''}
+                    <input inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} placeholder="0,00" required />
+                  </label>
+                  <button type="button" onClick={() => setPaymentAmount(formatScaledDecimal(outstanding, scale))} disabled={outstanding <= 0}>
+                    Exacto
+                  </button>
+                </div>
+                {!splitPayment
+                  ? <button type="button" className="link-button" onClick={() => setSplitPayment(true)}>Dividir en dos métodos</button>
+                  : <>
+                    <fieldset className="method-chips">
+                      <legend>Segundo método</legend>
+                      {paymentMethods.map((method) => (
+                        <label key={method.code} className={method.code === paymentMethodCode2 ? 'chip is-selected' : 'chip'}>
+                          <input type="radio" name="paymentMethod2" value={method.code} checked={method.code === paymentMethodCode2} onChange={() => setPaymentMethodCode2(method.code)} />
+                          <span>{method.name}</span>
+                          <small>{method.currencyCode}</small>
+                        </label>
+                      ))}
+                    </fieldset>
+                    <div className="amount-field">
+                      <label className="grow">
+                        Importe {paymentCurrency2 ? '(' + paymentCurrency2 + ')' : ''}
+                        <input inputMode="decimal" value={paymentAmount2} onChange={(event) => setPaymentAmount2(event.target.value)} placeholder="0,00" required />
+                      </label>
+                      <button type="button" onClick={() => { setSplitPayment(false); setPaymentMethodCode2(''); setPaymentAmount2(''); }}>
+                        Quitar
+                      </button>
+                    </div>
+                  </>}
+                <p className="muted">
+                  El importe que cobras con un método gravado con IGTF <strong>incluye</strong> el
+                  impuesto: el resto de los métodos cubre lo que falte del total.
+                </p>
+                <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading || !paymentMethodCode}>
+                  {loading ? 'Registrando…' : 'Registrar cobro'}
+                </ActionButton>
+              </form>
+            </section>
+
+            {/* Acciones ocasionales: se abren cuando hacen falta, no ocupan la columna. */}
+            <div className="sale-secondary">
+              <button type="button" onClick={() => setDialog('recipient')}>
+                {sale.recipient ? 'Receptor · ' + sale.recipient.normalizedValue : 'Agregar receptor'}
+              </button>
+              {isPermissionGranted(applySaleDiscountContract.permission, permissionCodes) && (
+                <button type="button" onClick={() => setDialog('discount')} disabled={sale.items.length === 0}>
+                  Descuento de línea
+                </button>
+              )}
+              {voidAuthorized && (
+                <button type="button" className="danger-link" onClick={() => setDialog('void')}>Anular venta</button>
+              )}
+            </div>
+
+            <div className="complete-block">
+              <ActionButton className="primary-button complete-button" type="button" onClick={complete} busy={loading} disabled={loading || completionBlocker !== null} aria-describedby={completionBlocker ? 'complete-blocker' : undefined}>
+                {loading ? 'Completando…' : 'Completar venta'}
+              </ActionButton>
+              {completionBlocker && <p className="muted" id="complete-blocker" role="status">{completionBlocker}</p>}
+            </div>
+          </aside>
+        </div>
+
+        {dialog === 'recipient' && (
+          <Modal title="Receptor fiscal" description="La venta anónima es válida en simulación. El dato se guarda como copia en esta venta; no crea un cliente reutilizable." onClose={closeDialog}>
+            <form className="stack-form" onSubmit={setRecipient}>
+              <div className="form-grid">
+                <label>País<input value={recipientCountry} onChange={(event) => setRecipientCountry(event.target.value)} maxLength={2} required /></label>
+                <label>Identificación<input value={recipientValue} onChange={(event) => setRecipientValue(event.target.value)} maxLength={64} placeholder="J-12345678-9" required /></label>
+              </div>
+              <label>Nombre o razón social (opcional)<input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} maxLength={200} /></label>
+              <label>Dirección (opcional)<input value={recipientAddress} onChange={(event) => setRecipientAddress(event.target.value)} maxLength={200} /></label>
+              <div className="button-row">
+                <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading || !recipientValue.trim()}>
+                  {loading ? 'Guardando…' : 'Adjuntar receptor'}
+                </ActionButton>
+                {sale.recipient && <button type="button" onClick={clearRecipient} disabled={loading}>Quitar receptor</button>}
+              </div>
+              {sale.recipient && <dl className="detail-grid">
+                <div><dt>Identificación</dt><dd>{sale.recipient.type} {sale.recipient.normalizedValue}</dd></div>
+                <div><dt>Nombre</dt><dd>{sale.recipient.name ?? '—'}</dd></div>
+                <div><dt>Dirección</dt><dd>{sale.recipient.address ?? '—'}</dd></div>
+              </dl>}
+              <span className="simulation-label">SIMULACIÓN · la captura no certifica una factura fiscal</span>
+            </form>
+          </Modal>
+        )}
+
+        {dialog === 'discount' && (
+          <Modal title="Descuento de línea" description="Queda auditado con su motivo y el tope lo fija la política configurada." onClose={closeDialog}>
+            <form className="stack-form" onSubmit={applyDiscount}>
+              <label>Línea<select value={discountItemId} onChange={(event) => setDiscountItemId(event.target.value)} required>
+                <option value="">Selecciona</option>
+                {sale.items.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}
+              </select></label>
+              <label>Porcentaje (puntos base)<input type="number" min="1" max="10000" value={discountBasisPoints} onChange={(event) => setDiscountBasisPoints(event.target.value)} required /></label>
+              <label>Motivo<input value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} maxLength={500} required /></label>
+              <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>
+                {loading ? 'Solicitando…' : 'Solicitar descuento'}
+              </ActionButton>
+            </form>
+          </Modal>
+        )}
+
+        {dialog === 'void' && (
+          <Modal title="Anular venta" description="La anulación queda auditada con su motivo y no puede deshacerse." onClose={closeDialog}>
+            <div className="stack-form">
+              <label>Motivo<input value={voidReason} onChange={(event) => changeVoidReason(event.target.value)} maxLength={500} required autoFocus /></label>
+              {!voidReason.trim() && <p className="muted">Escribe el motivo para habilitar la anulación.</p>}
               {voidConfirming ? (
                 <div className="button-row" role="alert">
-                  <p className="muted" id="void-confirm-warning">¿Confirmas anular esta venta? La anulación queda auditada.</p>
-                  <ActionButton
-                    className="primary-button" type="button" onClick={confirmVoid} busy={loading}
-                    disabled={loading || !voidAuthorized} aria-describedby="void-confirm-warning"
-                  >
+                  <p className="muted" id="void-confirm-warning">¿Confirmas anular esta venta?</p>
+                  <ActionButton className="primary-button" type="button" onClick={confirmVoid} busy={loading} disabled={loading || !voidAuthorized} aria-describedby="void-confirm-warning">
                     Sí, anular
                   </ActionButton>
                   <button type="button" onClick={cancelVoid}>Cancelar</button>
                 </div>
               ) : (
-                <ActionButton
-                  type="button" onClick={requestVoid} disabled={loading || !voidReason.trim() || !voidAuthorized}
-                >
+                <ActionButton type="button" onClick={requestVoid} disabled={loading || !voidReason.trim() || !voidAuthorized}>
                   Anular venta
                 </ActionButton>
               )}
-            </section>}
-            <div className="complete-block">
-              <ActionButton className="primary-button complete-button" type="button" onClick={complete} busy={loading} disabled={loading || completionBlocker !== null} aria-describedby={completionBlocker ? 'complete-blocker' : undefined}>{loading ? 'Completando…' : 'Completar venta'}</ActionButton>
-              {completionBlocker && <p className="muted" id="complete-blocker" role="status">{completionBlocker}</p>}
             </div>
-          </aside>
-        </div>
+          </Modal>
+        )}
       </>}
     </div>
   );
