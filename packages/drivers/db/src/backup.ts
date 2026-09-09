@@ -72,30 +72,39 @@ export const createDatabaseBackup = (
    * falla—. El borrado es el del sistema de archivos: no se promete un borrado
    * físico que el medio no garantiza.
    */
-  const stagingPath = options.protection
+  const protection = options.protection;
+  const stagingPath = protection
     ? `${databasePath}.backup-${stamp}.staging`
     : join(options.directory, `${options.prefix}${stamp}.sqlite`);
   sqlite.prepare('vacuum into ?').run(stagingPath);
 
-  const backup = openDatabase(stagingPath);
+  /**
+   * El intermedio se borra en cualquier salida: también si abrirlo o validarlo
+   * falla, no solo si falla el sellado. Un fallo temprano dejaba en claro una
+   * copia completa de la base, que es exactamente lo que la protección existe
+   * para impedir.
+   */
   try {
-    assertDatabaseIntegrity(backup.sqlite);
-  } finally {
-    backup.close();
-  }
+    const backup = openDatabase(stagingPath);
+    try {
+      assertDatabaseIntegrity(backup.sqlite);
+    } finally {
+      backup.close();
+    }
 
-  if (!options.protection) return stagingPath;
+    if (!protection) return stagingPath;
 
-  const backupPath = join(
-    options.directory, `${options.prefix}${stamp}.sqlite${options.protection.suffix}`
-  );
-  try {
-    options.protection.seal(stagingPath, backupPath);
+    const backupPath = join(
+      options.directory, `${options.prefix}${stamp}.sqlite${protection.suffix}`
+    );
+    protection.seal(stagingPath, backupPath);
+    return backupPath;
   } finally {
-    removeSidecars(stagingPath);
-    if (existsSync(stagingPath)) unlinkSync(stagingPath);
+    if (protection) {
+      removeSidecars(stagingPath);
+      if (existsSync(stagingPath)) unlinkSync(stagingPath);
+    }
   }
-  return backupPath;
 };
 
 /** Copias de una familia, de la más reciente a la más antigua. */
