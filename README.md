@@ -244,8 +244,21 @@ este alcance.
 
 ## Cómo ejecutarlo
 
+### Lo que hay que tener antes
+
+| Requisito | Por qué |
+| --- | --- |
+| Node.js 20.6+ (probado en 24.18) | los scripts usan `--env-file` e `--import` |
+| pnpm 11 | `packageManager` fija 11.17.0 |
+| `openssl` alcanzable en el `PATH` | la emisión de material TLS de la LAN envuelve el `openssl` del sistema en vez de sumar una dependencia de criptografía. Sin él, `pnpm pipeline` falla las tres pruebas de `generate-lan-material.test.ts`. En Windows suele vivir en `C:\Program Files\Git\usr\bin` |
+| Una terminal interactiva | el paso 1 pide el PIN sin eco y **exige** un TTY: en una shell no interactiva falla con «PIN provisioning requires an interactive local terminal» |
+
+Las versiones con las que el pipeline se reproduce, en local y en CI, están en
+[el pipeline de verificación](./docs/operacion/pipeline-de-verificacion.md).
+
 ```bash
-pnpm install
+# --frozen-lockfile instala exactamente lo que el lockfile declara
+pnpm install --frozen-lockfile
 
 # Verificación completa
 pnpm pipeline
@@ -291,8 +304,6 @@ distribución automática a las terminales— está en
 [la guía de la seed](./docs/operacion/seed-de-catalogo-de-ejemplo.md). El recorrido completo de
 una jornada —abrir caja, vender, facturar, cerrar con arqueo y leer el kardex— está en
 [la guía de operación diaria](./docs/operacion/operacion-diaria.md).
-
-Requiere Node.js 20.6+ (los scripts usan `--env-file` e `--import`; probado en Node 24) y pnpm 11.
 
 ### Instalar y sostener una estación
 
