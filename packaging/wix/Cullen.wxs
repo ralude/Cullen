@@ -131,9 +131,15 @@
       ACL del directorio de datos (ADR-0029 D7.2). Se replica exactamente lo que
       assertProtectedDirectory acepta: SYSTEM, Administradores y la cuenta de servicio.
       `/inheritance:r` quita las ACEs heredadas (Usuarios), que es lo que el nodo rechaza.
+
+      Se aplica al directorio y no con `/T`: `(OI)(CI)` son marcas de herencia y no
+      significan nada en un archivo, de modo que recorrer los existentes les quitaría
+      la herencia sin concederles nada. Esta acción también corre en actualización y
+      reparación, cuando la base y el almacén de claves ya existen: dejarlos sin ACL
+      los volvería ilegibles hasta para el servicio.
     -->
     <SetProperty Id="HardenDataDir"
-                 Value="&quot;[System64Folder]icacls.exe&quot; &quot;[DataFolder]&quot; /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F &quot;NT SERVICE\CullenNode&quot;:(OI)(CI)F /grant:r *S-1-3-0:(OI)(CI)F /T"
+                 Value="&quot;[System64Folder]icacls.exe&quot; &quot;[DataFolder]&quot; /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F &quot;NT SERVICE\CullenNode&quot;:(OI)(CI)F /grant:r *S-1-3-0:(OI)(CI)F"
                  Before="HardenDataDir" Sequence="execute" />
     <CustomAction Id="HardenDataDir" DllEntry="WixQuietExec64" Execute="deferred"
                   Impersonate="no" Return="check" BinaryRef="Wix4UtilCA_X64" />

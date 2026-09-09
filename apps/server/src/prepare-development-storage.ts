@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { mkdirSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { AppError, ApplicationError } from '@supermarket/shared';
 import { assertProtectedDirectory, currentAccountSid } from '@supermarket/driver-security';
 import { readNodeStorage } from './node-storage.ts';
@@ -25,16 +25,11 @@ import { readNodeStorage } from './node-storage.ts';
 
 const ICACLS_TIMEOUT_MS = 20_000;
 
-const restrict = (directory: string, accountSid: string): void => {
+const icacls = (args: readonly string[]): void => {
   try {
-    execFileSync('icacls.exe', [
-      directory,
-      '/inheritance:r',
-      '/grant:r', `*${accountSid}:(OI)(CI)F`,
-      '/grant:r', '*S-1-5-18:(OI)(CI)F',
-      '/grant:r', '*S-1-5-32-544:(OI)(CI)F',
-      '/T'
-    ], { encoding: 'utf8', windowsHide: true, timeout: ICACLS_TIMEOUT_MS, stdio: 'pipe' });
+    execFileSync('icacls.exe', [...args], {
+      encoding: 'utf8', windowsHide: true, timeout: ICACLS_TIMEOUT_MS, stdio: 'pipe'
+    });
   } catch (cause) {
     throw new ApplicationError(
       'DEVELOPMENT_STORAGE_ACL_FAILED',
@@ -42,6 +37,26 @@ const restrict = (directory: string, accountSid: string): void => {
       { cause }
     );
   }
+};
+
+/**
+ * La restricción se aplica al **directorio**, con herencia hacia lo que
+ * contiene. `(OI)(CI)` son marcas de herencia y solo significan algo en un
+ * contenedor: aplicarlas a los archivos con `/T` les quitaría la herencia sin
+ * concederles nada y dejaría la base ilegible incluso para su dueño.
+ *
+ * Los archivos que ya existen vuelven a heredar en vez de recibir una ACL
+ * propia, para que la herramienta pueda repetirse sobre un perímetro vivo.
+ */
+const restrict = (directory: string, accountSid: string): void => {
+  icacls([
+    directory,
+    '/inheritance:r',
+    '/grant:r', `*${accountSid}:(OI)(CI)F`,
+    '/grant:r', '*S-1-5-18:(OI)(CI)F',
+    '/grant:r', '*S-1-5-32-544:(OI)(CI)F'
+  ]);
+  if (readdirSync(directory).length > 0) icacls([join(directory, '*'), '/inheritance:e', '/T']);
 };
 
 const run = (): void => {

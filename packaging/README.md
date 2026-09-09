@@ -59,7 +59,10 @@ sellado de tiempo) sigue abierto en el [gate de piloto](../docs/cronograma/gate-
 2. Crea `%ProgramData%\Cullen\{db,backups,keys,logs,diagnostics}` y ejecuta
    `icacls <dir> /inheritance:r /grant *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F "NT SERVICE\CullenNode":(OI)(CI)F`
    — exactamente la ACL que `assertProtectedDirectory`
-   (`packages/drivers/security/src/data-directory.ts`) verifica en cada arranque.
+   (`packages/drivers/security/src/data-directory.ts`) verifica en cada arranque. Se aplica al
+   directorio, sin `/T`: `(OI)(CI)` son marcas de herencia y no significan nada en un archivo, así
+   que recorrer los existentes —en una actualización o reparación— dejaría la base y el almacén de
+   claves sin ACL y sin poder abrirse.
 3. Registra el servicio `CullenNode` (arranque automático, cuenta `NT SERVICE\CullenNode`).
 4. Instala los accesos directos de la ventana Electron.
 
