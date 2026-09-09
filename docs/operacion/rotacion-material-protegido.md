@@ -26,11 +26,15 @@ respaldos cifrados por decisión expresa de ADR-0029.
 
 ## Certificados y claves TLS
 
-La sustitución requiere una ventana coordinada. Rotar solo un extremo puede cortar la LAN.
+La sustitución requiere una ventana coordinada. Rotar solo un extremo puede cortar la LAN. La
+emisión inicial y el alta de una terminal nueva son otro procedimiento:
+[emisión de material LAN](./emision-material-lan.md).
 
 1. Emitir el material nuevo con la PKI aprobada y validar vigencia, nombres y propósito antes de
-   tocar el nodo. Mantener el material plano únicamente en un directorio administrativo temporal
-   con ACL restringida; nunca pasarlo por argumentos, logs, correo o el renderer.
+   tocar el nodo. Con la autoridad interna del MVP, `generate-lan-material` lo emite reutilizando
+   `ca.key`; con una PKI corporativa, emitirlo allí con los mismos atributos. Mantener el
+   material plano únicamente en un directorio administrativo temporal con ACL restringida; nunca
+   pasarlo por argumentos, logs, correo o el renderer.
 2. Preparar copias `.sealed` con la clave activa mediante `openSecretVault`,
    `loadFileProtection` y `FileProtection.seal` del driver de seguridad. Las rutas configuradas
    por `SYNC_*_TLS_*_PATH` deben apuntar únicamente a archivos sellados: el arranque rechaza el
