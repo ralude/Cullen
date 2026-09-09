@@ -251,6 +251,30 @@ describe('interacción del shell con la credencial local', () => {
     screen.unmount();
   });
 
+  it('no conserva el PIN en pantalla cuando el cambio falla', async () => {
+    const api = shellApi({
+      login: vi.fn(async () => session({ credentialMustChange: true })),
+      changeOwnPin: vi.fn(async () => { throw problem('AUTHENTICATION_FAILED', 401); })
+    });
+    const screen = await mount(<App api={api} />);
+    await signIn(screen);
+
+    await type(screen.get<HTMLInputElement>('input[name="currentPin"]'), '000000');
+    await type(screen.get<HTMLInputElement>('input[name="newPin"]'), '246810');
+    await type(screen.get<HTMLInputElement>('input[name="repeatedPin"]'), '246810');
+    await submit(screen.get<HTMLFormElement>('form'));
+
+    expect(api.changeOwnPin).toHaveBeenCalledTimes(1);
+    /** El secreto no sobrevive al intento, salga bien o mal. */
+    for (const name of ['currentPin', 'newPin', 'repeatedPin']) {
+      expect(screen.get<HTMLInputElement>(`input[name="${name}"]`).value, name).toBe('');
+    }
+    /** El motivo sí se conserva: sin él el operador no sabe qué reintentar. */
+    expect(screen.text()).toContain('El PIN actual no es correcto.');
+    expect(screen.text()).toContain('Cambia tu PIN para continuar');
+    screen.unmount();
+  });
+
   it('no envía el cambio cuando la confirmación del PIN no coincide', async () => {
     const api = shellApi({ login: vi.fn(async () => session({ credentialMustChange: true })) });
     const screen = await mount(<App api={api} />);
@@ -299,6 +323,10 @@ describe('interacción del shell con la credencial local', () => {
 
     expect(screen.text()).toContain('venció: pide uno nuevo');
     expect(screen.text()).toContain('Ingresar a');
+    /** Ni el PIN ni el código de un solo uso sobreviven al intento fallido. */
+    for (const name of ['enrollmentToken', 'enrollmentPin', 'repeatedEnrollmentPin']) {
+      expect(screen.get<HTMLInputElement>(`input[name="${name}"]`).value, name).toBe('');
+    }
     screen.unmount();
   });
 });

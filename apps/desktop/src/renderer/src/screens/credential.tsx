@@ -53,12 +53,19 @@ export const MandatoryPinChange = (
     setError(null);
     try {
       await api.changeOwnPin({ currentPin, newPin });
+      onChanged();
+    } catch (nextError) { setError(problemMessage(nextError)); }
+    finally {
+      /**
+       * El PIN no sobrevive al envío, haya salido bien o mal: el corte 3.5 de
+       * 11.02 no lo conserva en el estado del renderer más allá del intento.
+       * Reintentar exige volver a escribirlo; el mensaje del fallo se conserva.
+       */
       setCurrentPin('');
       setNewPin('');
       setRepeated('');
-      onChanged();
-    } catch (nextError) { setError(problemMessage(nextError)); }
-    finally { setBusy(false); }
+      setBusy(false);
+    }
   };
 
   return (
@@ -132,12 +139,15 @@ export const CredentialEnrollmentPanel = (
     setError(null);
     try {
       const result = await api.completeCredentialEnrollment({ enrollmentToken, pin });
+      setEnrolled(result.operatorCode);
+    } catch (nextError) { setError(problemMessage(nextError)); }
+    finally {
+      /** Ni el PIN ni el código de un solo uso sobreviven al envío. */
       setEnrollmentToken('');
       setPin('');
       setRepeated('');
-      setEnrolled(result.operatorCode);
-    } catch (nextError) { setError(problemMessage(nextError)); }
-    finally { setBusy(false); }
+      setBusy(false);
+    }
   };
 
   return (
