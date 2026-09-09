@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "node --env-file=config/development.env --import tsx --watch src/index.ts",
     "start": "tsx src/index.ts",
+    "build": "node esbuild.config.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -29,6 +30,7 @@
     "@supermarket/driver-logging": "workspace:*",
     "@supermarket/driver-security": "workspace:*",
     "@supermarket/shared": "workspace:*",
+    "better-sqlite3": "^12.11.1",
     "fastify": "^5.6.0"
   },
   "devDependencies": {
