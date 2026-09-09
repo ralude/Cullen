@@ -19,7 +19,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
 | 11 | ~~[Seguridad](./fase-11-seguridad/README.md)~~ | Entregada el 2026-09-08; la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió sus trece hallazgos. El gate de tienda conserva sus requisitos propios, sin bloquear el release open source |
-| 12 | Optimizacion | Pendiente después de `v0.1.0`; 12.04 suspendida con Fase 8; [12.05 mantenibilidad estructural](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) planificada, sin refactors |
+| 12 | [Optimización](./fase-12-optimizacion/README.md) | Planificada después de `v0.1.0`: 12.01 → 12.02 → 12.03 → 12.05; 12.04 suspendida con Fase 8 |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
 | 15 | [Sincronización SQLite–PostgreSQL](./fase-15-sincronizacion-cloud/README.md) | Planificada; post-MVP, sin iniciar |
@@ -432,6 +432,11 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
   cerraron con la misma exigencia de prueba. La evidencia vigente consta en el registro. El cierre
   de la auditoría habilita planificar `v0.1.0`, no una tienda: el gate de piloto conserva el
   instalable firmado, hardware y validación real.
+- El 2026-09-09 se detalló la ejecución de Fase 12. El orden obligatorio queda
+  12.01 baseline y presupuestos → 12.02 comunicación HTTP local → 12.03 SQLite e historia de
+  inventario → 12.05 mantenibilidad y benchmark final. Cada cambio exige BEFORE/AFTER y puede
+  descartarse si no supera el ruido. 12.04 conserva un gate separado por perfil fiscal y sigue
+  suspendida con Fase 8; no se sustituye con `FiscalPrinterFake`.
 - La auditoría focal del 2026-09-04 quedó documentada en el [registro de puntos
   clave de la Fase 11](./fase-11-seguridad/auditoria-puntos-clave-2026-09-04.md).
   Confirma la base arquitectónica, pero deja como deudas trazables la composición

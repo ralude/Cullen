@@ -156,7 +156,8 @@ foreach ($task in $baseline.tasks) {
 
 La sesión real añadirá búsquedas, archivos/secciones abiertos, saltos máximos hasta el dueño,
 ediciones efectivas y checks ejecutados. Comparar cada tarea consigo misma; no promediar una
-gran mejora de UI para esconder una regresión de sync. Revalidar la baseline tras Fase 11.
+gran mejora de UI para esconder una regresión de sync. Revalidar la baseline al entrar en
+12.05, después de cerrar 12.03.
 
 ## D. Orden y evidencia histórica
 
@@ -170,4 +171,5 @@ turno), `285f473` (cierre con ventas abiertas), `f03403c` (stock al completar ve
 `49dde47` (emisión fiscal), `8dcf1e6` (alta de cajas) y `71d96ae` (E2E real de venta y tests).
 En sync: `74182b3`, `bd8877e`, `3d677c5` y `03b1a73` muestran conciliación y efectos LAN.
 Estos cambios explican dependencias actuales; su cantidad de archivos no demuestra por sí
-sola mala modularidad. `1898823` y cronograma mantienen el gate de Fase 11.
+sola mala modularidad. `1898823` conserva la evidencia del gate histórico de Fase 11; el gate
+vigente de ejecución está en la ficha 12.05 y en el cronograma.

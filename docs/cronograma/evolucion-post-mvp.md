@@ -28,7 +28,8 @@ no impiden diseñar ni verificar esta evolución con datos de prueba.
 
 La publicación open source v0.1 es anterior a ese cierre técnico: permite presentar y
 reproducir el producto en modo fiscal simulado, pero no habilita Fase 13. Después de publicar
-v0.1 se ejecutan las sub-fases 12.01–12.03 y solo su cierre permite iniciar esta evolución.
+v0.1 se ejecutan 12.01–12.03 y 12.05; solo el gate de salida de Fase 12 permite iniciar esta
+evolución. 12.04 permanece exceptuada mientras conserve la suspensión aprobada de Fase 8.
 
 ## Arquitectura objetivo
 

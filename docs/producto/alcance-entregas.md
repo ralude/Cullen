@@ -32,8 +32,9 @@ compatibilidad con equipos fiscales reales ni aptitud para operar en una tienda.
 
 La falta de equipos fiscales no bloquea esta publicación: Fase 8 y la sub-fase 12.04 siguen
 suspendidas hasta disponer de hardware y evidencia oficial. Las sub-fases 12.01–12.03 se
-ejecutan después de v0.1 para cerrar el MVP técnico antes de iniciar Fase 13. La v0.1 se
-distribuye como fuente; un instalador MSI sin firma no forma parte de este hito.
+ejecutan después de v0.1 para demostrar el objetivo técnico medido; 12.05 completa el gate de
+Fase 12 antes de iniciar Fase 13. La v0.1 se distribuye como fuente; un instalador MSI sin
+firma no forma parte de este hito.
 
 ## 2. Piloto en tienda
 
@@ -115,7 +116,9 @@ hito no equivale al cierre técnico del MVP ni autoriza el inicio de Fase 13.
 Con la [replanificación aprobada](../cronograma/replanificacion-fase-08-a-09.md),
 completar las fases 0–7, 9–11 y las sub-fases 12.01–12.03 demuestra el MVP técnico únicamente en
 modo fiscal simulado. La sub-fase 12.04 permanece suspendida junto con Fase 8 y no bloquea ese
-cierre, porque solo puede medir una integración serial real y estable. La Fase 8 sigue siendo
+cierre, porque solo puede medir una integración serial real y estable. 12.05 no amplía ese
+alcance funcional, pero debe cerrar su gate de mantenibilidad antes de avanzar a Fase 13, de
+acuerdo con el orden obligatorio del cronograma. La Fase 8 sigue siendo
 obligatoria para habilitar el piloto:
 debe reanudarse y completarse con sus dos perfiles exactos antes de cerrar el
 gate operativo. El paso a piloto o producción depende además de los demás
