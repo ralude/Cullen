@@ -112,6 +112,28 @@ describe('frontera de nodo', () => {
     expect(sessions).toEqual([{ terminal_id: 'terminal-001', origin_node_id: 'node-001' }]);
   });
 
+  it('trata una cookie de sesión ilegible como sesión ausente', async () => {
+    const { app } = await start();
+
+    /** `%` sin dígitos hexadecimales: no es un token, es una cookie rota. */
+    const malformed = await app.inject({
+      method: 'GET', url: '/api/v1/auth/session', headers: { cookie: 'pos_session=%' }
+    });
+    const absent = await app.inject({ method: 'GET', url: '/api/v1/auth/session' });
+
+    /** Una credencial inválida no es un fallo del servidor. */
+    expect(malformed.statusCode).toBe(401);
+    expect(malformed.json()).toMatchObject({ code: 'UNAUTHORIZED' });
+    /** Ausente e ilegible comparten respuesta: no se filtra cuál de las dos. */
+    const problem = (raw: string): Record<string, unknown> => {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      /** La correlación es propia de cada petición y no describe el rechazo. */
+      delete parsed.correlationId;
+      return parsed;
+    };
+    expect(problem(malformed.body)).toEqual(problem(absent.body));
+  });
+
   it('no acepta en un nodo la sesión emitida por otro', async () => {
     const first = await start({ terminalId: 'terminal-001', originNodeId: 'node-001' });
     const second = await start({ terminalId: 'terminal-002', originNodeId: 'node-002' });

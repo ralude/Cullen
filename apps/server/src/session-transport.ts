@@ -61,9 +61,22 @@ export const sessionCookie = (token: string): string =>
 export const expiredSessionCookie = (): string =>
   `${OPERATOR_SESSION_COOKIE}=; ${attributes(0)}`;
 
-/** Token presentado por la petición, o cadena vacía si no hay cookie de sesión. */
+/**
+ * Token presentado por la petición, o cadena vacía si no hay uno utilizable.
+ *
+ * Una cookie mal formada —`pos_session=%`— hace que `decodeURIComponent` lance
+ * `URIError`. Eso es una credencial inválida, no un fallo del servidor: se
+ * trata como ausencia de sesión para que la respuesta sea 401 y no 500, sin
+ * distinguir públicamente entre no presentar sesión, presentarla ilegible o
+ * presentar una desconocida.
+ */
 export const sessionTokenOf = (header: string | undefined): string => {
   const cookie = header?.split(';').map((part) => part.trim())
     .find((part) => part.startsWith(`${OPERATOR_SESSION_COOKIE}=`));
-  return cookie ? decodeURIComponent(cookie.slice(OPERATOR_SESSION_COOKIE.length + 1)) : '';
+  if (cookie === undefined) return '';
+  try {
+    return decodeURIComponent(cookie.slice(OPERATOR_SESSION_COOKIE.length + 1));
+  } catch {
+    return '';
+  }
 };
