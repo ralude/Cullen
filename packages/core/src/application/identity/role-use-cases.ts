@@ -171,8 +171,12 @@ export class ChangeRoleStatus extends RoleCommand {
 /**
  * Lectura de la administración de identidad. Exige uno de los dos permisos de
  * identidad: quien administra roles puede verlos aunque no administre
- * operadores. La consulta del segundo permiso solo ocurre si el primero
- * deniega, para no duplicar la evidencia de una decisión ya tomada.
+ * operadores.
+ *
+ * Los dos viajan juntos porque son alternativas de **una** decisión. Preguntar
+ * por el segundo después de que el primero no alcanzó dejaba una denegación
+ * auditada que nunca ocurrió: quien administra roles obtenía acceso y, aun así,
+ * la evidencia registraba que se le negó.
  */
 export class GetIdentityDirectory {
   constructor(
@@ -183,8 +187,9 @@ export class GetIdentityDirectory {
   ) {}
 
   async execute(context: ExecutionContext): Promise<Result<IdentityDirectoryDto, AppError>> {
-    const allowed = await this.authorization.authorize(context, IDENTITY_PERMISSIONS.MANAGE_USERS)
-      || await this.authorization.authorize(context, IDENTITY_PERMISSIONS.MANAGE_ROLES);
+    const allowed = await this.authorization.authorize(
+      context, [IDENTITY_PERMISSIONS.MANAGE_USERS, IDENTITY_PERMISSIONS.MANAGE_ROLES]
+    );
     if (!allowed) {
       return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to read identity.'));
     }

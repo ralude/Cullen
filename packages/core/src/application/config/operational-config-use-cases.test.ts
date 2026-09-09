@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { permissionAlternatives } from '@supermarket/core';
 import type {
   AuditEntry, AuditWriter, AuthorizationService, CashRegisterRepository, Clock, ExecutionContext,
   IdGenerator, OperationalMasterDataStore, OperationalPolicyWriter, UnitOfWork
@@ -58,7 +59,8 @@ const context: ExecutionContext = {
   originNodeId: 'node-1', correlationId: 'correlation-1', idempotencyKey: 'intent-1'
 };
 const allow = (...permissions: string[]): AuthorizationService => ({
-  authorize: async (_context, permission) => permissions.includes(permission)
+  authorize: async (_context, permission) =>
+    permissionAlternatives(permission).some((code) => permissions.includes(code))
 });
 const ids: IdGenerator = { generate: (() => { let next = 0; return () => `id-${++next}`; })() };
 const clock: Clock = { now: () => new Date('2026-09-05T12:00:00Z') };

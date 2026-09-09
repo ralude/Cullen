@@ -84,6 +84,31 @@ describe('audited authorization decisions', () => {
     }]);
   });
 
+  it('records one denial for a decision that several permissions could authorize', async () => {
+    const { authorization, appended } = setup();
+
+    await expect(authorization.authorize(
+      context, ['identity.user.manage', 'identity.role.manage']
+    )).resolves.toBe(false);
+
+    /** Una decisión, una entrada: no una denegación por alternativa consultada. */
+    expect(appended).toHaveLength(1);
+    expect(appended[0]).toMatchObject({
+      entityId: 'identity.user.manage|identity.role.manage',
+      reason: 'Actor lacks every permission that could authorize it: '
+        + 'identity.user.manage, identity.role.manage.'
+    });
+  });
+
+  it('leaves no evidence when any of the alternatives authorizes', async () => {
+    const { authorization, appended } = setup({ granted: true });
+
+    await expect(authorization.authorize(
+      context, ['identity.user.manage', 'identity.role.manage']
+    )).resolves.toBe(true);
+    expect(appended).toEqual([]);
+  });
+
   it('defers a denial decided inside the command transaction and never nests one', async () => {
     const { authorization, unitOfWork, appended } = setup();
 

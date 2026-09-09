@@ -15,6 +15,7 @@ import type {
   SupplierRepository,
   UnitOfWork
 } from '../ports/index.js';
+import { permissionAlternatives } from '../ports/index.js';
 import { ApplySaleCompletedToInventory } from './apply-sale-completed-to-inventory.js';
 import { GetKardex } from './get-kardex.js';
 import { ReceivePurchase } from './receive-purchase.js';
@@ -337,7 +338,7 @@ describe('inventory application', () => {
     const service = new RegisterStockAdjustment(
       repository,
       { authorize: async (_context, permission) => {
-        requestedPermissions.push(permission);
+        requestedPermissions.push(...permissionAlternatives(permission));
         return true;
       } },
       sequence('movement'), sequence('event'), sequence('audit'),

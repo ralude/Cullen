@@ -4,6 +4,7 @@ import { SaleReturn } from '../../domain/sales/index.js';
 import type { ExecutionContext } from '../execution-context.js';
 import type { BusinessEventV1 } from '../events/index.js';
 import type { AuthorizationService, BusinessEventStore, SaleReturnRepository } from '../ports/index.js';
+import { permissionAlternatives } from '../ports/index.js';
 import { GetSaleHistory } from './get-sale-history.js';
 import { SALE_PERMISSIONS } from './permissions.js';
 
@@ -29,7 +30,8 @@ const noReturn: SaleReturnRepository = {
 };
 
 const allow = (...permissions: string[]): AuthorizationService => ({
-  authorize: async (_context, permission) => permissions.includes(permission)
+  authorize: async (_context, permission) =>
+    permissionAlternatives(permission).some((code) => permissions.includes(code))
 });
 
 describe('GetSaleHistory', () => {

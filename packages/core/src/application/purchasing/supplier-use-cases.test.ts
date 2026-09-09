@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { permissionAlternatives } from '@supermarket/core';
 import type {
   AuditEntry,
   AuditWriter,
@@ -34,7 +35,8 @@ const context: ExecutionContext = {
 const ids: IdGenerator = { generate: (() => { let value = 0; return () => `id-${++value}`; })() };
 const clock: Clock = { now: () => new Date('2026-09-04T12:00:00Z') };
 const allow = (...permissions: string[]): AuthorizationService => ({
-  authorize: async (_context, permission) => permissions.includes(permission)
+  authorize: async (_context, permission) =>
+    permissionAlternatives(permission).some((code) => permissions.includes(code))
 });
 
 describe('supplier use cases', () => {

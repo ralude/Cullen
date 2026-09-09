@@ -100,6 +100,7 @@ export type {
   AggregateAuthorityRegistrationOutcome,
   AggregateAuthorityRegistry,
   AuthorizationService,
+  RequiredPermission,
   AuditEntry,
   AuditWriter,
   BusinessEventStore,
@@ -213,7 +214,7 @@ export type {
   SyncReceptionStore,
   SyncSenderContext
 } from './application/ports/index.js';
-export { COORDINATED_OPERATION_KINDS } from './application/ports/index.js';
+export { COORDINATED_OPERATION_KINDS, permissionAlternatives } from './application/ports/index.js';
 export type {
   BeginCoordinatedOperationInput,
   CoordinatedOperationKind,

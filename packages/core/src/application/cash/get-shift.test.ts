@@ -3,6 +3,7 @@ import { Money } from '@supermarket/shared';
 import { CashRegister, Shift } from '../../domain/cash/index.js';
 import { PaymentMethod } from '../../domain/currency/index.js';
 import type { ExecutionContext } from '../execution-context.js';
+import { permissionAlternatives } from '../ports/index.js';
 import type { AuthorizationService, ShiftRepository } from '../ports/index.js';
 import { GetShift } from './get-shift.js';
 import { CASH_PERMISSIONS } from './permissions.js';
@@ -27,7 +28,8 @@ const repo = (stored: Shift | null): ShiftRepository => ({
 });
 
 const allow = (...permissions: string[]): AuthorizationService => ({
-  authorize: async (_context, permission) => permissions.includes(permission)
+  authorize: async (_context, permission) =>
+    permissionAlternatives(permission).some((code) => permissions.includes(code))
 });
 
 describe('GetShift', () => {

@@ -7,7 +7,8 @@ export type { CategoryRepository } from './category-repository.js';
 export type { ProductRepository } from './product-repository.js';
 export type { CatalogReadRepository } from './catalog-read-repository.js';
 export type { UnitOfMeasureRepository } from './unit-of-measure-repository.js';
-export type { AuthorizationService } from './authorization-service.js';
+export { permissionAlternatives } from './authorization-service.js';
+export type { AuthorizationService, RequiredPermission } from './authorization-service.js';
 export type { DiscountPolicy, DiscountPolicyProvider } from './discount-policy-provider.js';
 export type {
   FinancialTransactionTaxPolicy,

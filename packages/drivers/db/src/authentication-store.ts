@@ -1,5 +1,6 @@
 import {
   AUTH_POLICY,
+  permissionAlternatives,
   type AuthenticationCompletion,
   type AuthenticationRecord,
   type AuthenticationStore,
@@ -7,6 +8,7 @@ import {
   type Clock,
   type ExecutionContext,
   type OperatorGrantState,
+  type RequiredPermission,
   type SessionPrincipal
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
@@ -381,8 +383,11 @@ export class SqliteAuthorizationService implements AuthorizationService {
     private readonly clock: Clock = { now: () => new Date() }
   ) {}
 
-  async authorize(context: ExecutionContext, permission: string): Promise<boolean> {
-    return this.store.hasPermission(context.actorId, permission, this.clock.now());
+  /** Cualquiera de las alternativas basta: es una decisión, no varias. */
+  async authorize(context: ExecutionContext, permission: RequiredPermission): Promise<boolean> {
+    const now = this.clock.now();
+    return permissionAlternatives(permission)
+      .some((code) => this.store.hasPermission(context.actorId, code, now));
   }
 }
 

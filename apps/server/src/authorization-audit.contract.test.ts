@@ -205,6 +205,41 @@ describe('audited authorization decisions', () => {
     expect(rows[0]?.action).toBe('AUTHORIZATION_DENIED');
   });
 
+  it('does not audit a denial for a decision that another permission authorizes', async () => {
+    /** Administra roles y no operadores: el directorio es suyo de todos modos. */
+    const { app, runtime, cookie } = await setup(without('identity.user.manage'));
+
+    const directory = await app.inject({
+      method: 'GET', url: '/api/v1/identity', headers: { cookie }
+    });
+
+    expect(directory.statusCode, directory.body).toBe(200);
+    /** El permiso que no tiene no es una decisión negada: nunca se le negó nada. */
+    expect(auditRows(runtime)).toEqual([]);
+  });
+
+  it('records one denial when no permission of the decision authorizes it', async () => {
+    const { app, runtime, cookie } = await setup(
+      without('identity.user.manage', 'identity.role.manage')
+    );
+
+    const directory = await app.inject({
+      method: 'GET', url: '/api/v1/identity',
+      headers: { cookie, 'x-correlation-id': 'correlation-directory-001' }
+    });
+
+    expect(directory.statusCode).toBe(403);
+    const rows = auditRows(runtime);
+    /** Una decisión, una entrada, con las alternativas que habrían bastado. */
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      action: 'AUTHORIZATION_DENIED',
+      entity_type: 'Permission',
+      entity_id: 'identity.user.manage|identity.role.manage',
+      correlation_id: 'correlation-directory-001'
+    });
+  });
+
   it('does not audit a granted decision', async () => {
     const { app, runtime, cookie } = await setup(ADMIN_PERMISSIONS);
     const response = await app.inject({

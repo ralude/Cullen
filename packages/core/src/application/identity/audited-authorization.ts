@@ -1,10 +1,12 @@
 import type { ExecutionContext } from '../execution-context.js';
+import { permissionAlternatives } from '../ports/index.js';
 import type {
   AuditEntry,
   AuditWriter,
   AuthorizationService,
   Clock,
   IdGenerator,
+  RequiredPermission,
   TransactionState,
   UnitOfWork
 } from '../ports/index.js';
@@ -40,9 +42,9 @@ export class AuditedAuthorizationService implements AuthorizationService {
     private readonly clock: Clock
   ) {}
 
-  async authorize(context: ExecutionContext, permission: string): Promise<boolean> {
+  async authorize(context: ExecutionContext, permission: RequiredPermission): Promise<boolean> {
     if (await this.inner.authorize(context, permission)) return true;
-    const entry = this.denial(context, permission);
+    const entry = this.denial(context, permissionAlternatives(permission));
     if (this.transaction.isActive) {
       this.deferred.push(entry);
       return false;
@@ -57,17 +59,24 @@ export class AuditedAuthorizationService implements AuthorizationService {
     await this.persist(this.deferred.splice(0));
   }
 
-  private denial(context: ExecutionContext, permission: string): AuditEntry {
+  /**
+   * Una decisión, una entrada. Con alternativas, la evidencia nombra todas las
+   * que habrían bastado: ninguna se cumplió, y registrar una por cada consulta
+   * contaría varias denegaciones donde solo hubo una.
+   */
+  private denial(context: ExecutionContext, alternatives: readonly string[]): AuditEntry {
     return {
       auditId: this.auditIdGenerator.generate(),
       actorId: context.actorId,
       actorRoleCodes: context.actorRoleCodes ?? [],
       action: AUTHORIZATION_DENIED_ACTION,
       entityType: 'Permission',
-      entityId: permission,
+      entityId: alternatives.join('|'),
       before: null,
       after: { granted: false },
-      reason: `Actor lacks the required permission: ${permission}.`,
+      reason: alternatives.length === 1
+        ? `Actor lacks the required permission: ${alternatives[0]}.`
+        : `Actor lacks every permission that could authorize it: ${alternatives.join(', ')}.`,
       terminalId: context.terminalId,
       originNodeId: context.originNodeId,
       occurredAt: this.clock.now(),
