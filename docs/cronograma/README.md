@@ -28,15 +28,20 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 16B | [Sistema de diseño propio](./fase-16b-sistema-diseno/README.md) | Planificada; post-MVP, sin iniciar |
 | 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
-**Hito actual:** [release open source `v0.1.0`](./release-v0.1-portafolio/README.md), planificado
-como código fuente y demo reproducible en `SIMULACION`, sin hardware fiscal ni publicación de un
-MSI sin firma. Sus cinco etapas son alcance, CI remoto, demo limpia, documentación y publicación.
+**Hito actual:** [release open source `v0.1.0`](./release-v0.1-portafolio/README.md), en ejecución
+desde el 2026-09-09 como código fuente y demo reproducible en `SIMULACION`, sin hardware fiscal ni
+publicación de un MSI sin firma. Sus cinco etapas son alcance, CI remoto, demo limpia,
+documentación y publicación:
+[V0.1.00](./release-v0.1-portafolio/0-alcance-y-verdad.md) cerró el 2026-09-09 y
+[V0.1.01](./release-v0.1-portafolio/1-ci-reproducible.md) está en curso.
 Fase 11 entregó sus cinco sub-fases y la
 [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió
-trece hallazgos, cada uno con su prueba. En la verificación más reciente `pnpm lint` y
-`pnpm typecheck` aprobaron; `pnpm test` aprobó 1.210 de 1.212 pruebas en 191 archivos y las dos
-restantes no pudieron completar la emisión TLS porque el host no tiene OpenSSL. Resolver esa
-dependencia reproducible pertenece a V0.1.01.
+trece hallazgos, cada uno con su prueba. En la verificación local del 2026-09-09 aprobaron
+`pnpm lint`, `pnpm typecheck`, `pnpm test` —1.212 de 1.212 pruebas en 191 archivos— y
+`pnpm build:artifacts`. Las tres pruebas de `generate-lan-material.test.ts` que antes quedaban
+sin completar la emisión TLS pasan cuando el intérprete alcanza `openssl` en su `PATH`; el
+diagnóstico anterior atribuía al host una carencia que era del entorno de ejecución. Reproducir
+ese pipeline en un runner remoto, y no en la máquina del autor, sigue perteneciendo a V0.1.01.
 
 Fase 12 comienza después de publicar `v0.1.0`: 12.01–12.03 y 12.05 preparan una versión
 posterior; 12.04 continúa suspendida con Fase 8. La

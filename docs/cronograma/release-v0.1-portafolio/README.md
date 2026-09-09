@@ -1,6 +1,6 @@
 # Release v0.1 de portafolio
 
-- **Estado:** Planificado el 2026-09-09; ejecución pendiente.
+- **Estado:** En ejecución desde el 2026-09-09. V0.1.00 cerrada; V0.1.01 en curso.
 - **Tipo:** hito transversal de publicación, no una fase funcional nueva.
 - **Distribución inicial:** código fuente mediante GitHub y tag `v0.1.0`; no se publica un MSI
   sin firma.
@@ -20,7 +20,7 @@ siguen siendo obligatorios antes de operar en un comercio real.
 
 ## Etapas obligatorias
 
-1. [V0.1.00 — Alcance y fuentes de verdad](./0-alcance-y-verdad.md).
+1. ~~[V0.1.00 — Alcance y fuentes de verdad](./0-alcance-y-verdad.md)~~ — cerrada el 2026-09-09.
 2. [V0.1.01 — CI reproducible](./1-ci-reproducible.md).
 3. [V0.1.02 — Demo en entorno limpio](./2-demo-en-entorno-limpio.md).
 4. [V0.1.03 — Documentación de portafolio](./3-documentacion-portafolio.md).
