@@ -449,6 +449,8 @@ tests/              pruebas de fronteras arquitectónicas sobre la configuració
 | [`docs/operacion/`](./docs/operacion/operacion-diaria.md)                    | Runbooks de operación: jornada diaria, instalación de estación, respaldo, material LAN y rotación |
 | [`packaging/README.md`](./packaging/README.md)                               | Empaquetado del nodo: servicio de Windows, MSI y prerrequisitos del host de construcción   |
 | [`AGENTS.md`](./AGENTS.md)                                                   | Reglas operativas del proyecto — fuente única para colaboradores humanos y agentes de IA   |
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                       | Cómo preparar el entorno, qué checks exige un cambio y cómo se escriben commits y PRs      |
+| [`SECURITY.md`](./SECURITY.md)                                               | Canal privado para reportar una vulnerabilidad y los límites de seguridad ya declarados    |
 
 ---
 
