@@ -1,9 +1,57 @@
+/**
+ * Tipografias empaquetadas, no pedidas a un CDN: una terminal sin internet
+ * debe verse igual que una conectada. Ver `fonts/OFL.md`.
+ */
+@font-face {
+  font-family: Manrope;
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: block;
+  src: url("./fonts/manrope-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: block;
+  src: url("./fonts/jetbrains-mono-latin.woff2") format("woff2");
+}
+
 :root {
+  --font-sans: Manrope, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
+
   color: #17231d;
   background: #f4f6f2;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+/**
+ * Todo lo que sea una cifra comparable —importes, cantidades, contadores— usa
+ * cifras tabulares: en una columna de dinero las unidades tienen que caer
+ * exactamente una debajo de la otra o el ojo no puede sumar de un vistazo.
+ */
+.amount,
+.totals dd,
+.total-figure,
+td,
+th,
+kbd,
+code,
+input[inputmode="decimal"],
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/** Identificadores, seriales y codigos de barras: nunca confundir 0 con O. */
+.mono,
+code,
+kbd {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero" 1;
 }
 
 * { box-sizing: border-box; }
@@ -27,28 +75,10 @@ input:focus-visible {
   outline-offset: 3px;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand-mark {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border-radius: 12px;
-  background: #e2a619;
-  color: #17231d;
-  font-size: 0.8rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-}
-
-.brand span:last-child { display: grid; }
-.brand strong { font-size: 0.95rem; }
-.brand small { color: #7d8b82; font-size: 0.72rem; }
+/** El nombre es la marca: sin monograma que compita con el. */
+.brand { display: grid; gap: 2px; }
+.brand strong { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+.brand small { color: #7d8b82; font-size: 0.72rem; letter-spacing: 0.02em; }
 
 .eyebrow {
   margin: 0 0 8px;
@@ -95,49 +125,54 @@ input:focus-visible {
   background: #fff0d7;
   color: #8e5b00;
   font-size: 1.4rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .access-page {
   display: grid;
-  min-height: 100vh;
-  grid-template-columns: minmax(320px, 1fr) minmax(360px, 480px);
+  height: 100dvh;
+  min-height: 640px;
+  grid-template-columns: minmax(300px, 1fr) minmax(340px, 440px);
   align-items: center;
-  gap: 8vw;
-  padding: clamp(32px, 7vw, 96px);
+  gap: clamp(32px, 6vw, 88px);
+  padding: clamp(24px, 4.5vh, 64px) clamp(28px, 5vw, 80px);
+  overflow: hidden;
   background: #163d2f;
   color: #f5f8f6;
 }
 
 .access-intro { max-width: 620px; }
-.access-intro .brand { margin-bottom: clamp(72px, 12vh, 140px); }
+.access-intro .brand { margin-bottom: clamp(28px, 7vh, 88px); }
 .access-intro .brand small { color: #a8bcb2; }
 .access-intro .eyebrow { color: #b8d2c5; }
 .access-intro h1 {
-  max-width: 10ch;
+  max-width: 12ch;
   margin: 0;
-  font-size: clamp(3rem, 7vw, 6.5rem);
-  letter-spacing: -0.065em;
-  line-height: 0.92;
+  font-size: clamp(2.25rem, 5vw + 0.5rem, 4.75rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
 }
 .access-intro > p:not(.eyebrow) {
-  max-width: 48ch;
-  margin: 28px 0;
+  max-width: 46ch;
+  margin: clamp(14px, 2.5vh, 26px) 0;
   color: #c7d7cf;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .login-card {
   display: grid;
-  gap: 24px;
-  padding: clamp(28px, 5vw, 48px);
-  border-radius: 24px;
+  max-height: 100%;
+  gap: clamp(14px, 2.4vh, 22px);
+  overflow-y: auto;
+  padding: clamp(24px, 3.4vh, 40px) clamp(24px, 3vw, 40px);
+  border-radius: 20px;
   background: #ffffff;
   color: #17231d;
   box-shadow: 0 28px 80px rgb(4 26 18 / 28%);
 }
 
-.login-card h2 { margin: 0; font-size: 2rem; }
+.login-card h2 { margin: 0; font-size: clamp(1.5rem, 2.4vh + 0.6rem, 1.9rem); letter-spacing: -0.03em; }
 .login-card label { display: grid; gap: 8px; font-weight: 750; }
 .login-card input {
   width: 100%;
@@ -183,8 +218,8 @@ input:focus-visible {
 
 .login-alternative {
   display: grid;
-  gap: 12px;
-  padding-top: 20px;
+  gap: 10px;
+  padding-top: clamp(12px, 2vh, 18px);
   border-top: 1px solid #dbe4de;
 }
 .login-alternative p { display: grid; gap: 4px; margin: 0; }
@@ -215,7 +250,7 @@ input:focus-visible {
   padding: 0 14px 4px;
   color: #8fb09f;
   font-size: 0.65rem;
-  font-weight: 850;
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -293,7 +328,7 @@ input:focus-visible {
   padding: 7px 10px;
   border-radius: 999px;
   font-size: 0.72rem;
-  font-weight: 850;
+  font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -336,7 +371,7 @@ input:focus-visible {
 .quick-action:hover { border-color: #1d6b4e; box-shadow: 0 10px 26px rgb(4 26 18 / 8%); }
 .quick-action strong { font-size: 1.08rem; }
 .quick-action small { color: #64736a; line-height: 1.5; }
-.quick-action-key { color: #718078; font-size: 0.66rem; font-weight: 850; letter-spacing: 0.09em; }
+.quick-action-key { color: #718078; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.09em; }
 
 .panel { display: grid; gap: 18px; padding: 24px; border: 1px solid #dce3de; border-radius: 16px; background: #fff; }
 .panel h3, .panel h4 { margin: 0; }
@@ -378,7 +413,7 @@ input:focus-visible {
   place-items: center;
   border-radius: 50%;
   font-size: 0.72rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 .feedback.form-error .feedback-icon { background: #982d22; color: #fff0ee; }
 .feedback.form-success .feedback-icon { background: #15563e; color: #e4f4eb; }
@@ -459,8 +494,15 @@ td small { margin-top: 3px; color: #718078; }
 }
 
 @media (max-width: 720px) {
-  .access-page { grid-template-columns: 1fr; }
-  .access-intro .brand { margin-bottom: 56px; }
+  /** Apilada ya no cabe en una pantalla: ahi si se permite desplazar. */
+  .access-page {
+    height: auto;
+    min-height: 100dvh;
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+  .login-card { max-height: none; overflow-y: visible; }
+  .access-intro .brand { margin-bottom: 32px; }
   .app-shell { height: auto; min-height: 100vh; grid-template-columns: 1fr; }
   .sidebar { overflow-y: visible; }
   .sidebar nav { grid-template-columns: repeat(2, 1fr); }

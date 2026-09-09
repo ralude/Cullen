@@ -285,8 +285,8 @@ type AppViewProps = {
 
 const Brand = (): React.JSX.Element => (
   <div className="brand" aria-label={PRODUCT_NAME}>
-    <span className="brand-mark" aria-hidden="true">CU</span>
-    <span><strong>{PRODUCT_NAME}</strong><small>Punto de venta</small></span>
+    <strong>{PRODUCT_NAME}</strong>
+    <small>Punto de venta</small>
   </div>
 );
 

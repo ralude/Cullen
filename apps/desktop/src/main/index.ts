@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import { join } from 'node:path';
 
 /** Nombre comercial del sistema, visible en la ventana nativa. */
@@ -37,6 +37,7 @@ const unreachableNodePage = (url: string): string => `data:text/html;charset=utf
 const createWindow = (): void => {
   const window = new BrowserWindow({
     title: PRODUCT_NAME,
+    autoHideMenuBar: true,
     width: 1200,
     height: 800,
     minWidth: 960,
@@ -67,6 +68,13 @@ const createWindow = (): void => {
 };
 
 void app.whenReady().then(() => {
+  /**
+   * El menu por defecto de Electron ofrece Archivo, Ver, Ventana y sus atajos
+   * de recarga y devtools. Nada de eso pertenece a una caja: la terminal se
+   * opera desde su propia navegacion, y una recarga accidental a mitad de un
+   * cobro no es una funcion, es un riesgo.
+   */
+  Menu.setApplicationMenu(null);
   createWindow();
 
   app.on('activate', () => {
