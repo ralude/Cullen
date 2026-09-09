@@ -99,8 +99,9 @@ El instalable es un **MSI construido con WiX Toolset**. Sus responsabilidades:
    `CREATOR OWNER` y `NT SERVICE\CullenNode`— que es la que `assertProtectedDirectory` verifica
    en cada arranque. El nodo no confía en que se aplicó: la comprueba y falla cerrado.
 3. Registrar el servicio (`ServiceInstall`/`ServiceControl`) con arranque automático.
-4. Agendar la **tarea de respaldo operativo** (D7) como respaldo de la cadencia en proceso.
-5. Instalar los accesos directos de la ventana Electron.
+4. Instalar los accesos directos de la ventana Electron.
+
+El MSI **no** agenda una tarea de respaldo: la cadencia vive dentro del servicio (D7).
 
 El MSI **no** coloca `node-identity.json`. La identidad del nodo se genera en el primer arranque
 o con `bootstrap-admin`, para que el mismo MSI sirva a cualquier terminal sin materializar una
@@ -140,9 +141,13 @@ El respaldo operativo periódico —distinto del de migración— se conserva co
 procedimiento admite además una copia a una ruta externa que el operador indique. Es
 independiente de las cinco copias de migración de ADR-0029 D8, que no se tocan.
 
-La cadencia la ejecuta el propio servicio con un temporizador en proceso; la tarea de Windows
-del MSI es el respaldo ante un servicio caído. El ensayo de restauración con datos
-representativos está automatizado.
+La cadencia desatendida la ejecuta **el propio servicio**, en el proceso dueño de SQLite, a una
+hora local declarada (`OPERATIONAL_BACKUP_HOUR`, 03:00 por omisión). No se agenda una tarea de
+Windows paralela: una herramienta externa que abriera la base reclamaría su propiedad y
+chocaría con `DATABASE_NODE_LOCKED`, que existe para impedir dos procesos dueños del mismo
+archivo. El **CLI de respaldo** cubre la copia a petición y el ensayo de restauración con el
+servicio detenido, igual que la rotación de material protegido. El ensayo de restauración con
+datos representativos está automatizado.
 
 ### D8. Firma de ejecutables: diferida
 

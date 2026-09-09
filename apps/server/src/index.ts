@@ -16,6 +16,11 @@ import {
   sealLegacyMigrationBackups
 } from './node-storage.ts';
 import { runNodeStartupMaintenance } from './node-maintenance.ts';
+import {
+  OperationalBackupScheduler,
+  readOperationalBackupPolicy,
+  runOperationalBackup
+} from './operational-backup.ts';
 import { createSecurityRuntime } from './runtime.ts';
 import { resolveOperatorHost } from './session-transport.ts';
 import { createDestinationRelays, fixedDestination } from './sync/destination-relays.ts';
@@ -31,6 +36,8 @@ import { SyncWorker } from './sync/sync-worker.ts';
 const host = resolveOperatorHost();
 const port = Number.parseInt(process.env.SERVER_PORT ?? '3000', 10);
 const nodeIdentity = loadNodeIdentity(process.env.NODE_IDENTITY_PATH);
+/** Una política de respaldo inválida aborta aquí, no la noche que toca correr. */
+const backupPolicy = readOperationalBackupPolicy();
 
 /**
  * Perímetro protegido, clave del nodo y actualización recuperable, en ese
@@ -75,6 +82,50 @@ const runtime = createSecurityRuntime(
   remoteApplicationProbe
 );
 const app = buildApp(runtime.dependencies);
+
+/**
+ * Cadencia desatendida del respaldo operativo (ADR-0030 D7). Corre en el
+ * proceso dueño de SQLite, que es el único que puede tomar una copia
+ * consistente sin disputar la propiedad del archivo.
+ */
+const backupScheduler = new OperationalBackupScheduler({
+  policy: backupPolicy,
+  run: () => {
+    const result = runOperationalBackup({
+      sqlite: runtime.handle.sqlite,
+      storage,
+      policy: backupPolicy,
+      protection: materialProtection
+    });
+    app.log.info({
+      ...technicalLogContext({
+        service: 'supermarket-server',
+        module: 'storage',
+        correlationId: 'operational-backup',
+        actorId: nodeIdentity.originNodeId,
+        terminalId: nodeIdentity.terminalId,
+        originNodeId: nodeIdentity.originNodeId,
+        operation: 'OPERATIONAL_BACKUP'
+      }),
+      weekly: result.weeklyPath !== undefined,
+      external: result.externalPath !== undefined
+    }, 'Operational backup completed');
+  },
+  onError: (error) => {
+    app.log.error({
+      ...technicalLogContext({
+        service: 'supermarket-server',
+        module: 'storage',
+        correlationId: 'operational-backup',
+        actorId: nodeIdentity.originNodeId,
+        terminalId: nodeIdentity.terminalId,
+        originNodeId: nodeIdentity.originNodeId,
+        operation: 'OPERATIONAL_BACKUP',
+        errorCode: error instanceof Error && 'code' in error ? String(error.code) : 'UNKNOWN'
+      })
+    }, 'Operational backup failed');
+  }
+});
 
 /**
  * El listener técnico de LAN se compone en el mismo proceso dueño de SQLite.
@@ -196,6 +247,7 @@ const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   app.log.info({ signal }, 'Shutting down server');
 
   try {
+    backupScheduler.stop();
     await worker?.stop();
     await syncApp?.close();
     await app.close();
@@ -227,8 +279,11 @@ try {
         : { destinations: 'registro confiable' })
     }, 'LAN sync worker started');
   }
+  backupScheduler.start();
+  app.log.info({ hour: backupPolicy.hour }, 'Operational backup scheduled');
 } catch (error) {
   app.log.error({ err: error }, 'Server startup failed');
+  backupScheduler.stop();
   await worker?.stop();
   await syncApp?.close();
   await app.close();

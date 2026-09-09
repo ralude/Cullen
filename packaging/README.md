@@ -14,7 +14,7 @@ con el runbook [`docs/operacion/instalacion-estacion.md`](../docs/operacion/inst
 | Ruta | Qué es |
 | --- | --- |
 | `winsw/CullenNode.xml` | Configuración del supervisor del servicio (WinSW): ejecutable, entorno, reinicio y rotación de logs. |
-| `wix/Cullen.wxs` | Proyecto WiX: componentes, servicio, ACL del directorio de datos y tarea de respaldo. |
+| `wix/Cullen.wxs` | Proyecto WiX: componentes, servicio y ACL del directorio de datos. |
 | `wix/config/node.env.example` | Plantilla de variables por instalación (LAN, TLS, coordinador). Se copia a `%ProgramData%\Cullen\node.env` y se completa por sitio. |
 
 ## Prerrequisitos del host de construcción
@@ -61,9 +61,12 @@ sellado de tiempo) sigue abierto en el [gate de piloto](../docs/cronograma/gate-
    — exactamente la ACL que `assertProtectedDirectory`
    (`packages/drivers/security/src/data-directory.ts`) verifica en cada arranque.
 3. Registra el servicio `CullenNode` (arranque automático, cuenta `NT SERVICE\CullenNode`).
-4. Agenda la tarea `Cullen\RespaldoOperativo` que invoca `node.exe server\backup.js` a diario,
-   como respaldo de la cadencia en proceso del servicio.
-5. Instala los accesos directos de la ventana Electron.
+4. Instala los accesos directos de la ventana Electron.
+
+No agenda ninguna tarea de respaldo: la cadencia diaria vive dentro del servicio (ADR-0030 D7),
+que es el proceso dueño de SQLite. El respaldo a petición y el ensayo de restauración se hacen
+con `node.exe server\backup.js` **con el servicio detenido** —ver
+[`docs/operacion/respaldo-operativo.md`](../docs/operacion/respaldo-operativo.md)—.
 
 No coloca `node-identity.json`: la identidad la genera el primer arranque del servicio o
 `bootstrap-admin`. La provisión del primer administrador y el material TLS de LAN son pasos del

@@ -12,7 +12,8 @@
 
   Responsabilidades: copiar binarios; crear %ProgramData%\Cullen\* con la ACL que
   assertProtectedDirectory verifica; registrar el servicio CullenNode bajo la cuenta de
-  servicio virtual; agendar el respaldo operativo; instalar los accesos directos de la ventana.
+  servicio virtual; instalar los accesos directos de la ventana. La cadencia del respaldo
+  operativo vive dentro del servicio (ADR-0030 D7), no en una tarea programada.
   No coloca node-identity.json ni material TLS.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
@@ -137,22 +138,8 @@
     <CustomAction Id="HardenDataDir" DllEntry="WixQuietExec64" Execute="deferred"
                   Impersonate="no" Return="check" BinaryRef="Wix4UtilCA_X64" />
 
-    <SetProperty Id="ScheduleBackup"
-                 Value="&quot;[System64Folder]schtasks.exe&quot; /create /f /tn &quot;Cullen\RespaldoOperativo&quot; /tr &quot;\&quot;[RuntimeDir]node.exe\&quot; \&quot;[ServerDir]backup.js\&quot;&quot; /sc daily /st 03:30 /ru &quot;NT SERVICE\CullenNode&quot; /rl LIMITED"
-                 Before="ScheduleBackup" Sequence="execute" />
-    <CustomAction Id="ScheduleBackup" DllEntry="WixQuietExec64" Execute="deferred"
-                  Impersonate="no" Return="ignore" BinaryRef="Wix4UtilCA_X64" />
-
-    <SetProperty Id="RemoveBackupTask"
-                 Value="&quot;[System64Folder]schtasks.exe&quot; /delete /f /tn &quot;Cullen\RespaldoOperativo&quot;"
-                 Before="RemoveBackupTask" Sequence="execute" />
-    <CustomAction Id="RemoveBackupTask" DllEntry="WixQuietExec64" Execute="deferred"
-                  Impersonate="no" Return="ignore" BinaryRef="Wix4UtilCA_X64" />
-
     <InstallExecuteSequence>
       <Custom Action="HardenDataDir" After="CreateFolders" Condition="NOT REMOVE" />
-      <Custom Action="ScheduleBackup" After="InstallServices" Condition="NOT REMOVE" />
-      <Custom Action="RemoveBackupTask" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
     </InstallExecuteSequence>
 
   </Package>

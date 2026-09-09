@@ -19,7 +19,7 @@ rmSync(outdir, { recursive: true, force: true });
 
 await build({
   absWorkingDir: root,
-  entryPoints: ['src/index.ts'],
+  entryPoints: ['src/index.ts', 'src/backup.ts'],
   outdir: 'dist',
   bundle: true,
   platform: 'node',
