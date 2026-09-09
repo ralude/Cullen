@@ -1,7 +1,7 @@
 # Registro de auditoría de cierre — 2026-09-09
 
 - **Fase relacionada:** Fase 11 — Seguridad
-- **Estado:** los once hallazgos quedaron corregidos el 2026-09-09, cada uno con su prueba. No
+- **Estado:** los trece hallazgos quedaron corregidos el 2026-09-09, cada uno con su prueba. No
   queda ninguno abierto por esta auditoría
 - **Alcance:** revisión focal de los recorridos que la Fase 11 declara cerrados —enrolamiento y
   revocación de credenciales, protección de datos en reposo, transporte de sesión, redacción y
@@ -10,23 +10,26 @@
 
 ## Resultado ejecutivo
 
-La auditoría abrió once hallazgos y los once quedaron cerrados el mismo día. Los cuatro de
+La auditoría abrió trece hallazgos y los trece quedaron cerrados el mismo día. Los cuatro de
 prioridad alta afectaban garantías que la fase declaraba cumplidas: la revocación de una concesión
 dejaba de aplicarse después del primer enrolamiento, la rotación de claves podía destruir material
 sin evidencia, el diagnóstico podía bloquearse minutos justo cuando el coordinador está caído y el
 almacén de claves se sobrescribía sin publicación atómica.
 
-Los seis P2 y el P3 no destruían ni exponían material por sí solos, pero contradecían contratos
+Los seis P2 y los tres P3 no destruían ni exponían material por sí solos, pero contradecían contratos
 declarados —el estado `NEEDS_ENROLLMENT` de ADR-0028, el aislamiento por destino, los códigos de
-error estables, la higiene de secretos en memoria y en logs, y la evidencia de autorización—.
+error estables, la higiene de secretos en memoria y en logs, la evidencia de autorización y la
+claridad operativa del acceso alternativo—.
 
 Cerrar esta auditoría no certifica la Fase 11 por sí solo: la certificación sigue dependiendo del
 criterio de salida de la fase y del gate de piloto, que conserva sus propias deudas abiertas.
 
 ## Evidencia de la auditoría
 
-- `pnpm lint`, `pnpm typecheck` y `pnpm test`: aprobados el 2026-09-09 con 1.210 pruebas en 191
-  archivos, ya con las once correcciones aplicadas.
+- `pnpm lint` y `pnpm typecheck`: aprobados el 2026-09-09 con las trece correcciones aplicadas.
+- `pnpm test`: 1.210 de 1.212 pruebas aprobadas en 191 archivos. Las dos pruebas de
+  `generate-lan-material.test.ts` no pudieron ejecutarse porque el host no tiene OpenSSL; ambas son
+  ajenas al renderer. La suite de `@supermarket/desktop` quedó aprobada: 117 pruebas en 16 archivos.
 - Cada corrección incorpora la prueba que reproduce el defecto y falla sin el fix.
 
 ## Hallazgos corregidos
@@ -160,6 +163,28 @@ criterio de salida de la fase y del gate de piloto, que conserva sus propias deu
   another permission authorizes» y «records one denial when no permission of the decision
   authorizes it»; `audited-authorization.test.ts`, «records one denial for a decision that several
   permissions could authorize». Commit `a332608`.
+
+### P3-12. El acceso por enrolamiento conservaba la apariencia nativa del navegador
+
+- **Evidencia:** la acción «Tengo un código de enrolamiento» no tenía estilo propio ni contexto;
+  aparecía como un control gris del navegador debajo del botón principal y no expresaba su
+  jerarquía secundaria dentro de la tarjeta de ingreso.
+- **Cierre:** el acceso alternativo queda agrupado después de un separador, con una pregunta breve,
+  una explicación de su resultado y un botón secundario consistente con el lenguaje visual de la
+  pantalla.
+- **Prueba:** `identity-screen.interaction.test.tsx`, «presenta el enrolamiento como una acción
+  secundaria explicada». Commit `409e3b9`.
+
+### P3-13. El enrolamiento añadía un segundo formulario sin anticipar el cambio de contexto
+
+- **Evidencia:** al accionar el control, la pantalla conservaba el formulario de ingreso y añadía
+  el de enrolamiento como un tercer hijo de la grilla. El operador quedaba ante dos formularios
+  competidores y el control no advertía que abriría otro recorrido.
+- **Cierre:** la explicación ahora anticipa que se abrirá otro formulario; al continuar, el
+  enrolamiento reemplaza al ingreso en la misma posición, enfoca el código de un solo uso y ofrece
+  «Volver al ingreso». Nunca hay más de un formulario activo.
+- **Prueba:** `identity-screen.interaction.test.tsx`, «sustituye el ingreso por el enrolamiento y
+  permite volver», además de los recorridos de canje válido y código vencido. Commit `409e3b9`.
 
 ## Regla de seguimiento
 
