@@ -8,11 +8,24 @@ import type {
   OperationalDiagnosticsReader,
   OperationalTraceRecord,
   RemoteApplicationProbe,
+  RemoteApplicationState,
   SaleEffectRecord
 } from '../ports/index.js';
 import { SYNC_PERMISSIONS } from './permissions.js';
 
 const LIMIT = 50;
+
+/**
+ * Presupuesto total de las consultas al coordinador, no de cada una.
+ *
+ * Esta pantalla se abre justo cuando el coordinador no responde, y ahí cada
+ * consulta agota su propio timeout de transporte: preguntar por cada venta
+ * publicada convertiría el diagnóstico en una espera de minutos. Pasado el
+ * presupuesto, las ventas restantes se declaran `APPLICATION_UNKNOWN`, que es
+ * exactamente lo que significa no haber podido preguntar; ninguna cuenta como
+ * aplicada.
+ */
+const REMOTE_BUDGET_MILLISECONDS = 10_000;
 
 export type DeliveryDiagnosticDto = Omit<DeliveryDiagnosticRecord,
   'nextAttemptAt' | 'leaseUntil' | 'publishedAt' | 'occurredAt'> & {
@@ -117,13 +130,12 @@ export class GetOperationalDiagnostics {
     const now = this.clock.now();
     const deliveries = await this.reader.listDeliveries(destinationNodeId, LIMIT);
     const effects = await this.reader.listSaleEffects(destinationNodeId, LIMIT);
+    const deadline = now.getTime() + REMOTE_BUDGET_MILLISECONDS;
     const attention: SaleAttentionDto[] = [];
     for (const effect of effects) {
       let state = localState(effect);
       if (effect.kind === 'OUTGOING' && effect.state === 'PUBLISHED') {
-        const remote = this.remoteApplication === undefined
-          ? 'UNKNOWN'
-          : await this.remoteApplication.applicationOf(effect.eventId);
+        const remote = await this.remoteState(effect.eventId, deadline);
         state = remote === 'APPLIED'
           ? null
           : remote === 'DISCREPANCY'
@@ -169,5 +181,19 @@ export class GetOperationalDiagnostics {
         }))
       }
     });
+  }
+
+  /**
+   * Sin sonda o con el presupuesto agotado no se pregunta. El reloj se lee
+   * antes de cada consulta: lo que consume el presupuesto es la espera real de
+   * las anteriores, no una estimación.
+   */
+  private async remoteState(
+    eventId: string,
+    deadline: number
+  ): Promise<RemoteApplicationState> {
+    if (this.remoteApplication === undefined) return 'UNKNOWN';
+    if (this.clock.now().getTime() >= deadline) return 'UNKNOWN';
+    return this.remoteApplication.applicationOf(eventId);
   }
 }

@@ -96,6 +96,46 @@ describe('diagnóstico operativo correlacionado', () => {
     expect(result.value.trace).toEqual({ events: [], outbox: [], deliveries: [], audits: [] });
   });
 
+  it('acota lo que espera al coordinador y no confunde no preguntar con aplicado', async () => {
+    const effects = [
+      effect('first', 'OUTGOING', 'PUBLISHED'),
+      effect('second', 'OUTGOING', 'PUBLISHED'),
+      effect('third', 'OUTGOING', 'PUBLISHED')
+    ];
+    const reader: OperationalDiagnosticsReader = {
+      listDeliveries: async () => [],
+      listSaleEffects: async () => effects,
+      trace: async () => ({ events: [], outbox: [], deliveries: [], audits: [] })
+    };
+    /** Coordinador caído: cada consulta agota seis segundos antes de responder. */
+    const asked: string[] = [];
+    let instant = now.getTime();
+    const remote = {
+      applicationOf: async (eventId: string) => {
+        asked.push(eventId);
+        return 'PENDING' as const;
+      }
+    };
+    const useCase = new GetOperationalDiagnostics(
+      reader,
+      { authorize: async () => true },
+      { now: () => { const value = new Date(instant); instant += 6_000; return value; } },
+      remote
+    );
+
+    const result = await useCase.execute({ destinationNodeId: 'coordinator' }, context);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    /** Una sola consulta cabe en el presupuesto; las demás no se preguntan. */
+    expect(asked).toEqual(['first']);
+    expect(result.value.salesAttention.map(({ eventId, state }) => [eventId, state])).toEqual([
+      ['first', 'APPLICATION_PENDING'],
+      ['second', 'APPLICATION_UNKNOWN'],
+      ['third', 'APPLICATION_UNKNOWN']
+    ]);
+  });
+
   it('autoriza antes de leer y valida la correlación', async () => {
     let reads = 0;
     const reader: OperationalDiagnosticsReader = {
