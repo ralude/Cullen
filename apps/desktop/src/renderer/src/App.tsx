@@ -373,45 +373,58 @@ export const AppView = ({
           <p>Usa tu código de operador y PIN. La sesión permanece protegida en una cookie local.</p>
           <span className="simulation-label">Fiscal · SIMULACIÓN</span>
         </section>
-        <form className="login-card" onSubmit={onLogin}>
-          <div>
-            <p className="eyebrow">Acceso operativo</p>
-            <h2>Identificación</h2>
-          </div>
-          <label>
-            Código de operador
-            <input
-              name="operatorCode"
-              value={operatorCode}
-              onChange={(event) => onOperatorCodeChange(event.target.value)}
-              autoComplete="username"
-              maxLength={64}
-              required
-              autoFocus
-            />
-          </label>
-          <label>
-            PIN
-            <input
-              name="pin"
-              type="password"
-              inputMode="numeric"
-              pattern="[0-9]{6,12}"
-              minLength={6}
-              maxLength={12}
-              value={pin}
-              onChange={(event) => onPinChange(event.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </label>
-          {state.message && <p className="form-error" role="alert">{state.message}</p>}
-          <button className="primary-button" type="submit">Ingresar</button>
-          <button type="button" onClick={onToggleEnrollment}>
-            {showsEnrollment ? 'Volver al ingreso' : 'Tengo un código de enrolamiento'}
-          </button>
-        </form>
-        {showsEnrollment && <CredentialEnrollmentPanel api={api} />}
+        {showsEnrollment
+          ? <CredentialEnrollmentPanel api={api} onBack={onToggleEnrollment} />
+          : (
+            <form className="login-card" onSubmit={onLogin}>
+              <div>
+                <p className="eyebrow">Acceso operativo</p>
+                <h2>Identificación</h2>
+              </div>
+              <label>
+                Código de operador
+                <input
+                  name="operatorCode"
+                  value={operatorCode}
+                  onChange={(event) => onOperatorCodeChange(event.target.value)}
+                  autoComplete="username"
+                  maxLength={64}
+                  required
+                  autoFocus
+                />
+              </label>
+              <label>
+                PIN
+                <input
+                  name="pin"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]{6,12}"
+                  minLength={6}
+                  maxLength={12}
+                  value={pin}
+                  onChange={(event) => onPinChange(event.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+              </label>
+              {state.message && <p className="form-error" role="alert">{state.message}</p>}
+              <button className="primary-button" type="submit">Ingresar</button>
+              <div className="login-alternative">
+                <p>
+                  <strong>¿Tienes un código de enrolamiento?</strong>
+                  <span>Abre otro formulario para crear tu PIN en esta terminal.</span>
+                </p>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={onToggleEnrollment}
+                >
+                  Usar código de enrolamiento
+                </button>
+              </div>
+            </form>
+          )}
       </main>
     );
   }

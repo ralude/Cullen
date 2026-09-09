@@ -120,7 +120,7 @@ export const MandatoryPinChange = (
  * iniciar sesión: su identidad existe, su credencial local no.
  */
 export const CredentialEnrollmentPanel = (
-  { api }: { readonly api: CredentialApi }
+  { api, onBack }: { readonly api: CredentialApi; readonly onBack: () => void }
 ): React.JSX.Element => {
   const [enrollmentToken, setEnrollmentToken] = useState('');
   const [pin, setPin] = useState('');
@@ -151,10 +151,14 @@ export const CredentialEnrollmentPanel = (
   };
 
   return (
-    <form className="login-card" onSubmit={(event) => { void submit(event); }}>
+    <form
+      className="login-card"
+      aria-labelledby="credential-enrollment-title"
+      onSubmit={(event) => { void submit(event); }}
+    >
       <div>
         <p className="eyebrow">Primer acceso</p>
-        <h2>Activar credencial</h2>
+        <h2 id="credential-enrollment-title">Activar credencial</h2>
       </div>
       <p className="muted">
         Escribe el código de un solo uso que te entregó quien autorizó tu enrolamiento y elige tu
@@ -164,6 +168,7 @@ export const CredentialEnrollmentPanel = (
         Código de enrolamiento
         <input
           name="enrollmentToken" required maxLength={128} autoComplete="one-time-code"
+          autoFocus
           value={enrollmentToken} onChange={(event) => setEnrollmentToken(event.target.value)}
         />
       </label>
@@ -190,6 +195,9 @@ export const CredentialEnrollmentPanel = (
       <ActionButton className="primary-button" type="submit" busy={busy} disabled={busy}>
         {busy ? 'Activando…' : 'Activar credencial'}
       </ActionButton>
+      <button className="secondary-button" type="button" onClick={onBack}>
+        Volver al ingreso
+      </button>
     </form>
   );
 };

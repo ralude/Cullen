@@ -322,15 +322,41 @@ describe('interacción del shell con la credencial local', () => {
     screen.unmount();
   });
 
+  it('presenta el enrolamiento como una acción secundaria explicada', async () => {
+    const screen = await mount(<App api={shellApi()} />);
+
+    const option = screen.get<HTMLElement>('.login-alternative');
+    expect(option.textContent).toContain('¿Tienes un código de enrolamiento?');
+    expect(option.textContent).toContain('Abre otro formulario para crear tu PIN');
+    expect(screen.button('Usar código de enrolamiento').classList).toContain('secondary-button');
+    screen.unmount();
+  });
+
+  it('sustituye el ingreso por el enrolamiento y permite volver', async () => {
+    const screen = await mount(<App api={shellApi()} />);
+
+    expect(screen.all('form')).toHaveLength(1);
+    await click(screen.button('Usar código de enrolamiento'));
+    expect(screen.all('form')).toHaveLength(1);
+    expect(screen.query('input[name="operatorCode"]')).toBeNull();
+    expect(screen.get<HTMLInputElement>('input[name="enrollmentToken"]')).toBe(document.activeElement);
+
+    await click(screen.button('Volver al ingreso'));
+    expect(screen.all('form')).toHaveLength(1);
+    expect(screen.get<HTMLInputElement>('input[name="operatorCode"]')).toBe(document.activeElement);
+    expect(screen.query('input[name="enrollmentToken"]')).toBeNull();
+    screen.unmount();
+  });
+
   it('canjea un código de enrolamiento desde la página de ingreso', async () => {
     const api = shellApi();
     const screen = await mount(<App api={api} />);
 
-    await click(screen.button('Tengo un código de enrolamiento'));
+    await click(screen.button('Usar código de enrolamiento'));
     await type(screen.get<HTMLInputElement>('input[name="enrollmentToken"]'), 'token-de-un-solo-uso');
     await type(screen.get<HTMLInputElement>('input[name="enrollmentPin"]'), '654321');
     await type(screen.get<HTMLInputElement>('input[name="repeatedEnrollmentPin"]'), '654321');
-    await submit(screen.all<HTMLFormElement>('form')[1]!);
+    await submit(screen.get<HTMLFormElement>('form'));
 
     expect(api.completeCredentialEnrollment).toHaveBeenCalledWith({
       enrollmentToken: 'token-de-un-solo-uso', pin: '654321'
@@ -347,11 +373,11 @@ describe('interacción del shell con la credencial local', () => {
     });
     const screen = await mount(<App api={api} />);
 
-    await click(screen.button('Tengo un código de enrolamiento'));
+    await click(screen.button('Usar código de enrolamiento'));
     await type(screen.get<HTMLInputElement>('input[name="enrollmentToken"]'), 'vencido');
     await type(screen.get<HTMLInputElement>('input[name="enrollmentPin"]'), '654321');
     await type(screen.get<HTMLInputElement>('input[name="repeatedEnrollmentPin"]'), '654321');
-    await submit(screen.all<HTMLFormElement>('form')[1]!);
+    await submit(screen.get<HTMLFormElement>('form'));
 
     expect(screen.text()).toContain('venció: pide uno nuevo');
     expect(screen.text()).toContain('Ingresar a');

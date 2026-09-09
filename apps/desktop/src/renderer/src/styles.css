@@ -169,6 +169,27 @@ input:focus-visible {
 }
 .primary-button:hover { background: #15563e; }
 
+.secondary-button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #9eb5a9;
+  border-radius: 10px;
+  background: #f5f9f6;
+  color: #1d6b4e;
+  font-weight: 800;
+  cursor: pointer;
+}
+.secondary-button:hover { border-color: #1d6b4e; background: #eaf3ed; }
+
+.login-alternative {
+  display: grid;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid #dbe4de;
+}
+.login-alternative p { display: grid; gap: 4px; margin: 0; }
+.login-alternative span { color: #577064; font-size: 0.9rem; line-height: 1.5; }
+
 .app-shell {
   display: grid;
   height: 100vh;
