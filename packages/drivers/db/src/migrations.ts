@@ -1,15 +1,16 @@
-import { createHash, randomUUID } from 'node:crypto';
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  statSync,
-  unlinkSync
-} from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { copyFileSync, existsSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { InfrastructureError } from '@supermarket/shared';
+import {
+  assertDatabaseIntegrity,
+  createDatabaseBackup,
+  migrationBackupPrefix,
+  pruneDatabaseBackups,
+  removeSidecars,
+  type BackupProtection
+} from './backup.js';
 import { openDatabase, type DatabaseHandle } from './connection.js';
 import { initialBusinessSchemaSql } from './migrations/0001-initial-business-schema.js';
 import { businessEventLedgerSql } from './migrations/0002-business-event-ledger.js';
@@ -313,34 +314,12 @@ export const applyMigrations = (
   return applied;
 };
 
-const validateDatabase = (sqlite: Database.Database): void => {
-  const integrity = sqlite.pragma('integrity_check', { simple: true });
-  const foreignKeyFailures = sqlite.pragma('foreign_key_check') as unknown[];
-  if (integrity !== 'ok' || foreignKeyFailures.length > 0) {
-    throw new Error('SQLite integrity validation failed.');
-  }
-};
-
-const removeSidecars = (databasePath: string): void => {
-  for (const suffix of ['-wal', '-shm']) {
-    const sidecar = `${databasePath}${suffix}`;
-    if (existsSync(sidecar)) unlinkSync(sidecar);
-  }
-};
-
 /**
- * Protección del respaldo antes de publicarlo. La copia que `vacuum into`
- * produce es texto claro y sale de la máquina en un pendrive o una carpeta
- * compartida; el composition root la sella con la clave del nodo
- * ([ADR-0029](../../../../docs/architecture/adr/0029-proteccion-de-datos-en-reposo.md) D7.3).
- * Sin protección declarada el comportamiento es el anterior.
+ * Respaldo previo a la actualización: una copia sellada y validada, más la
+ * retención de cinco copias que ADR-0029 D8 fija para esta familia. El
+ * respaldo operativo periódico usa las mismas primitivas con otra política
+ * (ADR-0030 D7).
  */
-export type BackupProtection = {
-  readonly suffix: string;
-  seal(sourcePath: string, targetPath: string): void;
-  open(sourcePath: string, targetPath: string): void;
-};
-
 const createBackup = (
   sqlite: Database.Database,
   databasePath: string,
@@ -348,43 +327,13 @@ const createBackup = (
   retention: number,
   protection?: BackupProtection
 ): string => {
-  mkdirSync(backupDirectory, { recursive: true });
-  const prefix = `${basename(databasePath)}.backup.`;
-  const stamp = `${Date.now()}-${randomUUID()}`;
-  /**
-   * El intermedio en claro vive junto a la base, dentro del perímetro
-   * protegido, y se borra antes de publicar el respaldo —también si el sellado
-   * falla—. El borrado es el del sistema de archivos: no se promete un borrado
-   * físico que el medio no garantiza.
-   */
-  const stagingPath = protection
-    ? `${databasePath}.backup-${stamp}.staging`
-    : join(backupDirectory, `${prefix}${stamp}.sqlite`);
-  sqlite.prepare('vacuum into ?').run(stagingPath);
-
-  const backup = openDatabase(stagingPath);
-  try {
-    validateDatabase(backup.sqlite);
-  } finally {
-    backup.close();
-  }
-
-  let backupPath = stagingPath;
-  if (protection) {
-    backupPath = join(backupDirectory, `${prefix}${stamp}.sqlite${protection.suffix}`);
-    try {
-      protection.seal(stagingPath, backupPath);
-    } finally {
-      removeSidecars(stagingPath);
-      if (existsSync(stagingPath)) unlinkSync(stagingPath);
-    }
-  }
-
-  const backups = readdirSync(backupDirectory)
-    .filter((name) => name.startsWith(prefix))
-    .map((name) => join(backupDirectory, name))
-    .sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs);
-  for (const expired of backups.slice(Math.max(1, retention))) unlinkSync(expired);
+  const prefix = migrationBackupPrefix(databasePath);
+  const backupPath = createDatabaseBackup(sqlite, databasePath, {
+    directory: backupDirectory,
+    prefix,
+    ...(protection ? { protection } : {})
+  });
+  pruneDatabaseBackups(backupDirectory, prefix, retention);
   return backupPath;
 };
 
@@ -421,7 +370,7 @@ export const migrateDatabase = (
       );
     }
     const appliedVersions = applyMigrations(handle.sqlite, options.migrations ?? migrations);
-    validateDatabase(handle.sqlite);
+    assertDatabaseIntegrity(handle.sqlite);
     options.validate?.(handle);
     return backupPath ? { appliedVersions, backupPath } : { appliedVersions };
   } catch (error) {
