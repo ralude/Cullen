@@ -55,6 +55,33 @@ const TEXT_ASSIGNMENT = new RegExp(
   'g'
 );
 
+/**
+ * Rutas del sistema de archivos dentro de un texto libre. Un error del sistema
+ * —`ENOENT: no such file or directory, open 'C:\Cullen\keys\node-keys.json'`—
+ * no tiene forma de asignación y por eso la redacción por campo no lo cubre,
+ * pero publica dónde vive el material protegido (CA-11.04-07).
+ *
+ * El patrón es deliberadamente amplio y quien decide es `isSecretPath`: una
+ * ruta que no apunta a material —la base del nodo, un archivo de código en un
+ * stack— sigue sirviendo para diagnosticar y se conserva.
+ */
+const FILESYSTEM_PATH = /(?:[A-Za-z]:[\\/]|\\\\|\/)[^\s"'`,;:()[\]]*/g;
+
+/** Directorios que solo contienen material protegido. */
+const SECRET_DIRECTORIES: ReadonlySet<string> = new Set([
+  'keys', 'keystore', 'secrets', 'credentials', 'certs', 'certificates', 'pki', 'tls', 'private'
+]);
+
+/** Extensiones que ya declaran material por sí solas. */
+const SECRET_EXTENSIONS: ReadonlySet<string> = new Set([
+  'pem', 'key', 'pfx', 'p12', 'crt', 'cer', 'der', 'jks', 'keystore', 'sealed'
+]);
+
+/** Extensiones de datos: aquí decide el nombre, no la extensión. */
+const DATA_EXTENSIONS: ReadonlySet<string> = new Set([
+  'json', 'txt', 'dat', 'bin', 'conf', 'cfg', 'ini', 'env', 'yaml', 'yml', 'xml'
+]);
+
 const wordsOf = (name: string): readonly string[] => name
   .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
   .split(/[^A-Za-z0-9]+/)
@@ -68,17 +95,36 @@ export const isSensitiveFieldName = (name: string): boolean => {
 };
 
 /**
- * Censura el valor de una asignación sensible dentro de un texto. Conserva el
- * resto del mensaje, que es lo que sirve para diagnosticar.
+ * Ruta que apunta a material protegido: vive en un directorio de material, lo
+ * declara su extensión, o su nombre nombra un secreto en un archivo de datos.
  */
-export const redactText = (text: string): string => text.replace(
-  TEXT_ASSIGNMENT,
-  (match, quote: string, name: string, separator: string, value: string) => (
-    isSensitiveFieldName(name) && value !== REDACTION_CENSOR
-      ? `${quote}${name}${quote}${separator}${REDACTION_CENSOR}`
-      : match
+const isSecretPath = (value: string): boolean => {
+  const segments = value.split(/[\\/]+/).filter((segment) => segment.length > 0);
+  if (segments.length < 2) return false;
+  if (segments.some((segment) => SECRET_DIRECTORIES.has(segment.toLowerCase()))) return true;
+  const name = segments[segments.length - 1] ?? '';
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0) return false;
+  const extension = name.slice(dot + 1).toLowerCase();
+  if (SECRET_EXTENSIONS.has(extension)) return true;
+  return DATA_EXTENSIONS.has(extension) && isSensitiveFieldName(name.slice(0, dot));
+};
+
+/**
+ * Censura el valor de una asignación sensible y la ruta de cualquier material
+ * protegido dentro de un texto. Conserva el resto del mensaje, que es lo que
+ * sirve para diagnosticar.
+ */
+export const redactText = (text: string): string => text
+  .replace(
+    TEXT_ASSIGNMENT,
+    (match, quote: string, name: string, separator: string, value: string) => (
+      isSensitiveFieldName(name) && value !== REDACTION_CENSOR
+        ? `${quote}${name}${quote}${separator}${REDACTION_CENSOR}`
+        : match
+    )
   )
-);
+  .replace(FILESYSTEM_PATH, (match) => (isSecretPath(match) ? REDACTION_CENSOR : match));
 
 export type SafeErrorDescription = {
   readonly type: string;

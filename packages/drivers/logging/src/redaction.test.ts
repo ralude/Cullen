@@ -55,6 +55,52 @@ describe('technical log redaction', () => {
     expect(redactText(redactText('pin=123456'))).toBe(`pin=${REDACTION_CENSOR}`);
   });
 
+  it('censors the path of protected material and keeps the rest of the diagnosis', () => {
+    for (const path of [
+      String.raw`C:\ProgramData\Cullen\keys\node-keys.json`,
+      String.raw`C:\ProgramData\Cullen\tls\sync-client.pem.sealed`,
+      '/etc/cullen/certs/ca.crt',
+      String.raw`\\estacion\material\ca.key`,
+      '/var/lib/cullen/secrets/vault.dat'
+    ]) {
+      expect(redactText(`ENOENT: no such file or directory, open '${path}'`), path)
+        .toBe(`ENOENT: no such file or directory, open '${REDACTION_CENSOR}'`);
+    }
+    /** Lo que no es material sigue sirviendo para diagnosticar. */
+    for (const path of [
+      String.raw`C:\ProgramData\Cullen\data\node.sqlite`,
+      '/var/log/cullen/server.log',
+      'and/or'
+    ]) {
+      expect(redactText(`no se pudo abrir ${path}`), path).toBe(`no se pudo abrir ${path}`);
+    }
+    /** Redactar dos veces no vuelve a envolver el censor. */
+    expect(redactText(redactText(String.raw`open C:\Cullen\keys\node-keys.json`)))
+      .toBe(`open ${REDACTION_CENSOR}`);
+  });
+
+  it('censors a protected path inside the message, the stack and the cause chain', () => {
+    const root = Object.assign(
+      new Error(String.raw`EPERM: operation not permitted, open 'C:\Cullen\keys\node-keys.json'`),
+      { code: 'EPERM' }
+    );
+    root.stack = [
+      `Error: ${root.message}`,
+      String.raw`    at read (C:\Users\op\cullen\packages\drivers\security\src\secret-vault.ts:120:5)`,
+      String.raw`    at open (C:\Cullen\keys\node-keys.json:1:1)`
+    ].join('\n');
+    const wrapper = new Error('the node key store is not available.', { cause: root });
+
+    const described = describeError(wrapper);
+    const serialized = JSON.stringify(described);
+
+    expect(serialized).not.toContain('node-keys.json');
+    expect(serialized).not.toContain('Cullen\\\\keys');
+    /** El archivo de código del stack no es material: se conserva. */
+    expect(described.cause).toMatchObject({ code: 'EPERM' });
+    expect(JSON.stringify(described.cause)).toContain('secret-vault.ts:120:5');
+  });
+
   it('describes an error with a stable code and a redacted cause chain', () => {
     const root = new Error('credential rejected with pin=123456');
     const wrapper = Object.assign(
