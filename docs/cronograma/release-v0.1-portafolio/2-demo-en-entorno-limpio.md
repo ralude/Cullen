@@ -3,7 +3,7 @@
 - **Release:** [v0.1 de portafolio](./README.md).
 - **Estado:** En curso. El tramo reproducible automáticamente quedó verificado el 2026-09-09; el
   recorrido interactivo y sus capturas siguen pendientes.
-- **Entrada:** ~~V0.1.01 cerrada~~ (entregada; su casilla del primer run remoto sigue abierta).
+- **Entrada:** ~~V0.1.01 cerrada~~.
 - **Guion:** [Guion de la demo en entorno limpio](./guion-demo-entorno-limpio.md).
 
 ## Objetivo

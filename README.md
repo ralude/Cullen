@@ -179,11 +179,14 @@ React — y el build falla si alguien lo intenta.
 pnpm pipeline    # lint + typecheck + 1.212 pruebas
 ```
 
-Verificado en local el 2026-09-09: `pnpm lint`, `pnpm typecheck` y las 1.212 pruebas de los 191
-archivos, en verde. La etapa V0.1.01 debe ejecutar ese mismo pipeline en CI remoto antes de
-publicar `v0.1.0`; hasta entonces la cifra es una verificación local reproducible, no un check de
-GitHub. TypeScript va en modo estricto con `exactOptionalPropertyTypes`, y las migraciones se
-prueban sobre SQLite temporal, incluyendo el _backfill_ de datos históricos.
+Ese mismo pipeline corre en
+[GitHub Actions sobre `windows-latest`](./.github/workflows/pipeline.yml) en cada pull request y
+cada cambio de `main`: instalación congelada, lint, typecheck, las 1.212 pruebas de los 191
+archivos y la compilación de artefactos. La cifra es un check remoto, no solo una corrida en la
+máquina del autor.
+
+TypeScript va en modo estricto con `exactOptionalPropertyTypes`, y las migraciones se prueban
+sobre SQLite temporal, incluyendo el _backfill_ de datos históricos.
 
 ---
 

@@ -33,10 +33,11 @@ desde el 2026-09-09 como código fuente y demo reproducible en `SIMULACION`, sin
 publicación de un MSI sin firma. Sus cinco etapas son alcance, CI remoto, demo limpia,
 documentación y publicación.
 [V0.1.00](./release-v0.1-portafolio/0-alcance-y-verdad.md) cerró el 2026-09-09.
-[V0.1.01](./release-v0.1-portafolio/1-ci-reproducible.md) entregó el pipeline remoto y espera su
-primer run verde. [V0.1.02](./release-v0.1-portafolio/2-demo-en-entorno-limpio.md) verificó el
-clon limpio y corrigió tres pasos implícitos del README; su recorrido interactivo y sus capturas
-exigen una estación Windows limpia y siguen abiertos.
+[V0.1.01](./release-v0.1-portafolio/1-ci-reproducible.md) cerró el mismo día: el pipeline corre
+en GitHub Actions sobre `windows-latest` y su primer run sobre `main` terminó verde.
+[V0.1.02](./release-v0.1-portafolio/2-demo-en-entorno-limpio.md) verificó el clon limpio y
+corrigió tres pasos implícitos del README; su recorrido interactivo y sus capturas exigen una
+estación Windows limpia y siguen abiertos.
 [V0.1.03](./release-v0.1-portafolio/3-documentacion-portafolio.md) entregó contribución,
 seguridad y las notas de versión en borrador; solo le faltan esas capturas.
 [V0.1.04](./release-v0.1-portafolio/4-publicacion.md) no se inicia hasta cerrar las anteriores.
@@ -46,8 +47,8 @@ trece hallazgos, cada uno con su prueba. En la verificación local del 2026-09-0
 `pnpm lint`, `pnpm typecheck`, `pnpm test` —1.212 de 1.212 pruebas en 191 archivos— y
 `pnpm build:artifacts`. Las tres pruebas de `generate-lan-material.test.ts` que antes quedaban
 sin completar la emisión TLS pasan cuando el intérprete alcanza `openssl` en su `PATH`; el
-diagnóstico anterior atribuía al host una carencia que era del entorno de ejecución. Reproducir
-ese pipeline en un runner remoto, y no en la máquina del autor, sigue perteneciendo a V0.1.01.
+diagnóstico anterior atribuía al host una carencia que era del entorno de ejecución. Ese mismo
+pipeline ya corre en un runner remoto, y no solo en la máquina del autor.
 
 Fase 12 comienza después de publicar `v0.1.0`: 12.01–12.03 y 12.05 preparan una versión
 posterior; 12.04 continúa suspendida con Fase 8. La

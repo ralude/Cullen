@@ -1,8 +1,8 @@
 # Release v0.1 de portafolio
 
-- **Estado:** En ejecución desde el 2026-09-09. V0.1.00 cerrada; V0.1.01 entregada a falta de
-  su primer run remoto; V0.1.02 bloqueada por el recorrido interactivo; V0.1.03 adelantada en lo
-  que no depende de las capturas; V0.1.04 sin iniciar.
+- **Estado:** En ejecución desde el 2026-09-09. V0.1.00 y V0.1.01 cerradas; V0.1.02 bloqueada
+  por el recorrido interactivo; V0.1.03 adelantada en lo que no depende de las capturas; V0.1.04
+  sin iniciar.
 - **Tipo:** hito transversal de publicación, no una fase funcional nueva.
 - **Distribución inicial:** código fuente mediante GitHub y tag `v0.1.0`; no se publica un MSI
   sin firma.
@@ -23,7 +23,7 @@ siguen siendo obligatorios antes de operar en un comercio real.
 ## Etapas obligatorias
 
 1. ~~[V0.1.00 — Alcance y fuentes de verdad](./0-alcance-y-verdad.md)~~ — cerrada el 2026-09-09.
-2. [V0.1.01 — CI reproducible](./1-ci-reproducible.md) — entregada; falta el primer run remoto verde.
+2. ~~[V0.1.01 — CI reproducible](./1-ci-reproducible.md)~~ — cerrada el 2026-09-09 con su primer run remoto verde.
 3. [V0.1.02 — Demo en entorno limpio](./2-demo-en-entorno-limpio.md) — tramo automatizable verificado; el recorrido interactivo sigue el [guion](./guion-demo-entorno-limpio.md).
 4. [V0.1.03 — Documentación de portafolio](./3-documentacion-portafolio.md) — entregada salvo las capturas; sus [notas de versión](./notas-v0.1.0.md) están en borrador.
 5. [V0.1.04 — Publicación](./4-publicacion.md).

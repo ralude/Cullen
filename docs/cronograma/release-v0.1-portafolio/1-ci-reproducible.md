@@ -1,7 +1,7 @@
 # V0.1.01: CI reproducible
 
 - **Release:** [v0.1 de portafolio](./README.md).
-- **Estado:** Entregada el 2026-09-09; pendiente la primera ejecución remota verde.
+- **Estado:** ~~Completada el 2026-09-09~~.
 - **Entrada:** ~~V0.1.00 cerrada~~.
 
 ## Objetivo
@@ -21,8 +21,9 @@ del autor ni de equipos fiscales.
 - [x] Publicar el resultado y los logs del workflow como checks de GitHub. No fijar un umbral de
   coverage arbitrario sin medir primero la línea base.
 - [x] Documentar localmente las versiones necesarias para reproducir el mismo pipeline.
-- [ ] Registrar aquí el enlace de la primera ejecución remota verde sobre `main`. El workflow
-  se subió a `main` el 2026-09-09 y quedó disparado; falta confirmar su resultado y anotarlo.
+- [x] Registrar aquí el enlace de la primera ejecución remota verde sobre `main`:
+  [run 34413510296](https://github.com/ralude/Cullen/actions/runs/34413510296), verde en 3m58s
+  sobre el commit `2fdb775`.
 
 ## Criterio de salida
 
@@ -62,13 +63,15 @@ El pipeline no fija umbral. Elegir un número antes de medir la línea base prod
 ajusta al resultado en vez de gobernarlo. Medirla y acordar el umbral sigue siendo tarea del
 [gate de piloto en tienda](../gate-piloto-release.md), que ya la enumera.
 
-## Verificación local previa al primer runner
+## Verificación
 
 Sobre el commit candidato, con OpenSSL 3.5.7 en el `PATH`: `pnpm lint`, `pnpm typecheck`,
 `pnpm test` (1.212 pruebas en 191 archivos, verdes; las tres de `generate-lan-material.test.ts`
-incluidas) y `pnpm build:artifacts`, todos aprobados. Esa ejecución local **no sustituye** al
-check remoto: la etapa conserva abierta su última casilla hasta que exista un run verde en
-GitHub Actions sobre `main`.
+incluidas) y `pnpm build:artifacts`, todos aprobados. Esa ejecución local **no sustituye** al check remoto, y el remoto ya existe: el primer run del
+workflow sobre `main` —[34413510296](https://github.com/ralude/Cullen/actions/runs/34413510296),
+commit `2fdb775`— terminó verde en 3m58s en un runner `windows-latest` sin hardware fiscal ni red
+física. Desde ahí, un commit no puede presentarse como candidato `v0.1.0` con cualquiera de los
+checks en rojo.
 
 ## Fuera de alcance
 
