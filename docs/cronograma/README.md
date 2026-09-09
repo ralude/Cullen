@@ -31,9 +31,15 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 **Hito actual:** [release open source `v0.1.0`](./release-v0.1-portafolio/README.md), en ejecución
 desde el 2026-09-09 como código fuente y demo reproducible en `SIMULACION`, sin hardware fiscal ni
 publicación de un MSI sin firma. Sus cinco etapas son alcance, CI remoto, demo limpia,
-documentación y publicación:
-[V0.1.00](./release-v0.1-portafolio/0-alcance-y-verdad.md) cerró el 2026-09-09 y
-[V0.1.01](./release-v0.1-portafolio/1-ci-reproducible.md) está en curso.
+documentación y publicación.
+[V0.1.00](./release-v0.1-portafolio/0-alcance-y-verdad.md) cerró el 2026-09-09.
+[V0.1.01](./release-v0.1-portafolio/1-ci-reproducible.md) entregó el pipeline remoto y espera su
+primer run verde. [V0.1.02](./release-v0.1-portafolio/2-demo-en-entorno-limpio.md) verificó el
+clon limpio y corrigió tres pasos implícitos del README; su recorrido interactivo y sus capturas
+exigen una estación Windows limpia y siguen abiertos.
+[V0.1.03](./release-v0.1-portafolio/3-documentacion-portafolio.md) entregó contribución,
+seguridad y las notas de versión en borrador; solo le faltan esas capturas.
+[V0.1.04](./release-v0.1-portafolio/4-publicacion.md) no se inicia hasta cerrar las anteriores.
 Fase 11 entregó sus cinco sub-fases y la
 [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió
 trece hallazgos, cada uno con su prueba. En la verificación local del 2026-09-09 aprobaron
