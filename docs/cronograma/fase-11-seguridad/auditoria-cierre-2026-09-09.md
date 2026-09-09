@@ -1,8 +1,8 @@
 # Registro de auditoría de cierre — 2026-09-09
 
 - **Fase relacionada:** Fase 11 — Seguridad
-- **Estado:** cuatro hallazgos P1 corregidos el 2026-09-09; siete —seis P2 y un P3— siguen
-  abiertos y bloquean la certificación de la fase
+- **Estado:** los cuatro P1 y los seis P2 quedaron corregidos el 2026-09-09; el P3 sigue abierto
+  y bloquea la certificación de la fase
 - **Alcance:** revisión focal de los recorridos que la Fase 11 declara cerrados —enrolamiento y
   revocación de credenciales, protección de datos en reposo, transporte de sesión, redacción y
   diagnóstico operativo—. No es una auditoría exhaustiva del árbol ni una certificación de
@@ -16,16 +16,16 @@ después del primer enrolamiento, la rotación de claves podía destruir materia
 diagnóstico podía bloquearse minutos justo cuando el coordinador está caído y el almacén de
 claves se sobrescribía sin publicación atómica. Los cuatro quedaron corregidos con prueba propia.
 
-Los siete restantes no destruyen ni exponen material por sí solos, pero contradicen contratos
+Los seis P2 no destruían ni exponían material por sí solos, pero contradecían contratos
 declarados —el estado `NEEDS_ENROLLMENT` de ADR-0028, el aislamiento por destino, los códigos de
-error estables y la higiene de secretos en memoria y en logs— y deben cerrarse antes de dar la
-fase por certificada.
+error estables y la higiene de secretos en memoria y en logs— y quedaron corregidos el mismo día.
+El P3 sigue abierto: mientras exista, la fase no se presenta como certificada.
 
 ## Evidencia de la auditoría
 
-- `pnpm lint`, `pnpm typecheck` y `pnpm test`: aprobados el 2026-09-09 con 1.197 pruebas en 189
-  archivos, ya con las correcciones P1 aplicadas.
-- Cada corrección P1 incorpora la prueba que reproduce el defecto y falla sin el fix.
+- `pnpm lint`, `pnpm typecheck` y `pnpm test`: aprobados el 2026-09-09 con 1.206 pruebas en 191
+  archivos, ya con las correcciones P1 y P2 aplicadas.
+- Cada corrección incorpora la prueba que reproduce el defecto y falla sin el fix.
 
 ## Hallazgos corregidos
 
@@ -76,65 +76,80 @@ fase por certificada.
 - **Prueba:** `secret-vault.test.ts`, «conserva el almacén publicado cuando la publicación no
   puede completarse». Commit `a463048`.
 
-## Hallazgos abiertos
+### P2-5. El diagnóstico de entrantes no se filtraba por destino
 
-Ninguno tiene todavía corrección ni prueba. El orden es de prioridad, no de ejecución.
-
-### P2-5. El diagnóstico de entrantes no se filtra por destino
-
-- **Evidencia:** `packages/drivers/db/src/operational-diagnostics.ts:123` selecciona los efectos
-  entrantes sin acotar por `destinationNodeId`; una terminal puede mostrar incidencias de otras.
-- **Dueño:** 11.05, con el aislamiento local de
+- **Evidencia:** la lectura de efectos entrantes no acotaba por `destinationNodeId`; un
+  coordinador que atiende varias terminales sobre la misma base mostraba en una las incidencias
+  de otra, contra el aislamiento local de
   [ADR-0023](../../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md).
-- **Criterio:** una prueba con dos destinos debe demostrar que cada uno solo ve lo suyo.
+- **Cierre:** cada consulta describe la conversación con un solo nodo —lo entregado a él y lo
+  recibido de él—, así que los entrantes se filtran por el nodo de origen del evento, que es el
+  que la propia lectura reporta.
+- **Prueba:** `operational-diagnostics.integration.test.ts`, «solo devuelve los efectos entrantes
+  del nodo consultado». Commit `00eab51`.
 
-### P2-6. El directorio omite las concesiones sin credencial local
+### P2-6. El directorio omitía las concesiones sin credencial local
 
-- **Evidencia:** `packages/drivers/db/src/identity-administration-store.ts:51` lista solo
-  `identity_users`, de modo que la UI no puede representar el estado `NEEDS_ENROLLMENT` que exige
-  ADR-0028.
-- **Dueño:** 11.02.
-- **Criterio:** el directorio incluye al operador concedido y todavía sin credencial local, y la
-  pantalla lo distingue de un operador local sin credencial.
+- **Evidencia:** el directorio listaba solo `identity_users`, de modo que un operador conocido
+  únicamente por la concesión del coordinador no aparecía y la interfaz no podía representar el
+  estado que ADR-0028 D1 obliga a distinguir.
+- **Cierre:** el directorio incluye las concesiones utilizables sin fila local, marcadas con
+  `hasLocalIdentity: false`. La pantalla las distingue del operador local sin credencial y no
+  ofrece editar una identidad que esta terminal no administra; el enrolamiento, que sí es local,
+  sigue disponible. Una concesión vencida deja de listarse: ya no describe a nadie en el nodo.
+- **Prueba:** `identity-administration.integration.test.ts`, «publishes the granted operator that
+  has no local identity yet» y «stops listing the grant separately once the operator enrolls
+  locally»; `identity-screen.interaction.test.tsx`, «distingue al operador concedido del operador
+  local sin credencial». Commit `a10df61`.
 
-### P2-7. Una cookie de sesión mal formada responde 500 en vez de 401
+### P2-7. Una cookie de sesión mal formada respondía 500 en vez de 401
 
-- **Evidencia:** `apps/server/src/session-transport.ts:68` llama `decodeURIComponent()` sin
-  contener el `URIError`; `pos_session=%` termina como error de servidor.
-- **Dueño:** 11.03; contradice los códigos estables de
+- **Evidencia:** `sessionTokenOf` llamaba `decodeURIComponent()` sin contener el `URIError`;
+  `pos_session=%` terminaba como error de servidor, contra los códigos estables de
   [11-errores](../../architecture/11-errores.md).
-- **Criterio:** una sesión inválida —ausente, mal formada o desconocida— responde siempre 401 sin
-  distinguir la causa.
+- **Cierre:** una cookie ilegible es una credencial inválida, no un fallo del nodo: se trata como
+  sesión ausente, de modo que ausente, ilegible y desconocida comparten la misma respuesta 401.
+- **Prueba:** `node-boundary.contract.test.ts`, «trata una cookie de sesión ilegible como sesión
+  ausente». Commit `1080608`.
 
-### P2-8. PIN y token de enrolamiento permanecen en memoria tras un fallo
+### P2-8. PIN y token de enrolamiento permanecían en memoria tras un fallo
 
-- **Evidencia:** `apps/desktop/src/renderer/src/screens/credential.tsx:54` limpia el estado solo
-  en el camino de éxito; ante un fallo el PIN y el token siguen en el estado React, contra el
+- **Evidencia:** las dos pantallas de credencial limpiaban su estado solo en el camino de éxito;
+  ante un fallo el PIN y el código de un solo uso seguían en el estado del renderer, contra el
   corte 3.5 de 11.02.
-- **Dueño:** 11.02.
-- **Criterio:** el secreto se limpia también en el camino de error, sin perder el mensaje que el
-  operador necesita para reintentar.
+- **Cierre:** la limpieza pasa al `finally`, de modo que el secreto no sobrevive al envío salga
+  bien o mal. El mensaje del fallo sí se conserva: sin él el operador no sabría qué reintentar.
+- **Prueba:** `identity-screen.interaction.test.tsx`, «no conserva el PIN en pantalla cuando el
+  cambio falla» y el cierre del código vencido. Commit `b3a72a8`.
 
-### P2-9. Un staging en claro sobrevive si abrir o validar el respaldo falla
+### P2-9. Un staging en claro sobrevivía si abrir o validar el respaldo fallaba
 
-- **Evidencia:** `packages/drivers/db/src/backup.ts:80` abre y valida el staging antes de que
-  exista el `finally` que lo borra; un fallo ahí deja una copia completa de la base en texto claro.
-- **Dueño:** 11.04, con la protección de respaldos de
-  [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md) D7.3.
-- **Criterio:** ninguna ruta de fallo deja el intermedio en claro cuando hay protección declarada.
+- **Evidencia:** solo el sellado tenía `finally`; un fallo al abrir o validar el intermedio
+  dejaba publicada una copia completa de la base en texto claro, justo lo que la protección de
+  [ADR-0029](../../architecture/adr/0029-proteccion-de-datos-en-reposo.md) D7.3 existe para
+  impedir.
+- **Cierre:** el borrado cubre cualquier salida del respaldo protegido. La copia sin protección
+  declarada conserva su comportamiento: ahí el archivo no es un intermedio sino el respaldo mismo.
+- **Prueba:** `backup.test.ts`, «no deja la copia en claro cuando el intermedio no puede
+  validarse». Commit `0528e7c`.
 
-### P2-10. La redacción no cubre rutas de claves en `message`, `stack` ni `cause`
+### P2-10. La redacción no cubría rutas de claves en `message`, `stack` ni `cause`
 
-- **Evidencia:** `packages/drivers/logging/src/redaction.ts:130` censura asignaciones sensibles,
-  pero conserva rutas de claves o certificados incrustadas en el texto libre del error,
-  incumpliendo CA-11.04-07 y CA-11.05-02.
-- **Dueño:** 11.05.
-- **Criterio:** un error de infraestructura que nombra la ruta del almacén de claves no deja esa
-  ruta en la línea de log.
+- **Evidencia:** la redacción actuaba sobre asignaciones sensibles, pero un error del sistema
+  —`ENOENT ... open 'C:\Cullen\keys\node-keys.json'`— publica dónde vive la clave sin tener forma
+  de asignación, incumpliendo CA-11.04-07 y CA-11.05-02.
+- **Cierre:** el texto libre censura la ruta que apunta a material protegido: la que vive en un
+  directorio de material, la que lo declara por extensión y la que nombra un secreto en un
+  archivo de datos. Una ruta que no apunta a material —la base del nodo, un archivo de código en
+  un stack— se conserva, porque es lo que permite diagnosticar.
+- **Prueba:** `redaction.test.ts`, «censors the path of protected material...» y «censors a
+  protected path inside the message, the stack and the cause chain». Commit `c9e42eb`.
+
+## Hallazgos abiertos
 
 ### P3-11. Autorización por rol deja una denegación falsa en la auditoría
 
-- **Evidencia:** `packages/core/src/application/identity/role-use-cases.ts:184` consulta primero
+- **Evidencia:** `packages/core/src/application/identity/role-use-cases.ts:186` consulta primero
   `identity.user.manage`; un usuario autorizado solo por `identity.role.manage` obtiene acceso,
   pero deja registrada una entrada `AUTHORIZATION_DENIED` que no corresponde a ninguna decisión.
 - **Dueño:** 11.02.

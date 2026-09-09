@@ -18,7 +18,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
-| 11 | [Seguridad](./fase-11-seguridad/README.md) | Sub-fases entregadas el 2026-09-08, sin certificar: la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) dejó siete hallazgos abiertos; empaquetado Electron conservado como deuda del gate de piloto |
+| 11 | [Seguridad](./fase-11-seguridad/README.md) | Sub-fases entregadas el 2026-09-08, sin certificar: la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) conserva un hallazgo abierto; empaquetado Electron conservado como deuda del gate de piloto |
 | 12 | Optimizacion | Pendiente; 12.04 suspendida con Fase 8; [12.05 mantenibilidad estructural](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) planificada, sin refactors |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
@@ -32,9 +32,9 @@ identidad auditable, confinamiento del transporte de operadores, protección en 
 a [ADR-0029](../architecture/adr/0029-proteccion-de-datos-en-reposo.md), retención, rotación y
 observabilidad correlacionada segura—, pero **no está certificada**: la
 [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) validó
-once hallazgos, corrigió ese día los cuatro P1 y dejó seis P2 y un P3 abiertos, con dueño y
-criterio de cierre. `pnpm lint`, `pnpm typecheck` y `pnpm test` cerraron el 2026-09-09 con 1.197
-pruebas aprobadas en 189 archivos. La Fase 12 permanece pendiente de inicio y su corte fiscal
+once hallazgos, corrigió ese día los cuatro P1 y los seis P2, y conserva abierto el P3, con dueño
+y criterio de cierre. `pnpm lint`, `pnpm typecheck` y `pnpm test` cerraron el 2026-09-09 con 1.206
+pruebas aprobadas en 191 archivos. La Fase 12 permanece pendiente de inicio y su corte fiscal
 continúa suspendido con la Fase 8; este avance no habilita el piloto.
 Desde el 2026-09-09 corre en paralelo el [paquete pre-piloto](./pre-piloto/README.md), que **no
 es una fase**: entrega capacidad de despliegue que el gate de piloto ya exigía —empaquetado del
@@ -419,9 +419,12 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
   primer enrolamiento, rotación de claves capaz de destruir material sin evidencia, diagnóstico
   bloqueado unos 500 segundos con el coordinador caído y almacén de claves sobrescrito sin
   publicación atómica— se corrigieron ese día, cada uno con la prueba que lo reproduce. Los seis
-  P2 y el P3 siguen abiertos con dueño y criterio de cierre, y mientras existan la Fase 11 se
-  presenta como entregada, no como certificada. `pnpm lint`, `pnpm typecheck` y `pnpm test`
-  cerraron con 1.197 pruebas en 189 archivos.
+  P2 —aislamiento del diagnóstico entrante, directorio de operadores concedidos, cookie de sesión
+  ilegible, PIN retenido tras un fallo, respaldo intermedio en claro y rutas de material en el
+  texto libre de los logs— se cerraron el mismo día con la misma exigencia de prueba. El P3 sigue
+  abierto con dueño y criterio de cierre, y mientras exista la Fase 11 se presenta como entregada,
+  no como certificada. `pnpm lint`, `pnpm typecheck` y `pnpm test` cerraron con 1.206 pruebas en
+  191 archivos.
 - La auditoría focal del 2026-09-04 quedó documentada en el [registro de puntos
   clave de la Fase 11](./fase-11-seguridad/auditoria-puntos-clave-2026-09-04.md).
   Confirma la base arquitectónica, pero deja como deudas trazables la composición
