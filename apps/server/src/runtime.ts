@@ -72,7 +72,11 @@ import {
   type DatabaseHandle
 } from '@supermarket/driver-db';
 import { FiscalPrinterFake } from '@supermarket/driver-fiscal';
-import { HttpExchangeRateProvider, UnavailableExchangeRateProvider } from '@supermarket/driver-exchange-rate';
+import {
+  BcvExchangeRateProvider,
+  HttpExchangeRateProvider,
+  UnavailableExchangeRateProvider
+} from '@supermarket/driver-exchange-rate';
 import {
   CryptoSessionTokenService,
   ObservedSyncConnectivity,
@@ -190,13 +194,30 @@ export const createSecurityRuntime = (
   const categoryRepository = new DrizzleCategoryRepository(handle);
   const unitRepository = new DrizzleUnitOfMeasureRepository(handle);
   const exchangeRateRepository = new DrizzleExchangeRateRepository(handle);
+  /**
+   * Sugerencia de tasa, siempre por declaracion explicita.
+   *
+   * Un nodo sin configurar **no sale a internet**: falla cerrado con
+   * EXCHANGE_RATE_PROVIDER_NOT_CONFIGURED. Que una estacion recien instalada
+   * empiece a consultar un servicio externo por su cuenta seria una decision
+   * tomada por el default, no por quien la instala.
+   *
+   * EXCHANGE_RATE_PROVIDER_URL declara un proveedor propio;
+   * EXCHANGE_RATE_PROVIDER=bcv usa el dolar oficial venezolano.
+   *
+   * Ninguno consulta solo: responden cuando alguien pide la sugerencia desde la
+   * pantalla de tasas, y ninguno registra nada —eso lo confirma una persona—.
+   */
+  const providerTimeoutMs = Number(process.env.EXCHANGE_RATE_PROVIDER_TIMEOUT_MS) || 5000;
   const exchangeRateProvider = process.env.EXCHANGE_RATE_PROVIDER_URL
     ? new HttpExchangeRateProvider({
       endpoint: process.env.EXCHANGE_RATE_PROVIDER_URL,
       source: process.env.EXCHANGE_RATE_PROVIDER_SOURCE ?? 'Proveedor externo configurado',
-      timeoutMs: Number(process.env.EXCHANGE_RATE_PROVIDER_TIMEOUT_MS) || 5000
+      timeoutMs: providerTimeoutMs
     })
-    : new UnavailableExchangeRateProvider();
+    : process.env.EXCHANGE_RATE_PROVIDER?.trim().toLowerCase() === 'bcv'
+      ? new BcvExchangeRateProvider({ timeoutMs: providerTimeoutMs })
+      : new UnavailableExchangeRateProvider();
   const saleRepository = new DrizzleSaleRepository(handle);
   const shiftRepository = new DrizzleShiftRepository(handle);
   const productSnapshotProvider = new DrizzleProductSnapshotProvider(handle);

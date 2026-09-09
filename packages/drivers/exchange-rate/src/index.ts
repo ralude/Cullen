@@ -139,3 +139,90 @@ export class UnavailableExchangeRateProvider implements ExchangeRateProvider {
     ));
   }
 }
+
+/** Endpoint público del dólar oficial venezolano, el que publica el BCV. */
+const BCV_ENDPOINT = 'https://ve.dolarapi.com/v1/dolares/oficial';
+const BCV_SOURCE = 'BCV · dólar oficial';
+
+export type BcvExchangeRateProviderConfig = {
+  readonly endpoint?: string;
+  readonly source?: string;
+  readonly timeoutMs?: number;
+  readonly fetcher?: typeof fetch;
+};
+
+/**
+ * Tasa oficial del dólar publicada por el Banco Central de Venezuela.
+ *
+ * Solo **sugiere**: quien opera la revisa y la registra, porque una tasa que
+ * entra sola a la base sería una regla de negocio tomada por un servicio
+ * externo. El nodo no consulta nada por su cuenta; esto viaja únicamente
+ * cuando alguien pide la sugerencia desde la pantalla de tasas.
+ *
+ * El valor **no se lee como número de JavaScript**. `JSON.parse` convierte
+ * `820.1018` en un flotante, y una tasa en flotante contradice la invariante
+ * que gobierna todo el dinero del sistema. Se extrae el literal del cuerpo tal
+ * como viajó y se conserva como entero con su escala.
+ */
+export class BcvExchangeRateProvider implements ExchangeRateProvider {
+  private readonly fetcher: typeof fetch;
+  private readonly timeoutMs: number;
+  private readonly endpoint: string;
+  private readonly source: string;
+
+  constructor(config: BcvExchangeRateProviderConfig = {}) {
+    this.fetcher = config.fetcher ?? globalThis.fetch;
+    this.timeoutMs = config.timeoutMs ?? 5000;
+    this.endpoint = config.endpoint ?? BCV_ENDPOINT;
+    this.source = config.source ?? BCV_SOURCE;
+  }
+
+  async getSuggestedRate(
+    baseCurrency: string,
+    quoteCurrency: string
+  ): Promise<Result<ExchangeRateSuggestionDto, AppError>> {
+    if (baseCurrency !== 'USD' || quoteCurrency !== 'VES') {
+      return error(
+        'EXCHANGE_RATE_PAIR_UNSUPPORTED',
+        'The central bank feed only publishes USD against VES.'
+      );
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    let body: string;
+    try {
+      const response = await this.fetcher(this.endpoint, {
+        method: 'GET', headers: { accept: 'application/json' }, signal: controller.signal
+      });
+      if (!response.ok) return error('NETWORK_UNAVAILABLE', 'The published rate is unavailable.');
+      body = await response.text();
+    } catch {
+      return error('NETWORK_UNAVAILABLE', 'The published rate is unavailable.');
+    } finally {
+      clearTimeout(timer);
+    }
+
+    /** El literal, no el flotante que `JSON.parse` produciría. */
+    const published = /"promedio"\s*:\s*([0-9]+(?:\.[0-9]+)?)/.exec(body);
+    const rate = published?.[1] ? decimalRate(published[1]) : null;
+    if (!rate) {
+      return error('EXCHANGE_RATE_PROVIDER_INVALID_RESPONSE', 'The published rate is not usable.');
+    }
+
+    const updated = /"fechaActualizacion"\s*:\s*"([^"]+)"/.exec(body);
+    const observedAt = isoOrNull(updated?.[1]) ?? new Date();
+
+    return ok({
+      baseCurrency,
+      quoteCurrency,
+      rateValue: rate.value,
+      rateScale: rate.scale,
+      source: this.source,
+      observedAt,
+      /** Vige desde que el banco la publicó, no desde que la terminal la pidió. */
+      validFrom: observedAt,
+      validUntil: null
+    });
+  }
+}
