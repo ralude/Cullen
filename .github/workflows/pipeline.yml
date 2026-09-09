@@ -1,0 +1,138 @@
+# Pipeline de verificación de Cullen.
+#
+# Reproduce en un runner limpio la misma validación que AGENTS.md exige en local:
+# lint, typecheck, la suite completa y la compilación de artefactos. Corre sobre
+# `windows-latest` porque Windows es la plataforma objetivo del nodo y del
+# escritorio; ninguna etapa necesita hardware fiscal ni una red física.
+#
+# Entrega V0.1.01 del release de portafolio v0.1.0:
+# docs/cronograma/release-v0.1-portafolio/1-ci-reproducible.md
+name: Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Instalación determinista: el store es caché, nunca fuente de dependencias
+  # no declaradas en el lockfile.
+  NODE_VERSION: '24.18.0'
+  PNPM_VERSION: '11.17.0'
+
+jobs:
+  pipeline:
+    name: lint, typecheck, pruebas y artefactos (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v5
+
+      - name: Instalar pnpm ${{ env.PNPM_VERSION }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Instalar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Ubicar el store de pnpm
+        shell: pwsh
+        run: |
+          $store = pnpm store path
+          "PNPM_STORE_PATH=$store" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Restaurar el store de pnpm como caché
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PNPM_STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+
+      # `generate-lan-material.ts` envuelve el `openssl` del sistema en lugar de
+      # sumar una dependencia de criptografía. El runner de Windows trae el
+      # OpenSSL de Git for Windows, pero no siempre en el `PATH` de la shell:
+      # se localiza explícitamente y se falla si no aparece, para que las tres
+      # pruebas de emisión TLS nunca se omitan por entorno.
+      - name: Asegurar OpenSSL en el PATH
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $openssl = Get-Command openssl -ErrorAction SilentlyContinue
+          if (-not $openssl) {
+            $candidates = @(
+              "$env:ProgramFiles\Git\usr\bin",
+              "${env:ProgramFiles(x86)}\Git\usr\bin",
+              'C:\Program Files\OpenSSL\bin',
+              'C:\Strawberry\c\bin'
+            )
+            foreach ($directory in $candidates) {
+              if (Test-Path (Join-Path $directory 'openssl.exe')) {
+                $directory | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+                $env:PATH = "$directory;$env:PATH"
+                break
+              }
+            }
+            $openssl = Get-Command openssl -ErrorAction SilentlyContinue
+          }
+          if (-not $openssl) {
+            throw 'OpenSSL no esta disponible en el runner; la emision de material LAN no puede verificarse.'
+          }
+          openssl version
+
+      - name: Instalar dependencias con el lockfile congelado
+        shell: pwsh
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        shell: pwsh
+        run: pnpm lint
+
+      - name: Typecheck
+        shell: pwsh
+        run: pnpm typecheck
+
+      # Se ejecuta antes de la suite completa y por separado para que el log
+      # muestre las tres pruebas de emisión TLS como evidencia explícita.
+      - name: Emisión de material TLS de la LAN
+        shell: pwsh
+        run: pnpm exec vitest run apps/server/src/generate-lan-material.test.ts
+
+      - name: Pruebas
+        shell: pwsh
+        run: pnpm test
+
+      - name: Compilar artefactos
+        shell: pwsh
+        run: pnpm build:artifacts
+
+      - name: Resumen de la ejecución
+        if: always()
+        shell: pwsh
+        run: |
+          $lines = @(
+            '## Pipeline de Cullen',
+            '',
+            "- Runner: ``${{ runner.os }}`` (``windows-latest``)",
+            "- Node.js: ``$(node --version)``",
+            "- pnpm: ``$(pnpm --version)``",
+            "- OpenSSL: ``$(openssl version)``",
+            "- Commit: ``${{ github.sha }}``",
+            '',
+            'Etapas: lint, typecheck, emision de material TLS, suite completa y artefactos.'
+          )
+          $lines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
