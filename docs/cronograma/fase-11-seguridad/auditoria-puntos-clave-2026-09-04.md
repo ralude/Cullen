@@ -152,6 +152,11 @@ ejecución del 2026-09-04.
   respaldo AES-256-GCM, valida, restaura y aborta ante fallo; verifica ACL del directorio y
   conserva claves anteriores referenciadas durante la rotación. El backup operativo periódico
   independiente de actualizaciones continúa abierto en el gate de piloto.
+- **Estado al 2026-09-09:** el backup operativo periódico y su ensayo de restauración quedaron
+  entregados por el [paquete pre-piloto](../pre-piloto/plan-respaldo-operativo.md), y el
+  instalador que aplica la ACL está definido en `packaging/`. Siguen abiertos en el gate: la
+  firma del instalable, su validación en una estación real y el ensayo de restauración sobre esa
+  máquina.
 
 ### 6. Transporte, host y cookie de sesión
 
@@ -168,6 +173,10 @@ ejecución del 2026-09-04.
   la cookie se deriva en una fuente única y las pruebas fijan suplantación, configuración
   insegura y aislamiento de sesión entre bases/nodos. El arranque empaquetado permanece como
   deuda separada del punto 4.
+- **Estado al 2026-09-09:** el arranque empaquetado quedó cubierto por el
+  [paquete pre-piloto](../pre-piloto/plan-empaquetado-nodo.md), sobre el bundle real y sin proxy
+  de Vite. Cierra también el punto 4 salvo por el instalador sin firmar y su validación en una
+  estación de tienda, que siguen abiertos en el gate.
 
 ### 7. Identidad de operadores y separación de responsabilidades
 

@@ -109,9 +109,18 @@ empaquetado pertenece a su fase propietaria** y esta sub-fase no lo implementa.
 ## Criterios de aceptación
 
 Evidencia: `session-transport.test.ts` fija host y cookie; `node-boundary.contract.test.ts`
-cubre suplantación, aislamiento entre nodos e identidad/configuración inválida. La estación
-empaquetada sigue sin escenario automatizado: CA-11.03-09 se satisface por su alternativa
-explícita de declarar la brecha, no por presentar el empaquetado como verificado.
+cubre suplantación, aislamiento entre nodos e identidad/configuración inválida. Al cerrar la
+sub-fase el 2026-09-08, CA-11.03-09 se satisfizo por su alternativa explícita de declarar la
+brecha, no por presentar el empaquetado como verificado.
+
+Actualización del 2026-09-09: la brecha ya no está abierta. `packaged-node-boot.integration.test.ts`
+arranca el bundle compilado como proceso real y verifica interfaz bajo `/app`, autenticación,
+operación y recuperación tras reinicio, sin proxy de Vite. El modelo de runtime que ese escenario
+prueba es el que decidió
+[ADR-0030](../../architecture/adr/0030-empaquetado-y-runtime-del-nodo.md) —servicio de Windows
+supervisado, no un proceso hijo de Electron—, así que el corte 4 de abajo describe la intención
+original y no el mecanismo entregado. El MSI sin firmar y su validación en una tienda siguen
+abiertos en el [gate de piloto](../gate-piloto-release.md).
 
 - [x] CA-11.03-01: la implementación respeta el loopback obligatorio de
   `apps/server/AGENTS.md` y ADR-0026 D1; no existe excepción LAN para operadores por disponer de

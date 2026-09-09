@@ -1,7 +1,8 @@
 # Fase 11: Seguridad
 
-- **Estado:** Completada el 2026-09-08. La frontera empaquetada de Electron sigue declarada en 11.03 y en el
-  gate de piloto, sin presentarse como cubierta.
+- **Estado:** Completada el 2026-09-08. La frontera empaquetada, que se cerró declarando la
+  brecha, la cubrió el [paquete pre-piloto](../pre-piloto/README.md) el 2026-09-09; el MSI sin
+  firmar y su validación en tienda siguen abiertos en el gate de piloto.
 - **Indice:** [Cronograma](../README.md)
 - **Plan de fase:** [secuencia restante y decisiones de activación](./plan-secuencia-y-decisiones.md)
 

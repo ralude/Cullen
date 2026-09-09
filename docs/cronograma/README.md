@@ -33,6 +33,9 @@ a [ADR-0029](../architecture/adr/0029-proteccion-de-datos-en-reposo.md), retenci
 observabilidad correlacionada segura. `pnpm pipeline` cerró con 1.182 pruebas aprobadas en 186
 archivos. La Fase 12 permanece pendiente de inicio y su corte fiscal continúa suspendido con
 la Fase 8; este cierre no habilita el piloto.
+Desde el 2026-09-09 corre en paralelo el [paquete pre-piloto](./pre-piloto/README.md), que **no
+es una fase**: entrega capacidad de despliegue que el gate de piloto ya exigía —empaquetado del
+nodo, respaldo operativo y material TLS de LAN— sin reabrir la Fase 11 ni adelantar la 12.
 **Fase 10, completada el 2026-09-07:** 10.01 entregó el outbox
 durable ordenado por agregado con claims generacionales; 10.02 el protocolo de eventos de
 [ADR-0023](../architecture/adr/0023-protocolo-de-eventos-entre-nodos.md); 10.03 el servidor
@@ -423,6 +426,11 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 - El [hito transversal de cierre arquitectonico](./hito-cierre-arquitectonico.md) se completo el 2026-08-14 y habilito la continuacion desde 2.03.
 
 ## Documentos transversales
+
+- [Paquete de trabajo pre-piloto](./pre-piloto/README.md) — abierto el 2026-09-09 con
+  [ADR-0030](../architecture/adr/0030-empaquetado-y-runtime-del-nodo.md). Entrega empaquetado del
+  nodo como servicio de Windows, respaldo operativo y emisión de material TLS de LAN. No es una
+  fase, no renumera nada y no cierra el gate de piloto.
 
 - [Fase 12.05 — Mantenibilidad estructural y eficiencia de contexto](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md)
   — añadida el 2026-09-08 con diagnóstico de hubs y baseline estática reproducible.

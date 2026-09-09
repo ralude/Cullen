@@ -36,6 +36,15 @@ inicia 8.01 ni se declara soporte real hasta satisfacer el gate. La Fase 9
 avanza únicamente con el driver fake y las restricciones de simulación de la
 [decisión de replanificación](../replanificacion-fase-08-a-09.md).
 
+**Revisión del 2026-09-09:** ninguno de los bloqueos externos ha cambiado. La suspensión sigue
+vigente y la fase no recibe trabajo. Para reanudarla hacen falta, todos: hardware fiscal
+autorizado de dos perfiles exactos; el protocolo o SDK vigente del fabricante, con el registro
+del desarrollador de conectividad; laboratorio para las pruebas HIL; y la revalidación del marco
+fiscal tras la derogación de SNAT/2024/000121 por SNAT/2026/00084. Nada de eso depende de este
+repositorio, así que el bloqueo no se cierra con código y no se presenta como avance. El
+[paquete pre-piloto](../pre-piloto/README.md) no toca esta fase: el modo fiscal sigue simulado y
+toda representación conserva `SIMULACION`.
+
 ## Alcance de la fase
 
 - Windows x64 dentro de una edición con soporte de seguridad: Windows 11 como
