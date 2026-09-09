@@ -1,7 +1,6 @@
 # Fase 12: Optimizacion
 
-- **Estado:** Pendiente; 12.04 suspendida junto con Fase 8 y excluida del cierre del MVP técnico
-  en modo fiscal simulado
+- **Estado:** Pendiente después del release `v0.1.0`; 12.04 suspendida junto con Fase 8
 - **Indice:** [Cronograma](../README.md)
 
 ## Proposito
@@ -21,10 +20,11 @@ Optimizar solo con mediciones reproducibles y despues de completar funcionalidad
 
 No optimizar prematuramente. Toda mejora debe incluir medicion antes y despues.
 
-Mientras la Fase 8 permanezca suspendida, las mediciones de rendimiento abarcan 12.01–12.03. La 12.04
-no se reemplaza con mediciones del `FiscalPrinterFake`, porque no existe todavía parser, cola,
-CRC ni transporte fiscal real que optimizar. Este diferimiento no bloquea el cierre del MVP
-técnico en modo fiscal simulado.
+El [release `v0.1.0` de portafolio](../release-v0.1-portafolio/README.md) no espera esta fase:
+publica la capacidad funcional ya entregada y demostrada en modo fiscal simulado. Después del
+release, las mediciones de rendimiento abarcan 12.01–12.03. La 12.04 no se reemplaza con
+mediciones del `FiscalPrinterFake`, porque no existe todavía parser, cola, CRC ni transporte
+fiscal real que optimizar.
 
 12.05 añade optimización del radio de contexto, independiente de CPU/RAM y del hardware
 fiscal. Se ejecuta tras habilitar Fase 12, sin adelantar las tareas abiertas de Fase 11.

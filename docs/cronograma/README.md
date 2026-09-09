@@ -18,8 +18,8 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
-| 11 | ~~[Seguridad](./fase-11-seguridad/README.md)~~ | Entregada el 2026-09-08; la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió sus once hallazgos. El instalable sin firmar y su validación en tienda siguen abiertos en el gate de piloto |
-| 12 | Optimizacion | Pendiente; 12.04 suspendida con Fase 8; [12.05 mantenibilidad estructural](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) planificada, sin refactors |
+| 11 | ~~[Seguridad](./fase-11-seguridad/README.md)~~ | Entregada el 2026-09-08; la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió sus trece hallazgos. El gate de tienda conserva sus requisitos propios, sin bloquear el release open source |
+| 12 | Optimizacion | Pendiente después de `v0.1.0`; 12.04 suspendida con Fase 8; [12.05 mantenibilidad estructural](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) planificada, sin refactors |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
 | 15 | [Sincronización SQLite–PostgreSQL](./fase-15-sincronizacion-cloud/README.md) | Planificada; post-MVP, sin iniciar |
@@ -27,15 +27,20 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 16B | [Sistema de diseño propio](./fase-16b-sistema-diseno/README.md) | Planificada; post-MVP, sin iniciar |
 | 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
-**Fase actual:** Fase 11 - Seguridad entregó sus cinco sub-fases el 2026-09-08 —autorización e
-identidad auditable, confinamiento del transporte de operadores, protección en reposo conforme
-a [ADR-0029](../architecture/adr/0029-proteccion-de-datos-en-reposo.md), retención, rotación y
-observabilidad correlacionada segura— y la
+**Hito actual:** [release open source `v0.1.0`](./release-v0.1-portafolio/README.md), planificado
+como código fuente y demo reproducible en `SIMULACION`, sin hardware fiscal ni publicación de un
+MSI sin firma. Sus cinco etapas son alcance, CI remoto, demo limpia, documentación y publicación.
+Fase 11 entregó sus cinco sub-fases y la
 [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió
-los once hallazgos que validó sobre esa entrega, cada uno con su prueba. `pnpm lint`,
-`pnpm typecheck` y `pnpm test` cerraron el 2026-09-09 con 1.210 pruebas aprobadas en 191 archivos.
-La Fase 12 permanece pendiente de inicio y su corte fiscal continúa suspendido con la Fase 8;
-este cierre no habilita el piloto, que conserva sus propias deudas en el gate.
+trece hallazgos, cada uno con su prueba. En la verificación más reciente `pnpm lint` y
+`pnpm typecheck` aprobaron; `pnpm test` aprobó 1.210 de 1.212 pruebas en 191 archivos y las dos
+restantes no pudieron completar la emisión TLS porque el host no tiene OpenSSL. Resolver esa
+dependencia reproducible pertenece a V0.1.01.
+
+Fase 12 comienza después de publicar `v0.1.0`: 12.01–12.03 y 12.05 preparan una versión
+posterior; 12.04 continúa suspendida con Fase 8. El release de portafolio no habilita una tienda:
+el [gate de piloto](./gate-piloto-release.md) conserva sus requisitos de hardware, fabricante,
+laboratorio y operación real.
 Desde el 2026-09-09 corre en paralelo el [paquete pre-piloto](./pre-piloto/README.md), que **no
 es una fase**: entrega capacidad de despliegue que el gate de piloto ya exigía —empaquetado del
 nodo, respaldo operativo y material TLS de LAN— sin reabrir la Fase 11 ni adelantar la 12.
@@ -236,8 +241,9 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
   completada: la UI avanza con `FiscalPrinterFake` identificado como simulación
   y el piloto continúa bloqueado hasta reanudar y cerrar los dos perfiles.
 - La suspensión de Fase 8 arrastra 12.04 porque no existe una implementación serial real que
-  medir. El cierre del MVP técnico en modo simulado exige 12.01–12.03, no 12.04; el fake fiscal
-  no se usa como sustituto de parser, cola, CRC, transporte ni HIL.
+  medir. Ninguna tarea de Fase 8 ni 12.04 bloquea el release open source `v0.1.0`. Después de
+  publicarlo, 12.01–12.03 miden el modo simulado para una versión posterior; el fake fiscal no
+  se usa como sustituto de parser, cola, CRC, transporte ni HIL.
 - El 2026-09-02 se cerró 9.00 y se trasladaron las lecturas especializadas a su
   consumidor dueño: catálogo 9.04, reportes 9.06 y tasas 9.07. La
   sincronización pendiente conserva su implementación en Fase 10; no se
@@ -414,18 +420,18 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
   de 9B.04 y la ausencia de garantía de stock global durante desconexión permanecen explícitas.
   Este cierre no habilita el piloto ni inicia la Fase 12.
 - El 2026-09-09 una auditoría de cierre revirtió esa certificación: quedó registrada en
-  [auditoria-cierre-2026-09-09.md](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) con once
+  [auditoria-cierre-2026-09-09.md](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) con trece
   hallazgos validados. Los cuatro P1 —revocación de concesiones que dejaba de aplicarse tras el
   primer enrolamiento, rotación de claves capaz de destruir material sin evidencia, diagnóstico
   bloqueado unos 500 segundos con el coordinador caído y almacén de claves sobrescrito sin
   publicación atómica— se corrigieron ese día, cada uno con la prueba que lo reproduce. Los seis
   P2 —aislamiento del diagnóstico entrante, directorio de operadores concedidos, cookie de sesión
   ilegible, PIN retenido tras un fallo, respaldo intermedio en claro y rutas de material en el
-  texto libre de los logs— y el P3 —una denegación auditada que no correspondía a ninguna
-  decisión— se cerraron el mismo día con la misma exigencia de prueba. `pnpm lint`,
-  `pnpm typecheck` y `pnpm test` cerraron con 1.210 pruebas en 191 archivos. El cierre de la
-  auditoría no habilita el piloto: el gate conserva el instalable sin firmar y su validación en
-  una estación real.
+  texto libre de los logs— y los tres P3 —una denegación auditada que no correspondía a ninguna
+  decisión, una acción de enrolamiento sin jerarquía visual y dos formularios competidores— se
+  cerraron con la misma exigencia de prueba. La evidencia vigente consta en el registro. El cierre
+  de la auditoría habilita planificar `v0.1.0`, no una tienda: el gate de piloto conserva el
+  instalable firmado, hardware y validación real.
 - La auditoría focal del 2026-09-04 quedó documentada en el [registro de puntos
   clave de la Fase 11](./fase-11-seguridad/auditoria-puntos-clave-2026-09-04.md).
   Confirma la base arquitectónica, pero deja como deudas trazables la composición
@@ -442,6 +448,10 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 - El [hito transversal de cierre arquitectonico](./hito-cierre-arquitectonico.md) se completo el 2026-08-14 y habilito la continuacion desde 2.03.
 
 ## Documentos transversales
+
+- [Release open source `v0.1.0`](./release-v0.1-portafolio/README.md) — cinco etapas secuenciales
+  para alcance, CI, demo limpia, documentación y publicación del código fuente en GitHub. No
+  exige hardware fiscal y no adjunta un MSI sin firma.
 
 - [Paquete de trabajo pre-piloto](./pre-piloto/README.md) — abierto el 2026-09-09 con
   [ADR-0030](../architecture/adr/0030-empaquetado-y-runtime-del-nodo.md). Entrega empaquetado del
@@ -464,5 +474,5 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 - [CI/CD local](./ci-cd.md)
 - [Hito de cierre arquitectonico](./hito-cierre-arquitectonico.md)
 - [Gate de seguridad antes de UI operativa](./gate-seguridad-pre-ui.md)
-- [Gate de piloto y release](./gate-piloto-release.md)
+- [Gate de piloto en tienda](./gate-piloto-release.md)
 - [Alcance por nivel de entrega](../producto/alcance-entregas.md)

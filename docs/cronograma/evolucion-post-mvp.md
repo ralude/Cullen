@@ -26,6 +26,10 @@ La implementación futura comienza después del cierre técnico del MVP según
 incluida la Fase 8 suspendida, siguen siendo obligatorios para operar en esos niveles;
 no impiden diseñar ni verificar esta evolución con datos de prueba.
 
+La publicación open source v0.1 es anterior a ese cierre técnico: permite presentar y
+reproducir el producto en modo fiscal simulado, pero no habilita Fase 13. Después de publicar
+v0.1 se ejecutan las sub-fases 12.01–12.03 y solo su cierre permite iniciar esta evolución.
+
 ## Arquitectura objetivo
 
 ```mermaid

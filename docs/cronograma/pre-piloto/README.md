@@ -3,7 +3,7 @@
 - **Estado:** En ejecución desde el 2026-09-09; empaquetado, respaldo operativo y material LAN
   entregados. La validación en tienda real y la firma siguen abiertas.
 - **Índice:** [Cronograma](../README.md)
-- **Gate que sirve:** [Gate de piloto y release](../gate-piloto-release.md)
+- **Gate que sirve:** [Gate de piloto en tienda](../gate-piloto-release.md)
 
 ## Qué es y qué no es
 

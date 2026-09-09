@@ -1,13 +1,16 @@
-# Gate de piloto y release
+# Gate de piloto en tienda
 
 - **Estado:** Pendiente
-- **Aplica después de:** MVP técnico funcional
+- **Aplica después de:** release open source funcional
 - **Bloqueo vigente:** la Fase 8 está suspendida y debe reanudarse y completarse
   antes de cerrar este gate; el modo fiscal simulado no habilita una tienda.
+- **No bloquea:** el [release `v0.1.0` de portafolio](./release-v0.1-portafolio/README.md), que
+  distribuye código fuente y opera explícitamente con `FiscalPrinterFake`.
 
 ## Propósito
 
-Separar funcionalidad terminada de capacidad real para instalar, operar, recuperar y soportar el sistema en una tienda.
+Separar la publicación técnica del proyecto de la capacidad real para instalar, operar,
+recuperar y soportar el sistema en una tienda.
 
 ## Tareas mínimas para piloto
 

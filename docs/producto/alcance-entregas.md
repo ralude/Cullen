@@ -19,6 +19,22 @@ Incluye:
 
 No garantiza todavía instalación desatendida, soporte remoto, actualización segura ni cumplimiento fiscal certificado.
 
+### Release open source de portafolio v0.1
+
+La [release v0.1](../cronograma/release-v0.1-portafolio/README.md) publica el código fuente y
+una demostración reproducible del estado alcanzado después de Fase 11. Es un hito de
+distribución anterior al cierre técnico completo del MVP y no agrega alcance funcional.
+
+Para publicarla se requiere CI remoto verde, ejecución en un entorno Windows limpio,
+documentación coherente, licencia y notas de release. La demostración utiliza
+`FiscalPrinterFake`, mantiene visible el modo `SIMULACION` y no declara certificación,
+compatibilidad con equipos fiscales reales ni aptitud para operar en una tienda.
+
+La falta de equipos fiscales no bloquea esta publicación: Fase 8 y la sub-fase 12.04 siguen
+suspendidas hasta disponer de hardware y evidencia oficial. Las sub-fases 12.01–12.03 se
+ejecutan después de v0.1 para cerrar el MVP técnico antes de iniciar Fase 13. La v0.1 se
+distribuye como fuente; un instalador MSI sin firma no forma parte de este hito.
+
 ## 2. Piloto en tienda
 
 Valida el producto en una tienda y con hardware controlado.
@@ -92,6 +108,9 @@ Esta evolución se ejecuta después del cierre técnico del MVP; su planificaci�
 adelantar código de fases futuras ni sustituye los gates de piloto y producción.
 
 ## Regla de avance
+
+La publicación de v0.1 puede ocurrir después de Fase 11 cuando cumpla su gate propio. Este
+hito no equivale al cierre técnico del MVP ni autoriza el inicio de Fase 13.
 
 Con la [replanificación aprobada](../cronograma/replanificacion-fase-08-a-09.md),
 completar las fases 0–7, 9–11 y las sub-fases 12.01–12.03 demuestra el MVP técnico únicamente en
