@@ -54,6 +54,11 @@ const terminal = (value: unknown): string => typeof value === 'string' ? value :
  * Lectura operativa allowlist de 11.05. No selecciona payloads completos,
  * pagos ni estados arbitrarios de auditoría: solo IDs, estados técnicos y la
  * evidencia de costo expresamente aprobada.
+ *
+ * Cada consulta describe la conversación con **un** nodo: lo que se le entregó
+ * y lo que se recibió de él. Los rechazos locales son del propio nodo y no
+ * tienen contraparte. Mezclar nodos mostraría en una terminal las incidencias
+ * de otra, contra el aislamiento local de ADR-0023.
  */
 export class SqliteOperationalDiagnosticsReader implements OperationalDiagnosticsReader {
   constructor(private readonly handle: DatabaseHandle) {}
@@ -133,9 +138,10 @@ export class SqliteOperationalDiagnosticsReader implements OperationalDiagnostic
         left join sync_discrepancy discrepancy on discrepancy.event_id = event.event_id
           and discrepancy.consumer = work.consumer and discrepancy.status = 'OPEN'
         where event.event_type = 'SaleCompleted' and work.state <> 'APPLIED'
+          and event.origin_node_id = ?
         order by event.occurred_at desc
         limit ?
-      `).all(limit) as Array<Omit<SaleEffectRecord, 'occurredAt' | 'terminalId'> & {
+      `).all(destinationNodeId, limit) as Array<Omit<SaleEffectRecord, 'occurredAt' | 'terminalId'> & {
         occurredAt: number; terminalId: unknown;
       }>;
       return [...local, ...outgoing, ...incoming]
