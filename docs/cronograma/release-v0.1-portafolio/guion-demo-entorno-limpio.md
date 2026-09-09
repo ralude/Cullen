@@ -31,7 +31,7 @@ Cada paso anota el comando, lo que debe verse y qué se captura.
 ### 1. Clonar, instalar y verificar
 
 ```powershell
-git clone https://github.com/ralude/mvp.git cullen
+git clone https://github.com/ralude/Cullen.git cullen
 cd cullen
 pnpm install --frozen-lockfile
 pnpm pipeline

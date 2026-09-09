@@ -21,7 +21,8 @@ del autor ni de equipos fiscales.
 - [x] Publicar el resultado y los logs del workflow como checks de GitHub. No fijar un umbral de
   coverage arbitrario sin medir primero la línea base.
 - [x] Documentar localmente las versiones necesarias para reproducir el mismo pipeline.
-- [ ] Registrar aquí el enlace de la primera ejecución remota verde sobre `main`.
+- [ ] Registrar aquí el enlace de la primera ejecución remota verde sobre `main`. El workflow
+  se subió a `main` el 2026-09-09 y quedó disparado; falta confirmar su resultado y anotarlo.
 
 ## Criterio de salida
 
