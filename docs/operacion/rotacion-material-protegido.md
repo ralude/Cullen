@@ -21,8 +21,10 @@ ruta HTTP para hacerlo. La identidad `originNodeId`/`terminalId` no se cambia.
    mientras un respaldo vigente la referencie; la herramienta solo olvida claves sin referencias.
 
 La operación deja `SECURITY_PROTECTION_KEY_ROTATED` con nodo, terminal, instante UTC, protección
-efectiva y motivo. Un fallo no se resuelve borrando el almacén: perderlo vuelve irrecuperables los
-respaldos cifrados por decisión expresa de ADR-0029.
+efectiva y motivo. La evidencia se confirma antes de olvidar ninguna clave: si la auditoría no
+llega a escribirse, la herramienta falla con el almacén completo —incluida la clave recién
+retirada— y basta repetir el procedimiento. Un fallo no se resuelve borrando el almacén: perderlo
+vuelve irrecuperables los respaldos cifrados por decisión expresa de ADR-0029.
 
 ## Certificados y claves TLS
 

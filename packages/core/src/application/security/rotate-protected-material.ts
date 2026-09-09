@@ -58,13 +58,19 @@ export class RotateProtectedMaterial {
     const rotated = await this.vault.rotate(now);
 
     const referenced = new Set(input.referencedKeyIds);
-    const forgottenKeyIds: string[] = [];
-    for (const key of await this.vault.list()) {
-      if (key.state !== 'RETIRED' || referenced.has(key.keyId)) continue;
-      if (await this.vault.forget(key.keyId)) forgottenKeyIds.push(key.keyId);
-    }
+    const forgottenKeyIds = (await this.vault.list())
+      .filter((key) => key.state === 'RETIRED' && !referenced.has(key.keyId))
+      .map((key) => key.keyId);
 
-    return this.unitOfWork.execute(async () => {
+    /**
+     * El almacén de claves y la base son dos recursos distintos y ninguna
+     * transacción los cubre juntos, así que el orden es la garantía: la
+     * evidencia se confirma **antes** de olvidar nada. Si la auditoría falla,
+     * el comando falla con todas las claves todavía presentes —la rotación es
+     * aditiva y el almacén conserva la retirada—, nunca con material destruido
+     * y sin registro (CA-11.04-08).
+     */
+    await this.unitOfWork.execute(async () => {
       await this.auditWriter.append([{
         auditId: this.idGenerator.generate(),
         actorId: context.actorId,
@@ -85,7 +91,15 @@ export class RotateProtectedMaterial {
         occurredAt: now,
         correlationId: context.correlationId
       }]);
-      return ok({ keyId: rotated.keyId, retiredKeyId: rotated.retiredKeyId, forgottenKeyIds });
     });
+
+    /**
+     * Olvidar es irreversible y ya está registrado. Una clave que reaparece
+     * como activa o desaparecida entre el registro y este punto no cambia la
+     * evidencia: el registro describe lo que la rotación retira, y sobrar una
+     * clave viva es recuperable; perderla sin registro no lo sería.
+     */
+    for (const keyId of forgottenKeyIds) await this.vault.forget(keyId);
+    return ok({ keyId: rotated.keyId, retiredKeyId: rotated.retiredKeyId, forgottenKeyIds });
   }
 }

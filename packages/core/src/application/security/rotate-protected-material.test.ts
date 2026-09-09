@@ -69,6 +69,32 @@ describe('rotación del material protegido', () => {
     }]);
   });
 
+  it('no olvida ninguna clave cuando la evidencia no llega a confirmarse', async () => {
+    const forgotten: string[] = [];
+    const vault: SecretVault = {
+      protection: 'OS_KEYSTORE',
+      activeKey: async () => { throw new Error('not used'); },
+      keyById: async () => null,
+      list: async () => [key('old-unused', 'RETIRED'), key('new-active', 'ACTIVE')],
+      rotate: async () => ({ keyId: 'new-active', retiredKeyId: 'old-unused' }),
+      forget: async (keyId) => { forgotten.push(keyId); return true; }
+    };
+    /** La transacción que escribe la auditoría no confirma: nada que la respalde. */
+    const unitOfWork: UnitOfWork = {
+      execute: async () => { throw new Error('database is locked'); }
+    };
+
+    const rotation = new RotateProtectedMaterial(
+      vault, { append: async () => undefined }, unitOfWork,
+      { generate: () => 'audit-rotation' },
+      { now: () => new Date('2026-09-08T12:00:00.000Z') }
+    ).execute({ reason: 'Rotación con base indisponible.', referencedKeyIds: [] }, context);
+
+    await expect(rotation).rejects.toThrowError('database is locked');
+    /** Una clave retirada sin registro sería un respaldo irrecuperable. */
+    expect(forgotten).toEqual([]);
+  });
+
   it('rechaza un motivo vacío antes de tocar el almacén', async () => {
     let rotations = 0;
     const vault: SecretVault = {
