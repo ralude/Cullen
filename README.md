@@ -226,19 +226,23 @@ pnpm install
 # Verificación completa
 pnpm pipeline
 
+# 0. Perímetro de datos protegido. Una sola vez por máquina: el nodo verifica la
+#    ACL de donde escribe y no arranca sobre un directorio que cualquier cuenta lee.
+pnpm --filter @supermarket/server prepare-development-storage
+
 # 1. Administrador inicial. Pide código, nombre y PIN en el terminal.
 pnpm --filter @supermarket/server bootstrap-admin:dev
 
 # 2. Configuración operativa: caja, métodos de pago y políticas. Sin esto no hay
 #    turno ni cobro. Ningún valor fiscal tiene default: se declaran al ejecutarlo.
 pnpm --filter @supermarket/server bootstrap-operations:dev -- \
-  --database ./supermarket-node.sqlite --currency USD \
+  --database ./.data/db/node.sqlite --currency USD \
   --discount-max-basis-points 1500 --igtf-basis-points 300 \
   --igtf-payment-methods CARD --igtf-currencies USD
 
 # 3. Catálogo de ejemplo para probar (opcional). Las tres opciones son obligatorias:
 pnpm --filter @supermarket/server seed:products \
-  --database ./supermarket-node.sqlite --currency USD --tax-rate-basis-points 1600
+  --database ./.data/db/node.sqlite --currency USD --tax-rate-basis-points 1600
 
 # 4. Nodo servidor (Fastify + SQLite)
 pnpm --filter @supermarket/server dev
@@ -246,6 +250,12 @@ pnpm --filter @supermarket/server dev
 # 5. Terminal de escritorio (Electron + React)
 pnpm --filter @supermarket/desktop dev
 ```
+
+El paso 0 crea `apps/server/.data/{db,backups,keys}` y le aplica la misma ACL restringida que el
+instalador aplica en `%ProgramData%\Cullen`, concediendo la cuenta que desarrolla en lugar de la
+de servicio. Sin él, el arranque falla con `DATA_DIRECTORY_NOT_PROTECTED`, que es la verificación
+de [ADR-0029](./docs/architecture/adr/0029-proteccion-de-datos-en-reposo.md) D7.2 haciendo su
+trabajo sobre un directorio del árbol de trabajo, legible por cualquier cuenta de la máquina.
 
 Los pasos 2 y 3 escriben en la base y exigen que el servidor **no** esté corriendo: SQLite admite
 un solo proceso dueño por nodo y, con el nodo activo, fallan con `DATABASE_NODE_LOCKED`.

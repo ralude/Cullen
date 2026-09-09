@@ -13,7 +13,7 @@ catálogos existentes: lee lo mismo cada vez y sobrescribe los cinco productos q
 
 ```bash
 pnpm --filter @supermarket/server seed:products \
-  --database ./supermarket-node.sqlite \
+  --database ./.data/db/node.sqlite \
   --currency USD \
   --tax-rate-basis-points 1600
 ```

@@ -4,6 +4,9 @@ Aplicacion Fastify para el nodo standalone o LAN.
 
 ## Comandos
 
+- `pnpm --filter @supermarket/server prepare-development-storage`: crea `.data/{db,backups,keys}`
+  y le aplica la ACL restringida que el arranque verifica. Una sola vez por máquina, antes del
+  primer `dev`.
 - `pnpm --filter @supermarket/server dev`: inicia el servidor con watch.
 - `pnpm --filter @supermarket/server start`: inicia el servidor en `127.0.0.1:3000`.
 - `pnpm --filter @supermarket/server test`: ejecuta las pruebas del servidor.
@@ -44,7 +47,7 @@ npm run bootstrap-admin:dev
 
 El comando solicita de forma interactiva el código del operador, el nombre
 visible y un PIN numérico de 6–12 dígitos. Usa la misma base
-`supermarket-node.sqlite` y la misma identidad local que `npm run dev`.
+`.data/db/node.sqlite` y la misma identidad local que `npm run dev`.
 
 Para un nodo instalado se usa `npm run bootstrap-admin`; ese comando exige la
 identidad provisionada en `%ProgramData%` o mediante `NODE_IDENTITY_PATH`.
@@ -52,7 +55,7 @@ identidad provisionada en `%ProgramData%` o mediante `NODE_IDENTITY_PATH`.
 Las pruebas automatizadas crean temporalmente el fixture `OP001`, con nombre
 visible `Operador` y PIN `123456`, dentro de bases SQLite en memoria. Ese
 usuario se destruye al terminar cada prueba, no se inserta en
-`supermarket-node.sqlite` y no constituye una credencial de desarrollo o
+`.data/db/node.sqlite` y no constituye una credencial de desarrollo o
 producción.
 
 ## Configuración operativa mínima
@@ -63,7 +66,7 @@ abrir un turno falla con `CASH_REGISTER_NOT_FOUND` y cobrar falla con
 `POLICY_NOT_CONFIGURED`. Desde `apps/server`:
 
 ```bash
-npm run bootstrap-operations:dev -- --database ./supermarket-node.sqlite \
+npm run bootstrap-operations:dev -- --database ./.data/db/node.sqlite \
   --currency USD --discount-max-basis-points 1500 \
   --igtf-basis-points 300 --igtf-payment-methods CARD --igtf-currencies USD
 ```
