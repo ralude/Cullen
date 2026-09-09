@@ -10,6 +10,7 @@ import {
   type SessionPrincipal
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
+import { findProjectedGrant, isGrantUsable } from './operator-grant.js';
 
 type UserRow = {
   userId: string;
@@ -227,40 +228,15 @@ export class SqliteAuthenticationStore implements AuthenticationStore {
     return this.grantState(operatorCode, now.getTime());
   }
 
-  /**
-   * Instante durable más alto que este nodo ya observó: la última vez que se
-   * vio una sesión y la aplicación de la concesión más reciente.
-   *
-   * Atrasar el reloj del equipo no puede ampliar una concesión (ADR-0026 D5),
-   * así que la vigencia se evalúa contra este máximo y no contra un reloj que
-   * pudo retroceder. Adelantarlo tampoco la extiende: solo la vence antes.
-   */
-  private observedInstant(now: number): number {
-    const watermark = this.handle.sqlite.prepare(`
-      select max(instant) from (
-        select max(last_seen_at) as instant from auth_sessions
-        union all select max(applied_at) as instant from identity_operator_grant
-      )
-    `).pluck().get() as number | null;
-    return watermark === null ? now : Math.max(now, watermark);
-  }
-
   private grantState(operatorCode: string, wallClock: number): OperatorGrantState {
-    const now = this.observedInstant(wallClock);
-    const row = this.handle.sqlite.prepare(`
-      select role_codes as roleCodes, permission_codes as permissionCodes,
-        is_active as isActive, expires_at as expiresAt
-      from identity_operator_grant where operator_code = ? collate nocase
-    `).get(operatorCode) as {
-      roleCodes: string; permissionCodes: string; isActive: number; expiresAt: number;
-    } | undefined;
-    if (row === undefined) return { governed: false };
+    const grant = findProjectedGrant(this.handle.sqlite, operatorCode);
+    if (grant === null) return { governed: false };
     return {
       governed: true,
-      usable: row.isActive === 1 && now < row.expiresAt,
-      roleCodes: JSON.parse(row.roleCodes) as string[],
-      permissionCodes: JSON.parse(row.permissionCodes) as string[],
-      expiresAt: new Date(row.expiresAt)
+      usable: isGrantUsable(this.handle.sqlite, grant, wallClock),
+      roleCodes: JSON.parse(grant.roleCodes) as string[],
+      permissionCodes: JSON.parse(grant.permissionCodes) as string[],
+      expiresAt: new Date(grant.expiresAt)
     };
   }
 

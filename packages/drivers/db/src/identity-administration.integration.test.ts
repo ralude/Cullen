@@ -356,6 +356,49 @@ describe('identity administration over SQLite', () => {
     expect(time.value.toISOString()).toBe('2026-09-08T12:00:00.000Z');
   });
 
+  it('stops enrolling once the grant is revoked, also after the first enrollment', async () => {
+    const { handle, useCases } = setup({ coordinatorNodeId: 'coordinator-001' });
+    seedGrant(handle, new Date('2026-09-08T20:00:00.000Z'));
+    const first = await useCases.authorizeEnrollment.execute(
+      { operatorCode: 'OPG', reason: 'Primer ingreso en esta caja' }, contextOf('user-a')
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect((await useCases.completeEnrollment.execute(
+      { enrollmentToken: first.value.enrollmentToken, pin: '654321' },
+      { terminalId: 'terminal-001', originNodeId: 'node-001', correlationId: 'correlation-first' }
+    )).ok).toBe(true);
+
+    /** Ticket emitido mientras la concesión todavía servía. */
+    const pending = await useCases.authorizeEnrollment.execute(
+      { operatorCode: 'OPG', reason: 'PIN olvidado' }, contextOf('user-a')
+    );
+    expect(pending.ok).toBe(true);
+    if (!pending.ok) return;
+    handle.sqlite.prepare(
+      "update identity_operator_grant set is_active = 0 where operator_code = 'OPG'"
+    ).run();
+
+    const revoked = await useCases.completeEnrollment.execute(
+      { enrollmentToken: pending.value.enrollmentToken, pin: '999999' },
+      { terminalId: 'terminal-001', originNodeId: 'node-001', correlationId: 'correlation-revoked' }
+    );
+    const reissued = await useCases.authorizeEnrollment.execute(
+      { operatorCode: 'OPG', reason: 'Otro intento' }, contextOf('user-a')
+    );
+
+    expect(revoked.ok).toBe(false);
+    expect(reissued.ok).toBe(false);
+    if (revoked.ok || reissued.ok) return;
+    /** La identidad local ya existe, pero la concesión revocada manda igual. */
+    expect(revoked.error.code).toBe('IDENTITY_OPERATOR_NOT_FOUND');
+    expect(reissued.error.code).toBe('IDENTITY_OPERATOR_NOT_FOUND');
+    expect(handle.sqlite.prepare(`
+      select pin_hash from identity_credentials
+      where user_id = (select id from identity_users where operator_code = 'OPG')
+    `).pluck().get()).toBe('hashed:654321');
+  });
+
   it('refuses a replayed enrollment ticket', async () => {
     const { handle, useCases } = setup();
     const authorized = await useCases.authorizeEnrollment.execute(

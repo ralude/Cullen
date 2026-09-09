@@ -9,6 +9,7 @@ import type {
   IdentityWriteOutcome
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
+import { findProjectedGrant, isGrantUsable } from './operator-grant.js';
 import { mapDatabaseError, requireTransaction } from './unit-of-work.js';
 
 type OperatorRow = {
@@ -261,7 +262,21 @@ implements IdentityAdministrationStore, CredentialEnrollmentStore, IdentityReten
     return found !== undefined;
   }
 
+  /**
+   * Operador al que esta terminal puede materializarle una credencial local.
+   *
+   * La concesión del coordinador es la autoridad sobre quién es el operador y
+   * gobierna mientras exista, también después del primer enrolamiento: el
+   * enrolamiento crea identidad local, no independencia. Una concesión vencida
+   * o revocada deja de habilitar el enrolamiento aunque ya haya fila local, que
+   * es como ADR-0028 D9 invalida por efecto los tickets pendientes y cualquier
+   * restablecimiento posterior. Sin concesión —nodo standalone o coordinador,
+   * ADR-0028 D7— manda la identidad local.
+   */
   async enrollableOperator(operatorCode: string, now: Date): Promise<EnrollableOperator | null> {
+    const grant = findProjectedGrant(this.handle.sqlite, operatorCode);
+    if (grant !== null && !isGrantUsable(this.handle.sqlite, grant, now.getTime())) return null;
+
     const local = this.handle.sqlite.prepare(`
       select u.id as userId, u.operator_code as operatorCode, u.display_name as displayName,
         u.is_active as isActive,
@@ -280,19 +295,7 @@ implements IdentityAdministrationStore, CredentialEnrollmentStore, IdentityReten
         }
         : null;
     }
-    /**
-     * Sin fila local, la concesión del coordinador es la autoridad sobre quién
-     * es el operador. Una concesión vencida o revocada no habilita enrolamiento
-     * (ADR-0028 D7).
-     */
-    const grant = this.handle.sqlite.prepare(`
-      select operator_code as operatorCode, display_name as displayName,
-        is_active as isActive, expires_at as expiresAt
-      from identity_operator_grant where operator_code = ? collate nocase
-    `).get(operatorCode) as {
-      operatorCode: string; displayName: string; isActive: number; expiresAt: number;
-    } | undefined;
-    if (grant === undefined || grant.isActive !== 1 || now.getTime() >= grant.expiresAt) return null;
+    if (grant === null) return null;
     return {
       operatorCode: grant.operatorCode,
       displayName: grant.displayName,
