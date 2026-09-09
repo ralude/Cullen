@@ -1,8 +1,8 @@
 # Registro de auditoría de cierre — 2026-09-09
 
 - **Fase relacionada:** Fase 11 — Seguridad
-- **Estado:** los cuatro P1 y los seis P2 quedaron corregidos el 2026-09-09; el P3 sigue abierto
-  y bloquea la certificación de la fase
+- **Estado:** los once hallazgos quedaron corregidos el 2026-09-09, cada uno con su prueba. No
+  queda ninguno abierto por esta auditoría
 - **Alcance:** revisión focal de los recorridos que la Fase 11 declara cerrados —enrolamiento y
   revocación de credenciales, protección de datos en reposo, transporte de sesión, redacción y
   diagnóstico operativo—. No es una auditoría exhaustiva del árbol ni una certificación de
@@ -10,21 +10,23 @@
 
 ## Resultado ejecutivo
 
-La Fase 11 no debe certificarse todavía. Los cuatro hallazgos de prioridad alta afectaban
-garantías que la fase declara cumplidas: la revocación de una concesión dejaba de aplicarse
-después del primer enrolamiento, la rotación de claves podía destruir material sin evidencia, el
-diagnóstico podía bloquearse minutos justo cuando el coordinador está caído y el almacén de
-claves se sobrescribía sin publicación atómica. Los cuatro quedaron corregidos con prueba propia.
+La auditoría abrió once hallazgos y los once quedaron cerrados el mismo día. Los cuatro de
+prioridad alta afectaban garantías que la fase declaraba cumplidas: la revocación de una concesión
+dejaba de aplicarse después del primer enrolamiento, la rotación de claves podía destruir material
+sin evidencia, el diagnóstico podía bloquearse minutos justo cuando el coordinador está caído y el
+almacén de claves se sobrescribía sin publicación atómica.
 
-Los seis P2 no destruían ni exponían material por sí solos, pero contradecían contratos
+Los seis P2 y el P3 no destruían ni exponían material por sí solos, pero contradecían contratos
 declarados —el estado `NEEDS_ENROLLMENT` de ADR-0028, el aislamiento por destino, los códigos de
-error estables y la higiene de secretos en memoria y en logs— y quedaron corregidos el mismo día.
-El P3 sigue abierto: mientras exista, la fase no se presenta como certificada.
+error estables, la higiene de secretos en memoria y en logs, y la evidencia de autorización—.
+
+Cerrar esta auditoría no certifica la Fase 11 por sí solo: la certificación sigue dependiendo del
+criterio de salida de la fase y del gate de piloto, que conserva sus propias deudas abiertas.
 
 ## Evidencia de la auditoría
 
-- `pnpm lint`, `pnpm typecheck` y `pnpm test`: aprobados el 2026-09-09 con 1.206 pruebas en 191
-  archivos, ya con las correcciones P1 y P2 aplicadas.
+- `pnpm lint`, `pnpm typecheck` y `pnpm test`: aprobados el 2026-09-09 con 1.210 pruebas en 191
+  archivos, ya con las once correcciones aplicadas.
 - Cada corrección incorpora la prueba que reproduce el defecto y falla sin el fix.
 
 ## Hallazgos corregidos
@@ -145,21 +147,24 @@ El P3 sigue abierto: mientras exista, la fase no se presenta como certificada.
 - **Prueba:** `redaction.test.ts`, «censors the path of protected material...» y «censors a
   protected path inside the message, the stack and the cause chain». Commit `c9e42eb`.
 
-## Hallazgos abiertos
+### P3-11. La autorización por rol dejaba una denegación falsa en la auditoría
 
-### P3-11. Autorización por rol deja una denegación falsa en la auditoría
-
-- **Evidencia:** `packages/core/src/application/identity/role-use-cases.ts:186` consulta primero
-  `identity.user.manage`; un usuario autorizado solo por `identity.role.manage` obtiene acceso,
-  pero deja registrada una entrada `AUTHORIZATION_DENIED` que no corresponde a ninguna decisión.
-- **Dueño:** 11.02.
-- **Criterio:** la evidencia de autorización refleja la decisión efectiva; una comprobación
-  intermedia no se registra como denegación.
+- **Evidencia:** `GetIdentityDirectory` consultaba primero `identity.user.manage` y solo después
+  `identity.role.manage`; quien administra roles obtenía acceso y, aun así, la auditoría
+  registraba una entrada `AUTHORIZATION_DENIED` que no corresponde a ninguna decisión.
+- **Cierre:** el puerto de autorización admite alternativas —una decisión que varios permisos
+  pueden satisfacer— y la evidencia sigue siendo una sola: ninguna entrada si alguna alcanza, y
+  una que las nombra a todas si ninguna lo hace. Es la misma notación que los contratos HTTP ya
+  usaban para este caso.
+- **Prueba:** `authorization-audit.contract.test.ts`, «does not audit a denial for a decision that
+  another permission authorizes» y «records one denial when no permission of the decision
+  authorizes it»; `audited-authorization.test.ts`, «records one denial for a decision that several
+  permissions could authorize». Commit `a332608`.
 
 ## Regla de seguimiento
 
 Se aplica la misma regla del
 [registro focal del 2026-09-04](./auditoria-puntos-clave-2026-09-04.md): un hallazgo se marca
 cerrado cuando existen la corrección, su prueba y la evidencia end-to-end de su fase propietaria,
-no por tener una prueba unitaria. Mientras quede un hallazgo abierto, la Fase 11 no se presenta
-como certificada.
+no por tener una prueba unitaria. Este registro queda cerrado; el estado de la fase y del gate de
+piloto sigue viviendo únicamente en el [cronograma](../README.md).
