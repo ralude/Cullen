@@ -1,7 +1,11 @@
 # Fase 11: Seguridad
 
-- **Estado:** Completada el 2026-09-08. La frontera empaquetada, que se cerró declarando la
-  brecha, la cubrió el [paquete pre-piloto](../pre-piloto/README.md) el 2026-09-09; el MSI sin
+- **Estado:** Sub-fases entregadas el 2026-09-08, **sin certificar**. La
+  [auditoría de cierre del 2026-09-09](./auditoria-cierre-2026-09-09.md) validó once hallazgos:
+  los cuatro P1 —revocación de concesiones, evidencia de rotación, disponibilidad del diagnóstico
+  y publicación del almacén de claves— quedaron corregidos ese mismo día; los seis P2 y el P3
+  siguen abiertos y bloquean la certificación. La frontera empaquetada, que se cerró declarando
+  la brecha, la cubrió el [paquete pre-piloto](../pre-piloto/README.md) el 2026-09-09; el MSI sin
   firmar y su validación en tienda siguen abiertos en el gate de piloto.
 - **Indice:** [Cronograma](../README.md)
 - **Plan de fase:** [secuencia restante y decisiones de activación](./plan-secuencia-y-decisiones.md)
@@ -11,6 +15,10 @@
 Aplicar identidad, autorizacion, proteccion de datos y observabilidad segura.
 
 Las sub-fases 11.01 a 11.03 tienen un corte minimo obligatorio antes de la Fase 9 mediante el [gate de seguridad antes de UI operativa](../gate-seguridad-pre-ui.md). La Fase 11 completa politicas, cifrado y hardening sin posponer las fronteras basicas de seguridad.
+
+La auditoría de cierre del 2026-09-09 quedó registrada en
+[auditoria-cierre-2026-09-09.md](./auditoria-cierre-2026-09-09.md), con el detalle de los cuatro
+hallazgos corregidos y de los siete que siguen abiertos, cada uno con dueño y criterio de cierre.
 
 La auditoría focal del 2026-09-04 quedó registrada en
 [auditoria-puntos-clave-2026-09-04.md](./auditoria-puntos-clave-2026-09-04.md).

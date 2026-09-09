@@ -18,7 +18,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9 | UI | ~~Completada~~ |
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
-| 11 | [Seguridad](./fase-11-seguridad/README.md) | ~~Completada el 2026-09-08~~; empaquetado Electron conservado como deuda del gate de piloto |
+| 11 | [Seguridad](./fase-11-seguridad/README.md) | Sub-fases entregadas el 2026-09-08, sin certificar: la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) dejó siete hallazgos abiertos; empaquetado Electron conservado como deuda del gate de piloto |
 | 12 | Optimizacion | Pendiente; 12.04 suspendida con Fase 8; [12.05 mantenibilidad estructural](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) planificada, sin refactors |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
@@ -27,12 +27,15 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 16B | [Sistema de diseño propio](./fase-16b-sistema-diseno/README.md) | Planificada; post-MVP, sin iniciar |
 | 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
-**Fase actual:** Fase 11 - Seguridad quedó completada el 2026-09-08. Entregó autorización e
+**Fase actual:** Fase 11 - Seguridad entregó sus cinco sub-fases el 2026-09-08 —autorización e
 identidad auditable, confinamiento del transporte de operadores, protección en reposo conforme
 a [ADR-0029](../architecture/adr/0029-proteccion-de-datos-en-reposo.md), retención, rotación y
-observabilidad correlacionada segura. `pnpm pipeline` cerró con 1.182 pruebas aprobadas en 186
-archivos. La Fase 12 permanece pendiente de inicio y su corte fiscal continúa suspendido con
-la Fase 8; este cierre no habilita el piloto.
+observabilidad correlacionada segura—, pero **no está certificada**: la
+[auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) validó
+once hallazgos, corrigió ese día los cuatro P1 y dejó seis P2 y un P3 abiertos, con dueño y
+criterio de cierre. `pnpm lint`, `pnpm typecheck` y `pnpm test` cerraron el 2026-09-09 con 1.197
+pruebas aprobadas en 189 archivos. La Fase 12 permanece pendiente de inicio y su corte fiscal
+continúa suspendido con la Fase 8; este avance no habilita el piloto.
 Desde el 2026-09-09 corre en paralelo el [paquete pre-piloto](./pre-piloto/README.md), que **no
 es una fase**: entrega capacidad de despliegue que el gate de piloto ya exigía —empaquetado del
 nodo, respaldo operativo y material TLS de LAN— sin reabrir la Fase 11 ni adelantar la 12.
@@ -185,7 +188,7 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 - [~~Fase 9 - UI~~](./fase-09-ui/README.md)
 - [~~Fase 9B - Perfiles operativos~~](./fase-09b-perfiles/README.md)
 - [~~Fase 10 - Sincronizacion~~](./fase-10-sincronizacion/README.md)
-- [~~Fase 11 - Seguridad~~](./fase-11-seguridad/README.md)
+- [Fase 11 - Seguridad](./fase-11-seguridad/README.md) — entregada, sin certificar
 - [Fase 12 - Optimizacion](./fase-12-optimizacion/README.md)
 
 ## Reglas de seguimiento
@@ -410,6 +413,15 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
   coordinada de certificados TLS dependiente de la PKI. La deuda contable de residuo/redondeo
   de 9B.04 y la ausencia de garantía de stock global durante desconexión permanecen explícitas.
   Este cierre no habilita el piloto ni inicia la Fase 12.
+- El 2026-09-09 una auditoría de cierre revirtió esa certificación: quedó registrada en
+  [auditoria-cierre-2026-09-09.md](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) con once
+  hallazgos validados. Los cuatro P1 —revocación de concesiones que dejaba de aplicarse tras el
+  primer enrolamiento, rotación de claves capaz de destruir material sin evidencia, diagnóstico
+  bloqueado unos 500 segundos con el coordinador caído y almacén de claves sobrescrito sin
+  publicación atómica— se corrigieron ese día, cada uno con la prueba que lo reproduce. Los seis
+  P2 y el P3 siguen abiertos con dueño y criterio de cierre, y mientras existan la Fase 11 se
+  presenta como entregada, no como certificada. `pnpm lint`, `pnpm typecheck` y `pnpm test`
+  cerraron con 1.197 pruebas en 189 archivos.
 - La auditoría focal del 2026-09-04 quedó documentada en el [registro de puntos
   clave de la Fase 11](./fase-11-seguridad/auditoria-puntos-clave-2026-09-04.md).
   Confirma la base arquitectónica, pero deja como deudas trazables la composición
@@ -434,7 +446,7 @@ piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 
 - [Fase 12.05 — Mantenibilidad estructural y eficiencia de contexto](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md)
   — añadida el 2026-09-08 con diagnóstico de hubs y baseline estática reproducible.
-  Con la Fase 11 cerrada el 2026-09-08 la ejecución queda desbloqueada, pero no cambia la fase
+  Con la Fase 11 entregada el 2026-09-08 la ejecución queda desbloqueada, pero no cambia la fase
   activa ni el gate fiscal y no se inician refactors.
 
 - [Evolución post-MVP: almacenes, nube y consulta web](./evolucion-post-mvp.md) — aprobada
