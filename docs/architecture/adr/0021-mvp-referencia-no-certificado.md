@@ -23,6 +23,8 @@ tener un default explícito, pruebas y un punto de reemplazo.
    negocio posterior sin cambiar las fronteras del core.
 3. La evidencia de fabricante, la interpretación tributaria, el protocolo, el firmware y la
    recuperación de un equipo real bloquean únicamente Fase 8 y los gates de piloto/producción.
+   No bloquean la release open source de portafolio `v0.1.0`, que distribuye código fuente y una
+   demostración explícita con `FiscalPrinterFake`, no un binario para operar en tienda.
 4. 9B.08 se difiere: el modelo vigente conserva una existencia implícita por nodo hasta que
    exista una necesidad aprobada de varios almacenes.
 5. 9B.12 se reduce a lectura de arqueos, autorización e historia de venta. Un turno cerrado

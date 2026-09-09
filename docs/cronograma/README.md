@@ -20,6 +20,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 10 | Sincronizacion | ~~Completada~~ |
 | 11 | ~~[Seguridad](./fase-11-seguridad/README.md)~~ | Entregada el 2026-09-08; la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió sus trece hallazgos. El gate de tienda conserva sus requisitos propios, sin bloquear el release open source |
 | 12 | [Optimización](./fase-12-optimizacion/README.md) | Planificada después de `v0.1.0`: 12.01 → 12.02 → 12.03 → 12.05; 12.04 suspendida con Fase 8 |
+| 12B | [Manual de usuario no técnico](./fase-12b-manual-usuario/README.md) | Planificada el 2026-09-09 después de `v0.1.0`; fase documental, no bloquea ni depende de Fase 12 |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
 | 15 | [Sincronización SQLite–PostgreSQL](./fase-15-sincronizacion-cloud/README.md) | Planificada; post-MVP, sin iniciar |
@@ -38,8 +39,16 @@ restantes no pudieron completar la emisión TLS porque el host no tiene OpenSSL.
 dependencia reproducible pertenece a V0.1.01.
 
 Fase 12 comienza después de publicar `v0.1.0`: 12.01–12.03 y 12.05 preparan una versión
-posterior; 12.04 continúa suspendida con Fase 8. El release de portafolio no habilita una tienda:
-el [gate de piloto](./gate-piloto-release.md) conserva sus requisitos de hardware, fabricante,
+posterior; 12.04 continúa suspendida con Fase 8. La
+[Fase 12B](./fase-12b-manual-usuario/README.md), planificada el 2026-09-09, también espera al
+release: entrega el manual de usuario no técnico que cubre las doce pantallas de la navegación
+más el ingreso, el cambio de PIN y el enrolamiento. Es documental, no depende de Fase 12 ni la
+bloquea, y absorbe [`operacion-diaria.md`](../operacion/operacion-diaria.md), que queda como
+redirección al cerrarse. Sus tres decisiones de alcance —una captura por pantalla, absorción de
+la guía anterior y ejecución posterior al release— quedaron fijadas el 2026-09-09 en su README.
+
+El release de portafolio no habilita una tienda: el
+[gate de piloto](./gate-piloto-release.md) conserva sus requisitos de hardware, fabricante,
 laboratorio y operación real.
 Desde el 2026-09-09 corre en paralelo el [paquete pre-piloto](./pre-piloto/README.md), que **no
 es una fase**: entrega capacidad de despliegue que el gate de piloto ya exigía —empaquetado del

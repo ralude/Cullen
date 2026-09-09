@@ -345,6 +345,7 @@ del release con Fase 12.
 | 11     | Seguridad: administración de identidad, autorización auditable, transporte, cifrado en reposo y hardening de logs                                                        | ✅ Completada y auditada            |
 | v0.1.0 | Release de portafolio como código fuente y demo reproducible en modo fiscal simulado                                                                                      | 🚧 Hito de publicación actual       |
 | 12     | Optimización medida de comunicación HTTP local, SQLite y mantenibilidad estructural                                                                                        | ⏳ Planificada después de `v0.1.0`  |
+| 12B    | Manual de usuario no técnico: las doce pantallas de la navegación, con capturas y recorridos por perfil                                                                    | ⏳ Planificada después de `v0.1.0`  |
 
 En paralelo, desde el 2026-09-09 corre el
 [paquete pre-piloto](./docs/cronograma/pre-piloto/README.md), que **no es una fase**: entrega la
