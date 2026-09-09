@@ -71,6 +71,8 @@ cada cambio de `main`.
 - **Windows.** Es la plataforma objetivo del nodo y del escritorio; no hay otra probada.
 - **Sin promesa de uso comercial**, soporte garantizado ni SLA.
 - **Fase 12 no está hecha.** El rendimiento no se ha medido contra presupuestos declarados.
+- **Pago en una moneda distinta a la de la venta.** La pantalla de venta no envía la tasa de
+  cambio, así que ese cobro no es alcanzable; ver [defectos conocidos](../defectos-conocidos.md).
 
 ## Qué sigue
 

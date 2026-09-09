@@ -41,6 +41,10 @@ estación Windows limpia y siguen abiertos.
 [V0.1.03](./release-v0.1-portafolio/3-documentacion-portafolio.md) entregó contribución,
 seguridad y las notas de versión en borrador; solo le faltan esas capturas.
 [V0.1.04](./release-v0.1-portafolio/4-publicacion.md) no se inicia hasta cerrar las anteriores.
+Durante la ventana de publicación se corrigió la base del IGTF en pagos mixtos, que era
+recursiva y dejaba el cobro con dos métodos sin ningún importe deducible
+([ADR-0031](../architecture/adr/0031-base-del-igtf-en-pagos-mixtos.md)); los dos defectos que la
+misma revisión destapó quedan en [defectos conocidos](./defectos-conocidos.md).
 Fase 11 entregó sus cinco sub-fases y la
 [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió
 trece hallazgos, cada uno con su prueba. En la verificación local del 2026-09-09 aprobaron
