@@ -7,8 +7,8 @@
 Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexagonal
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-960%20passing-2ea44f)](#calidad-verificable)
-[![ADRs](https://img.shields.io/badge/ADRs-26-blue)](./docs/architecture/adr)
+[![Tests](https://img.shields.io/badge/tests-1212%20passing-2ea44f)](#calidad-verificable)
+[![ADRs](https://img.shields.io/badge/ADRs-30-blue)](./docs/architecture/adr)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](./LICENSE)
 
 </div>
@@ -17,12 +17,15 @@ Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexag
 
 > **TL;DR (English)** — Offline-first POS and inventory platform for supermarkets. TypeScript
 > monorepo built with tactical DDD and hexagonal architecture: pure domain, use-case layer with
-> ports, swappable adapters. 960 tests, 26 ADRs, 42 forward-only migrations, architecture
-> boundaries enforced by ESLint. Handles integer money arithmetic, multi-currency, crash-recoverable
-> fiscal state, idempotent commands, optimistic concurrency and per-node aggregate ownership.
-> LAN synchronization runs over mutually authenticated HTTPS with durable outbox delivery,
-> at-least-once semantics and no duplicate effects, verified across eleven network-partition
-> scenarios with three independent SQLite nodes. Detailed docs are in Spanish.
+> ports, swappable adapters. 1,212 tests across 191 files, 30 ADRs and 44 forward-only
+> migrations, with architecture boundaries enforced by ESLint. Handles integer money arithmetic,
+> multi-currency, crash-recoverable fiscal state, idempotent commands, optimistic concurrency and
+> per-node aggregate ownership. LAN synchronization runs over mutually authenticated HTTPS with
+> durable outbox delivery, at-least-once semantics and no duplicate effects, verified across
+> eleven network-partition scenarios with three independent SQLite nodes. Identity administration,
+> auditable authorization, at-rest data protection and log redaction shipped and were audited, and
+> the node installs as a supervised Windows service. This is a non-certified reference running with
+> explicitly simulated fiscal behavior. Detailed docs are in Spanish.
 
 ---
 
@@ -38,7 +41,7 @@ convencional:
 | Impresoras fiscales que fallan a mitad de una operación | El estado fiscal debe ser persistente y recuperable tras un reinicio, sin reimprimir a ciegas                       |
 | Auditoría comercial y fiscal obligatoria                | Toda operación sensible necesita actor, terminal, nodo, UTC y motivo                                                |
 
-Cullen es mi respuesta de ingeniería a ese problema: un MVP funcional que trata esas
+Cullen es mi respuesta de ingeniería a ese problema: un MVP técnico de referencia que trata esas
 restricciones como invariantes de diseño, no como casos borde.
 
 ---
@@ -129,6 +132,25 @@ base de datos la detiene.
 </details>
 
 <details>
+<summary><b>🔐 Datos en reposo protegidos, con el límite escrito</b></summary>
+
+El PIN se guarda como hash scrypt con sal individual, el token de sesión solo como SHA-256 y el
+ticket de enrolamiento solo como hash; ninguno viaja entre nodos. El directorio que los contiene
+se restringe por ACL y el arranque **verifica los permisos efectivos** en vez de suponer que el
+instalador los aplicó: si el directorio es legible por otras cuentas, el nodo falla cerrado con
+`DATA_DIRECTORY_NOT_PROTECTED` y no abre el API. Respaldos y secretos se sellan con AES-256-GCM
+bajo una clave del almacén del sistema operativo, y los logs técnicos redactan **por nombre de
+campo**, de modo que un `pin`, `token` o `cardNumber` nuevo queda censurado sin tocar la
+configuración del logger.
+
+El límite también está declarado: el archivo SQLite operativo **no se cifra**, por decisión
+explícita de [ADR-0029](./docs/architecture/adr/0029-proteccion-de-datos-en-reposo.md) D7.1 — con
+un servicio desatendido la clave viviría en la misma máquina que el atacante con Administrador
+local, así que cifrarlo compraría una promesa, no una protección.
+
+</details>
+
+<details>
 <summary><b>📐 Fronteras arquitectónicas que el linter hace cumplir</b></summary>
 
 El grafo de dependencias no es una convención documentada: `eslint.config.js` lo impone con
@@ -141,25 +163,27 @@ React — y el build falla si alguien lo intenta.
 
 ## Calidad verificable
 
-|                                                 |                         |
-| ----------------------------------------------- | ----------------------: |
-| Pruebas (Vitest, todas en verde)                | **960** en 160 archivos |
-| Código de producción / código de prueba         |    45.4k / 29.7k líneas |
-| Casos de uso en la capa de aplicación           |                     102 |
-| Endpoints HTTP versionados y contratados        |                      95 |
-| Permisos granulares                             |                      50 |
-| Migraciones forward-only (con checksum SHA-256) |                      42 |
-| Registros de decisión arquitectónica (ADR)      |                      26 |
-| Escenarios de fallo documentados                |                      11 |
-| Triggers de invariante en SQLite                |                     125 |
+|                                                 |                           |
+| ----------------------------------------------- | ------------------------: |
+| Pruebas (Vitest, todas en verde)                | **1.212** en 191 archivos |
+| Código de producción / código de prueba         |      53.3k / 34.4k líneas |
+| Clases de aplicación exportadas                 |                       129 |
+| Contratos HTTP v1 publicados                    |                       107 |
+| Permisos granulares                             |                        53 |
+| Migraciones forward-only (con checksum SHA-256) |                        44 |
+| Registros de decisión arquitectónica (ADR)      |                        30 |
+| Escenarios de fallo documentados                |                        11 |
+| Triggers de invariante en SQLite                |                       125 |
 
 ```bash
-pnpm pipeline    # lint + typecheck + 960 pruebas
+pnpm pipeline    # lint + typecheck + 1.212 pruebas
 ```
 
-El pipeline corre en local sin asumir plataforma remota. TypeScript va en modo estricto con
-`exactOptionalPropertyTypes`, y las migraciones se prueban sobre SQLite temporal, incluyendo el
-_backfill_ de datos históricos.
+Verificado en local el 2026-09-09: `pnpm lint`, `pnpm typecheck` y las 1.212 pruebas de los 191
+archivos, en verde. La etapa V0.1.01 debe ejecutar ese mismo pipeline en CI remoto antes de
+publicar `v0.1.0`; hasta entonces la cifra es una verificación local reproducible, no un check de
+GitHub. TypeScript va en modo estricto con `exactOptionalPropertyTypes`, y las migraciones se
+prueban sobre SQLite temporal, incluyendo el _backfill_ de datos históricos.
 
 ---
 
@@ -270,6 +294,33 @@ una jornada —abrir caja, vender, facturar, cerrar con arqueo y leer el kardex�
 
 Requiere Node.js 20.6+ (los scripts usan `--env-file` e `--import`; probado en Node 24) y pnpm 11.
 
+### Instalar y sostener una estación
+
+Lo anterior levanta el árbol de trabajo. Una estación real se instala como servicio de Windows
+supervisado por WinSW desde un MSI de WiX, cuya definición vive en
+[`packaging/`](./packaging/README.md) y cuyo procedimiento reproducible está en
+[instalación de una estación](./docs/operacion/instalacion-estacion.md). El MSI se construye en un
+host con WiX Toolset; no se produce ni se firma dentro de `pnpm test`, y no se publica.
+
+Una vez instalada, el nodo trae sus propios comandos operativos:
+
+```bash
+# Copia manual de la base, sellada con la clave del nodo (la diaria corre sola a las 03:00)
+pnpm --filter @supermarket/server backup
+
+# Material TLS de la LAN: autoridad interna, emisión inicial y alta de una terminal nueva
+pnpm --filter @supermarket/server generate-lan-material
+
+# Rotación de la clave AES-256-GCM y del material TLS ya emitido
+pnpm --filter @supermarket/server rotate-protected-material
+```
+
+Cada uno tiene su runbook: [respaldo operativo](./docs/operacion/respaldo-operativo.md),
+[emisión de material LAN](./docs/operacion/emision-material-lan.md) y
+[rotación de material protegido](./docs/operacion/rotacion-material-protegido.md). Los respaldos
+van cifrados con la clave del nodo, que vive en el almacén del sistema operativo de esa máquina:
+perder ese almacén los vuelve irrecuperables, por decisión expresa de ADR-0029.
+
 ---
 
 ## Estado del proyecto
@@ -278,8 +329,12 @@ Desarrollo por fases con cronograma versionado. El
 [cronograma](./docs/cronograma/README.md) es la única fuente de verdad del avance: cada fase tiene
 sus sub-fases, sus criterios de aceptación y sus deudas abiertas por escrito.
 
-**MVP técnico — cerrado de la Fase 0 a la 10, salvo la 8 suspendida por dependencia externa.
-La Fase 11 es la fase activa:**
+**Hito actual: preparar la
+[release open source `v0.1.0`](./docs/cronograma/release-v0.1-portafolio/README.md) con el código
+entregado hasta Fase 11.**
+La publicación distribuye código fuente y una demo reproducible; no adjunta el MSI sin firma y no
+habilita un piloto ni un despliegue comercial. El cierre técnico completo del MVP continúa después
+del release con Fase 12.
 
 | Fases  | Alcance                                                                                                                                                                  | Estado                              |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
@@ -287,8 +342,16 @@ La Fase 11 es la fase activa:**
 | 8      | Integración serial con impresoras fiscales reales                                                                                                                        | ⏸️ Suspendida (dependencia externa) |
 | 9 · 9B | Interfaz de operación y capacidades de negocio: costos y margen, devoluciones, conteos físicos, proveedores y recepciones, KPIs, arqueos y los cinco perfiles operativos | ✅ Completadas                      |
 | 10     | Sincronización LAN: outbox durable, protocolo de eventos entre nodos, receptor autenticado, operación offline y reconexión                                               | ✅ Completada                       |
-| 11     | Seguridad: administración de identidad, autorización auditable, transporte, cifrado en reposo y hardening de logs                                                        | 📋 Planificada · fase activa        |
-| 12     | Optimización medida (CPU, IPC, SQLite) y mantenibilidad estructural                                                                                                      | ⏳ Pendiente · en planificación     |
+| 11     | Seguridad: administración de identidad, autorización auditable, transporte, cifrado en reposo y hardening de logs                                                        | ✅ Completada y auditada            |
+| v0.1.0 | Release de portafolio como código fuente y demo reproducible en modo fiscal simulado                                                                                      | 🚧 Hito de publicación actual       |
+| 12     | Optimización medida de comunicación HTTP local, SQLite y mantenibilidad estructural                                                                                        | ⏳ Planificada después de `v0.1.0`  |
+
+En paralelo, desde el 2026-09-09 corre el
+[paquete pre-piloto](./docs/cronograma/pre-piloto/README.md), que **no es una fase**: entrega la
+capacidad de despliegue que el gate de piloto ya exigía —empaquetado del nodo como servicio de
+Windows, respaldo operativo y material TLS de la LAN— sin reabrir la Fase 11 ni adelantar la 12.
+Los tres planes están entregados; la firma de ejecutables y la validación del MSI en hardware de
+tienda siguen abiertas, y son parte de lo que falta para hablar de certificación.
 
 **Post-MVP — aprobado y planificado, sin iniciar:** almacenes por ubicación (13), plataforma
 central PostgreSQL (14), sincronización SQLite–PostgreSQL (15), web app interna con Next.js (16),
@@ -299,9 +362,9 @@ fases se presenta como implementada.
 > **Declaración honesta de alcance:** este es un **MVP de referencia no certificado**. La
 > integración con impresoras fiscales reales (Fase 8) está **suspendida por dependencia externa**
 > —hardware, protocolo del fabricante y laboratorio de certificación— y el sistema opera con un
-> driver fiscal simulado explícitamente rotulado como `SIMULACIÓN`. No se presenta como
+> driver fiscal simulado explícitamente rotulado como `SIMULACION`. No se presenta como
 > cumplimiento normativo, ni como software en producción: no ha corrido un piloto en una tienda
-> real y el [gate de piloto](./docs/cronograma/gate-piloto-release.md) sigue abierto.
+> real y el [gate de piloto en tienda](./docs/cronograma/gate-piloto-release.md) sigue abierto.
 
 Prefiero declarar ese límite antes que insinuar una capacidad que no puedo demostrar.
 
@@ -325,13 +388,13 @@ corrección y pasa después, y las decisiones quedaron escritas en
 [`12-sincronizacion-y-ownership.md`](./docs/architecture/12-sincronizacion-y-ownership.md) para
 que la próxima persona sepa por qué el sistema hace lo que hace.
 
-Ese hábito se volvió el método. La Fase 11 se planificó verificando primero la línea base contra
-el árbol real, archivo por archivo, y eso destapó cuatro brechas que ninguna especificación había
-nombrado — entre ellas que el mecanismo de revocación de sesión por cambio de autorización estaba
-completo del lado de la lectura y no tenía quién lo disparara. El
-[plan resultante](./docs/cronograma/fase-11-seguridad/plan-secuencia-y-decisiones.md) registra
-además las **decisiones pendientes de aprobación**, detalladas en el cronograma, en vez de
-inventar la regla de negocio faltante y descubrir el error después.
+Ese hábito se volvió el método. La Fase 11 partió de una línea base verificada contra el árbol real,
+cerró sus cinco sub-fases y luego pasó una
+[auditoría de cierre](./docs/cronograma/fase-11-seguridad/auditoria-cierre-2026-09-09.md) que corrigió
+trece hallazgos, cada uno con su prueba. El
+[plan ejecutado](./docs/cronograma/fase-11-seguridad/plan-secuencia-y-decisiones.md) conserva las
+decisiones y límites que gobernaron el trabajo, sin presentar el resultado como certificación de
+seguridad ni como habilitación de una tienda real.
 
 ---
 
@@ -352,12 +415,15 @@ packages/
     security/       hashing de PIN (scrypt), tokens de sesión, identidad de nodo, UUIDv7
     exchange-rate/  proveedor externo de tasas (sugiere; un humano confirma)
     hardware/       reservado para scanner y báscula — aún sin implementación
-    logging/        reservado — hoy la auditoría vive en el driver `db`
+    logging/        redacción de logs técnicos por nombre de campo y contexto técnico
 docs/
-  architecture/     arquitectura por responsabilidad + 26 ADRs
+  architecture/     arquitectura por responsabilidad + 30 ADRs
   cronograma/       fases, sub-fases, planes y decisiones
   failure-scenarios/semántica de fallo de operaciones críticas
+  operacion/        runbooks: instalación, jornada diaria, respaldo, material LAN y rotación
   producto/         alcance por nivel de entrega
+packaging/          definición del MSI (WiX) y del servicio de Windows (WinSW)
+tests/              pruebas de fronteras arquitectónicas sobre la configuración de ESLint
 ```
 
 ## Documentación
@@ -365,17 +431,16 @@ docs/
 | Documento                                                                    | Contenido                                                                                  |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | [`docs/architecture/README.md`](./docs/architecture/README.md)               | Arquitectura por responsabilidad: capas, módulos, agregados, eventos, errores              |
-| [`docs/architecture/adr/`](./docs/architecture/adr)                          | 26 decisiones arquitectónicas con contexto, alternativas y consecuencias                   |
+| [`docs/architecture/adr/`](./docs/architecture/adr)                          | 30 decisiones arquitectónicas con contexto, alternativas y consecuencias                   |
 | [`docs/cronograma/README.md`](./docs/cronograma/README.md)                   | Estado por fase y registro de replanificaciones                                            |
 | [`docs/failure-scenarios/`](./docs/failure-scenarios/README.md)              | Qué garantiza el sistema cuando algo falla a mitad de una operación                        |
-| [`docs/operacion/operacion-diaria.md`](./docs/operacion/operacion-diaria.md) | Recorrido de una jornada: abrir caja, vender, facturar, cerrar con arqueo y leer el kardex |
+| [`docs/operacion/`](./docs/operacion/operacion-diaria.md)                    | Runbooks de operación: jornada diaria, instalación de estación, respaldo, material LAN y rotación |
+| [`packaging/README.md`](./packaging/README.md)                               | Empaquetado del nodo: servicio de Windows, MSI y prerrequisitos del host de construcción   |
 | [`AGENTS.md`](./AGENTS.md)                                                   | Reglas operativas del proyecto — fuente única para colaboradores humanos y agentes de IA   |
 
 ---
 
 <div align="center">
-
-<!-- TODO: completa tu nombre y la URL real de tu perfil antes de publicar -->
 
 **Gerardo** · [LinkedIn](https://www.linkedin.com/in/gerardo-luna-lorca) · Apache 2.0
 
