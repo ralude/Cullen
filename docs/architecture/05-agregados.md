@@ -39,8 +39,11 @@ Debe garantizar:
 - emisión de eventos solo por hechos válidos.
 
 El IGTF no se codifica como una constante del agregado: la aplicación recibe una
-política versionada que determina elegibilidad, tasa y base cubierta por pagos
-elegibles. Registrar el lote de pagos congela líneas y descuentos.
+política versionada que determina elegibilidad y tasa. La base es la **porción
+comercial que el método gravado salda**, no el importe entregado: el impuesto
+viaja dentro de ese importe y se separa de él, según
+[ADR-0031](./adr/0031-base-del-igtf-en-pagos-mixtos.md). Registrar el lote de
+pagos congela líneas y descuentos.
 
 ## Agregado `Shift`
 

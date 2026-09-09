@@ -7,8 +7,8 @@
 Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexagonal
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1212%20passing-2ea44f)](#calidad-verificable)
-[![ADRs](https://img.shields.io/badge/ADRs-30-blue)](./docs/architecture/adr)
+[![Tests](https://img.shields.io/badge/tests-1223%20passing-2ea44f)](#calidad-verificable)
+[![ADRs](https://img.shields.io/badge/ADRs-31-blue)](./docs/architecture/adr)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](./LICENSE)
 
 </div>
@@ -17,7 +17,7 @@ Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexag
 
 > **TL;DR (English)** — Offline-first POS and inventory platform for supermarkets. TypeScript
 > monorepo built with tactical DDD and hexagonal architecture: pure domain, use-case layer with
-> ports, swappable adapters. 1,212 tests across 191 files, 30 ADRs and 44 forward-only
+> ports, swappable adapters. 1,223 tests across 191 files, 31 ADRs and 44 forward-only
 > migrations, with architecture boundaries enforced by ESLint. Handles integer money arithmetic,
 > multi-currency, crash-recoverable fiscal state, idempotent commands, optimistic concurrency and
 > per-node aggregate ownership. LAN synchronization runs over mutually authenticated HTTPS with
@@ -165,23 +165,23 @@ React — y el build falla si alguien lo intenta.
 
 |                                                 |                           |
 | ----------------------------------------------- | ------------------------: |
-| Pruebas (Vitest, todas en verde)                | **1.212** en 191 archivos |
+| Pruebas (Vitest, todas en verde)                | **1.223** en 191 archivos |
 | Código de producción / código de prueba         |      53.3k / 34.4k líneas |
 | Clases de aplicación exportadas                 |                       129 |
 | Contratos HTTP v1 publicados                    |                       107 |
 | Permisos granulares                             |                        53 |
 | Migraciones forward-only (con checksum SHA-256) |                        44 |
-| Registros de decisión arquitectónica (ADR)      |                        30 |
+| Registros de decisión arquitectónica (ADR)      |                        31 |
 | Escenarios de fallo documentados                |                        11 |
 | Triggers de invariante en SQLite                |                       125 |
 
 ```bash
-pnpm pipeline    # lint + typecheck + 1.212 pruebas
+pnpm pipeline    # lint + typecheck + 1.223 pruebas
 ```
 
 Ese mismo pipeline corre en
 [GitHub Actions sobre `windows-latest`](./.github/workflows/pipeline.yml) en cada pull request y
-cada cambio de `main`: instalación congelada, lint, typecheck, las 1.212 pruebas de los 191
+cada cambio de `main`: instalación congelada, lint, typecheck, las 1.223 pruebas de los 191
 archivos y la compilación de artefactos. La cifra es un check remoto, no solo una corrida en la
 máquina del autor.
 
@@ -432,7 +432,7 @@ packages/
     hardware/       reservado para scanner y báscula — aún sin implementación
     logging/        redacción de logs técnicos por nombre de campo y contexto técnico
 docs/
-  architecture/     arquitectura por responsabilidad + 30 ADRs
+  architecture/     arquitectura por responsabilidad + 31 ADRs
   cronograma/       fases, sub-fases, planes y decisiones
   failure-scenarios/semántica de fallo de operaciones críticas
   operacion/        runbooks: instalación, jornada diaria, respaldo, material LAN y rotación
@@ -446,7 +446,7 @@ tests/              pruebas de fronteras arquitectónicas sobre la configuració
 | Documento                                                                    | Contenido                                                                                  |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | [`docs/architecture/README.md`](./docs/architecture/README.md)               | Arquitectura por responsabilidad: capas, módulos, agregados, eventos, errores              |
-| [`docs/architecture/adr/`](./docs/architecture/adr)                          | 30 decisiones arquitectónicas con contexto, alternativas y consecuencias                   |
+| [`docs/architecture/adr/`](./docs/architecture/adr)                          | 31 decisiones arquitectónicas con contexto, alternativas y consecuencias                   |
 | [`docs/cronograma/README.md`](./docs/cronograma/README.md)                   | Estado por fase y registro de replanificaciones                                            |
 | [`docs/failure-scenarios/`](./docs/failure-scenarios/README.md)              | Qué garantiza el sistema cuando algo falla a mitad de una operación                        |
 | [`docs/operacion/`](./docs/operacion/operacion-diaria.md)                    | Runbooks de operación: jornada diaria, instalación de estación, respaldo, material LAN y rotación |

@@ -90,6 +90,25 @@ export class Money {
   }
 
   /**
+   * Separa el porcentaje que **ya viene contenido** en este importe: si `this`
+   * es base + porcentaje, devuelve el porcentaje. Es la inversa de
+   * `applyPercentage` para el caso en que el bruto es el dato conocido.
+   *
+   * La base se redondea half-up comercial y el resultado se obtiene restandola,
+   * de modo que base + resultado reconstruye el bruto exactamente: un impuesto
+   * incluido nunca puede dejar una unidad menor descuadrada.
+   */
+  extractIncludedPercentage(percentage: Percentage): Money {
+    const denominator = BASIS_POINTS_DENOMINATOR + BigInt(percentage.basisPoints);
+    const base = divideRoundingHalfAwayFromZero(
+      BigInt(this.minorUnits) * BASIS_POINTS_DENOMINATOR,
+      denominator
+    );
+
+    return Money.fromSafeBigInt(BigInt(this.minorUnits) - base, this.currency);
+  }
+
+  /**
    * Multiplica por una cantidad escalada. Las fracciones de unidad menor se
    * redondean half-up comercial (mitad alejandose de cero).
    */

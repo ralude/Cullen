@@ -85,15 +85,21 @@ export class RegisterMixedPayment {
         }));
           }
 
+          /**
+           * El impuesto viaja **dentro** de lo que se entrega con un metodo
+           * gravado: quien paga 51,50 con tarjeta liquida 50,00 de la venta y
+           * 1,50 de impuesto. Aplicarlo sobre el importe entregado volveria la
+           * base recursiva —el bruto ya contiene el impuesto que se pretende
+           * calcular—, y con pagos mixtos dejaba la venta sin ningun importe
+           * que un cajero pudiera deducir. Ver ADR-0031.
+           */
           const policy = await this.taxPolicyProvider.getPolicy();
-          const eligibleAmount = payments.reduce((total, payment) => {
+          const eligibleTendered = payments.reduce((total, payment) => {
             const eligible = policy.eligiblePaymentMethodCodes.includes(payment.method.code) &&
               policy.eligibleCurrencies.includes(payment.amount.currency);
             return eligible ? total.add(payment.amountInSaleCurrency) : total;
           }, Money.zero(sale.currencyCode));
-          const taxableEligibleAmount = eligibleAmount.minorUnits > sale.commercialTotal.minorUnits
-            ? sale.commercialTotal : eligibleAmount;
-          const financialTransactionTax = policy.rate.applyTo(taxableEligibleAmount);
+          const financialTransactionTax = policy.rate.extractFrom(eligibleTendered);
 
           sale.registerPayments({
             payments, financialTransactionTax, occurredAt: at,

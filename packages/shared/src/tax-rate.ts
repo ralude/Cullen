@@ -31,4 +31,17 @@ export class TaxRate {
   applyTo(money: Money): Money {
     return money.applyPercentage(this.percentage);
   }
+
+  /**
+   * Separa el impuesto que ya viaja **dentro** de un importe bruto. Se usa
+   * cuando el dato conocido es lo que se cobro y no la base: quien entrega
+   * 51,50 con un metodo gravado al 3% liquida 50,00 de la operacion y 1,50 de
+   * impuesto.
+   *
+   * Calcular el impuesto sobre el bruto en ese caso lo volveria recursivo,
+   * porque el bruto ya lo contiene.
+   */
+  extractFrom(money: Money): Money {
+    return money.extractIncludedPercentage(this.percentage);
+  }
 }

@@ -73,6 +73,7 @@ Incluye:
 - [ADR-0028: Enrolamiento local de credenciales entre nodos](./adr/0028-enrolamiento-local-de-credenciales.md) — **aceptado**, cierra la brecha declarada por ADR-0027 sin transportar secretos entre nodos
 - [ADR-0029: Protección de datos en reposo](./adr/0029-proteccion-de-datos-en-reposo.md) — **aceptado**, resuelve D7–D9 de la Fase 11: sin cifrado de la base, ACL verificada, respaldos y secretos cifrados con custodia en el almacén del sistema, retención y rotación declaradas
 - [ADR-0030: Empaquetado del nodo y runtime como servicio de Windows](./adr/0030-empaquetado-y-runtime-del-nodo.md) — **aceptado**, servicio de Windows supervisado por WinSW, instalador MSI de WiX responsable de la ACL del directorio de datos, bundle del servidor con runtime Node embebido; firma de ejecutables diferida
+- [ADR-0031: Base del IGTF en pagos mixtos](./adr/0031-base-del-igtf-en-pagos-mixtos.md) — **aceptado**, el impuesto viaja dentro del importe entregado con el método gravado y se separa con `TaxRate.extractFrom`; elimina la base recursiva que dejaba el pago mixto sin ningún importe aceptable
 
 ## Alcance del producto
 
