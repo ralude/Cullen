@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -101,6 +101,27 @@ describe('almacén de claves del nodo', () => {
 
     expect(await codeOfAsync(() => openSecretVault(directory, {}).activeKey(new Date())))
       .toBe('SECRET_VAULT_PROTECTION_MISMATCH');
+  });
+
+  it('conserva el almacén publicado cuando la publicación no puede completarse', async () => {
+    const directory = temporary();
+    const vault = openSecretVault(directory, DEVELOPMENT);
+    const first = await vault.activeKey(new Date('2026-09-08T10:00:00.000Z'));
+    const path = join(directory, 'node-keys.json');
+    const published = readFileSync(path, 'utf8');
+    /** Publicado de solo lectura en Windows, directorio cerrado en POSIX. */
+    chmodSync(path, 0o444);
+    chmodSync(directory, 0o555);
+
+    const code = await codeOfAsync(() => vault.rotate(new Date('2026-09-08T11:00:00.000Z')));
+
+    chmodSync(directory, 0o755);
+    chmodSync(path, 0o644);
+    expect(code).toBe('SECRET_VAULT_UNAVAILABLE');
+    /** Ni truncado, ni sustituido a medias, ni con intermedios abandonados. */
+    expect(readFileSync(path, 'utf8')).toBe(published);
+    expect(readdirSync(directory)).toEqual(['node-keys.json']);
+    expect((await vault.activeKey(new Date())).keyId).toBe(first.keyId);
   });
 
   it('falla cerrado cuando el almacén del sistema no responde', async () => {

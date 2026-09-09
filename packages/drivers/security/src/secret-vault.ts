@@ -1,6 +1,15 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { join } from 'node:path';
 import type {
   ProtectionKey,
@@ -134,11 +143,31 @@ export class FileSecretVault implements SecretVault {
     }
   }
 
+  /**
+   * Publicación atómica. Existe un solo `node-keys.json` y perderlo a medias
+   * vuelve irrecuperables el nodo y todos los respaldos que dependan de sus
+   * claves, así que nunca se escribe sobre él: el contenido nuevo se escribe
+   * completo en un intermedio del mismo directorio, se fuerza a disco y recién
+   * entonces sustituye al publicado con un renombrado. Una caída durante el
+   * arranque, la rotación o la purga deja el almacén anterior intacto y, a lo
+   * sumo, un intermedio con la misma custodia que el publicado.
+   */
   private write(keystore: Keystore): void {
+    const staging = `${this.path}.${randomUUID()}.staging`;
     try {
       mkdirSync(this.directory, { recursive: true });
-      writeFileSync(this.path, JSON.stringify(keystore, null, 2));
-    } catch (cause) { throw unavailable(cause); }
+      const file = openSync(staging, 'wx');
+      try {
+        writeFileSync(file, JSON.stringify(keystore, null, 2));
+        fsyncSync(file);
+      } finally {
+        closeSync(file);
+      }
+      renameSync(staging, this.path);
+    } catch (cause) {
+      try { rmSync(staging, { force: true }); } catch { /* el intermedio no manda */ }
+      throw unavailable(cause);
+    }
   }
 
   /** Un almacén que no responde no degrada a otra cosa: es indisponibilidad. */
