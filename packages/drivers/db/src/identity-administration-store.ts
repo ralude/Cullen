@@ -9,7 +9,7 @@ import type {
   IdentityWriteOutcome
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
-import { findProjectedGrant, isGrantUsable } from './operator-grant.js';
+import { findProjectedGrant, isGrantUsable, observedInstant } from './operator-grant.js';
 import { mapDatabaseError, requireTransaction } from './unit-of-work.js';
 
 type OperatorRow = {
@@ -48,7 +48,13 @@ export class SqliteIdentityAdministrationStore
 implements IdentityAdministrationStore, CredentialEnrollmentStore, IdentityRetentionStore {
   constructor(private readonly handle: DatabaseHandle) {}
 
-  async listOperators(): Promise<readonly IdentityOperatorSummary[]> {
+  /**
+   * Directorio del nodo: los operadores locales y los que solo existen como
+   * concesión utilizable del coordinador. Omitir a estos últimos escondería
+   * justo el caso que ADR-0028 D1 obliga a distinguir —identidad concedida sin
+   * credencial local—, que es el que necesita enrolamiento.
+   */
+  async listOperators(now: Date): Promise<readonly IdentityOperatorSummary[]> {
     const rows = this.handle.sqlite.prepare(`
       select u.id as userId, u.operator_code as operatorCode, u.display_name as displayName,
         u.is_active as isActive, u.authorization_version as authorizationVersion,
@@ -58,7 +64,8 @@ implements IdentityAdministrationStore, CredentialEnrollmentStore, IdentityReten
       left join identity_credentials c on c.user_id = u.id
       order by u.operator_code
     `).all() as OperatorRow[];
-    return rows.map((row) => this.operatorFrom(row));
+    return [...rows.map((row) => this.operatorFrom(row)), ...this.grantedOperators(now)]
+      .sort((left, right) => left.operatorCode.localeCompare(right.operatorCode));
   }
 
   async findOperator(userId: string): Promise<IdentityOperatorSummary | null> {
@@ -475,6 +482,43 @@ implements IdentityAdministrationStore, CredentialEnrollmentStore, IdentityReten
     }
   }
 
+  /**
+   * Operadores que solo existen como concesión. No tienen fila local, así que
+   * no tienen roles locales ni versión de autorización propia: la autoridad
+   * sobre quiénes son y qué pueden sigue siendo el coordinador.
+   */
+  private grantedOperators(now: Date): readonly IdentityOperatorSummary[] {
+    const rows = this.handle.sqlite.prepare(`
+      select g.user_id as userId, g.operator_code as operatorCode,
+        g.display_name as displayName, g.role_codes as roleCodes,
+        g.is_active as isActive, g.expires_at as expiresAt
+      from identity_operator_grant g
+      where not exists (
+        select 1 from identity_users u where u.operator_code = g.operator_code collate nocase
+      )
+      order by g.operator_code
+    `).all() as {
+      userId: string; operatorCode: string; displayName: string; roleCodes: string;
+      isActive: number; expiresAt: number;
+    }[];
+    if (rows.length === 0) return [];
+    const observed = observedInstant(this.handle.sqlite, now.getTime());
+    return rows
+      .filter((row) => row.isActive === 1 && observed < row.expiresAt)
+      .map((row) => ({
+        userId: row.userId,
+        operatorCode: row.operatorCode,
+        displayName: row.displayName,
+        isActive: true,
+        roleIds: [],
+        roleCodes: JSON.parse(row.roleCodes) as string[],
+        authorizationVersion: 0,
+        hasLocalIdentity: false,
+        hasLocalCredential: false,
+        credentialMustChange: false
+      }));
+  }
+
   private operatorFrom(row: OperatorRow): IdentityOperatorSummary {
     const roles = this.handle.sqlite.prepare(`
       select r.id as roleId, r.code as code from identity_user_roles ur
@@ -489,6 +533,7 @@ implements IdentityAdministrationStore, CredentialEnrollmentStore, IdentityReten
       roleIds: roles.map((role) => role.roleId),
       roleCodes: roles.map((role) => role.code),
       authorizationVersion: row.authorizationVersion,
+      hasLocalIdentity: true,
       hasLocalCredential: row.hasCredential === 1,
       credentialMustChange: row.mustChange === 1
     };

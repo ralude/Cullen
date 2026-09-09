@@ -11,6 +11,7 @@ import { Role } from '../../domain/identity/index.js';
 import type { ExecutionContext } from '../execution-context.js';
 import type {
   AuthorizationService,
+  Clock,
   IdGenerator,
   IdentityAdministrationStore,
   IdentityRoleSummary
@@ -177,7 +178,8 @@ export class GetIdentityDirectory {
   constructor(
     private readonly store: IdentityAdministrationStore,
     private readonly authorization: AuthorizationService,
-    private readonly changes: IdentityChangeTransaction
+    private readonly changes: IdentityChangeTransaction,
+    private readonly clock: Clock
   ) {}
 
   async execute(context: ExecutionContext): Promise<Result<IdentityDirectoryDto, AppError>> {
@@ -187,7 +189,7 @@ export class GetIdentityDirectory {
       return err(new ApplicationError('FORBIDDEN', 'Actor is not authorized to read identity.'));
     }
     return ok({
-      operators: (await this.store.listOperators()).map(toOperatorDto),
+      operators: (await this.store.listOperators(this.clock.now())).map(toOperatorDto),
       roles: (await this.store.listRoles()).map(toRoleDto),
       permissionCodes: await this.store.listPermissionCodes(),
       ownedByThisNode: this.changes.ownershipError() === null

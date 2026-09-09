@@ -12,6 +12,12 @@ export type IdentityOperatorResponse = {
   readonly isActive: boolean;
   readonly roleIds: readonly string[];
   readonly roleCodes: readonly string[];
+  /**
+   * Existe fila local de identidad. Un operador que este nodo solo conoce por
+   * la concesión del coordinador todavía no la tiene: se lo puede enrolar aquí,
+   * pero su identidad y sus permisos se administran donde nacieron.
+   */
+  readonly hasLocalIdentity: boolean;
   /** Existe credencial en este nodo. Una concesión no la implica. */
   readonly hasLocalCredential: boolean;
   readonly credentialMustChange: boolean;
@@ -97,12 +103,13 @@ const operatorSchema = {
   type: 'object', additionalProperties: false,
   required: [
     'userId', 'operatorCode', 'displayName', 'isActive', 'roleIds', 'roleCodes',
-    'hasLocalCredential', 'credentialMustChange'
+    'hasLocalIdentity', 'hasLocalCredential', 'credentialMustChange'
   ],
   properties: {
     userId: id, operatorCode: { type: 'string' }, displayName: { type: 'string' },
     isActive: { type: 'boolean' }, roleIds: { type: 'array', items: id },
     roleCodes: { type: 'array', items: { type: 'string' } },
+    hasLocalIdentity: { type: 'boolean' },
     hasLocalCredential: { type: 'boolean' }, credentialMustChange: { type: 'boolean' }
   }
 } as const;

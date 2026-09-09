@@ -16,6 +16,8 @@ export type IdentityOperatorDto = {
   readonly isActive: boolean;
   readonly roleIds: readonly string[];
   readonly roleCodes: readonly string[];
+  /** La identidad vive en este nodo; una concesión sin fila local no la tiene. */
+  readonly hasLocalIdentity: boolean;
   readonly hasLocalCredential: boolean;
   readonly credentialMustChange: boolean;
 };
@@ -93,6 +95,7 @@ export const toOperatorDto = (summary: IdentityOperatorSummary): IdentityOperato
   isActive: summary.isActive,
   roleIds: summary.roleIds,
   roleCodes: summary.roleCodes,
+  hasLocalIdentity: summary.hasLocalIdentity,
   hasLocalCredential: summary.hasLocalCredential,
   credentialMustChange: summary.credentialMustChange
 });

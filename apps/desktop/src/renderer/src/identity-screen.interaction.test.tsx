@@ -27,8 +27,8 @@ const role = (overrides: Partial<IdentityRoleResponse> = {}): IdentityRoleRespon
 
 const operator = (overrides: Partial<IdentityOperatorResponse> = {}): IdentityOperatorResponse => ({
   userId: 'user-001', operatorCode: 'OP001', displayName: 'Administrador', isActive: true,
-  roleIds: ['role-admin'], roleCodes: ['ADMIN'], hasLocalCredential: true,
-  credentialMustChange: false, ...overrides
+  roleIds: ['role-admin'], roleCodes: ['ADMIN'], hasLocalIdentity: true,
+  hasLocalCredential: true, credentialMustChange: false, ...overrides
 });
 
 const directory = (
@@ -93,6 +93,38 @@ describe('interacción de la administración de identidad', () => {
     const row = screen.findByText('tbody tr', 'OP200');
     expect(row?.textContent).toContain('Sin credencial local · requiere enrolamiento');
     expect(row?.textContent).not.toContain('Credencial activa');
+    screen.unmount();
+  });
+
+  it('distingue al operador concedido del operador local sin credencial', async () => {
+    const api = screenApi({
+      getIdentityDirectory: vi.fn(async () => directory({
+        operators: [
+          operator({
+            userId: 'user-002', operatorCode: 'OP200', displayName: 'Cajera Local',
+            roleIds: [], roleCodes: [], hasLocalCredential: false
+          }),
+          operator({
+            userId: 'coordinator-user', operatorCode: 'OP300',
+            displayName: 'Cajera de Sucursal', roleIds: [], roleCodes: ['CASHIER'],
+            hasLocalIdentity: false, hasLocalCredential: false
+          })
+        ]
+      }))
+    });
+    const screen = await mount(<IdentityScreen {...props(api)} />);
+
+    /** Los dos necesitan enrolamiento, pero solo uno se administra aquí. */
+    expect(screen.findByText('tbody tr', 'OP200')?.textContent)
+      .toContain('Sin credencial local · requiere enrolamiento');
+    const granted = screen.findByText('tbody tr', 'OP300');
+    expect(granted?.textContent).toContain('Concedido por el coordinador · requiere enrolamiento');
+    expect(granted?.textContent).toContain('CASHIER');
+
+    await click(granted!.querySelector('button')!);
+    expect(screen.text()).toContain('El coordinador publica su identidad y sus permisos');
+    /** Su identidad no se edita en esta terminal: no se ofrece el formulario. */
+    expect(screen.query('input[name="displayName"]')).toBeNull();
     screen.unmount();
   });
 

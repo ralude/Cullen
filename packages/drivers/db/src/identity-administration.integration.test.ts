@@ -90,7 +90,7 @@ describe('identity administration over SQLite', () => {
         createRole: new CreateRole(store, authorization, changes, ids),
         updateRolePermissions: new UpdateRolePermissions(store, authorization, changes),
         changeRoleStatus: new ChangeRoleStatus(store, authorization, changes),
-        directory: new GetIdentityDirectory(store, authorization, changes),
+        directory: new GetIdentityDirectory(store, authorization, changes, clock),
         authorizeEnrollment: new AuthorizeCredentialEnrollment(
           store, authorization, tokens, auditWriter, unitOfWork, ids, clock
         ),
@@ -566,8 +566,59 @@ describe('identity administration over SQLite', () => {
     expect(directory.ok).toBe(true);
     if (!directory.ok) return;
     expect(directory.value.operators.find((operator) => operator.operatorCode === 'OP020'))
-      .toMatchObject({ hasLocalCredential: false, isActive: true });
+      .toMatchObject({ hasLocalIdentity: true, hasLocalCredential: false, isActive: true });
     expect(directory.value.roles.map((role) => role.code)).toContain('ADMIN');
     expect(directory.value.permissionCodes).toContain('identity.user.manage');
+  });
+
+  it('publishes the granted operator that has no local identity yet', async () => {
+    const { handle, useCases, time } = setup({ coordinatorNodeId: 'coordinator-001' });
+    seedGrant(handle, new Date('2026-09-08T20:00:00.000Z'));
+
+    const directory = await useCases.directory.execute(contextOf('user-a'));
+
+    expect(directory.ok).toBe(true);
+    if (!directory.ok) return;
+    /** La identidad llega por concesión; la credencial nunca viaja (ADR-0028 D1). */
+    expect(directory.value.operators.find((operator) => operator.operatorCode === 'OPG'))
+      .toMatchObject({
+        displayName: 'Cajera de Sucursal',
+        isActive: true,
+        roleCodes: ['CASHIER'],
+        /** Sin fila local no hay roles locales que administrar aquí. */
+        roleIds: [],
+        hasLocalIdentity: false,
+        hasLocalCredential: false
+      });
+
+    /** Vencida la concesión, deja de describir a nadie en este nodo. */
+    time.value = new Date('2026-09-08T20:00:00.001Z');
+    const later = await useCases.directory.execute(contextOf('user-a'));
+    expect(later.ok).toBe(true);
+    if (!later.ok) return;
+    expect(later.value.operators.map((operator) => operator.operatorCode)).toEqual(['OPA', 'OPB']);
+  });
+
+  it('stops listing the grant separately once the operator enrolls locally', async () => {
+    const { handle, useCases } = setup({ coordinatorNodeId: 'coordinator-001' });
+    seedGrant(handle, new Date('2026-09-08T20:00:00.000Z'));
+    const authorized = await useCases.authorizeEnrollment.execute(
+      { operatorCode: 'OPG', reason: 'Primer ingreso en esta caja' }, contextOf('user-a')
+    );
+    expect(authorized.ok).toBe(true);
+    if (!authorized.ok) return;
+    await useCases.completeEnrollment.execute(
+      { enrollmentToken: authorized.value.enrollmentToken, pin: '654321' },
+      { terminalId: 'terminal-001', originNodeId: 'node-001', correlationId: 'correlation-enroll' }
+    );
+
+    const directory = await useCases.directory.execute(contextOf('user-a'));
+
+    expect(directory.ok).toBe(true);
+    if (!directory.ok) return;
+    const granted = directory.value.operators
+      .filter((operator) => operator.operatorCode === 'OPG');
+    expect(granted).toHaveLength(1);
+    expect(granted[0]).toMatchObject({ hasLocalIdentity: true, hasLocalCredential: true });
   });
 });

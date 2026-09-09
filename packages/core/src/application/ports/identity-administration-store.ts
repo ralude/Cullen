@@ -18,6 +18,12 @@ export type IdentityOperatorSummary = {
   readonly roleIds: readonly string[];
   readonly roleCodes: readonly string[];
   readonly authorizationVersion: number;
+  /**
+   * Existe fila local de identidad. Un operador que el nodo solo conoce por la
+   * concesión del coordinador todavía no la tiene: puede enrolarse aquí, pero
+   * su identidad y sus permisos no se administran en este nodo (ADR-0028 D1).
+   */
+  readonly hasLocalIdentity: boolean;
   /** Existe credencial en **este** nodo. Una concesión no la implica (ADR-0028). */
   readonly hasLocalCredential: boolean;
   /** La credencial vigente obliga a cambiar el PIN en el próximo ingreso. */
@@ -49,7 +55,12 @@ export type IdentityWriteOutcome =
   | { readonly status: 'PERMISSION_UNKNOWN' };
 
 export interface IdentityAdministrationStore {
-  listOperators(): Promise<readonly IdentityOperatorSummary[]>;
+  /**
+   * Operadores que este nodo conoce: los locales y los que solo llegan por una
+   * concesión utilizable. La vigencia de la concesión se evalúa contra `now`,
+   * porque una concesión vencida ya no describe a nadie en este nodo.
+   */
+  listOperators(now: Date): Promise<readonly IdentityOperatorSummary[]>;
   listRoles(): Promise<readonly IdentityRoleSummary[]>;
   /** Códigos de permiso que la base conoce, para validar una asignación. */
   listPermissionCodes(): Promise<readonly string[]>;

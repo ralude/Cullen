@@ -33,9 +33,14 @@ export const canAdministerIdentity = (permissionCodes: readonly string[]): boole
  * un operador conocido y activo puede seguir sin poder ingresar aquí, y la
  * pantalla debe decirlo en lugar de presentarlo como listo.
  */
-export type LocalAccessState = 'ENROLLED' | 'MUST_CHANGE_PIN' | 'NEEDS_ENROLLMENT';
+export type LocalAccessState =
+  | 'ENROLLED'
+  | 'MUST_CHANGE_PIN'
+  | 'NEEDS_ENROLLMENT'
+  | 'GRANTED_NEEDS_ENROLLMENT';
 
 export const localAccessOf = (operator: IdentityOperatorResponse): LocalAccessState => {
+  if (!operator.hasLocalIdentity) return 'GRANTED_NEEDS_ENROLLMENT';
   if (!operator.hasLocalCredential) return 'NEEDS_ENROLLMENT';
   return operator.credentialMustChange ? 'MUST_CHANGE_PIN' : 'ENROLLED';
 };
@@ -43,7 +48,8 @@ export const localAccessOf = (operator: IdentityOperatorResponse): LocalAccessSt
 export const LOCAL_ACCESS_LABELS: Record<LocalAccessState, string> = {
   ENROLLED: 'Credencial activa en esta terminal',
   MUST_CHANGE_PIN: 'Debe cambiar el PIN al ingresar',
-  NEEDS_ENROLLMENT: 'Sin credencial local · requiere enrolamiento'
+  NEEDS_ENROLLMENT: 'Sin credencial local · requiere enrolamiento',
+  GRANTED_NEEDS_ENROLLMENT: 'Concedido por el coordinador · requiere enrolamiento'
 };
 
 export const LOCAL_ACCESS_HINTS: Record<LocalAccessState, string> = {
@@ -51,7 +57,11 @@ export const LOCAL_ACCESS_HINTS: Record<LocalAccessState, string> = {
   MUST_CHANGE_PIN: 'Ingresa con su PIN actual y solo puede cambiarlo hasta hacerlo.',
   NEEDS_ENROLLMENT:
     'La identidad existe en este nodo, pero todavía no puede iniciar sesión aquí: '
-    + 'autoriza un enrolamiento para que escriba su PIN en esta terminal.'
+    + 'autoriza un enrolamiento para que escriba su PIN en esta terminal.',
+  GRANTED_NEEDS_ENROLLMENT:
+    'El coordinador publica su identidad y sus permisos; esta terminal no los edita. '
+    + 'Todavía no puede iniciar sesión aquí: autoriza un enrolamiento para que escriba '
+    + 'su PIN en esta terminal.'
 };
 
 const sameCodes = (left: readonly string[], right: readonly string[]): boolean =>
@@ -373,7 +383,7 @@ export const IdentityScreen = ({ api, permissionCodes }: ScreenProps): React.JSX
               <p className="muted">
                 {LOCAL_ACCESS_HINTS[localAccessOf(selectedOperator)]}
               </p>
-              {administers && canManageUsers && (
+              {administers && canManageUsers && selectedOperator.hasLocalIdentity && (
                 <form className="stack-form" onSubmit={renameOperator}>
                   <div className="form-grid">
                     <label>Nombre visible
