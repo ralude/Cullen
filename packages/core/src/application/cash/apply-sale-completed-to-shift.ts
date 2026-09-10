@@ -113,7 +113,7 @@ export class ApplySaleCompletedToShift {
             type: 'SALE_PAYMENT',
             method,
             amount: Money.fromMinorUnits(payment.amountMinorUnits, payment.currencyCode),
-            reason: 'Sale payment',
+            reason: 'Cobro de venta',
             registeredBy: event.actorId,
             terminalId: payload.terminalId,
             originNodeId: event.originNodeId,
@@ -150,7 +150,7 @@ export class ApplySaleCompletedToShift {
               currencyCode: movement.amount.currency,
               amountMinorUnits: movement.amount.minorUnits
             },
-            reason: 'Completed sale payment applied to shift.',
+            reason: 'Cobro de venta completada asentado en el turno.',
             terminalId: payload.terminalId,
             originNodeId: event.originNodeId,
             occurredAt: event.occurredAt,

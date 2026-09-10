@@ -298,10 +298,17 @@ export class Product {
     });
   }
 
+  /**
+   * La linea de venta se rotula con el nombre, no con la descripcion. Son campos
+   * distintos —«Cafe molido 250 g» frente a «Paquete de cafe molido de 250
+   * gramos»— y el ticket mostraba el segundo junto a un catalogo que mostraba el
+   * primero, de modo que el mismo producto aparecia dos veces con dos nombres.
+   * El nombre es ademas lo que el operador coteja al escanear.
+   */
   createSnapshot(): ProductSnapshot {
     return ProductSnapshot.create({
       productId: this.id,
-      description: this.currentDescription,
+      description: this.currentName,
       price: this.currentPrice,
       taxRate: this.currentTaxRate,
       unitCode: this.currentUnitOfMeasure.code,

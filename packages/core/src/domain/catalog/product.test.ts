@@ -52,6 +52,10 @@ describe('Product', () => {
     ).toThrowError('Active barcode must be unique within a product.');
   });
 
+  it('labels the snapshot with the name, not the longer description', () => {
+    expect(createProduct().createSnapshot().description).toBe('Coffee');
+  });
+
   it('creates an immutable snapshot and records price changes', () => {
     const product = createProduct();
     const snapshot = product.createSnapshot();
@@ -68,7 +72,7 @@ describe('Product', () => {
     expect(snapshot).toEqual(
       ProductSnapshot.create({
         productId: 'product-001',
-        description: 'Ground coffee',
+        description: 'Coffee',
         price: Money.fromMinorUnits(1250, 'USD'),
         taxRate: TaxRate.fromBasisPoints(1600),
         unitCode: 'UNIT',

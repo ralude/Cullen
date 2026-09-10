@@ -42,7 +42,7 @@ describe('FindProductByBarcode', () => {
     if (!result.ok) return;
     expect(result.value.snapshot).toEqual({
       productId: 'product-001',
-      description: 'Ground coffee',
+      description: 'Coffee',
       priceMinorUnits: 1250,
       currencyCode: 'USD',
       taxRateBasisPoints: 1600,

@@ -117,7 +117,7 @@ export class OpenShift {
                 minorUnits: balance.amount.minorUnits
               }))
             },
-            reason: 'Shift opened.',
+            reason: 'Turno abierto.',
             terminalId: context.terminalId,
             originNodeId: context.originNodeId,
             occurredAt: openedAt,

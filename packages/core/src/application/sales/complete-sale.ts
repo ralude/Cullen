@@ -145,7 +145,7 @@ export class CompleteSale {
       entityId: completed.aggregateId,
       before: null,
       after: { errorCode: issued.error.code },
-      reason: 'Completed sale could not be issued from inventory.',
+      reason: 'La venta completada no pudo salir del inventario.',
       terminalId: context.terminalId,
       originNodeId: context.originNodeId,
       occurredAt: completed.occurredAt,

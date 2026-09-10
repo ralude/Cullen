@@ -159,7 +159,7 @@ export class ApplySaleCompletedToInventory {
           allocations.forEach((allocation, index) => item.registerMovement({
             id: `${event.eventId}:${line.itemId}:${index}`, type: 'SALE_ISSUE', quantity: allocation.quantity,
             ...(allocation.batchId ? { batchId: allocation.batchId } : {}), actorId: event.actorId,
-            reason: 'Completed sale issue', referenceId, occurredAt: event.occurredAt,
+            reason: 'Salida por venta completada', referenceId, occurredAt: event.occurredAt,
             eventId: this.eventIdGenerator.generate(),
             ...(unitCostAtIssue ? { unitCost: unitCostAtIssue } : {})
           }, { inferOperationalCost: this.costSource === 'LOCAL_AVERAGE' }));
@@ -174,7 +174,7 @@ export class ApplySaleCompletedToInventory {
               costCurrencyCode: unitCostAtIssue?.currency ?? null,
               costSource: this.costSource,
               costSnapshotVersion: line.costSnapshot?.version ?? null },
-            reason: 'Completed sale applied to inventory.',
+            reason: 'Venta completada aplicada al inventario.',
             terminalId: payload.terminalId, originNodeId: event.originNodeId,
             occurredAt: event.occurredAt, correlationId: event.correlationId
           });
