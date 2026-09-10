@@ -13,7 +13,9 @@ import {
 } from '@supermarket/shared';
 import { createIdempotencyKey, formatScaledDecimal } from '../api-client.js';
 import { ProductPicker, productLabel, useProductCatalog } from './product-picker.js';
-import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
+import {
+  ActionButton, EmptyState, Feedback, ReasonField, ScreenNote, type ScreenProps
+} from './shared.js';
 
 export const filterSuppliers = (
   suppliers: readonly SupplierResponse[],
@@ -308,7 +310,11 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
               <label>Cantidad<input inputMode="decimal" pattern="\d+([.,]\d+)?" placeholder="0,000" value={receiveQuantity} onChange={(event) => setReceiveQuantity(event.target.value)} required /></label>
               <label>Lote (opcional)<input value={lotNumber} onChange={(event) => setLotNumber(event.target.value)} /></label>
               <label>Vencimiento<input type="date" value={lotExpiresAt} onChange={(event) => setLotExpiresAt(event.target.value)} /></label>
-              <label>Motivo<input value={reason} onChange={(event) => setReason(event.target.value)} required /></label>
+              <ReasonField
+                value={reason}
+                onChange={setReason}
+                suggestions={['Compra a proveedor', 'Reposición de existencia', 'Canje por producto dañado']}
+              />
               <ActionButton className="primary-button" type="submit" busy={loading}
                 disabled={loading}>
                 {loading ? 'Registrando…' : 'Registrar recepción'}
@@ -361,7 +367,11 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
               </label>
               <label>Cantidad escalada<input type="number" min="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
               <label>Referencia<input value={referenceId} onChange={(event) => setReferenceId(event.target.value)} required /></label>
-              <label>Motivo<input value={reason} onChange={(event) => setReason(event.target.value)} required /></label>
+              <ReasonField
+                value={reason}
+                onChange={setReason}
+                suggestions={['Merma por daño', 'Producto vencido', 'Diferencia de conteo', 'Consumo interno', 'Robo o pérdida']}
+              />
               <ActionButton className="primary-button" type="submit" busy={loading}
                 disabled={loading || !isPermissionGranted(registerStockAdjustmentContract.permission, permissionCodes)}>
                 {loading ? 'Registrando…' : 'Registrar ajuste'}

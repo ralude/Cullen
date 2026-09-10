@@ -1243,3 +1243,28 @@ td small { margin-top: 3px; color: var(--ink-faint); }
   background: var(--green);
   color: var(--on-accent);
 }
+
+/**
+ * Motivo de una operación sensible. Las sugerencias van debajo del campo y no
+ * dentro: son un atajo para escribirlo, no una lista cerrada de opciones.
+ */
+.reason-field { display: grid; gap: 8px; }
+.reason-suggestions { display: flex; flex-wrap: wrap; gap: 6px; }
+.reason-suggestions button {
+  min-height: 30px;
+  padding: 5px 11px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.reason-suggestions button:hover { border-color: var(--green); color: var(--green); }
+.reason-suggestions button[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green-strong);
+}

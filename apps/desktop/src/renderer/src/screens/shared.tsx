@@ -239,6 +239,60 @@ export const SectionError = ({ error }: { readonly error: unknown }): React.JSX.
   <p className="form-error" role="alert">{problemMessage(error)}</p>
 );
 
+
+/**
+ * Motivo de una operación sensible.
+ *
+ * El motivo va a la auditoría, y era un campo de texto vacío repetido en
+ * treinta formularios. Quien tiene prisa escribe «x» y el registro queda
+ * inservible justo cuando alguien lo necesita. Los motivos frecuentes se
+ * ofrecen escritos: uno se elige de un golpe y sigue siendo editable, porque
+ * el caso que no estaba previsto es el que más importa contar bien.
+ *
+ * Nada se rellena solo. Un motivo en blanco sigue siendo un motivo en blanco
+ * y el servidor lo sigue rechazando.
+ */
+export type ReasonFieldProps = {
+  readonly label?: string;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly suggestions?: readonly string[];
+  readonly id?: string;
+  readonly maxLength?: number;
+  readonly required?: boolean;
+};
+
+export const ReasonField = ({
+  label = 'Motivo', value, onChange, suggestions = [], id, maxLength = 500, required = true
+}: ReasonFieldProps): React.JSX.Element => (
+  <div className="reason-field">
+    <label>
+      {label}
+      <input
+        {...(id ? { id } : {})}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        maxLength={maxLength}
+        required={required}
+      />
+    </label>
+    {suggestions.length > 0 && (
+      <div className="reason-suggestions">
+        {suggestions.map((suggestion) => (
+          <button
+            key={suggestion}
+            type="button"
+            aria-pressed={value === suggestion}
+            onClick={() => onChange(suggestion)}
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
 export type ModalProps = {
   readonly title: string;
   readonly description?: string;

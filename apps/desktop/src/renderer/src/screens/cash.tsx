@@ -6,7 +6,7 @@ import {
 } from '@supermarket/shared';
 import { ApiProblemError, createIdempotencyKey, parseMinorUnits } from '../api-client.js';
 import {
-  ACTIVE_CASH_REGISTER_KEY, ActionButton, EmptyState, Feedback, ScreenNote,
+  ACTIVE_CASH_REGISTER_KEY, ActionButton, EmptyState, Feedback, ReasonField, ScreenNote,
   money, readStorage, writeStorage, type ScreenProps
 } from './shared.js';
 
@@ -174,7 +174,11 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
           <h4>Registrar movimiento</h4>
           <label>Tipo<select value={movementType} onChange={(event) => setMovementType(event.target.value as RegisterCashMovementRequest['type'])}><option value="INCOME">Ingreso</option><option value="WITHDRAWAL">Retiro</option></select></label>
           <label>Importe<input inputMode="decimal" value={movementAmount} onChange={(event) => setMovementAmount(event.target.value)} required /></label>
-          <label>Motivo<input value={movementReason} onChange={(event) => setMovementReason(event.target.value)} required /></label>
+          <ReasonField
+            value={movementReason}
+            onChange={setMovementReason}
+            suggestions={['Fondo de cambio', 'Retiro parcial a bóveda', 'Pago a proveedor', 'Corrección de arqueo']}
+          />
           <ActionButton type="submit" busy={loading} disabled={loading || shift.status !== 'OPEN' || !cashMethodCode}>Registrar movimiento</ActionButton>
         </form>}
       </section>
@@ -182,7 +186,12 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
         <h3>Declarar efectivo para cerrar</h3>
         {canClose && <form className="stack-form" onSubmit={submitClose}>
           <label>Saldo declarado<input inputMode="decimal" value={declaredAmount} onChange={(event) => setDeclaredAmount(event.target.value)} required /></label>
-          <label>Motivo del cierre<input value={closeReason} onChange={(event) => setCloseReason(event.target.value)} required /></label>
+          <ReasonField
+            label="Motivo del cierre"
+            value={closeReason}
+            onChange={setCloseReason}
+            suggestions={['Fin de turno', 'Relevo de cajero', 'Cierre anticipado']}
+          />
           <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading || shift.status !== 'OPEN' || !cashMethodCode || !closeReason.trim()}>Cerrar turno</ActionButton>
         </form>}
         {shift.closingBalances && <div className="table-wrap"><table><thead><tr><th>Método</th><th>Esperado</th><th>Declarado</th><th>Diferencia</th></tr></thead><tbody>{shift.closingBalances.map((balance) => <tr key={`${balance.paymentMethodCode}-${balance.currencyCode}`}><td>{balance.paymentMethodCode}</td><td>{money(balance.expectedMinorUnits, balance.currencyCode)}</td><td>{money(balance.declaredMinorUnits, balance.currencyCode)}</td><td>{money(balance.differenceMinorUnits, balance.currencyCode)}</td></tr>)}</tbody></table></div>}

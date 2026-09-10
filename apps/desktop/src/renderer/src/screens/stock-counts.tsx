@@ -10,7 +10,9 @@ import {
 } from '@supermarket/shared';
 import { createIdempotencyKey, formatScaledDecimal } from '../api-client.js';
 import { ProductPicker, productLabel, useProductCatalog } from './product-picker.js';
-import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
+import {
+  ActionButton, EmptyState, Feedback, ReasonField, ScreenNote, type ScreenProps
+} from './shared.js';
 
 /** Contratos que convierten esta pantalla en trabajo real y no en una lectura. */
 const STOCK_COUNT_WORK_CONTRACTS = [
@@ -271,9 +273,11 @@ export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.
               {canApprove && (
                 <div className="stack-form">
                   <p className="eyebrow">Decisión del supervisor</p>
-                  <label>Motivo
-                    <input value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} required />
-                  </label>
+                  <ReasonField
+                    value={decisionReason}
+                    onChange={setDecisionReason}
+                    suggestions={['Diferencia verificada', 'Recuento confirmado', 'Conteo incompleto', 'Diferencia sin justificar']}
+                  />
                   <div className="button-row">
                     <ActionButton className="primary-button" type="button" busy={loading} disabled={loading}
                       onClick={() => void approve()}>

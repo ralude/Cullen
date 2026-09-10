@@ -12,7 +12,9 @@ import {
   type UpdateSupplierRequest
 } from '@supermarket/shared';
 import { createIdempotencyKey } from '../api-client.js';
-import { ActionButton, EmptyState, Feedback, Modal, ScreenNote, type ScreenProps } from './shared.js';
+import {
+  ActionButton, EmptyState, Feedback, Modal, ReasonField, ScreenNote, type ScreenProps
+} from './shared.js';
 
 /** Contratos que convierten esta pantalla en trabajo real y no en una lectura. */
 const SUPPLIER_WORK_CONTRACTS = [
@@ -403,10 +405,11 @@ export const SuppliersScreen = ({ api, permissionCodes }: ScreenProps): React.JS
               </select>
             </label>
             <p className="muted">{SUPPLIER_STATUS_HINTS[status]}</p>
-            <label>Motivo
-              <input value={statusReason} required
-                onChange={(event) => setStatusReason(event.target.value)} />
-            </label>
+            <ReasonField
+              value={statusReason}
+              onChange={setStatusReason}
+              suggestions={['Cese de relación comercial', 'Documentación vencida', 'Incumplimiento de entrega', 'Reactivación aprobada']}
+            />
             <ActionButton type="submit" busy={loading} disabled={loading || !canChangeStatus}>
               {loading ? 'Aplicando…' : 'Cambiar estado'}
             </ActionButton>
