@@ -43,9 +43,59 @@ const EXPIRY_LABELS: Record<InventoryReportResponse['expiryStatus'], string> = {
   NONE: 'Sin vencimiento', OK: 'Vigente', EXPIRING: 'Por vencer', EXPIRED: 'Vencido'
 };
 
+/**
+ * El día que un reporte consulta es el día de la tienda, no el del meridiano
+ * de Greenwich. Interpretar «2026-09-09» como medianoche UTC recortaba la
+ * ventana cuatro horas en Venezuela: incluía la noche del día anterior y
+ * dejaba fuera el último turno del día pedido, sin que nada lo dijera.
+ *
+ * El nodo sigue recibiendo y guardando UTC. La traducción ocurre aquí, que es
+ * la única frontera donde alguien escribe una fecha a mano.
+ */
+const dayParts = (day: string): readonly [number, number, number] => {
+  const [year, month, date] = day.split('-').map(Number);
+  return [year ?? 0, (month ?? 1) - 1, date ?? 1];
+};
+
+const startOfDay = (day: string): Date => new Date(...dayParts(day), 0, 0, 0, 0);
+const endOfDay = (day: string): Date => new Date(...dayParts(day), 23, 59, 59, 999);
+
+/** El día corriente según el reloj de la estación. */
+export const localDay = (at: Date = new Date()): string => [
+  String(at.getFullYear()).padStart(4, '0'),
+  String(at.getMonth() + 1).padStart(2, '0'),
+  String(at.getDate()).padStart(2, '0')
+].join('-');
+
+/** Un instante que el nodo guardó en UTC, escrito en la hora de la estación. */
+export const localStamp = (iso: string | null, fallback = '—'): string => {
+  if (!iso) return fallback;
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? iso : at.toLocaleString('es-VE');
+};
+
+
+/**
+ * Los períodos que de verdad se consultan, sin escribir dos fechas. Se
+ * calculan sobre el reloj de la estación, igual que el resto de la pantalla.
+ */
+export const namedPeriods = (at: Date = new Date()): readonly {
+  readonly label: string; readonly from: string; readonly to: string;
+}[] => {
+  const shift = (days: number): Date =>
+    new Date(at.getFullYear(), at.getMonth(), at.getDate() + days);
+  const today = localDay(at);
+  return [
+    { label: 'Hoy', from: today, to: today },
+    { label: 'Ayer', from: localDay(shift(-1)), to: localDay(shift(-1)) },
+    { label: 'Últimos 7 días', from: localDay(shift(-6)), to: today },
+    { label: 'Este mes', from: localDay(new Date(at.getFullYear(), at.getMonth(), 1)), to: today }
+  ];
+};
+
 export const toReportQuery = (filters: ReportFilters): ReportQuery => ({
-  ...(filters.from ? { from: new Date(`${filters.from}T00:00:00.000Z`).toISOString() } : {}),
-  ...(filters.to ? { to: new Date(`${filters.to}T23:59:59.999Z`).toISOString() } : {}),
+  ...(filters.from ? { from: startOfDay(filters.from).toISOString() } : {}),
+  ...(filters.to ? { to: endOfDay(filters.to).toISOString() } : {}),
   ...(filters.limit.trim() ? { limit: Number(filters.limit) } : {})
 });
 
@@ -53,7 +103,7 @@ export const loadOperationalReports = async (
   api: ReportsApi, filters: ReportFilters, permissionCodes: readonly string[]
 ): Promise<OperationalReports> => {
   const query = toReportQuery(filters);
-  const asOf = new Date(`${filters.to}T23:59:59.999Z`).toISOString();
+  const asOf = endOfDay(filters.to).toISOString();
   const granted = (permission: string | null): boolean =>
     isPermissionGranted(permission, permissionCodes);
   const [closures, audit, fiscal, margin, sales, inventory] = await Promise.all([
@@ -108,8 +158,9 @@ const CashClosures = ({ report }: {
     ? <EmptyState>Sin turnos en el período consultado.</EmptyState> : <>
       <div className="table-wrap"><table><thead><tr><th>Turno</th><th>Caja</th><th>Apertura</th><th>Cierre</th><th>Diferencias</th></tr></thead><tbody>
         {report.value.map((entry) => <tr key={entry.shiftId}>
-          <td>{entry.shiftId}</td><td>{entry.cashRegisterId}</td><td>{entry.openedAt}</td>
-          <td>{entry.closedAt ?? 'Turno abierto'}</td>
+          <td>{entry.shiftId}</td><td>{entry.cashRegisterId}</td>
+          <td>{localStamp(entry.openedAt)}</td>
+          <td>{localStamp(entry.closedAt, 'Turno abierto')}</td>
           <td>{entry.balances.length === 0 ? '—' : entry.balances.map((balance) =>
             `${balance.paymentMethodCode} ${money(balance.differenceMinorUnits, balance.currencyCode)}`
           ).join(' · ')}</td>
@@ -129,9 +180,9 @@ const Audit = ({ report }: {
   <h3>Auditoría de operaciones sensibles</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin entradas de auditoría en el período consultado.</EmptyState> : <>
-      <div className="table-wrap"><table><thead><tr><th>Fecha UTC</th><th>Actor</th><th>Acción</th><th>Entidad</th><th>Motivo</th><th>Terminal</th></tr></thead><tbody>
+      <div className="table-wrap"><table><thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Entidad</th><th>Motivo</th><th>Terminal</th></tr></thead><tbody>
         {report.value.map((entry) => <tr key={entry.auditId}>
-          <td>{entry.occurredAt}</td><td>{entry.actorId}</td><td>{entry.action}</td>
+          <td>{localStamp(entry.occurredAt)}</td><td>{entry.actorId}</td><td>{entry.action}</td>
           <td>{entry.entityType} · {entry.entityId}</td><td>{entry.reason}</td>
           <td>{entry.terminalId}</td>
         </tr>)}
@@ -180,7 +231,7 @@ const Sales = ({ report }: {
           <td>{money(entry.netMinorUnits, entry.currencyCode)}</td>
         </tr>)}
       </tbody></table></div>
-      <p className="muted">El período va en UTC y el resultado se acota al límite indicado arriba.</p>
+      <p className="muted">El resultado se acota al límite de filas indicado arriba.</p>
       <CsvButton fileName="ventas.csv" rows={[
         ['moneda', 'escala', 'ventas', 'lineas', 'unidades', 'bruto', 'descuentos', 'neto'],
         ...report.value.map((entry) => [entry.currencyCode, String(entry.quantityScale),
@@ -232,7 +283,7 @@ const Inventory = ({ report, products }: {
           <td>{EXPIRY_LABELS[entry.expiryStatus]}</td>
         </tr>)}
       </tbody></table></div>
-      <p className="muted">La fecha de corte va en UTC y muestra la existencia de este nodo.</p>
+      <p className="muted">La existencia es la de este nodo a la fecha de corte.</p>
       <CsvButton fileName="inventario.csv" rows={[
         ['producto', 'lote', 'unidad', 'escala', 'existencia', 'vence', 'estado'],
         ...report.value.map((entry) => [entry.productId, entry.lotNumber ?? '', entry.unitCode,
@@ -260,7 +311,7 @@ export const shiftOptionLabel = (closure: CashClosureReportResponse): string => 
 export const ReportsScreen = ({
   api, capabilities, permissionCodes
 }: ScreenProps): React.JSX.Element => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDay();
   const [filters, setFilters] = useState<ReportFilters>({
     from: today, to: today, limit: '100', cashRegisterId: ''
   });
@@ -291,6 +342,9 @@ export const ReportsScreen = ({
   const update = (key: keyof ReportFilters) =>
     (event: React.ChangeEvent<HTMLInputElement>): void =>
       setFilters((current) => ({ ...current, [key]: event.target.value }));
+  const periods = namedPeriods();
+  const selectPeriod = (from: string, to: string): void =>
+    setFilters((current) => ({ ...current, from, to }));
 
   const query = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault(); setLoading(true); setError(null);
@@ -327,13 +381,25 @@ export const ReportsScreen = ({
   };
 
   return <div className="operation-screen">
-    <ScreenNote>Cada consulta declara período UTC, alcance del nodo y límite. La vista presenta las proyecciones autorizadas y no recalcula negocio.</ScreenNote>
+    <ScreenNote>Cada consulta declara su período, el alcance de este nodo y cuántas filas devolver. La vista presenta lo que el nodo calculó y no rehace ninguna cuenta.</ScreenNote>
     <Feedback error={error} notice={null} onDismiss={() => setError(null)} />
     {canReadReports && <section className="panel">
-      <h3>Período consultado, en UTC</h3>
+      <h3>Período consultado</h3>
+      <div className="period-presets">
+        {periods.map((period) => (
+          <button
+            key={period.label}
+            type="button"
+            aria-pressed={filters.from === period.from && filters.to === period.to}
+            onClick={() => selectPeriod(period.from, period.to)}
+          >
+            {period.label}
+          </button>
+        ))}
+      </div>
       <form className="stack-form" onSubmit={query}><div className="form-grid">
-        <label>Desde (UTC)<input type="date" value={filters.from} onChange={update('from')} required /></label>
-        <label>Hasta (UTC)<input type="date" value={filters.to} onChange={update('to')} required /></label>
+        <label>Desde<input type="date" value={filters.from} onChange={update('from')} required /></label>
+        <label>Hasta<input type="date" value={filters.to} onChange={update('to')} required /></label>
         <label>Caja (opcional)<input value={filters.cashRegisterId} onChange={update('cashRegisterId')} /></label>
         <label>Filas (máximo 500)<input type="number" min="1" max="500" value={filters.limit} onChange={update('limit')} required /></label>
       </div><ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>{loading ? 'Consultando…' : 'Consultar reportes'}</ActionButton></form>
@@ -362,7 +428,7 @@ export const ReportsScreen = ({
         <div><dt>Operador</dt><dd>{reviewedShift.openedBy}</dd></div>
         <div><dt>Estado</dt><dd>{reviewedShift.status}</dd></div>
         <div><dt>Apertura</dt><dd>{reviewedShift.openedAt}</dd></div>
-        <div><dt>Cierre</dt><dd>{reviewedShift.closedAt ?? 'Abierto'}</dd></div>
+        <div><dt>Cierre</dt><dd>{localStamp(reviewedShift.closedAt, 'Abierto')}</dd></div>
       </dl>{reviewedShift.closingBalances && <div className="table-wrap"><table><thead><tr><th>Método</th><th>Moneda</th><th>Esperado</th><th>Declarado</th><th>Diferencia</th></tr></thead><tbody>
         {reviewedShift.closingBalances.map((balance) => <tr key={`${balance.paymentMethodCode}-${balance.currencyCode}`}>
           <td>{balance.paymentMethodCode}</td><td>{balance.currencyCode}</td>

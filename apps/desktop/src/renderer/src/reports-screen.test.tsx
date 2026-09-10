@@ -23,6 +23,16 @@ const closure = {
 };
 
 const filters = { from: '2026-09-01', to: '2026-09-01', limit: '50', cashRegisterId: 'register-1' };
+
+/**
+ * El período viaja en UTC porque así lo guarda el nodo, pero el día que lo
+ * delimita es el de la tienda. Se calcula igual que la pantalla en vez de
+ * escribirse a mano: fijarlo como medianoche UTC ataba la prueba a un runner
+ * en Greenwich y daba por buena una ventana corrida cuatro horas.
+ */
+const opensAt = encodeURIComponent(new Date(2026, 8, 1, 0, 0, 0, 0).toISOString());
+const closesAt = encodeURIComponent(new Date(2026, 8, 1, 23, 59, 59, 999).toISOString());
+const period = `from=${opensAt}&to=${closesAt}`;
 const allReportPermissions = [
   'reports.cash.read', 'reports.audit.read', 'reports.fiscal.read', 'reports.margin.read',
   'reports.sales.read', 'reports.inventory.read'
@@ -72,12 +82,12 @@ describe('reports screen over simulated HTTP transport', () => {
     expect(reports.sales?.ok ? reports.sales.value[0]?.netMinorUnits : null).toBe(600);
     expect(reports.inventory).toEqual({ ok: true, value: [] });
     expect(calls).toEqual([
-      '/api/v1/reports/cash-closures?from=2026-09-01T00%3A00%3A00.000Z&to=2026-09-01T23%3A59%3A59.999Z&limit=50&cashRegisterId=register-1',
-      '/api/v1/reports/audit?from=2026-09-01T00%3A00%3A00.000Z&to=2026-09-01T23%3A59%3A59.999Z&limit=50',
-      '/api/v1/reports/fiscal-operations?from=2026-09-01T00%3A00%3A00.000Z&to=2026-09-01T23%3A59%3A59.999Z&limit=50',
-      '/api/v1/reports/margin?from=2026-09-01T00%3A00%3A00.000Z&to=2026-09-01T23%3A59%3A59.999Z&limit=50',
-      '/api/v1/reports/sales?from=2026-09-01T00%3A00%3A00.000Z&to=2026-09-01T23%3A59%3A59.999Z&limit=50',
-      '/api/v1/reports/inventory?asOf=2026-09-01T23%3A59%3A59.999Z&limit=50'
+      `/api/v1/reports/cash-closures?${period}&limit=50&cashRegisterId=register-1`,
+      `/api/v1/reports/audit?${period}&limit=50`,
+      `/api/v1/reports/fiscal-operations?${period}&limit=50`,
+      `/api/v1/reports/margin?${period}&limit=50`,
+      `/api/v1/reports/sales?${period}&limit=50`,
+      `/api/v1/reports/inventory?asOf=${closesAt}&limit=50`
     ]);
     expect(calls.some((url) => url.includes('/fiscal/reports/'))).toBe(false);
   });

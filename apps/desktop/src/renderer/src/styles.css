@@ -1139,3 +1139,27 @@ td small { margin-top: 3px; color: var(--ink-faint); }
   font-weight: 400;
   line-height: 1.45;
 }
+
+/**
+ * Períodos con nombre. Un supervisor pide «hoy» o «este mes» mucho más seguido
+ * de lo que pide un rango arbitrario, y escribir dos fechas para eso es la
+ * forma más fácil de recortar mal un reporte.
+ */
+.period-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.period-presets button {
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.period-presets button:hover { border-color: var(--green); }
+.period-presets button[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--on-accent);
+}
