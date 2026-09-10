@@ -243,9 +243,11 @@ export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.
               </form>
               <form className="stack-form" onSubmit={close}>
                 <p className="eyebrow">Cerrar conteo</p>
-                <label>Motivo
-                  <input value={closeReason} onChange={(event) => setCloseReason(event.target.value)} required />
-                </label>
+                <ReasonField
+                  value={closeReason}
+                  onChange={setCloseReason}
+                  suggestions={['Conteo terminado', 'Cierre de inventario mensual', 'Conteo parcial por sección']}
+                />
                 <ActionButton type="submit" busy={loading} disabled={loading || selected.lines.length === 0}>
                   Cerrar y calcular diferencias
                 </ActionButton>

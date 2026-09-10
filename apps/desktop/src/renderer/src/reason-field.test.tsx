@@ -82,3 +82,36 @@ describe('motivo de una operación sensible', () => {
     screen.unmount();
   });
 });
+
+describe('identificación del campo', () => {
+  /**
+   * Varias pruebas de identidad seleccionan el motivo por su `name`. El
+   * componente lo lleva al input real: la alternativa era dejar un input oculto
+   * duplicado solo para que un selector siguiera encontrándolo.
+   */
+  it('lleva el name al campo, no a un duplicado escondido', async () => {
+    const screen = await mount(
+      <ReasonField name="operatorReason" value="" onChange={() => undefined} />
+    );
+
+    expect(screen.all('input')).toHaveLength(1);
+    expect(screen.get<HTMLInputElement>('input[name="operatorReason"]').value).toBe('');
+    screen.unmount();
+  });
+
+  it('no inventa un name cuando nadie lo pide', async () => {
+    const screen = await mount(<ReasonField value="" onChange={() => undefined} />);
+
+    expect(screen.get('input').hasAttribute('name')).toBe(false);
+    screen.unmount();
+  });
+
+  it('deja el motivo opcional cuando la acción no lo exige', async () => {
+    const screen = await mount(
+      <ReasonField value="" onChange={() => undefined} required={false} />
+    );
+
+    expect(screen.get<HTMLInputElement>('input').required).toBe(false);
+    screen.unmount();
+  });
+});

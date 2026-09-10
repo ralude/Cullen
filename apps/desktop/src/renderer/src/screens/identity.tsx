@@ -10,7 +10,9 @@ import {
   type IdentityOperatorResponse,
   type IdentityRoleResponse
 } from '@supermarket/shared';
-import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
+import {
+  ActionButton, EmptyState, Feedback, ReasonField, ScreenNote, type ScreenProps
+} from './shared.js';
 
 /**
  * Contratos que hacen de esta pantalla trabajo real. El enrolamiento entra
@@ -294,14 +296,12 @@ export const IdentityScreen = ({ api, permissionCodes }: ScreenProps): React.JSX
                   })}
                 />
               </label>
-              <label>Motivo
-                <input
-                  name="enrollmentReason"
-                  value={enrollment.reason}
-                  required
-                  onChange={(event) => setEnrollment({ ...enrollment, reason: event.target.value })}
-                />
-              </label>
+              <ReasonField
+                name="enrollmentReason"
+                value={enrollment.reason}
+                onChange={(reason) => setEnrollment({ ...enrollment, reason })}
+                suggestions={['Alta de personal nuevo', 'Cambio de terminal asignada', 'Credencial olvidada', 'Reposición tras bloqueo']}
+              />
             </div>
             <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>
               {loading ? 'Autorizando…' : 'Autorizar enrolamiento'}
@@ -394,14 +394,13 @@ export const IdentityScreen = ({ api, permissionCodes }: ScreenProps): React.JSX
                         onChange={(event) => setDisplayName(event.target.value)}
                       />
                     </label>
-                    <label>Motivo
-                      <input
-                        name="operatorReason"
-                        value={operatorReason}
-                        required
-                        onChange={(event) => setOperatorReason(event.target.value)}
-                      />
-                    </label>
+                    {/* El mismo motivo cubre renombrar, asignar roles, activar y expirar. */}
+                    <ReasonField
+                      name="operatorReason"
+                      value={operatorReason}
+                      onChange={setOperatorReason}
+                      suggestions={['Ingreso de personal', 'Egreso de personal', 'Cambio de funciones', 'Corrección de datos', 'Medida de seguridad']}
+                    />
                   </div>
                   <fieldset>
                     <legend>Roles</legend>
@@ -475,16 +474,12 @@ export const IdentityScreen = ({ api, permissionCodes }: ScreenProps): React.JSX
                       })}
                     />
                   </label>
-                  <label>Motivo
-                    <input
-                      name="newOperatorReason"
-                      value={newOperator.reason}
-                      required
-                      onChange={(event) => setNewOperator({
-                        ...newOperator, reason: event.target.value
-                      })}
-                    />
-                  </label>
+                  <ReasonField
+                    name="newOperatorReason"
+                    value={newOperator.reason}
+                    onChange={(reason) => setNewOperator({ ...newOperator, reason })}
+                    suggestions={['Ingreso de personal nuevo', 'Cobertura de vacante', 'Personal temporal de temporada']}
+                  />
                 </div>
                 <fieldset>
                   <legend>Roles iniciales</legend>
@@ -545,13 +540,14 @@ export const IdentityScreen = ({ api, permissionCodes }: ScreenProps): React.JSX
               <h2 id="identity-role-detail-title">
                 {selectedRole.code} · {selectedRole.name}
               </h2>
-              <label>Motivo
-                <input
-                  name="roleReason"
-                  value={roleReason}
-                  onChange={(event) => setRoleReason(event.target.value)}
-                />
-              </label>
+              {/* El mismo motivo cubre cambiar permisos y activar o desactivar el rol. */}
+              <ReasonField
+                name="roleReason"
+                value={roleReason}
+                onChange={setRoleReason}
+                required={false}
+                suggestions={['Ajuste de funciones del cargo', 'Corrección de permisos', 'Rol en desuso', 'Reorganización de responsabilidades']}
+              />
               <fieldset>
                 <legend>Permisos</legend>
                 {directory.permissionCodes.map((code) => (
@@ -607,14 +603,12 @@ export const IdentityScreen = ({ api, permissionCodes }: ScreenProps): React.JSX
                       onChange={(event) => setNewRole({ ...newRole, name: event.target.value })}
                     />
                   </label>
-                  <label>Motivo
-                    <input
-                      name="newRoleReason"
-                      value={newRole.reason}
-                      required
-                      onChange={(event) => setNewRole({ ...newRole, reason: event.target.value })}
-                    />
-                  </label>
+                  <ReasonField
+                    name="newRoleReason"
+                    value={newRole.reason}
+                    onChange={(reason) => setNewRole({ ...newRole, reason })}
+                    suggestions={['Nuevo cargo en la tienda', 'Separación de funciones', 'Perfil temporal para auditoría']}
+                  />
                 </div>
                 <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>
                   {loading ? 'Creando…' : 'Crear rol'}

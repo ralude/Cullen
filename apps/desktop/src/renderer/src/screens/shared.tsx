@@ -258,18 +258,21 @@ export type ReasonFieldProps = {
   readonly onChange: (value: string) => void;
   readonly suggestions?: readonly string[];
   readonly id?: string;
+  readonly name?: string;
   readonly maxLength?: number;
   readonly required?: boolean;
 };
 
 export const ReasonField = ({
-  label = 'Motivo', value, onChange, suggestions = [], id, maxLength = 500, required = true
+  label = 'Motivo', value, onChange, suggestions = [], id, name, maxLength = 500,
+  required = true
 }: ReasonFieldProps): React.JSX.Element => (
   <div className="reason-field">
     <label>
       {label}
       <input
         {...(id ? { id } : {})}
+        {...(name ? { name } : {})}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         maxLength={maxLength}

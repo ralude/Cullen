@@ -24,7 +24,8 @@ import {
 } from '@supermarket/shared';
 import { createIdempotencyKey } from '../api-client.js';
 import {
-  ActionButton, EmptyState, Feedback, ScreenNote, percentToBasisPoints, type ScreenProps
+  ActionButton, EmptyState, Feedback, ReasonField, ScreenNote, percentToBasisPoints,
+  type ScreenProps
 } from './shared.js';
 
 const CONFIG_COMMAND_CONTRACTS = [
@@ -208,9 +209,13 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
         <section className="panel">
           <div className="panel-heading"><h3>Configuración operativa</h3></div>
           <p>Las bajas conservan historia. Los cambios de política crean una versión con vigencia nueva.</p>
-          <label>Motivo de la configuración
-            <input value={operationalReason} onChange={(event) => setOperationalReason(event.target.value)} required />
-          </label>
+          {/* Un solo motivo para las seis administraciones de abajo: los suyos son genéricos. */}
+          <ReasonField
+            label="Motivo de la configuración"
+            value={operationalReason}
+            onChange={setOperationalReason}
+            suggestions={['Nuevo dato de la operación', 'Corrección de un dato mal cargado', 'Cambio aprobado por gerencia', 'Ajuste de política vigente']}
+          />
           {canManageCatalog && (
             <>
               <form className="stack-form" onSubmit={(event) => {
@@ -334,17 +339,23 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
               <label>Código<input value={branchCode} onChange={(event) => setBranchCode(event.target.value)} required /></label>
               <label>Nombre<input value={branchName} onChange={(event) => setBranchName(event.target.value)} required /></label>
             </div>
-            <label>Motivo<input value={branchReason} onChange={(event) => setBranchReason(event.target.value)} required /></label>
+            <ReasonField
+              value={branchReason}
+              onChange={setBranchReason}
+              suggestions={['Apertura de nueva sucursal', 'Alta de sucursal existente', 'Reorganización de sucursales']}
+            />
             <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>
               Registrar sucursal
             </ActionButton>
           </form>
         )}
         {canManageBranches && branches.length > 0 && (
-          <label>Motivo del cambio de estado
-            <input value={branchStatusReason}
-              onChange={(event) => setBranchStatusReason(event.target.value)} required />
-          </label>
+          <ReasonField
+            label="Motivo del cambio de estado"
+            value={branchStatusReason}
+            onChange={setBranchStatusReason}
+            suggestions={['Cierre temporal', 'Cierre definitivo', 'Reapertura', 'Alta por error']}
+          />
         )}
         {branches.length === 0 ? <EmptyState>No hay sucursales registradas.</EmptyState> : (
           <div className="table-wrap">
@@ -395,17 +406,23 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
             {deviceType === 'FISCAL_PRINTER' && (
               <p className="simulation-label">Impresora fiscal · SIMULACIÓN — declararla no habilita emisión real.</p>
             )}
-            <label>Motivo<input value={deviceReason} onChange={(event) => setDeviceReason(event.target.value)} required /></label>
+            <ReasonField
+              value={deviceReason}
+              onChange={setDeviceReason}
+              suggestions={['Equipo nuevo instalado', 'Reemplazo de equipo dañado', 'Alta de equipo existente']}
+            />
             <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>
               Declarar dispositivo
             </ActionButton>
           </form>
         )}
         {canManageDevices && devices.length > 0 && (
-          <label>Motivo del cambio de estado
-            <input value={deviceStatusReason}
-              onChange={(event) => setDeviceStatusReason(event.target.value)} required />
-          </label>
+          <ReasonField
+            label="Motivo del cambio de estado"
+            value={deviceStatusReason}
+            onChange={setDeviceStatusReason}
+            suggestions={['Equipo fuera de servicio', 'Enviado a reparación', 'Reemplazado', 'Reactivación tras reparación']}
+          />
         )}
         {devices.length === 0 ? <EmptyState>No hay dispositivos declarados.</EmptyState> : (
           <div className="table-wrap">

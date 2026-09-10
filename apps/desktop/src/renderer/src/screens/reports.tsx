@@ -14,7 +14,7 @@ import {
 } from '../api-client.js';
 import { productLabel, useProductCatalog } from './product-picker.js';
 import {
-  ActionButton, EmptyState, Feedback, ScreenNote, SectionError, money, section,
+  ActionButton, EmptyState, Feedback, ReasonField, ScreenNote, SectionError, money, section,
   type ReportSection, type ScreenProps
 } from './shared.js';
 
@@ -468,7 +468,11 @@ export const ReportsScreen = ({
           <label>Día fiscal<input value={dayId} onChange={(event) => setDayId(event.target.value)} required /></label>
           <label>Fecha de negocio<input type="date" value={businessDate} onChange={(event) => setBusinessDate(event.target.value)} required /></label>
         </div>
-        <label>Motivo<input value={reason} onChange={(event) => setReason(event.target.value)} required /></label>
+        <ReasonField
+          value={reason}
+          onChange={setReason}
+          suggestions={['Corte de turno', 'Cierre del día', 'Verificación administrativa']}
+        />
         <label className="consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /> Confirmo que ejecutaré una simulación y que su resultado no es un cierre fiscal legal.</label>
         <div className="button-row">
           {canPrintX && <ActionButton type="button" onClick={() => void print('X')} busy={loading} disabled={loading || !consent || !dayId.trim() || !reason.trim()}>Solicitar X simulado</ActionButton>}

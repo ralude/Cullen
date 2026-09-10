@@ -305,10 +305,11 @@ export const SuppliersScreen = ({ api, permissionCodes }: ScreenProps): React.JS
                   onChange={(event) => setCreateForm({ ...createForm, addressLine: event.target.value })} />
               </label>
             </div>
-            <label>Motivo
-              <input value={createForm.reason} required
-                onChange={(event) => setCreateForm({ ...createForm, reason: event.target.value })} />
-            </label>
+            <ReasonField
+              value={createForm.reason}
+              onChange={(reason) => setCreateForm({ ...createForm, reason })}
+              suggestions={['Nuevo proveedor aprobado', 'Alta de proveedor existente', 'Proveedor alterno para contingencia']}
+            />
             <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>
               {loading ? 'Registrando…' : 'Registrar proveedor'}
             </ActionButton>
@@ -385,10 +386,11 @@ export const SuppliersScreen = ({ api, permissionCodes }: ScreenProps): React.JS
                   onChange={(event) => setForm({ ...form, addressLine: event.target.value })} />
               </label>
             </div>
-            <label>Motivo
-              <input value={form.reason} required
-                onChange={(event) => setForm({ ...form, reason: event.target.value })} />
-            </label>
+            <ReasonField
+              value={form.reason}
+              onChange={(reason) => setForm({ ...form, reason })}
+              suggestions={['Cambio informado por el proveedor', 'Corrección de datos mal cargados', 'Actualización de dirección fiscal']}
+            />
             <ActionButton className="primary-button" type="submit" busy={loading}
               disabled={loading || !canUpdate}>
               {loading ? 'Guardando…' : 'Guardar cambios'}
