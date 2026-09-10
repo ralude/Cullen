@@ -80,6 +80,11 @@ El [guion](./guion-demo-entorno-limpio.md) deja ese recorrido como una lista de 
 verificaciones con su registro de incidencias, para que la ejecución sea comprobable y no
 improvisada.
 
+Son siete pasos y siete capturas, que no se corresponden uno a uno: los tres primeros se
+demuestran con la salida del terminal y el paso 6 produce cuatro imágenes. Las seis primeras
+capturas son insumo de [V0.1.03](./3-documentacion-portafolio.md); la séptima —la venta viva
+después de reiniciar— es evidencia de esta etapa y no va al README.
+
 ## Evidencia requerida
 
 Commit probado, versión de Windows/Node/pnpm, salida del pipeline, guion ejecutado y capturas del

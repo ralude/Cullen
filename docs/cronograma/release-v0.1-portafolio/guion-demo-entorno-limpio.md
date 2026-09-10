@@ -26,6 +26,17 @@ openssl version     # OpenSSL 3.x
 
 ## Recorrido
 
+Siete pasos y siete capturas, que no se corresponden uno a uno: los tres primeros se
+demuestran con la salida del terminal, que va al registro del final, y el paso 6 produce
+cuatro imágenes.
+
+Las capturas tienen **dos destinos distintos** y conviene no mezclarlos:
+
+| | Qué prueba | Adónde va |
+| --- | --- | --- |
+| Capturas 1 a 6 | qué hace la aplicación | al README, en [V0.1.03](./3-documentacion-portafolio.md) |
+| Captura 7 | que lo hecho **sobrevive** a un reinicio | evidencia de esta etapa; no va al README, porque para un lector sería casi idéntica a la 3 |
+
 Cada paso anota el comando, lo que debe verse y qué se captura.
 
 ### 1. Clonar, instalar y verificar
@@ -106,9 +117,14 @@ Sigue [la guía de operación diaria](../../operacion/operacion-diaria.md).
 
 ### 7. Persistencia tras reinicio
 
+Es la afirmación más fuerte de todo el recorrido y la única que una imagen puede probar por
+sí sola: lo que se vendió sigue ahí después de apagar y volver a encender.
+
 - [ ] Detener nodo y terminal, y volver a arrancarlos.
 - [ ] La venta, el turno cerrado y el movimiento de inventario siguen ahí.
 - [ ] El rótulo fiscal sigue diciendo `SIMULACION` en todo el recorrido.
+- [ ] **Captura 7 — después del reinicio:** la misma venta y el mismo saldo de inventario que
+      mostraron las capturas 3 y 5, ya con los procesos reiniciados.
 
 ## Higiene de la evidencia
 
