@@ -478,12 +478,11 @@ input:focus-visible {
 .panel h3, .panel h4 { margin: 0; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .panel-heading h3 { margin: 0; font-size: var(--text-xl); }
-.panel label { display: grid; gap: 7px; color: var(--ink-secondary); font-size: var(--text-sm); font-weight: 600; }
-.panel input, .panel select { min-height: 42px; padding: 9px 11px; border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--field); color: var(--ink); }
-.panel input:focus, .panel select:focus { border-color: var(--green); }
-.panel button, .screen-toolbar button { min-height: 40px; padding: 9px 14px; border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--surface); color: var(--ink-secondary); font-weight: 600; cursor: pointer; }
-.panel button:hover, .screen-toolbar button:hover { border-color: var(--green); }
-.panel button:disabled, .screen-toolbar button:disabled { cursor: not-allowed; opacity: 0.5; }
+.panel label,
+.modal-body label { display: grid; gap: 7px; color: var(--ink-secondary); font-size: var(--text-sm); font-weight: 600; }
+.panel button, .screen-toolbar button, .modal-body button { min-height: 40px; padding: 9px 14px; border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--surface); color: var(--ink-secondary); font-weight: 600; cursor: pointer; }
+.panel button:hover, .screen-toolbar button:hover, .modal-body button:hover { border-color: var(--green); }
+.panel button:disabled, .screen-toolbar button:disabled, .modal-body button:disabled { cursor: not-allowed; opacity: 0.5; }
 .panel .primary-button { border-color: var(--green); background: var(--green); color: var(--on-accent); }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .inline-form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
@@ -1294,3 +1293,77 @@ td small { margin-top: 3px; color: var(--ink-faint); }
 
 /** El peligro conserva su borde: ahí sí distingue de todo lo demás. */
 .danger-panel { border-color: var(--danger-line-soft); }
+
+/* --- Controles de formulario -------------------------------------------- */
+
+/**
+ * El aspecto de un control no depende de dónde viva.
+ *
+ * Estaba definido solo dentro de `.panel`, así que todo formulario dentro de un
+ * diálogo —el receptor fiscal, el alta de producto, el alta de proveedor— caía
+ * en el estilo por defecto del navegador y se veía de otra aplicación.
+ *
+ * Va con selectores de elemento a propósito: cualquier cosa más específica
+ * ganaría a `.login-card input`, que sí quiere ser más grande.
+ */
+input,
+select,
+textarea {
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background-color: var(--field);
+  color: var(--ink);
+  font: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus { border-color: var(--green); }
+
+/** Casillas y radios no son campos de texto: ya tienen su propia forma. */
+input[type="checkbox"],
+input[type="radio"] {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: var(--surface-sunken);
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
+
+textarea { min-height: 84px; line-height: 1.5; resize: vertical; }
+
+/**
+ * El desplegable dibuja su propia flecha. La nativa la pinta el sistema
+ * operativo y no comparte el color ni el grosor del resto de la interfaz. El
+ * color va escrito dentro del SVG porque un `data:` no lee variables CSS; es
+ * el mismo valor que `--ink-faint`.
+ */
+select {
+  appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23718078' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+}
+
+select:disabled { background-image: none; }
+
+/** La lista desplegada la dibuja el sistema: al menos que no herede su tema. */
+select option { background-color: var(--surface); color: var(--ink); }
+
+/** El icono del calendario nativo, atenuado para que no compita con el campo. */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
