@@ -8,6 +8,7 @@ import type {
 import type { OperationApi } from './api-client.js';
 import {
   canReviewSync,
+  DELIVERY_STATE_LABELS,
   referenceAge,
   referenceRows,
   SyncScreen,
@@ -149,12 +150,50 @@ describe('presentación del estado de sincronización', () => {
     const markup = render(['sync.reception.review']);
 
     expect(markup).toContain('no confirma ninguna entrega');
-    expect(markup).toContain('Una cola vacía no basta para estar al día');
+    expect(markup).toContain('una cola vacía todavía no significa');
   });
 
   it('explica la falta de permiso en lugar de ofrecer una consulta que fallará', () => {
     const markup = render(['sale.void']);
 
     expect(markup).toContain('no tiene permiso para revisar la recepción');
+  });
+});
+
+/**
+ * Quien supervisa una tienda no sabe qué es un outbox ni un lease, y no tiene
+ * por qué: necesita saber qué falta enviar, desde cuándo y qué hacer. Los
+ * nombres internos siguen a mano en el error y en el código de seguimiento,
+ * que es lo que hace falta para escalar el caso.
+ */
+describe('vocabulario de la pantalla de sincronización', () => {
+  it('nombra el estado de una entrega en palabras corrientes', () => {
+    expect(DELIVERY_STATE_LABELS).toEqual({
+      PENDING: 'En cola',
+      PROCESSING: 'Enviando',
+      PUBLISHED: 'Entregada',
+      BLOCKED: 'Bloqueada',
+      PAUSED: 'En pausa'
+    });
+  });
+
+  it('no deja jerga de implementación a la vista', () => {
+    const markup = render(['sync.reception.review']);
+
+    for (const jargon of ['Outbox', 'outbox', 'Lease', 'lease', 'Correlación', 'ledger']) {
+      expect(markup).not.toContain(jargon);
+    }
+  });
+
+  it('llama al identificador igual que el resto de la aplicación', () => {
+    const markup = render(['sync.reception.review']);
+
+    expect(markup).toContain('Código de seguimiento');
+  });
+
+  it('explica qué significa que una entrega esté reservada', () => {
+    const markup = render(['sync.reception.review']);
+
+    expect(markup).toContain('ningún otro ciclo la vuelve a intentar');
   });
 });

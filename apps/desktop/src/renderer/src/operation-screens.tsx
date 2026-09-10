@@ -60,7 +60,7 @@ export {
 } from './screens/reports.js';
 export {
   SyncScreen, canReviewSync, referenceAge, referenceRows, validityLabel,
-  SYNC_STATUS_HINTS, SYNC_STATUS_LABELS
+  DELIVERY_STATE_LABELS, SYNC_STATUS_HINTS, SYNC_STATUS_LABELS
 } from './screens/sync.js';
 export {
   CurrencyScreen, ageLabel, confirmManualRate, loadCurrentAndHistory, loadSuggestion,

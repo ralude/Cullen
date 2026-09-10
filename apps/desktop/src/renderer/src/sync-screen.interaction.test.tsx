@@ -223,7 +223,7 @@ describe('interacción de la pantalla de sincronización', () => {
     });
     const api = screenApi({ getOperationalDiagnostics: vi.fn(async () => detailed) });
     const screen = await render(api);
-    await typeText(screen.get<HTMLInputElement>('input[placeholder="correlation-id"]'), 'correlation-sale-001');
+    await typeText(screen.get<HTMLInputElement>('#tracking-code'), 'correlation-sale-001');
 
     await submit(screen.get<HTMLFormElement>('form'));
 
@@ -232,6 +232,11 @@ describe('interacción de la pantalla de sincronización', () => {
     );
     expect(screen.text()).toContain('Entrega pendiente');
     expect(screen.text()).toContain('3 (ciclo: 2)');
+    /** El estado de la entrega se nombra en vez de mostrar su enum. */
+    expect(screen.text()).toContain('Enviando');
+    expect(screen.text()).toContain('Reservada hasta');
+    /** El código técnico sigue disponible en Detalle: es lo que se escala. */
+    expect(screen.text()).toContain('SYNC_TEMPORARY');
     expect(screen.text()).toContain('SYNC_TEMPORARY');
     expect(screen.text()).toContain('800');
     expect(screen.text()).toContain('LOCAL_AVERAGE');

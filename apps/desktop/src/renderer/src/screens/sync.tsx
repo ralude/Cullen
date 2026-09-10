@@ -4,6 +4,7 @@ import {
   isPermissionGranted,
   listSyncNodesContract,
   type CoordinatedOperationResponse,
+  type OperationalDeliveryResponse,
   type OperationalDiagnosticsResponse,
   type SyncDestinationStatusResponse,
   type SyncNodeResponse,
@@ -63,6 +64,20 @@ const COORDINATED_STATE_LABELS: Record<'PENDING' | 'APPLIED' | 'REJECTED', strin
   PENDING: 'Pendiente',
   APPLIED: 'Aplicado',
   REJECTED: 'Rechazado'
+};
+
+
+/**
+ * Estado de una entrega, en las palabras de quien supervisa la tienda. El
+ * nombre interno sigue disponible en el error y en el código de seguimiento,
+ * que es lo que hace falta para escalar el caso.
+ */
+export const DELIVERY_STATE_LABELS: Record<OperationalDeliveryResponse['status'], string> = {
+  PENDING: 'En cola',
+  PROCESSING: 'Enviando',
+  PUBLISHED: 'Entregada',
+  BLOCKED: 'Bloqueada',
+  PAUSED: 'En pausa'
 };
 
 const SALE_ATTENTION_LABELS: Record<
@@ -190,8 +205,9 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
   return (
     <div className="operation-screen">
       <ScreenNote>
-        Consultar este estado no confirma ninguna entrega: solo lee la evidencia durable de la
-        salida local y del trabajo de aplicación. Una cola vacía no basta para estar al día.
+        Aquí se ve qué falta enviar a otro nodo y desde cuándo. Consultar este estado
+        no confirma ninguna entrega ni envía nada, y una cola vacía todavía no significa que
+        la otra punta haya aplicado lo recibido.
       </ScreenNote>
       <Feedback error={error} notice={notice} onDismiss={dismiss} />
 
@@ -226,11 +242,12 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
               )}
           </label>
           <label>
-            Correlación (opcional)
+            Código de seguimiento (opcional)
             <input
+              id="tracking-code"
               value={correlationId}
               onChange={(event) => setCorrelationId(event.target.value)}
-              placeholder="correlation-id"
+              placeholder="Pégalo desde el detalle de un fallo"
               minLength={8}
               maxLength={128}
             />
@@ -258,7 +275,7 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
             : (
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Venta</th><th>Estado</th><th>Evidencia</th><th>Antigüedad</th><th>Correlación</th></tr></thead>
+                  <thead><tr><th>Venta</th><th>Estado</th><th>Detalle</th><th>Antigüedad</th><th>Seguimiento</th></tr></thead>
                   <tbody>
                     {diagnostics.salesAttention.map((sale) => (
                       <tr key={`${sale.eventId}:${sale.state}`}>
@@ -276,7 +293,11 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       </section>
 
       <section className="panel">
-        <h3>Intentos, lease y próximo reintento</h3>
+        <h3>Entregas hacia el destino</h3>
+        <p className="muted">
+          Una entrega reservada está tomada por un ciclo de envío en curso; hasta que esa
+          reserva vence, ningún otro ciclo la vuelve a intentar.
+        </p>
         {diagnostics === null
           ? <EmptyState>Consulta un destino para revisar sus entregas.</EmptyState>
           : diagnostics.deliveries.length === 0
@@ -284,12 +305,12 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
             : (
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Evento</th><th>Estado</th><th>Intentos</th><th>Lease</th><th>Próximo intento</th><th>Error</th></tr></thead>
+                  <thead><tr><th>Hecho</th><th>Estado</th><th>Intentos</th><th>Reservada hasta</th><th>Próximo intento</th><th>Error</th></tr></thead>
                   <tbody>
                     {diagnostics.deliveries.map((delivery) => (
                       <tr key={delivery.eventId}>
                         <td>{delivery.eventType}<br /><span className="muted">{delivery.eventId}</span></td>
-                        <td>{delivery.status}</td>
+                        <td>{DELIVERY_STATE_LABELS[delivery.status]}</td>
                         <td>{delivery.attempts} (ciclo: {delivery.cycleAttempts})</td>
                         <td>{delivery.leaseUntil === null ? '—' : new Date(delivery.leaseUntil).toLocaleString('es-VE')}</td>
                         <td>{new Date(delivery.nextAttemptAt).toLocaleString('es-VE')}</td>
@@ -303,15 +324,31 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       </section>
 
       <section className="panel">
-        <h3>Recorrido durable de la operación</h3>
+        <h3>Recorrido de una operación</h3>
         {diagnostics === null || diagnostics.trace === null
-          ? <EmptyState>Indica una correlación para seguir ledger, outbox, entregas y auditoría.</EmptyState>
+          ? <EmptyState>
+            Pega el código de seguimiento de una operación para ver por dónde va.
+          </EmptyState>
           : (
             <>
-              <p>
-                Ledger: {diagnostics.trace.events.length} · Outbox: {diagnostics.trace.outbox.length}
-                {' '}· Entregas: {diagnostics.trace.deliveries.length} · Auditorías: {diagnostics.trace.audits.length}
-              </p>
+              <dl className="detail-grid">
+                <div>
+                  <dt>Hechos registrados</dt>
+                  <dd>{diagnostics.trace.events.length}</dd>
+                </div>
+                <div>
+                  <dt>En cola de salida</dt>
+                  <dd>{diagnostics.trace.outbox.length}</dd>
+                </div>
+                <div>
+                  <dt>Entregas</dt>
+                  <dd>{diagnostics.trace.deliveries.length}</dd>
+                </div>
+                <div>
+                  <dt>Registros de auditoría</dt>
+                  <dd>{diagnostics.trace.audits.length}</dd>
+                </div>
+              </dl>
               {diagnostics.trace.audits.some((entry) => entry.costEvidence !== null) && (
                 <div className="table-wrap">
                   <table>
