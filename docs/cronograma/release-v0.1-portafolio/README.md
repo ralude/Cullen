@@ -1,8 +1,8 @@
 # Release v0.1 de portafolio
 
-- **Estado:** En ejecución desde el 2026-09-09. V0.1.00 a V0.1.03 cerradas —la demo se corrió
-  entera el 2026-09-10 sobre `fce95e6` y sus capturas ya están en el README—; V0.1.04
-  sin iniciar.
+- **Estado:** ~~Completado~~ el 2026-09-10.
+  [`v0.1.0`](https://github.com/ralude/Cullen/releases/tag/v0.1.0) está publicado sobre
+  `b23394d`, verificado desde el tag en un clon nuevo. Fase 12 queda habilitada.
 - **Tipo:** hito transversal de publicación, no una fase funcional nueva.
 - **Distribución inicial:** código fuente mediante GitHub y tag `v0.1.0`; no se publica un MSI
   sin firma.
@@ -26,7 +26,7 @@ siguen siendo obligatorios antes de operar en un comercio real.
 2. ~~[V0.1.01 — CI reproducible](./1-ci-reproducible.md)~~ — cerrada el 2026-09-09 con su primer run remoto verde.
 3. ~~[V0.1.02 — Demo en entorno limpio](./2-demo-en-entorno-limpio.md)~~ — recorrido completo el 2026-09-10 con cuatro hallazgos corregidos; su [guion](./guion-demo-entorno-limpio.md) guarda el registro.
 4. ~~[V0.1.03 — Documentación de portafolio](./3-documentacion-portafolio.md)~~ — capturas publicadas y cifras recontadas; sus [notas de versión](./notas-v0.1.0.md) siguen en borrador hasta etiquetar.
-5. [V0.1.04 — Publicación](./4-publicacion.md).
+5. ~~[V0.1.04 — Publicación](./4-publicacion.md)~~ — tag anotado, release y verificación pública desde el tag.
 
 No se inicia una etapa mientras la anterior conserve tareas abiertas. Un documento de
 planificación no marca trabajo como completado; cada cierre exige su evidencia.

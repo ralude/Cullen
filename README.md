@@ -375,12 +375,12 @@ Desarrollo por fases con cronograma versionado. El
 [cronograma](./docs/cronograma/README.md) es la única fuente de verdad del avance: cada fase tiene
 sus sub-fases, sus criterios de aceptación y sus deudas abiertas por escrito.
 
-**Hito actual: preparar la
-[release open source `v0.1.0`](./docs/cronograma/release-v0.1-portafolio/README.md) con el código
-entregado hasta Fase 11.**
-La publicación distribuye código fuente y una demo reproducible; no adjunta el MSI sin firma y no
-habilita un piloto ni un despliegue comercial. El cierre técnico completo del MVP continúa después
-del release con Fase 12.
+**[`v0.1.0`](https://github.com/ralude/Cullen/releases/tag/v0.1.0) está publicado** desde el
+2026-09-10, con el código entregado hasta Fase 11.
+Distribuye código fuente y una demo reproducible; no adjunta el MSI sin firma y no habilita un
+piloto ni un despliegue comercial. El recorrido completo se ejecutó desde un clon limpio del
+commit etiquetado, y volvió a verificarse clonando desde el tag. El cierre técnico del MVP
+continúa con Fase 12.
 
 | Fases  | Alcance                                                                                                                                                                  | Estado                              |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
@@ -389,8 +389,8 @@ del release con Fase 12.
 | 9 · 9B | Interfaz de operación y capacidades de negocio: costos y margen, devoluciones, conteos físicos, proveedores y recepciones, KPIs, arqueos y los cinco perfiles operativos | ✅ Completadas                      |
 | 10     | Sincronización LAN: outbox durable, protocolo de eventos entre nodos, receptor autenticado, operación offline y reconexión                                               | ✅ Completada                       |
 | 11     | Seguridad: administración de identidad, autorización auditable, transporte, cifrado en reposo y hardening de logs                                                        | ✅ Completada y auditada            |
-| v0.1.0 | Release de portafolio como código fuente y demo reproducible en modo fiscal simulado                                                                                      | 🚧 Hito de publicación actual       |
-| 12     | Optimización medida de comunicación HTTP local, SQLite y mantenibilidad estructural                                                                                        | ⏳ Planificada después de `v0.1.0`  |
+| v0.1.0 | Release de portafolio como código fuente y demo reproducible en modo fiscal simulado                                                                                      | ✅ Publicado el 2026-09-10          |
+| 12     | Optimización medida de comunicación HTTP local, SQLite y mantenibilidad estructural                                                                                        | 🚧 Habilitada por el release        |
 | 12B    | Manual de usuario no técnico: las doce pantallas de la navegación, con capturas y recorridos por perfil                                                                    | ⏳ Planificada después de `v0.1.0`  |
 
 En paralelo, desde el 2026-09-09 corre el

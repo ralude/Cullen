@@ -28,23 +28,30 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 16B | [Sistema de diseño propio](./fase-16b-sistema-diseno/README.md) | Planificada; post-MVP, sin iniciar |
 | 17 | [Validación y despliegue gradual](./fase-17-validacion-despliegue/README.md) | Planificada; post-MVP, sin iniciar |
 
-**Hito actual:** [release open source `v0.1.0`](./release-v0.1-portafolio/README.md), en ejecución
-desde el 2026-09-09 como código fuente y demo reproducible en `SIMULACION`, sin hardware fiscal ni
-publicación de un MSI sin firma. Sus cinco etapas son alcance, CI remoto, demo limpia,
-documentación y publicación.
+**Último hito:** el [release open source `v0.1.0`](./release-v0.1-portafolio/README.md) se
+publicó el 2026-09-10 sobre `b23394d` —código fuente y demo reproducible en `SIMULACION`, sin
+hardware fiscal y sin adjuntar el MSI sin firma— tras recorrer sus cinco etapas: alcance, CI
+remoto, demo limpia, documentación y publicación.
+
 [V0.1.00](./release-v0.1-portafolio/0-alcance-y-verdad.md) cerró el 2026-09-09.
 [V0.1.01](./release-v0.1-portafolio/1-ci-reproducible.md) cerró el mismo día: el pipeline corre
 en GitHub Actions sobre `windows-latest` y su primer run sobre `main` terminó verde.
-[V0.1.02](./release-v0.1-portafolio/2-demo-en-entorno-limpio.md) verificó el clon limpio y
-corrigió tres pasos implícitos del README; su recorrido interactivo y sus capturas exigen una
-estación Windows limpia y siguen abiertos.
-[V0.1.03](./release-v0.1-portafolio/3-documentacion-portafolio.md) entregó contribución,
-seguridad y las notas de versión en borrador; solo le faltan esas capturas.
-[V0.1.04](./release-v0.1-portafolio/4-publicacion.md) no se inicia hasta cerrar las anteriores.
+[V0.1.02](./release-v0.1-portafolio/2-demo-en-entorno-limpio.md) cerró el 2026-09-10 con el
+recorrido completo sobre un clon limpio; entre las dos sesiones corrigió siete pasos implícitos y
+defectos que solo una estación limpia podía destapar, entre ellos el binario de Electron que
+`pnpm install` dejó de traer.
+[V0.1.03](./release-v0.1-portafolio/3-documentacion-portafolio.md) publicó las capturas en el
+README, además de contribución, seguridad y notas de versión.
+[V0.1.04](./release-v0.1-portafolio/4-publicacion.md) etiquetó `v0.1.0` y lo verificó clonando
+desde el tag.
+
+**Hito actual:** [Fase 12](./fase-12-optimizacion/README.md), habilitada por ese release.
+
 Durante la ventana de publicación se corrigió la base del IGTF en pagos mixtos, que era
 recursiva y dejaba el cobro con dos métodos sin ningún importe deducible
-([ADR-0031](../architecture/adr/0031-base-del-igtf-en-pagos-mixtos.md)); los dos defectos que la
-misma revisión destapó quedan en [defectos conocidos](./defectos-conocidos.md).
+([ADR-0031](../architecture/adr/0031-base-del-igtf-en-pagos-mixtos.md)); los defectos que esa
+revisión y la demo destaparon sin corregir quedan en
+[defectos conocidos](./defectos-conocidos.md).
 Fase 11 entregó sus cinco sub-fases y la
 [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió
 trece hallazgos, cada uno con su prueba. En la verificación local del 2026-09-09 aprobaron
