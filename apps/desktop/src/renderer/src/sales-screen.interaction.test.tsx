@@ -36,6 +36,7 @@ const shiftNotFound = new ApiProblemError({
 
 const operationApi = (overrides: Partial<OperationApi> = {}): OperationApi => ({
   listPaymentMethods: vi.fn(async () => []),
+  listProducts: vi.fn(async () => []),
   listCashRegisters: vi.fn(async () => [register]),
   getOpenShift: vi.fn(async () => openShift),
   startSale: vi.fn(async () => draft),

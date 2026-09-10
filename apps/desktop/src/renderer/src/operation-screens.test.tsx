@@ -62,7 +62,7 @@ describe('operation screens', () => {
     expect(markup).toContain('Abrir carrito');
     // El turno se resuelve contra el nodo; el render estático lo muestra consultándose.
     expect(markup).toContain('Consultando el turno de la caja');
-    expect(markup).toContain('No se aceptan cálculos locales');
+    expect(markup).toContain('Los importes definitivos siempre los confirma el servidor local');
   });
 
 

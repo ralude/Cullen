@@ -161,12 +161,12 @@ describe('venta E2E sobre el nodo real', () => {
     expect(barcode).toBeTruthy();
     await type(barcode!, '759000000001');
     await submit(barcode!.closest('form')!);
-    await eventually(() => expect(screen.text()).toContain('Producto agregado al carrito.'));
+    await eventually(() => expect(screen.text()).toContain('Producto agregado al ticket.'));
     expect(screen.text()).toContain('Café');
 
     const paymentButton = screen.button('Registrar cobro');
     await eventually(() => expect(paymentButton.disabled).toBe(false));
-    await submit(paymentButton.closest('form')!);
+    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
     await eventually(() => expect(screen.text()).toContain('Pago registrado.'));
 
     const completeButton = screen.button('Completar venta');

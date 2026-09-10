@@ -446,7 +446,7 @@ export const AppView = ({
   }
 
   return (
-    <div className="app-shell">
+    <div className={route.id === 'sales' ? 'app-shell sales-shell' : 'app-shell'}>
       <aside className="sidebar">
         <Brand />
         <nav aria-label="Navegación principal">

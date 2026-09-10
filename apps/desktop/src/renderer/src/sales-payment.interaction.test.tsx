@@ -48,6 +48,7 @@ const draft = (overrides: Partial<SaleResponse> = {}): SaleResponse => ({
 
 const operationApi = (overrides: Partial<OperationApi> = {}): OperationApi => ({
   listPaymentMethods: vi.fn(async () => methods),
+  listProducts: vi.fn(async () => []),
   listCashRegisters: vi.fn(async () => [register]),
   getOpenShift: vi.fn(async () => openShift),
   startSale: vi.fn(async () => draft()),
@@ -109,7 +110,7 @@ describe('cobro de la venta', () => {
     const amounts = screen.all<HTMLInputElement>('.amount-field input');
     await type(amounts[0]!, '50.00');
     await type(amounts[1]!, '51.50');
-    await submit(screen.button('Registrar cobro').closest('form')!);
+    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
 
     expect(api.registerSalePayments).toHaveBeenCalledWith(
       'sale-001',
@@ -128,7 +129,7 @@ describe('cobro de la venta', () => {
     const screen = await openSale(operationApi());
     expect(screen.get('.sale-balance').textContent).toContain('Falta cobrar');
 
-    await submit(screen.button('Registrar cobro').closest('form')!);
+    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
 
     expect(screen.get('.sale-balance').textContent).toContain('Cobro cubierto');
     screen.unmount();
@@ -145,7 +146,7 @@ describe('cobro de la venta', () => {
     /** Se mira el desglose, no la pantalla entera: la ayuda del cobro lo nombra siempre. */
     expect(screen.get('.totals').textContent).not.toContain('IGTF');
 
-    await submit(screen.button('Registrar cobro').closest('form')!);
+    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
 
     expect(screen.get('.totals').textContent).toContain('IGTF');
     expect(screen.get('.totals').textContent).toContain('101,50');

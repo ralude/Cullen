@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
-  CashRegisterResponse, PaymentMethodResponse, SaleResponse, ShiftResponse
+  CashRegisterResponse, PaymentMethodResponse, ProductResponse, SaleResponse, ShiftResponse
 } from '@supermarket/shared';
 import {
   applySaleDiscountContract, isPermissionGranted, issueSaleInvoiceContract, returnSaleContract,
@@ -55,6 +55,10 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
   const [currencyScale, setCurrencyScale] = useState('2');
   const [barcode, setBarcode] = useState('');
   const [quantity, setQuantity] = useState('1');
+  const [catalogQuery, setCatalogQuery] = useState('');
+  const [catalogProducts, setCatalogProducts] = useState<readonly ProductResponse[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogFailed, setCatalogFailed] = useState(false);
   const [paymentMethodCode, setPaymentMethodCode] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethodCode2, setPaymentMethodCode2] = useState('');
@@ -130,6 +134,21 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
       setPaymentMethodCode((current) => current || methods.find((method) => method.kind === 'CASH')?.code || methods[0]?.code || '');
     }).catch(() => undefined);
   }, [api]);
+  /**
+   * El catálogo acelera la selección manual, pero no sustituye al lector ni es
+   * autoridad de la línea: al pulsar una tarjeta se envía su barcode y la venta
+   * completa vuelve desde el nodo con importes e impuestos recalculados.
+   */
+  const loadCatalog = useCallback(async (query: string): Promise<void> => {
+    setCatalogLoading(true); setCatalogFailed(false);
+    try {
+      const products = await api.listProducts(query);
+      setCatalogProducts(products.filter((product) => product.isActive && product.barcodes.length > 0));
+    } catch {
+      setCatalogProducts([]); setCatalogFailed(true);
+    } finally { setCatalogLoading(false); }
+  }, [api]);
+  useEffect(() => { void loadCatalog(''); }, [loadCatalog]);
   const paymentCurrency = paymentMethods.find((method) => method.code === paymentMethodCode)?.currencyCode ?? '';
   const paymentCurrency2 = paymentMethods.find((method) => method.code === paymentMethodCode2)?.currencyCode ?? '';
   const outstanding = sale?.status === 'DRAFT' ? sale.balanceMinorUnits : 0;
@@ -170,6 +189,21 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
    * conserva el campo y devuelve el foco; vaciarlo siempre hacía que pareciera
    * una acción sin efecto ni causa visible.
    */
+  const appendProduct = async (product: ProductResponse, scanned: string): Promise<SaleResponse | null> => {
+    if (!sale) return null;
+    const quantityScaled = parseMinorUnits(quantity, product.unitScale);
+    const intent = 'add-' + scanned + '-' + quantityScaled + '-' + product.unitScale;
+    return run(
+      () => api.addSaleItem(
+        sale.id, { barcode: scanned, quantityScaled, quantityScale: product.unitScale }, intentKey(intent)
+      ),
+      'Producto agregado al ticket.', intent
+    );
+  };
+  const markProductAdded = (next: SaleResponse): void => {
+    setQuantity('1');
+    setHighlightedItemId(next.items[next.items.length - 1]?.id ?? null);
+  };
   const addItem = (event: React.FormEvent<HTMLFormElement>): void => {
     event.preventDefault(); if (!sale) return;
     const scanned = barcode.trim();
@@ -178,21 +212,22 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
       setLoading(true); setError(null); setNotice(null);
       try {
         const { product } = await api.findProductByBarcode(scanned);
-        const quantityScaled = parseMinorUnits(quantity, product.unitScale);
-        const intent = 'add-' + scanned + '-' + quantityScaled + '-' + product.unitScale;
-        const next = await run(
-          () => api.addSaleItem(
-            sale.id, { barcode: scanned, quantityScaled, quantityScale: product.unitScale }, intentKey(intent)
-          ),
-          'Producto agregado al carrito.', intent
-        );
-        if (next) {
-          setBarcode('');
-          setQuantity('1');
-          setHighlightedItemId(next.items[next.items.length - 1]?.id ?? null);
-        }
+        const next = await appendProduct(product, scanned);
+        if (next) { setBarcode(''); markProductAdded(next); }
       } catch (nextError) { setError(nextError); setLoading(false); } finally { focusBarcode(); }
     })();
+  };
+  const addCatalogProduct = (product: ProductResponse): void => {
+    const scanned = product.barcodes[0];
+    if (!sale || !scanned) return;
+    void appendProduct(product, scanned)
+      .then((next) => { if (next) markProductAdded(next); })
+      .catch((nextError) => { setError(nextError); setLoading(false); })
+      .finally(focusBarcode);
+  };
+  const searchCatalog = (event: React.FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    void loadCatalog(catalogQuery.trim());
   };
   const removeItem = (itemId: string): void => { if (sale) void run(() => api.removeSaleItem(sale.id, itemId, intentKey('remove-' + itemId)), 'Línea eliminada.', 'remove-' + itemId); };
   const applyDiscount = (event: React.FormEvent<HTMLFormElement>): void => {
@@ -280,8 +315,8 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
   const returnAuthorized = isPermissionGranted(returnSaleContract.permission, permissionCodes);
   const invoiceAuthorized = isPermissionGranted(issueSaleInvoiceContract.permission, permissionCodes);
   return (
-    <div className="operation-screen">
-      <ScreenNote>El servidor conserva los totales, impuestos y estado fiscal. Esta pantalla solo coordina intenciones del operador. No se aceptan cálculos locales.</ScreenNote>
+    <div className="operation-screen sales-screen">
+      {!sale && <ScreenNote>Prepara una venta con el turno abierto de esta estación. Los importes definitivos siempre los confirma el servidor local.</ScreenNote>}
       <Feedback error={error} notice={notice} onDismiss={dismissFeedback} />
       {!sale ? <section className="panel start-panel" aria-labelledby="start-sale-title">
         <div><p className="eyebrow">Nueva venta</p><h3 id="start-sale-title">Abrir carrito</h3><p className="muted">El turno lo abre y lo cierra la pantalla de Caja; aquí solo se usa el que esté abierto.</p></div>
@@ -332,24 +367,33 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
           {saleReturn && <p className="inline-status is-ready" role="status">Nota de crédito {saleReturn.creditNoteFiscalNumber ?? saleReturn.creditNoteId} · SIMULACIÓN</p>}
         </section>}
         <ActionButton className="primary-button" type="button" onClick={startAnotherSale}>Iniciar otra venta</ActionButton>
-      </section> : <>
-        <div className="sale-toolbar">
-          <span className="status-label">Venta {sale.id.slice(0, 8)}</span>
-          <span className="status-label">{sale.items.length} líneas</span>
-          <span className="simulation-label">Fiscal · SIMULACIÓN</span>
-          <ActionButton type="button" onClick={() => void refresh(sale.id)} busy={loading} disabled={loading}>
-            Actualizar
-          </ActionButton>
-        </div>
+      </section> : <div className="sale-pos">
+        <header className="sale-toolbar">
+          <div className="sale-context">
+            <span className="sale-live-dot" aria-hidden="true" />
+            <div>
+              <span>Venta en curso · {sale.id.slice(0, 8)}</span>
+              <strong>{shiftLabel ?? cashRegister?.name ?? 'Caja activa'}</strong>
+            </div>
+          </div>
+          <div className="sale-toolbar-status">
+            <span className="line-count">{sale.items.length} {sale.items.length === 1 ? 'línea' : 'líneas'}</span>
+            <span className="simulation-label">Fiscal · SIMULACIÓN</span>
+            <ActionButton type="button" onClick={() => void refresh(sale.id)} busy={loading} disabled={loading}>
+              Actualizar
+            </ActionButton>
+          </div>
+        </header>
         <div className="sale-workspace">
           <section className="panel sale-cart" aria-labelledby="cart-title">
             <div className="panel-heading">
-              <div><p className="eyebrow">Carrito</p><h3 id="cart-title">Líneas de venta</h3></div>
+              <div><p className="eyebrow">01 · Ticket</p><h3 id="cart-title">Venta actual</h3></div>
+              <span className="ticket-counter" aria-label={sale.items.length + ' líneas en el ticket'}>{sale.items.length}</span>
             </div>
             {/* El foco vuelve siempre aquí: el lector es el instrumento principal de una caja. */}
             <form className="sale-scan" onSubmit={addItem}>
               <label className="grow">
-                Barcode
+                Barcode o PLU
                 <input ref={barcodeInput} value={barcode} onChange={(event) => setBarcode(event.target.value)} placeholder="Escanea o escribe y presiona Enter" autoFocus required />
               </label>
               <label title="Se valida contra la unidad del producto: entera para unidades, decimal para productos pesados.">
@@ -360,17 +404,18 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
                 {loading ? 'Agregando…' : 'Agregar'}
               </ActionButton>
             </form>
-            {sale.items.length === 0
-              ? <EmptyState>Escanea o escribe un barcode y presiona Enter para comenzar.</EmptyState>
-              : <div className="table-wrap"><table className="sale-lines">
+            <div className="sale-lines-wrap">
+              {sale.items.length === 0
+                ? <EmptyState>El ticket está vacío. Escanea un código o elige un producto del catálogo.</EmptyState>
+                : <div className="table-wrap"><table className="sale-lines">
                 <caption className="sr-only">Líneas actuales</caption>
                 <thead><tr><th>Producto</th><th className="numeric">Cant.</th><th className="numeric">Importe</th><th /></tr></thead>
-                <tbody>{sale.items.map((item) => (
+                <tbody>{sale.items.map((item, index) => (
                   <tr key={item.id} className={item.id === highlightedItemId ? 'is-new' : undefined}>
                     <td>
                       <strong>{item.description}</strong>
                       <small>
-                        {item.unitCode}
+                        Línea {index + 1} · {item.unitCode}
                         {item.discountBasisPoints ? ' · −' + (item.discountBasisPoints / 100) + '%' : ''}
                       </small>
                     </td>
@@ -384,18 +429,70 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
                   </tr>
                 ))}</tbody>
               </table></div>}
+            </div>
+
+            <div className="sale-secondary" aria-label="Acciones del ticket">
+              <button type="button" onClick={() => setDialog('recipient')}>
+                {sale.recipient ? 'Receptor · ' + sale.recipient.normalizedValue : 'Agregar receptor'}
+              </button>
+              {isPermissionGranted(applySaleDiscountContract.permission, permissionCodes) && (
+                <button type="button" onClick={() => setDialog('discount')} disabled={sale.items.length === 0}>
+                  Descuento de línea
+                </button>
+              )}
+              {voidAuthorized && (
+                <button type="button" className="danger-link" onClick={() => setDialog('void')}>Anular venta</button>
+              )}
+            </div>
           </section>
 
-          {/*
-            El ticket acompaña al carrito y no se desplaza con él: total, cobro
-            y el botón de completar quedan siempre a la vista. Antes vivían al
-            final de una columna de seis paneles y había que bajar para cerrar
-            una venta que ya estaba cobrada.
-          */}
-          <aside className="sale-ticket" aria-label="Ticket de la venta">
-            <section className="panel totals-panel" aria-labelledby="totals-title">
-              <p className="eyebrow">Calculado por el nodo</p>
-              <h3 id="totals-title" className="sr-only">Total a cobrar</h3>
+          <section className="panel sale-catalog" aria-labelledby="catalog-title">
+            <div className="panel-heading">
+              <div><p className="eyebrow">02 · Catálogo</p><h3 id="catalog-title">Productos</h3></div>
+              <span className="catalog-count">{catalogProducts.length} disponibles</span>
+            </div>
+            <form className="catalog-search" onSubmit={searchCatalog}>
+              <label className="sr-only" htmlFor="sale-catalog-query">Buscar producto</label>
+              <input id="sale-catalog-query" value={catalogQuery} onChange={(event) => setCatalogQuery(event.target.value)} placeholder="Buscar por nombre o barcode" />
+              <ActionButton type="submit" busy={catalogLoading} disabled={catalogLoading}>
+                {catalogLoading ? 'Buscando…' : 'Buscar'}
+              </ActionButton>
+            </form>
+            {catalogLoading
+              ? <div className="catalog-state" role="status"><span className="mini-spinner" aria-hidden="true" /> Cargando catálogo…</div>
+              : catalogFailed
+                ? <div className="catalog-state is-error" role="status">
+                  <span>El catálogo no respondió. Puedes seguir usando el lector.</span>
+                  <button type="button" onClick={() => void loadCatalog(catalogQuery.trim())}>Reintentar</button>
+                </div>
+                : catalogProducts.length === 0
+                  ? <EmptyState>No hay productos activos que coincidan con la búsqueda.</EmptyState>
+                  : <div className="product-grid">
+                    {catalogProducts.map((product) => (
+                      <button
+                        className="product-tile"
+                        key={product.id}
+                        type="button"
+                        onClick={() => addCatalogProduct(product)}
+                        disabled={loading}
+                        aria-label={'Agregar ' + product.name}
+                      >
+                        <span className="product-mark" aria-hidden="true">{product.name.slice(0, 2).toUpperCase()}</span>
+                        <span className="product-copy"><strong>{product.name}</strong><small>{product.unitCode}</small></span>
+                        <span className="product-price">{money(product.price.amountMinorUnits, product.price.currencyCode)}</span>
+                      </button>
+                    ))}
+                  </div>}
+          </section>
+
+          {/* Total, cobro y finalización forman una sola unidad fija de caja. */}
+          <aside className="panel sale-ticket" aria-label="Cobro de la venta">
+            <section className="totals-panel" aria-labelledby="totals-title">
+              <p className="eyebrow">03 · Cobro</p>
+              <div className="checkout-total">
+                <h3 id="totals-title">Total</h3>
+                <strong>{money(sale.totalMinorUnits, sale.currencyCode, scale)}</strong>
+              </div>
               <dl className="totals">
                 <div><dt>Subtotal</dt><dd>{money(sale.subtotalMinorUnits, sale.currencyCode, scale)}</dd></div>
                 {sale.discountTotalMinorUnits > 0 && (
@@ -405,7 +502,6 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
                 {sale.financialTransactionTaxMinorUnits > 0 && (
                   <div><dt>IGTF</dt><dd>{money(sale.financialTransactionTaxMinorUnits, sale.currencyCode, scale)}</dd></div>
                 )}
-                <div className="grand-total"><dt>Total</dt><dd>{money(sale.totalMinorUnits, sale.currencyCode, scale)}</dd></div>
                 {sale.paidTotalMinorUnits > 0 && (
                   <div><dt>Pagado</dt><dd>{money(sale.paidTotalMinorUnits, sale.currencyCode, scale)}</dd></div>
                 )}
@@ -417,10 +513,12 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
               </p>
             </section>
 
-            <section className="panel" aria-labelledby="payment-title">
-              <p className="eyebrow">Cobro</p>
-              <h3 id="payment-title">Registrar cobro</h3>
-              <form className="stack-form" onSubmit={registerPayment}>
+            <section className="payment-panel" aria-labelledby="payment-title">
+              <div className="payment-heading">
+                <h3 id="payment-title">Método de pago</h3>
+                <small>Selecciona cómo recibes el importe</small>
+              </div>
+              <form className="stack-form" id="sale-payment-form" onSubmit={registerPayment}>
                 <fieldset className="method-chips">
                   <legend>Método</legend>
                   {paymentMethods.map((method) => (
@@ -463,32 +561,16 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
                       </button>
                     </div>
                   </>}
-                <p className="muted">
-                  El importe que cobras con un método gravado con IGTF <strong>incluye</strong> el
-                  impuesto: el resto de los métodos cubre lo que falte del total.
+                <p className="payment-note">
+                  Un importe gravado ya incluye IGTF; los demás métodos cubren el saldo restante.
                 </p>
-                <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading || !paymentMethodCode}>
-                  {loading ? 'Registrando…' : 'Registrar cobro'}
-                </ActionButton>
               </form>
             </section>
 
-            {/* Acciones ocasionales: se abren cuando hacen falta, no ocupan la columna. */}
-            <div className="sale-secondary">
-              <button type="button" onClick={() => setDialog('recipient')}>
-                {sale.recipient ? 'Receptor · ' + sale.recipient.normalizedValue : 'Agregar receptor'}
-              </button>
-              {isPermissionGranted(applySaleDiscountContract.permission, permissionCodes) && (
-                <button type="button" onClick={() => setDialog('discount')} disabled={sale.items.length === 0}>
-                  Descuento de línea
-                </button>
-              )}
-              {voidAuthorized && (
-                <button type="button" className="danger-link" onClick={() => setDialog('void')}>Anular venta</button>
-              )}
-            </div>
-
             <div className="complete-block">
+              <ActionButton className="primary-button payment-submit" type="submit" form="sale-payment-form" busy={loading} disabled={loading || !paymentMethodCode}>
+                {loading ? 'Registrando…' : 'Registrar cobro'}
+              </ActionButton>
               <ActionButton className="primary-button complete-button" type="button" onClick={complete} busy={loading} disabled={loading || completionBlocker !== null} aria-describedby={completionBlocker ? 'complete-blocker' : undefined}>
                 {loading ? 'Completando…' : 'Completar venta'}
               </ActionButton>
@@ -559,7 +641,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
             </div>
           </Modal>
         )}
-      </>}
+      </div>}
     </div>
   );
 };

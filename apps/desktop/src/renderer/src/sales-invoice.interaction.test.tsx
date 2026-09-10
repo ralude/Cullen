@@ -35,6 +35,7 @@ const apiWith = (overrides: Partial<OperationApi>): OperationApi => ({
   startSale: vi.fn(async () => sale('DRAFT')),
   completeSale: vi.fn(async () => sale('COMPLETED')),
   listPaymentMethods: vi.fn(async () => []),
+  listProducts: vi.fn(async () => []),
   listCashRegisters: vi.fn(async () => [register]),
   getOpenShift: vi.fn(async () => openShift()),
   ...overrides
