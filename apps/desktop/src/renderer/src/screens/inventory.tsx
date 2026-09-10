@@ -42,7 +42,16 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
   const [kardexLimit, setKardexLimit] = useState('100');
   const [type, setType] = useState<'WASTE' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT'>('WASTE');
   const [quantity, setQuantity] = useState('');
-  const [reason, setReason] = useState('');
+  /**
+   * Un motivo por operación. Las tres compartían una sola variable, así que
+   * escribir el motivo de un ajuste lo dejaba escrito en la recepción, y la
+   * recepción documentada —que no tenía campo propio— enviaba lo que hubiera
+   * quedado al lado. Una recepción completada es inmutable y lleva efectos de
+   * costo: su motivo queda en la auditoría tal como se envió.
+   */
+  const [receiptReason, setReceiptReason] = useState('');
+  const [documentReason, setDocumentReason] = useState('');
+  const [adjustmentReason, setAdjustmentReason] = useState('');
   const [referenceId, setReferenceId] = useState('');
   const [suppliers, setSuppliers] = useState<readonly SupplierResponse[]>([]);
   const [supplierQuery, setSupplierQuery] = useState('');
@@ -126,7 +135,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
     try {
       setKardex(await api.registerStockAdjustment(kardex.id, {
         type, quantityScaled: Number(quantity), quantityScale: kardex.quantityScale,
-        reason: reason.trim(), referenceId: referenceId.trim()
+        reason: adjustmentReason.trim(), referenceId: referenceId.trim()
       }, createIdempotencyKey()));
       setNotice('Movimiento de inventario registrado.');
     } catch (nextError) { setError(nextError); }
@@ -145,7 +154,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
     try {
       await api.receivePurchase({
         productId: consultedProductId, quantity: receiveQuantity.trim(), supplierId,
-        receiptId: receiptId.trim(), reason: reason.trim(),
+        receiptId: receiptId.trim(), reason: receiptReason.trim(),
         ...(lotNumber.trim() ? {
           lot: {
             lotNumber: lotNumber.trim(),
@@ -174,7 +183,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
         supplierId,
         sourceDocument: { type: documentType, number: documentNumber.trim() },
         effectiveAt: new Date().toISOString(),
-        reason: reason.trim(),
+        reason: documentReason.trim(),
         lines: [{
           productId: consultedProductId, quantity: receiveQuantity.trim(),
           purchaseUnitCostMinorUnits: Number(unitCostMinorUnits),
@@ -187,7 +196,9 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
           } : {})
         }]
       }, createIdempotencyKey());
-      await api.completePurchaseReceipt(draft.id, { reason: reason.trim() }, createIdempotencyKey());
+      await api.completePurchaseReceipt(
+        draft.id, { reason: documentReason.trim() }, createIdempotencyKey()
+      );
       setKardex(await api.getKardex(consultedProductId));
       setNotice('Recepción documentada completada con su costo.');
     } catch (nextError) { setError(nextError); }
@@ -311,8 +322,8 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
               <label>Lote (opcional)<input value={lotNumber} onChange={(event) => setLotNumber(event.target.value)} /></label>
               <label>Vencimiento<input type="date" value={lotExpiresAt} onChange={(event) => setLotExpiresAt(event.target.value)} /></label>
               <ReasonField
-                value={reason}
-                onChange={setReason}
+                value={receiptReason}
+                onChange={setReceiptReason}
                 suggestions={['Compra a proveedor', 'Reposición de existencia', 'Canje por producto dañado']}
               />
               <ActionButton className="primary-button" type="submit" busy={loading}
@@ -347,9 +358,14 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
                 <input value={purchaseCurrency} maxLength={3}
                   onChange={(event) => setPurchaseCurrency(event.target.value)} />
               </label>
+              <ReasonField
+                value={documentReason}
+                onChange={setDocumentReason}
+                suggestions={['Compra con factura', 'Compra con guía de despacho', 'Reposición documentada']}
+              />
               <ActionButton className="primary-button" type="submit" busy={loading}
-                disabled={loading
-                  || !documentNumber.trim() || !unitCostMinorUnits.trim()}>
+                disabled={loading || !documentNumber.trim() || !unitCostMinorUnits.trim()
+                  || !documentReason.trim()}>
                 {loading ? 'Registrando…' : 'Completar recepción documentada'}
               </ActionButton>
             </form>
@@ -368,8 +384,8 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
               <label>Cantidad escalada<input type="number" min="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
               <label>Referencia<input value={referenceId} onChange={(event) => setReferenceId(event.target.value)} required /></label>
               <ReasonField
-                value={reason}
-                onChange={setReason}
+                value={adjustmentReason}
+                onChange={setAdjustmentReason}
                 suggestions={['Merma por daño', 'Producto vencido', 'Diferencia de conteo', 'Consumo interno', 'Robo o pérdida']}
               />
               <ActionButton className="primary-button" type="submit" busy={loading}
