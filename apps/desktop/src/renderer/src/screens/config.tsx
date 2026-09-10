@@ -23,7 +23,9 @@ import {
   type OperationalMasterDataResponse
 } from '@supermarket/shared';
 import { createIdempotencyKey } from '../api-client.js';
-import { ActionButton, EmptyState, Feedback, ScreenNote, type ScreenProps } from './shared.js';
+import {
+  ActionButton, EmptyState, Feedback, ScreenNote, percentToBasisPoints, type ScreenProps
+} from './shared.js';
 
 const CONFIG_COMMAND_CONTRACTS = [
   createBranchContract, updateBranchContract, changeBranchStatusContract,
@@ -312,12 +314,12 @@ export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.E
               <div className="form-grid">
               <form className="stack-form" onSubmit={(event) => {
                 event.preventDefault(); const intent = `discount:${discountMaximum}:${operationalReason}`;
-                void executeOperational(intent, (key) => api.activateDiscountPolicy({ maximumBasisPoints: Number(discountMaximum), reason: operationalReason }, key), 'Política de descuento versionada.');
-              }}><h4>Descuento máximo</h4><label>Puntos base<input type="number" min="0" max="10000" value={discountMaximum} onChange={(event) => setDiscountMaximum(event.target.value)} required /></label><ActionButton type="submit" busy={loading} disabled={loading || !operationalReason.trim() || !policyConfirmed}>Publicar versión</ActionButton></form>
+                void executeOperational(intent, (key) => api.activateDiscountPolicy({ maximumBasisPoints: percentToBasisPoints(discountMaximum), reason: operationalReason }, key), 'Política de descuento versionada.');
+              }}><h4>Descuento máximo</h4><label>Porcentaje<input inputMode="decimal" value={discountMaximum} onChange={(event) => setDiscountMaximum(event.target.value)} placeholder="15" required /><small className="field-hint">Tope por línea, en por ciento. Admite decimales: 12,5</small></label><ActionButton type="submit" busy={loading} disabled={loading || !operationalReason.trim() || !policyConfirmed}>Publicar versión</ActionButton></form>
               <form className="stack-form" onSubmit={(event) => {
                 event.preventDefault(); const intent = `tax:${taxRate}:${taxMethods}:${taxCurrencies}:${operationalReason}`;
-                void executeOperational(intent, (key) => api.activateTaxPolicy({ rateBasisPoints: Number(taxRate), eligiblePaymentMethodCodes: taxMethods.split(',').map((value) => value.trim()).filter(Boolean), eligibleCurrencies: taxCurrencies.split(',').map((value) => value.trim().toUpperCase()).filter(Boolean), reason: operationalReason }, key), 'Política IGTF versionada.');
-              }}><h4>IGTF · SIMULACIÓN</h4><label>Puntos base<input type="number" min="0" max="10000" value={taxRate} onChange={(event) => setTaxRate(event.target.value)} required /></label><label>Métodos (separados por coma)<input value={taxMethods} onChange={(event) => setTaxMethods(event.target.value.toUpperCase())} /></label><label>Monedas (separadas por coma)<input value={taxCurrencies} onChange={(event) => setTaxCurrencies(event.target.value.toUpperCase())} /></label><ActionButton type="submit" busy={loading} disabled={loading || !operationalReason.trim() || !policyConfirmed}>Publicar versión</ActionButton></form>
+                void executeOperational(intent, (key) => api.activateTaxPolicy({ rateBasisPoints: percentToBasisPoints(taxRate), eligiblePaymentMethodCodes: taxMethods.split(',').map((value) => value.trim()).filter(Boolean), eligibleCurrencies: taxCurrencies.split(',').map((value) => value.trim().toUpperCase()).filter(Boolean), reason: operationalReason }, key), 'Política IGTF versionada.');
+              }}><h4>IGTF · SIMULACIÓN</h4><label>Porcentaje<input inputMode="decimal" value={taxRate} onChange={(event) => setTaxRate(event.target.value)} placeholder="3" required /><small className="field-hint">Se cobra dentro del importe entregado con un método gravado.</small></label><label>Métodos (separados por coma)<input value={taxMethods} onChange={(event) => setTaxMethods(event.target.value.toUpperCase())} /></label><label>Monedas (separadas por coma)<input value={taxCurrencies} onChange={(event) => setTaxCurrencies(event.target.value.toUpperCase())} /></label><ActionButton type="submit" busy={loading} disabled={loading || !operationalReason.trim() || !policyConfirmed}>Publicar versión</ActionButton></form>
               </div>
             </div>
           )}

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { CapabilitiesResponse } from '@supermarket/shared';
-import { ApiProblemError, type OperationApi } from '../api-client.js';
+import {
+  ApiProblemError, formatScaledDecimal, parseMinorUnits, type OperationApi
+} from '../api-client.js';
 
 /**
  * Permisos efectivos de la sesión. El renderer solo decide qué ofrece: el
@@ -187,6 +189,17 @@ export const ActionButton = (
     {children}
   </button>
 );
+
+/**
+ * Un porcentaje son puntos base con dos decimales: 16 % son 1600, y 3,5 %
+ * son 350. El dominio conserva el entero —una tasa nunca es un float— y la
+ * interfaz pide lo que una persona sabe decir. Escribir «1600» donde se
+ * esperaba 16 % publica una política dieciséis veces mayor sin que nada
+ * avise, así que la traducción ocurre en la frontera y en un solo lugar.
+ */
+export const percentToBasisPoints = (value: string): number => parseMinorUnits(value, 2);
+export const basisPointsToPercent = (basisPoints: number): string =>
+  formatScaledDecimal(basisPoints, 2);
 
 const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
 
