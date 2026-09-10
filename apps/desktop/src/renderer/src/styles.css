@@ -749,3 +749,34 @@ td small { margin-top: 3px; color: #718078; }
   .sale-workspace { grid-template-columns: 1fr; }
   .sale-ticket { position: static; }
 }
+}
+
+/* --- Código de seguimiento de un fallo ---------------------------------- */
+
+.feedback-body { flex: 1 1 auto; display: grid; gap: 7px; }
+.feedback-body > p { margin: 0; }
+
+/**
+ * El identificador de correlación queda a un clic, no dentro de la frase: es
+ * la llave para rastrear la operación en el nodo, pero no es lo que quien
+ * cobra necesita leer cuando algo falla.
+ */
+.feedback-trace { font-size: 0.84rem; }
+.feedback-trace summary {
+  width: fit-content;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.feedback-trace summary:hover { opacity: 1; }
+.feedback-trace[open] summary { margin-bottom: 6px; }
+.feedback-trace code {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 7%);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  user-select: all;
+}
+.feedback-trace span { display: block; margin-top: 5px; opacity: 0.85; }

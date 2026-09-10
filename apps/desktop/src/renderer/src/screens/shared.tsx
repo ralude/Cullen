@@ -106,8 +106,7 @@ export const problemMessage = (error: unknown): string => {
       EXCHANGE_RATE_SOURCE_REQUIRED: 'La fuente de la tasa es obligatoria.',
       EXCHANGE_RATE_INVALID_VALIDITY: 'La vigencia hasta debe ser posterior a la vigencia desde.'
     };
-    return (labels[error.problem.code] ?? 'La operación no pudo completarse.')
-      + ' (correlación ' + error.problem.correlationId + ')';
+    return labels[error.problem.code] ?? 'La operación no pudo completarse.';
   }
   if (error instanceof Error && error.message === 'MONEY_INPUT_SCALE') {
     return 'La cantidad de decimales supera la escala configurada.';
@@ -120,6 +119,17 @@ export const problemMessage = (error: unknown): string => {
   }
   return 'No pudimos completar la operación. Intenta nuevamente.';
 };
+
+/**
+ * El identificador de correlación es la llave para rastrear una operación en
+ * los registros del nodo, así que no se pierde. Pero deja de vivir dentro de
+ * la frase: quien cobra leía «El pago no coincide con el total de la venta.
+ * (correlación 036a69fe-98ad-4a82-aea2-662a4f2b3a00)», y treinta y seis
+ * caracteres de hexadecimal no le dicen nada ni le dejan ver lo que sí
+ * importa. Queda a un clic, para cuando alguien tenga que escalar el caso.
+ */
+export const correlationOf = (error: unknown): string | null =>
+  error instanceof ApiProblemError ? error.problem.correlationId : null;
 
 export type FeedbackProps = {
   readonly error: unknown;
@@ -134,6 +144,7 @@ export type FeedbackProps = {
 export const Feedback = ({ error, notice, onDismiss }: FeedbackProps): React.JSX.Element | null => {
   if (!error && !notice) return null;
   const failed = Boolean(error);
+  const correlation = correlationOf(error);
   return (
     <div
       className={failed ? 'feedback form-error' : 'feedback form-success'}
@@ -141,7 +152,16 @@ export const Feedback = ({ error, notice, onDismiss }: FeedbackProps): React.JSX
       aria-live={failed ? 'assertive' : 'polite'}
     >
       <span className="feedback-icon" aria-hidden="true">{failed ? '!' : '✓'}</span>
-      <p>{failed ? problemMessage(error) : notice}</p>
+      <div className="feedback-body">
+        <p>{failed ? problemMessage(error) : notice}</p>
+        {correlation && (
+          <details className="feedback-trace">
+            <summary>Código de seguimiento</summary>
+            <code>{correlation}</code>
+            <span>Dáselo a quien administre la estación para encontrar esta operación.</span>
+          </details>
+        )}
+      </div>
       {onDismiss && (
         <button type="button" className="feedback-dismiss" onClick={onDismiss}>
           Descartar
