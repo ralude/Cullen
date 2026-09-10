@@ -1,6 +1,6 @@
 # Notas de versión — `v0.1.0`
 
-- **Estado:** borrador. Se publica como cuerpo del release de GitHub en
+- **Estado:** publicadas el 2026-09-10 como cuerpo del release de GitHub de
   [V0.1.04](./4-publicacion.md), sobre el commit etiquetado.
 - **Qué distribuye:** código fuente. **No** se adjunta el MSI, porque se construye sin firmar.
 - **Licencia:** [Apache 2.0](../../../LICENSE).
