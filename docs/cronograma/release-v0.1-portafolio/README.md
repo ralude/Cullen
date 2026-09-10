@@ -1,7 +1,7 @@
 # Release v0.1 de portafolio
 
-- **Estado:** En ejecución desde el 2026-09-09. V0.1.00 y V0.1.01 cerradas; V0.1.02 bloqueada
-  por el recorrido interactivo; V0.1.03 adelantada en lo que no depende de las capturas; V0.1.04
+- **Estado:** En ejecución desde el 2026-09-09. V0.1.00 a V0.1.03 cerradas —la demo se corrió
+  entera el 2026-09-10 sobre `fce95e6` y sus capturas ya están en el README—; V0.1.04
   sin iniciar.
 - **Tipo:** hito transversal de publicación, no una fase funcional nueva.
 - **Distribución inicial:** código fuente mediante GitHub y tag `v0.1.0`; no se publica un MSI
@@ -24,8 +24,8 @@ siguen siendo obligatorios antes de operar en un comercio real.
 
 1. ~~[V0.1.00 — Alcance y fuentes de verdad](./0-alcance-y-verdad.md)~~ — cerrada el 2026-09-09.
 2. ~~[V0.1.01 — CI reproducible](./1-ci-reproducible.md)~~ — cerrada el 2026-09-09 con su primer run remoto verde.
-3. [V0.1.02 — Demo en entorno limpio](./2-demo-en-entorno-limpio.md) — tramo automatizable verificado; el recorrido interactivo sigue el [guion](./guion-demo-entorno-limpio.md).
-4. [V0.1.03 — Documentación de portafolio](./3-documentacion-portafolio.md) — entregada salvo las capturas; sus [notas de versión](./notas-v0.1.0.md) están en borrador.
+3. ~~[V0.1.02 — Demo en entorno limpio](./2-demo-en-entorno-limpio.md)~~ — recorrido completo el 2026-09-10 con cuatro hallazgos corregidos; su [guion](./guion-demo-entorno-limpio.md) guarda el registro.
+4. ~~[V0.1.03 — Documentación de portafolio](./3-documentacion-portafolio.md)~~ — capturas publicadas y cifras recontadas; sus [notas de versión](./notas-v0.1.0.md) siguen en borrador hasta etiquetar.
 5. [V0.1.04 — Publicación](./4-publicacion.md).
 
 No se inicia una etapa mientras la anterior conserve tareas abiertas. Un documento de

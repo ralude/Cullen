@@ -1,10 +1,8 @@
 # V0.1.03: Documentación de portafolio
 
 - **Release:** [v0.1 de portafolio](./README.md).
-- **Estado:** En curso. Todo lo que no depende de la demo quedó entregado el 2026-09-09; las
-  capturas esperan a que cierre [V0.1.02](./2-demo-en-entorno-limpio.md).
-- **Entrada:** V0.1.02 **no** cerrada. Se adelantó únicamente lo que no depende de su evidencia
-  visual; nada de esta etapa se marca completo mientras la anterior conserve tareas abiertas.
+- **Estado:** ~~Cerrada~~ el 2026-09-10 sobre `fce95e6`.
+- **Entrada:** ~~[V0.1.02](./2-demo-en-entorno-limpio.md) cerrada~~.
 
 ## Objetivo
 
@@ -15,7 +13,7 @@ la arquitectura, el recorrido demostrable y sus límites sin leer todo el reposi
 
 - [x] Reescribir el bloque «Estado del proyecto» del README desde el commit candidato y enlazar el
   cronograma sin duplicar como vigentes cifras históricas.
-- [ ] Incorporar las capturas verificadas de la demo y un recorrido breve de las capacidades
+- [x] Incorporar las capturas verificadas de la demo y un recorrido breve de las capacidades
   principales; evitar imágenes con PIN, tokens, rutas de claves o datos reales.
 - [x] Mantener un quickstart único, probado en V0.1.02, y separar claramente ejecución de
   desarrollo, build y operación simulada.
@@ -36,8 +34,9 @@ certificación.
 
 - **README.** «Estado del proyecto» se reescribió desde el commit candidato: fases con su estado
   real, `v0.1.0` como hito de publicación, Fase 12 y Fase 12B como trabajo posterior, y el
-  paquete pre-piloto identificado como lo que es. Las métricas —1.212 pruebas en 191 archivos,
-  30 ADR, 44 migraciones— salen de ese commit, no del historial. La declaración honesta de alcance
+  paquete pre-piloto identificado como lo que es. Las métricas —1.282 pruebas en 198 archivos,
+  31 ADR, 44 migraciones— salen del commit publicado, no del historial, y se recontaron cuando la
+  demo movió el candidato. La declaración honesta de alcance
   y el gate de piloto abierto quedan en el cuerpo, no en una nota al pie.
 - **Quickstart único**, el de «Cómo ejecutarlo», con los tres pasos implícitos que
   [V0.1.02](./2-demo-en-entorno-limpio.md) encontró ya corregidos: `openssl` como requisito, el
@@ -56,12 +55,21 @@ certificación.
   posterior.
 - **Licencia** Apache 2.0 ya publicada en [`LICENSE`](../../../LICENSE).
 
-## Lo que falta
+## Las capturas
 
-Las capturas verificadas. Dependen del recorrido interactivo de V0.1.02 sobre una estación
-Windows limpia: sin él no hay imagen que incorporar, y fabricar una desde el árbol de trabajo
-dejaría de ser evidencia. El [guion](./guion-demo-entorno-limpio.md) enumera las seis y la regla
-de higiene que deben cumplir.
+Seis de las siete que produjo el recorrido de V0.1.02 están en
+[«El recorrido, en seis pantallas»](../../../README.md#el-recorrido-en-seis-pantallas), en
+`docs/capturas/`: ingreso, inicio, venta, factura simulada, kardex y auditoría. Cada una lleva
+un pie que dice qué garantía enseña, no qué pantalla es. La séptima queda como evidencia de la
+etapa anterior.
+
+Se revisaron antes de entrar al repositorio, porque una vez empujadas viven en el historial de
+git: sin PIN, sin token, sin cookie, sin ruta de material protegido y sin ningún dato real —los
+dos RIF que aparecen están inventados y el catálogo es la seed de ejemplo—, con `SIMULACIÓN`
+visible en todas. Pesan 892 KB en total.
+
+Las cifras del README se recontaron sobre el commit publicado: **1.282 pruebas en 198 archivos**,
+donde antes decía 1.236 en 192. ADR y migraciones ya coincidían.
 
 ## Fuera de alcance
 

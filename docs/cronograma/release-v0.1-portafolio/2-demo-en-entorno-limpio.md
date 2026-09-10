@@ -1,8 +1,8 @@
 # V0.1.02: Demo en entorno limpio
 
 - **Release:** [v0.1 de portafolio](./README.md).
-- **Estado:** En curso. El tramo reproducible automáticamente quedó verificado el 2026-09-09; el
-  recorrido interactivo y sus capturas siguen pendientes.
+- **Estado:** ~~Cerrada~~ el 2026-09-10 sobre `fce95e6`, con el recorrido completo y sus siete
+  capturas.
 - **Entrada:** ~~V0.1.01 cerrada~~.
 - **Guion:** [Guion de la demo en entorno limpio](./guion-demo-entorno-limpio.md).
 
@@ -13,19 +13,21 @@ recorrido principal sin hardware fiscal.
 
 ## Tareas
 
-- [ ] Preparar una VM o estación Windows limpia sin reutilizar `.data`, dependencias globales ni
+- [x] Preparar una VM o estación Windows limpia sin reutilizar `.data`, dependencias globales ni
   secretos de desarrollo.
+  *(Clon nuevo en carpeta nueva, con `.data` y administrador recién creados. **No** fue una VM ni
+  un usuario nuevo, así que Node, pnpm, Git y la caché de Electron ya presentes en la máquina no
+  se pusieron a prueba. Es la limitación que queda en pie.)*
 - [x] Seguir únicamente el README: clonar, instalar con lockfile, preparar el perímetro de datos,
   provisionar el administrador y cargar configuración operativa y catálogo de ejemplo.
   *(Verificado salvo la provisión del administrador, que exige un TTY.)*
-- [ ] Arrancar servidor y desktop y comprobar ingreso, enrolamiento de credencial y recuperación
+- [x] Arrancar servidor y desktop y comprobar ingreso, enrolamiento de credencial y recuperación
   de sesión.
-- [ ] Completar una jornada demostrable: abrir caja, vender, emitir documento simulado, consultar
+- [x] Completar una jornada demostrable: abrir caja, vender, emitir documento simulado, consultar
   kardex/reportes y cerrar caja.
-- [ ] Reiniciar los procesos y verificar que la operación persiste y que las pantallas continúan
+- [x] Reiniciar los procesos y verificar que la operación persiste y que las pantallas continúan
   identificando la fiscalidad como `SIMULACION`.
 - [x] Registrar comandos, tiempos aproximados, incidencias y evidencia visual sin datos sensibles.
-  *(El guion fija los comandos y el registro; las capturas dependen del recorrido interactivo.)*
 
 ## Criterio de salida
 
@@ -68,24 +70,33 @@ de continuar, como exige el criterio de salida.
    `pnpm install`, que puede resolver dependencias fuera del lockfile. El quickstart usa la forma
    congelada, igual que el pipeline de CI.
 
-## Lo que falta y por qué no lo cubre esta sesión
+## El recorrido interactivo, el 2026-09-10
 
-El resto del recorrido —ingreso, cambio de PIN, enrolamiento, jornada completa, reinicio y las
-seis capturas— exige una persona frente a una estación Windows limpia. No es una limitación de
-herramientas que convenga sortear: la provisión del administrador **está diseñada** para no
-completarse sin un TTY, y una captura de la interfaz real no puede fabricarse desde el árbol de
-trabajo sin dejar de ser evidencia.
+Lo que faltaba —ingreso, cambio de PIN, enrolamiento, jornada completa, reinicio y las capturas—
+exigía una persona frente a la estación, y así se hizo. La provisión del administrador **está
+diseñada** para no completarse sin un TTY, y una captura de la interfaz real no puede fabricarse
+desde el árbol de trabajo sin dejar de ser evidencia.
 
-El [guion](./guion-demo-entorno-limpio.md) deja ese recorrido como una lista de comandos y
-verificaciones con su registro de incidencias, para que la ejecución sea comprobable y no
-improvisada.
+| Paso | Resultado |
+| --- | --- |
+| `pnpm pipeline` sobre el clon | 1.282 pruebas en 198 archivos, verdes en 59 s |
+| Ingreso, cambio de PIN y enrolamiento | completados; la sesión se recupera al reabrir la ventana |
+| Proveedor y dos recepciones | 20 unidades de dos productos, con su motivo |
+| Turno, venta, cobro y cierre | dos cafés y tres aguas: 12,00 + 1,92 de IVA = 13,92 |
+| Documento fiscal | `INV-000001`, emitido y rotulado `SIMULACIÓN` |
+| Kardex | entrada de 20 y salida de 2; saldo 18 |
+| Reinicio de nodo y terminal | mismo saldo y mismos movimientos |
 
-Son siete pasos y siete capturas, que no se corresponden uno a uno: los tres primeros se
-demuestran con la salida del terminal y el paso 6 produce cuatro imágenes. Las seis primeras
-capturas son insumo de [V0.1.03](./3-documentacion-portafolio.md); la séptima —la venta viva
-después de reiniciar— es evidencia de esta etapa y no va al README.
+Cuatro hallazgos, todos corregidos antes de la corrida definitiva y verificados por ella: el
+binario de Electron que `pnpm install` dejó de traer, la seed que no crea existencias, los
+formularios de recepción escondidos bajo el kardex, y los motivos que el sistema escribía en
+inglés dentro de una interfaz en español. Están en la tabla de incidencias del
+[guion](./guion-demo-entorno-limpio.md#incidencias), con lo que se vio y qué se cambió.
 
-## Evidencia requerida
+## Evidencia
 
-Commit probado, versión de Windows/Node/pnpm, salida del pipeline, guion ejecutado y capturas del
-inicio de sesión, venta, documento simulado, inventario y reportes.
+El [registro de la ejecución](./guion-demo-entorno-limpio.md#registro-de-la-ejecución) tiene el
+commit, las versiones, la duración y el resultado del pipeline. Seis de las siete capturas se
+publicaron en el [README](../../../README.md#el-recorrido-en-seis-pantallas); la séptima —el
+kardex intacto después de reiniciar— es evidencia de esta etapa y no va al README, porque para un
+lector sería casi idéntica a la sexta.

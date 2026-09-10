@@ -17,7 +17,7 @@ Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexag
 
 > **TL;DR (English)** — Offline-first POS and inventory platform for supermarkets. TypeScript
 > monorepo built with tactical DDD and hexagonal architecture: pure domain, use-case layer with
-> ports, swappable adapters. 1,236 tests across 192 files, 31 ADRs and 44 forward-only
+> ports, swappable adapters. 1,282 tests across 198 files, 31 ADRs and 44 forward-only
 > migrations, with architecture boundaries enforced by ESLint. Handles integer money arithmetic,
 > multi-currency, crash-recoverable fiscal state, idempotent commands, optimistic concurrency and
 > per-node aggregate ownership. LAN synchronization runs over mutually authenticated HTTPS with
@@ -161,11 +161,37 @@ React — y el build falla si alguien lo intenta.
 
 ---
 
+## El recorrido, en seis pantallas
+
+Las capturas salen de una corrida completa sobre un clon limpio del commit publicado, siguiendo
+el [guion de la demo](./docs/cronograma/release-v0.1-portafolio/guion-demo-entorno-limpio.md):
+instalar, verificar, aprovisionar, recibir mercancía, vender, facturar y cerrar la caja. Ninguna
+está montada. El rótulo `SIMULACIÓN` que se ve en todas no es decorativo: la fiscalidad es un
+driver simulado y el sistema lo dice en cada pantalla, en cada documento y en cada reporte.
+
+Los dos RIF que aparecen son inventados y el catálogo es la seed de ejemplo.
+
+| | |
+| --- | --- |
+| ![Pantalla de ingreso](./docs/capturas/01-ingreso.png) | **Ingreso.** Código de operador y PIN. La sesión vive en una cookie del nodo local; el PIN nunca sale del terminal ni se guarda en claro en ninguna tabla. |
+| ![Pantalla de inicio](./docs/capturas/02-inicio.png) | **Inicio.** La navegación muestra solo lo que los permisos de la sesión alcanzan, y el servidor vuelve a verificar cada acción: ocultar una pantalla nunca sustituye a autorizar. Abajo, el modo fiscal declarado al arrancar. |
+| ![Pantalla de venta](./docs/capturas/03-venta.png) | **Venta.** Ticket, catálogo y cobro. Todos los importes los calcula el nodo —la pantalla no hace aritmética de negocio— y el botón de completar explica siempre por qué está deshabilitado. |
+| ![Factura simulada](./docs/capturas/04-factura.png) | **Factura.** Emitirla es un paso propio, no parte de completar la venta: si el dispositivo fiscal fallara, no puede revertirse un cobro ya asentado en el turno. El documento conserva su reintento y su evidencia. |
+| ![Kardex de un producto](./docs/capturas/05-inventario.png) | **Inventario.** El kardex es append-only: nada se edita ni se borra, y el saldo siempre se deriva de sus movimientos. Aquí, la recepción de 20 y la salida de 2 que dejó la venta. |
+| ![Reportes y auditoría](./docs/capturas/06-reportes.png) | **Auditoría.** Cada operación sensible queda con su actor, su acción, la entidad afectada, el motivo y el terminal. La auditoría no expone el contenido del agregado, solo el hecho de que cambió. |
+
+Falta una séptima, que no está aquí porque para un lector sería casi idéntica a la del
+inventario: tras detener el nodo y el terminal y volver a arrancarlos, el kardex repite el mismo
+saldo y los mismos movimientos. Es la afirmación más fuerte del recorrido y queda registrada
+como evidencia de la etapa.
+
+---
+
 ## Calidad verificable
 
 |                                                 |                           |
 | ----------------------------------------------- | ------------------------: |
-| Pruebas (Vitest, todas en verde)                | **1.236** en 192 archivos |
+| Pruebas (Vitest, todas en verde)                | **1.282** en 198 archivos |
 | Código de producción / código de prueba         |      53.3k / 34.4k líneas |
 | Clases de aplicación exportadas                 |                       129 |
 | Contratos HTTP v1 publicados                    |                       107 |
@@ -176,12 +202,12 @@ React — y el build falla si alguien lo intenta.
 | Triggers de invariante en SQLite                |                       125 |
 
 ```bash
-pnpm pipeline    # lint + typecheck + 1.236 pruebas
+pnpm pipeline    # lint + typecheck + 1.282 pruebas
 ```
 
 Ese mismo pipeline corre en
 [GitHub Actions sobre `windows-latest`](./.github/workflows/pipeline.yml) en cada pull request y
-cada cambio de `main`: instalación congelada, lint, typecheck, las 1.236 pruebas de los 192
+cada cambio de `main`: instalación congelada, lint, typecheck, las 1.282 pruebas de los 198
 archivos y la compilación de artefactos. La cifra es un check remoto, no solo una corrida en la
 máquina del autor.
 
