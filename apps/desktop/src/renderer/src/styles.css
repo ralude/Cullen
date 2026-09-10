@@ -375,15 +375,6 @@ input:focus-visible {
   background: var(--surface);
   color: var(--forest);
 }
-.sidebar-footer {
-  display: grid;
-  gap: 4px;
-  margin-top: auto;
-  padding: 20px 8px 0;
-  border-top: 1px solid rgb(255 255 255 / 12%);
-}
-.sidebar-footer span { color: var(--forest-muted); font-size: var(--text-2xs); }
-.sidebar-footer strong { font-size: var(--text-xs); }
 
 .workspace {
   display: grid;
@@ -456,7 +447,6 @@ input:focus-visible {
 .quick-action:hover { border-color: var(--green); box-shadow: 0 10px 26px rgb(4 26 18 / 8%); }
 .quick-action strong { font-size: var(--text-base); }
 .quick-action small { color: var(--ink-muted); line-height: 1.5; }
-.quick-action-key { color: var(--ink-faint); font-size: var(--text-2xs); font-weight: 700; letter-spacing: 0.01em; }
 
 .panel { display: grid; gap: 18px; padding: 24px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
 .panel h3, .panel h4 { margin: 0; }
@@ -592,7 +582,6 @@ td small { margin-top: 3px; color: var(--ink-faint); }
   .sidebar nav { grid-template-columns: repeat(2, 1fr); }
   .workspace { grid-template-rows: auto auto; }
   .workspace-content { overflow-y: visible; }
-  .sidebar-footer { display: none; }
   .form-grid, .cash-layout, .inventory-layout, .product-detail { grid-template-columns: 1fr; }
   .workspace-content { padding: 24px 16px; }
   .panel { padding: 18px; }

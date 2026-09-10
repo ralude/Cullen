@@ -180,7 +180,7 @@ const Sales = ({ report }: {
           <td>{money(entry.netMinorUnits, entry.currencyCode)}</td>
         </tr>)}
       </tbody></table></div>
-      <p className="muted">Período UTC del filtro · alcance del nodo · límite visible arriba.</p>
+      <p className="muted">El período va en UTC y el resultado se acota al límite indicado arriba.</p>
       <CsvButton fileName="ventas.csv" rows={[
         ['moneda', 'escala', 'ventas', 'lineas', 'unidades', 'bruto', 'descuentos', 'neto'],
         ...report.value.map((entry) => [entry.currencyCode, String(entry.quantityScale),
@@ -232,7 +232,7 @@ const Inventory = ({ report, products }: {
           <td>{EXPIRY_LABELS[entry.expiryStatus]}</td>
         </tr>)}
       </tbody></table></div>
-      <p className="muted">Fecha de corte UTC del filtro · existencia del nodo · resultado acotado.</p>
+      <p className="muted">La fecha de corte va en UTC y muestra la existencia de este nodo.</p>
       <CsvButton fileName="inventario.csv" rows={[
         ['producto', 'lote', 'unidad', 'escala', 'existencia', 'vence', 'estado'],
         ...report.value.map((entry) => [entry.productId, entry.lotNumber ?? '', entry.unitCode,

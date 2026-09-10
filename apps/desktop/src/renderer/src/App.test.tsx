@@ -112,7 +112,8 @@ describe('desktop renderer base states', () => {
     expect(markup).toContain('Servidor conectado');
     expect(markup).toContain('Catálogo');
     expect(markup).toContain('aria-current="page"');
-    expect(markup).toContain('win32');
+    // El entorno de ejecución no es asunto de quien opera: solo se nombra en el ingreso.
+    expect(markup).not.toContain('win32');
     expect(resolveRoute('#/unknown').id).toBe('home');
   });
 

@@ -302,7 +302,6 @@ const HomeScreen = ({ capabilities, permissionCodes }: {
       {visibleNavigationGroups(permissionCodes).flatMap((group) => group.routes)
         .filter((item) => item.id !== 'home').map((item) => (
         <a key={item.id} className="quick-action" href={item.hash}>
-          <span className="quick-action-key" aria-hidden="true">Alt+{item.shortcut}</span>
           <strong>{item.label}</strong>
           <small>{item.description}</small>
         </a>
@@ -311,9 +310,10 @@ const HomeScreen = ({ capabilities, permissionCodes }: {
     <section className="panel" aria-labelledby="station-status-title">
       <h2 id="station-status-title">Estado de la estación</h2>
       <dl className="detail-grid">
-        <div><dt>Sesión</dt><dd>Activa</dd></div>
-        <div><dt>API</dt><dd>v1</dd></div>
-        <div><dt>Modo fiscal</dt><dd>{capabilities.fiscalMode}</dd></div>
+        <div>
+          <dt>Modo fiscal</dt>
+          <dd>{capabilities.fiscalMode === 'SIMULATION' ? 'Simulado' : capabilities.fiscalMode}</dd>
+        </div>
         <div>
           <dt>Reportes X/Z</dt>
           <dd>{capabilities.simulatedReportsEnabled ? 'Simulados habilitados' : 'Deshabilitados'}</dd>
@@ -466,10 +466,6 @@ export const AppView = ({
             </div>
           ))}
         </nav>
-        <div className="sidebar-footer">
-          <span>Entorno</span>
-          <strong>Electron · {platform}</strong>
-        </div>
       </aside>
       <main className="workspace">
         <header className="topbar">
