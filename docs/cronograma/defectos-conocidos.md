@@ -51,8 +51,41 @@ renderer, y no se toma dentro de una ventana de publicación.
 **Mientras tanto:** con todas las monedas en escala 2 —lo que hoy siembra
 `bootstrap-operations`— el defecto no se manifiesta.
 
+## D-003 · La venta completada no se puede desplazar y su pie queda cortado
+
+- **Estado:** abierto desde el 2026-09-10.
+- **Dueña:** [rediseño de la pantalla de venta](./rediseno-pantalla-de-venta.md), posterior a
+  `v0.1.0`. No bloquea la publicación.
+- **Severidad:** deja «Devolver venta» fuera de alcance en una ventana de altura corriente. No
+  produce importes incorrectos ni pierde evidencia: la devolución sigue existiendo en el nodo y
+  la pantalla la ofrece, sólo que debajo del borde.
+
+La pantalla de venta desactiva el desplazamiento **a propósito**, porque sus tres zonas —ticket,
+catálogo y cobro— están dimensionadas para caber sin mover la página:
+
+```css
+/* apps/desktop/src/renderer/src/styles.css */
+.sales-shell .workspace-content { min-height: 0; overflow: hidden; padding: 16px 18px; }
+```
+
+Al completar la venta, esa misma cáscara deja de mostrar las tres zonas y pasa a una sola columna
+alta —importe, identificadores, documento fiscal y la acción sensible de devolver—. Esa columna
+sí desborda, y el `overflow: hidden` la recorta sin dejar bajar.
+
+**Reproducción:** completar una venta y emitir su factura en una ventana de ~1000 px de alto. El
+bloque «Devolver venta» aparece mordido por el borde inferior y la rueda del ratón no mueve nada.
+
+**Por qué entra con el rediseño y no antes:** la regla es correcta para el punto de venta y
+equivocada para la vista posterior, así que la corrección es acotar el `overflow: hidden` a la
+disposición de tres zonas en lugar de aplicarlo a la pantalla entera. El rediseño ya reordena
+esa cáscara —barra de cobro a lo ancho y barra lateral contraíble—, y separar ahí las dos vistas
+evita arreglar dos veces la misma cáscara.
+
 ## Cómo se relacionan
 
 D-001 tapa a D-002. Corregir solo D-001 convertiría un camino bloqueado en uno que acepta
 importes incorrectos, que es peor. La secuencia correcta es: decidir la escala de moneda (ADR),
 propagarla, y recién entonces habilitar el pago en otra moneda con su tasa visible.
+
+D-003 no se relaciona con ninguno de los dos: es de presentación, vive en una hoja de estilos y
+se corrige sola.

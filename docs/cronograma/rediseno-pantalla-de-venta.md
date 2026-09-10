@@ -65,7 +65,9 @@ para que las dos implementaciones no se separen en silencio.
 ## Alcance
 
 - **Entra:** barra de cobro, captura de un pago a la vez, tasa por método, enmienda de
-  ADR-0031 con su prueba, y la barra lateral contraíble que devuelve los 236 px.
+  ADR-0031 con su prueba, la barra lateral contraíble que devuelve los 236 px, y
+  [D-003](./defectos-conocidos.md): acotar el `overflow: hidden` a la disposición de tres zonas
+  para que la venta ya completada pueda desplazarse.
 - **No entra:** cambios en el agregado `Sale`, en el protocolo de sincronización ni en la
   fiscalidad simulada.
 
