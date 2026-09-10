@@ -201,7 +201,7 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
       <Feedback error={error} notice={notice} onDismiss={dismissFeedback} />
       {overview && <section className="panel">
         <div className="panel-heading">
-          <div><p className="eyebrow">Existencia del nodo</p><h3>Artículos y vencimientos</h3></div>
+          <div><h3>Artículos y vencimientos de este nodo</h3></div>
           <span className="status-label">Máximo 100 filas</span>
         </div>
         {overview.length === 0 ? <EmptyState>Sin existencia registrada.</EmptyState> :
@@ -283,7 +283,6 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
           )}
           {(canReceive || canReceiveDocumented || (kardex && canAdjust)) && <section className="panel">
             {canReceive && <>
-            <p className="eyebrow">Recepción</p>
             <h3>Registrar compra</h3>
             <form className="stack-form" onSubmit={receive}>
               <p className="muted">
@@ -317,7 +316,6 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
             </form>
             </>}
             {canReceiveDocumented && <>
-            <p className="eyebrow">Recepción documentada</p>
             <h3>Compra con documento y costo</h3>
             <form className="stack-form" onSubmit={receiveWithDocument}>
               <p className="muted">
@@ -352,7 +350,6 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
             </>}
             {kardex && canAdjust && (
             <>
-            <p className="eyebrow">Movimiento autorizado</p>
             <h3>Ajustar existencia</h3>
             <form className="stack-form" onSubmit={adjust}>
               <label>Tipo

@@ -161,7 +161,7 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       <div className="align-end"><ActionButton type="button" onClick={() => void load()} busy={loading} disabled={loading || !cashRegisterId.trim()}>Consultar turno</ActionButton></div>
     </div></section>
     {!shift ? canOpen ? <section className="panel">
-      <p className="eyebrow">Inicio de turno</p><h3>Abrir caja</h3>
+      <h3>Abrir caja</h3>
       <form className="inline-form" onSubmit={submitOpen}>
         <label>Fondo inicial<input inputMode="decimal" value={openingAmount} onChange={(event) => setOpeningAmount(event.target.value)} placeholder="0,00" /></label>
         <ActionButton className="primary-button" type="submit" busy={loading} disabled={loading || !cashRegisterId.trim() || !cashMethodCode}>Abrir turno</ActionButton>
@@ -179,7 +179,7 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
         </form>}
       </section>
       <section className="panel">
-        <p className="eyebrow">Cierre</p><h3>Declarar efectivo</h3>
+        <h3>Declarar efectivo para cerrar</h3>
         {canClose && <form className="stack-form" onSubmit={submitClose}>
           <label>Saldo declarado<input inputMode="decimal" value={declaredAmount} onChange={(event) => setDeclaredAmount(event.target.value)} required /></label>
           <label>Motivo del cierre<input value={closeReason} onChange={(event) => setCloseReason(event.target.value)} required /></label>

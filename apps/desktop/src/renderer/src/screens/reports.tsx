@@ -103,7 +103,7 @@ const CsvButton = ({ fileName, rows }: {
 const CashClosures = ({ report }: {
   readonly report: ReportSection<readonly CashClosureReportResponse[]>;
 }): React.JSX.Element => <section className="panel">
-  <p className="eyebrow">Caja</p><h3>Cierres y diferencias</h3>
+  <h3>Cierres de caja y diferencias</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin turnos en el período consultado.</EmptyState> : <>
       <div className="table-wrap"><table><thead><tr><th>Turno</th><th>Caja</th><th>Apertura</th><th>Cierre</th><th>Diferencias</th></tr></thead><tbody>
@@ -126,7 +126,7 @@ const CashClosures = ({ report }: {
 const Audit = ({ report }: {
   readonly report: ReportSection<readonly AuditReportResponse[]>;
 }): React.JSX.Element => <section className="panel">
-  <p className="eyebrow">Auditoría</p><h3>Operaciones sensibles</h3>
+  <h3>Auditoría de operaciones sensibles</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin entradas de auditoría en el período consultado.</EmptyState> : <>
       <div className="table-wrap"><table><thead><tr><th>Fecha UTC</th><th>Actor</th><th>Acción</th><th>Entidad</th><th>Motivo</th><th>Terminal</th></tr></thead><tbody>
@@ -150,7 +150,7 @@ const Audit = ({ report }: {
 const Fiscal = ({ report }: {
   readonly report: ReportSection<FiscalOperationsReportResponse>;
 }): React.JSX.Element => <section className="panel">
-  <p className="eyebrow">Fiscalidad</p><h3>Operaciones y estados recuperables</h3>
+  <h3>Operaciones fiscales y estados recuperables</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.operations.length === 0
     ? <EmptyState>Sin operaciones fiscales en el período consultado.</EmptyState> : <>
       <div className="table-wrap"><table><thead><tr><th>Tipo</th><th>Identificador</th><th>Operación</th><th>Estado</th><th>Intentos</th><th>Número</th><th>Error</th></tr></thead><tbody>
@@ -167,7 +167,7 @@ const Fiscal = ({ report }: {
 const Sales = ({ report }: {
   readonly report: ReportSection<readonly SalesReportResponse[]>;
 }): React.JSX.Element => <section className="panel">
-  <p className="eyebrow">Ventas</p><h3>Ventas completadas por moneda</h3>
+  <h3>Ventas completadas por moneda</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin ventas completadas en el período consultado.</EmptyState> : <>
       <div className="table-wrap"><table><thead><tr><th>Moneda</th><th>Escala</th><th>Ventas</th><th>Líneas</th><th>Unidades</th><th>Bruto</th><th>Descuentos</th><th>Neto</th></tr></thead><tbody>
@@ -195,7 +195,7 @@ const Margin = ({ report, products }: {
   readonly report: ReportSection<readonly MarginReportResponse[]>;
   readonly products: readonly ProductResponse[];
 }): React.JSX.Element => <section className="panel">
-  <p className="eyebrow">Margen</p><h3>Ingreso, costo y margen por producto</h3>
+  <h3>Ingreso, costo y margen por producto</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin ventas valoradas en el período consultado.</EmptyState> : <>
       <div className="table-wrap"><table><thead><tr><th>Producto</th><th>Moneda</th><th>Unidades</th><th>Ingreso</th><th>Costo</th><th>Margen</th></tr></thead><tbody>
@@ -221,7 +221,7 @@ const Inventory = ({ report, products }: {
   readonly report: ReportSection<readonly InventoryReportResponse[]>;
   readonly products: readonly ProductResponse[];
 }): React.JSX.Element => <section className="panel">
-  <p className="eyebrow">Inventario</p><h3>Existencia por artículo y lote</h3>
+  <h3>Existencia por artículo y lote</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin artículos de inventario para la fecha de corte.</EmptyState> : <>
       <div className="table-wrap"><table><thead><tr><th>Producto</th><th>Lote</th><th>Unidad</th><th>Existencia</th><th>Vence</th><th>Estado</th></tr></thead><tbody>
@@ -330,7 +330,7 @@ export const ReportsScreen = ({
     <ScreenNote>Cada consulta declara período UTC, alcance del nodo y límite. La vista presenta las proyecciones autorizadas y no recalcula negocio.</ScreenNote>
     <Feedback error={error} notice={null} onDismiss={() => setError(null)} />
     {canReadReports && <section className="panel">
-      <p className="eyebrow">Período consultado</p><h3>Filtros en UTC</h3>
+      <h3>Período consultado, en UTC</h3>
       <form className="stack-form" onSubmit={query}><div className="form-grid">
         <label>Desde (UTC)<input type="date" value={filters.from} onChange={update('from')} required /></label>
         <label>Hasta (UTC)<input type="date" value={filters.to} onChange={update('to')} required /></label>
@@ -339,7 +339,7 @@ export const ReportsScreen = ({
       </div><ActionButton className="primary-button" type="submit" busy={loading} disabled={loading}>{loading ? 'Consultando…' : 'Consultar reportes'}</ActionButton></form>
     </section>}
     {canReviewShift && <section className="panel">
-      <p className="eyebrow">Supervisión de caja</p><h3>Consultar arqueo</h3>
+      <h3>Consultar el arqueo de un turno</h3>
       <form className="inline-form" onSubmit={reviewShift}>
         {closedShifts.length > 0
           ? <label className="grow">Turno
@@ -373,7 +373,7 @@ export const ReportsScreen = ({
       </tbody></table></div>}</>}
     </section>}
     {canReviewSale && <section className="panel">
-      <p className="eyebrow">Revisión de venta</p><h3>Revisar historia</h3>
+      <h3>Revisar la historia de una venta</h3>
       <form className="inline-form" onSubmit={reviewSale}>
         <label className="grow">Venta<input value={saleId} onChange={(event) => setSaleId(event.target.value)} placeholder="Identificador que muestra la pantalla de Venta al cerrar" required /></label>
         <ActionButton type="submit" busy={loading} disabled={loading || !saleId.trim()}>Revisar historia</ActionButton>
@@ -428,7 +428,7 @@ export const ReportsScreen = ({
       <span className="simulation-label">SIMULACIÓN · no es documento fiscal legal</span>
     </section>}
     <section className="panel">
-      <p className="eyebrow">Sincronización</p><h3>Estado del nodo</h3>
+      <h3>Estado de sincronización del nodo</h3>
       <p className="muted">La sincronización offline-first pertenece a la Fase 10. Esta vista no inventa pendientes ni estados de red.</p>
     </section>
   </div>;

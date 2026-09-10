@@ -378,7 +378,6 @@ export const AppView = ({
           : (
             <form className="login-card" onSubmit={onLogin}>
               <div>
-                <p className="eyebrow">Acceso operativo</p>
                 <h2>Identificación</h2>
               </div>
               <label>

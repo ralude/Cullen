@@ -196,7 +196,6 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       <Feedback error={error} notice={notice} onDismiss={dismiss} />
 
       <section className="panel">
-        <p className="eyebrow">Destino</p>
         <h3>Nodo consultado</h3>
         <form
           className="inline-form"
@@ -251,7 +250,6 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       </section>
 
       <section className="panel">
-        <p className="eyebrow">Ventas</p>
         <h3>Ventas completadas que requieren atención</h3>
         {diagnostics === null
           ? <EmptyState>Consulta un destino para revisar efectos pendientes.</EmptyState>
@@ -278,7 +276,6 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       </section>
 
       <section className="panel">
-        <p className="eyebrow">Outbox</p>
         <h3>Intentos, lease y próximo reintento</h3>
         {diagnostics === null
           ? <EmptyState>Consulta un destino para revisar sus entregas.</EmptyState>
@@ -306,7 +303,6 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       </section>
 
       <section className="panel">
-        <p className="eyebrow">Correlación</p>
         <h3>Recorrido durable de la operación</h3>
         {diagnostics === null || diagnostics.trace === null
           ? <EmptyState>Indica una correlación para seguir ledger, outbox, entregas y auditoría.</EmptyState>
@@ -339,7 +335,6 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       </section>
 
       <section className="panel">
-        <p className="eyebrow">Estado</p>
         <h3>Sincronización con el destino</h3>
         {status === null
           ? <EmptyState>Consulta un destino para ver su estado.</EmptyState>
@@ -401,8 +396,7 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
       </section>
 
       <section className="panel">
-        <p className="eyebrow">Referencias</p>
-        <h3>Antigüedad de lo recibido</h3>
+        <h3>Antigüedad de las referencias recibidas</h3>
         {status === null
           ? <EmptyState>Consulta un destino para ver la antigüedad de sus referencias.</EmptyState>
           : (
