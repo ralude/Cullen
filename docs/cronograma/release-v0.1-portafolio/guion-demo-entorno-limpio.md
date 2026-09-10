@@ -141,13 +141,22 @@ los muestra, se recorta o se repite el paso con datos de demostración.
 
 ## Registro de la ejecución
 
+Ejecutada el 2026-09-10.
+
 | Dato | Valor |
 | --- | --- |
-| Commit probado | |
-| Windows | |
-| Node.js / pnpm / OpenSSL | |
-| Duración aproximada | |
-| Resultado de `pnpm pipeline` | |
+| Commit probado | `fce95e6` |
+| Entorno | Clon nuevo en carpeta nueva sobre el Windows de desarrollo. **No fue una VM ni un usuario recién creado**: las dependencias globales que ya estaban instaladas no se pusieron a prueba. |
+| Windows | 11 Pro 10.0.26200.9168 |
+| Node.js / pnpm / OpenSSL | v24.18.0 / 11.17.0 / OpenSSL 3.5.7 |
+| Duración aproximada | ~4 min desde `git clone` hasta el final del pipeline; ~20 min el recorrido completo hasta el reinicio. Medido por marcas de tiempo, no con cronómetro. |
+| Resultado de `pnpm pipeline` | Verde: 198 archivos, 1282 pruebas, 59 s. Las tres de `generate-lan-material.test.ts` pasan. El mismo commit está verde en CI (`windows-latest`, 4 m 45 s). |
+
+Las siete capturas quedaron fuera del repositorio hasta su revisión: sin PIN, sin token, sin
+cookie y sin ningún RIF real —los dos que aparecen están inventados—, con `SIMULACIÓN` visible
+en todas. La aritmética encaja de punta a punta: dos cafés y tres aguas suman 12,00 más 1,92 de
+IVA, y ese mismo 13,92 es lo que paga la factura `INV-000001`; el kardex baja de 20 a 18 y
+repite saldo y movimientos después de reiniciar los dos procesos.
 
 ### Incidencias
 
@@ -160,3 +169,7 @@ corrigió.
 | 6 | Los motivos que genera el sistema salían en inglés —«Completed sale issue», «Shift opened.»— dentro de una interfaz en español, y quedan escritos en el kardex y en la auditoría, que son dos de las capturas del README. | Traducidas las ocho cadenas del código. Las ya escritas conservan su texto: son evidencia inmutable. |
 | 6 | El ticket rotulaba la línea con la descripción del producto y el catálogo, al lado, con su nombre: «Paquete de café molido de 250 gramos» junto a «Café molido 250 g». En la misma pantalla parecían dos productos. | El snapshot de la venta congela el nombre. Es además lo que el operador coteja al escanear. |
 | 4 | `electron-vite dev` abortó con `Error: Electron uninstall`. El binario no estaba: Electron 44 dejó de declarar `postinstall` y publica su instalador como ejecutable aparte, así que `pnpm install` ya no lo trae. La máquina de desarrollo lo tenía de una versión anterior y enmascaraba el defecto. | `apps/desktop` invoca `install-electron` antes de `dev` y `start`. Queda fuera de `build`, que no necesita el binario —CI ya lo demuestra en verde sobre un runner limpio—, para no cargar al pipeline una descarga de 100 MB. El README lo explica en el paso 5. |
+
+Las cuatro se corrigieron antes de la corrida definitiva, y la corrida definitiva las verificó:
+la terminal arrancó desde un clon limpio sin ejecutar nada a mano, y el kardex, la auditoría y
+el ticket salieron en español y con un solo nombre por producto.
