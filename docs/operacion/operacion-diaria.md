@@ -119,8 +119,13 @@ crea su artículo de inventario con la unidad del catálogo.
 
 ### Recibir mercancía
 
-Necesita un **proveedor activo** (pantalla Proveedores, `Alt+6`). Elige el producto, el
-proveedor, el recibo, la cantidad, el lote si aplica y el motivo.
+Necesita un **proveedor activo** (pantalla Proveedores, `Alt+6`).
+
+Las formas de recibir no están a la vista al entrar: aparecen **debajo del kardex**, y el kardex
+hay que consultarlo primero. Elige el producto en el selector y pulsa **Consultar kardex**. Si
+todavía no tiene existencia la pantalla lo dice, y es ahí —bajo ese mismo aviso— donde salen los
+formularios, ya apuntando al producto consultado. Después: proveedor, recibo, cantidad, lote si
+aplica y motivo.
 
 Hay dos formas:
 

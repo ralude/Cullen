@@ -156,4 +156,5 @@ corrigió.
 
 | Paso | Qué ocurrió | Corrección |
 | --- | --- | --- |
+| 6 | La pantalla de Inventario no ofrecía por dónde recibir mercancía: los formularios sólo se renderizan bajo el kardex y el kardex hay que consultarlo antes, cosa que el aviso de «sin existencia registrada» no dice. | La guía de operación diaria explica ahora que hay que consultar el kardex primero y que los formularios salen debajo. La pantalla queda como está: el arreglo de interfaz —ofrecer la recepción desde el propio vacío— entra con el rediseño posterior a `v0.1.0`. |
 | 4 | `electron-vite dev` abortó con `Error: Electron uninstall`. El binario no estaba: Electron 44 dejó de declarar `postinstall` y publica su instalador como ejecutable aparte, así que `pnpm install` ya no lo trae. La máquina de desarrollo lo tenía de una versión anterior y enmascaraba el defecto. | `apps/desktop` invoca `install-electron` antes de `dev` y `start`. Queda fuera de `build`, que no necesita el binario —CI ya lo demuestra en verde sobre un runner limpio—, para no cargar al pipeline una descarga de 100 MB. El README lo explica en el paso 5. |
