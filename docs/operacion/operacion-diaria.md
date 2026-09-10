@@ -139,7 +139,8 @@ correspondiente.
 
 ## 8. Cierres y reportes — `Alt+8`
 
-Declara el período en UTC y consulta. Cada reporte exporta a CSV lo que hay en pantalla, salvo
+Declara el período en la fecha local de la estación —el día que se ve en el calendario, no el de
+Greenwich— y consulta. Cada reporte exporta a CSV lo que hay en pantalla, salvo
 el de operaciones fiscales.
 
 | Reporte | Qué responde |

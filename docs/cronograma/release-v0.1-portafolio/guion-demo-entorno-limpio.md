@@ -110,6 +110,10 @@ pnpm --filter @supermarket/desktop dev       # terminal Electron + React
 
 Sigue [la guía de operación diaria](../../operacion/operacion-diaria.md).
 
+- [ ] Registrar un proveedor y recibir mercancía **antes de vender**. La seed crea productos
+      pero [no existencias](../../operacion/seed-de-catalogo-de-ejemplo.md): sin este paso el
+      inventario está vacío, el kardex no existe todavía y la venta se completa igual pero con
+      su salida de inventario rechazada y auditada, que es un recorrido peor de enseñar.
 - [ ] Abrir caja con su monto inicial.
 - [ ] Vender: agregar productos del catálogo de ejemplo, cobrar y completar.
 - [ ] Emitir el documento **simulado** y verificar que la pantalla lo identifica como tal.
