@@ -3,24 +3,32 @@
  * debe verse igual que una conectada. Ver `fonts/OFL.md`.
  */
 @font-face {
-  font-family: Manrope;
+  font-family: "IBM Plex Sans";
   font-style: normal;
-  font-weight: 200 800;
+  font-weight: 100 700;
   font-display: block;
-  src: url("./fonts/manrope-latin.woff2") format("woff2");
+  src: url("./fonts/ibm-plex-sans-latin.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: "JetBrains Mono";
+  font-family: "IBM Plex Mono";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400;
   font-display: block;
-  src: url("./fonts/jetbrains-mono-latin.woff2") format("woff2");
+  src: url("./fonts/ibm-plex-mono-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url("./fonts/ibm-plex-mono-latin-600.woff2") format("woff2");
 }
 
 :root {
-  --font-sans: Manrope, ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
 
   color: #17231d;
   background: #f4f6f2;
@@ -77,14 +85,14 @@ input:focus-visible {
 
 /** El nombre es la marca: sin monograma que compita con el. */
 .brand { display: grid; gap: 2px; }
-.brand strong { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+.brand strong { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
 .brand small { color: #7d8b82; font-size: 0.72rem; letter-spacing: 0.02em; }
 
 .eyebrow {
   margin: 0 0 8px;
   color: #577064;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -125,7 +133,7 @@ input:focus-visible {
   background: #fff0d7;
   color: #8e5b00;
   font-size: 1.4rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .access-page {
@@ -149,7 +157,7 @@ input:focus-visible {
   max-width: 12ch;
   margin: 0;
   font-size: clamp(2.25rem, 5vw + 0.5rem, 4.75rem);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.045em;
   line-height: 0.98;
 }
@@ -173,7 +181,7 @@ input:focus-visible {
 }
 
 .login-card h2 { margin: 0; font-size: clamp(1.5rem, 2.4vh + 0.6rem, 1.9rem); letter-spacing: -0.03em; }
-.login-card label { display: grid; gap: 8px; font-weight: 750; }
+.login-card label { display: grid; gap: 8px; font-weight: 600; }
 .login-card input {
   width: 100%;
   padding: 14px 16px;
@@ -199,7 +207,7 @@ input:focus-visible {
   border-radius: 10px;
   background: #1d6b4e;
   color: #ffffff;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
 }
 .primary-button:hover { background: #15563e; }
@@ -211,7 +219,7 @@ input:focus-visible {
   border-radius: 10px;
   background: #f5f9f6;
   color: #1d6b4e;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
 }
 .secondary-button:hover { border-color: #1d6b4e; background: #eaf3ed; }
@@ -250,7 +258,7 @@ input:focus-visible {
   padding: 0 14px 4px;
   color: #8fb09f;
   font-size: 0.65rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -281,7 +289,7 @@ input:focus-visible {
   color: #a8bcb2;
   font-family: inherit;
   font-size: 0.66rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 .sidebar nav a[aria-current="page"] kbd { background: rgb(22 61 47 / 10%); color: #476a5b; }
 .sidebar nav a:hover { background: rgb(255 255 255 / 7%); color: #ffffff; }
@@ -328,7 +336,7 @@ input:focus-visible {
   padding: 7px 10px;
   border-radius: 999px;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -371,16 +379,16 @@ input:focus-visible {
 .quick-action:hover { border-color: #1d6b4e; box-shadow: 0 10px 26px rgb(4 26 18 / 8%); }
 .quick-action strong { font-size: 1.08rem; }
 .quick-action small { color: #64736a; line-height: 1.5; }
-.quick-action-key { color: #718078; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.09em; }
+.quick-action-key { color: #718078; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.09em; }
 
 .panel { display: grid; gap: 18px; padding: 24px; border: 1px solid #dce3de; border-radius: 16px; background: #fff; }
 .panel h3, .panel h4 { margin: 0; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .panel-heading h3 { margin: 0; font-size: 1.35rem; }
-.panel label { display: grid; gap: 7px; color: #33443b; font-size: 0.88rem; font-weight: 750; }
+.panel label { display: grid; gap: 7px; color: #33443b; font-size: 0.88rem; font-weight: 600; }
 .panel input, .panel select { min-height: 42px; padding: 9px 11px; border: 1px solid #bac7bf; border-radius: 8px; background: #fbfcfb; color: #17231d; }
 .panel input:focus, .panel select:focus { border-color: #1d6b4e; }
-.panel button, .screen-toolbar button { min-height: 40px; padding: 9px 14px; border: 1px solid #bac7bf; border-radius: 8px; background: #fff; color: #33443b; font-weight: 750; cursor: pointer; }
+.panel button, .screen-toolbar button { min-height: 40px; padding: 9px 14px; border: 1px solid #bac7bf; border-radius: 8px; background: #fff; color: #33443b; font-weight: 600; cursor: pointer; }
 .panel button:hover, .screen-toolbar button:hover { border-color: #1d6b4e; }
 .panel button:disabled, .screen-toolbar button:disabled { cursor: not-allowed; opacity: 0.5; }
 .panel .primary-button { border-color: #1d6b4e; background: #1d6b4e; color: #fff; }
@@ -413,7 +421,7 @@ input:focus-visible {
   place-items: center;
   border-radius: 50%;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 .feedback.form-error .feedback-icon { background: #982d22; color: #fff0ee; }
 .feedback.form-success .feedback-icon { background: #15563e; color: #e4f4eb; }
@@ -426,7 +434,7 @@ input:focus-visible {
   background: transparent;
   color: inherit;
   font-size: 0.8rem;
-  font-weight: 750;
+  font-weight: 600;
   cursor: pointer;
 }
 .inline-status {
@@ -436,7 +444,7 @@ input:focus-visible {
   margin: 0;
   padding: 10px 13px;
   border-radius: 8px;
-  font-weight: 750;
+  font-weight: 600;
   line-height: 1.5;
 }
 .inline-status.is-ready { background: #e4f4eb; color: #15563e; }
@@ -464,7 +472,7 @@ tr.is-new { animation: row-flash 1400ms ease-out; }
 .totals { display: grid; gap: 9px; margin: 0; }
 .totals div { display: flex; justify-content: space-between; gap: 16px; }
 .totals dt { color: #718078; }
-.totals dd { margin: 0; font-weight: 800; }
+.totals dd { margin: 0; font-weight: 700; }
 .totals .grand-total { padding-top: 12px; border-top: 1px solid #dce3de; color: #17231d; font-size: 1.2rem; }
 .danger-panel { border-color: #efc8c3; }
 .danger-panel button { border-color: #c45a4d; color: #982d22; }
@@ -482,7 +490,7 @@ td small { margin-top: 3px; color: #718078; }
 .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
 .detail-grid div { padding: 12px; border-radius: 8px; background: #f1f4f1; }
 .detail-grid dt { color: #718078; font-size: 0.7rem; text-transform: uppercase; }
-.detail-grid dd { margin: 4px 0 0; font-weight: 750; overflow-wrap: anywhere; }
+.detail-grid dd { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
 .product-detail { grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr); }
 .product-detail h3 { font-size: 1.7rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -521,7 +529,7 @@ td small { margin-top: 3px; color: #718078; }
 }
 
 .panel fieldset { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin: 0; padding: 12px 14px; border: 1px solid #dbe4de; border-radius: 8px; }
-.panel legend { padding: 0 6px; color: #33443b; font-weight: 750; }
+.panel legend { padding: 0 6px; color: #33443b; font-weight: 600; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; font-weight: 500; }
 .checkbox-row input { width: auto; min-height: auto; }
 
@@ -630,13 +638,13 @@ td small { margin-top: 3px; color: #718078; }
   border-radius: 12px;
   background: #f7faf8;
 }
-.sale-scan label { display: grid; gap: 7px; color: #33443b; font-size: 0.88rem; font-weight: 750; }
+.sale-scan label { display: grid; gap: 7px; color: #33443b; font-size: 0.88rem; font-weight: 600; }
 .sale-scan .grow { flex: 1 1 260px; }
 .sale-scan label:not(.grow) { width: 96px; }
 
 .sale-lines th.numeric,
 .sale-lines td.numeric { text-align: right; }
-.sale-lines td strong { font-weight: 750; }
+.sale-lines td strong { font-weight: 600; }
 
 .line-remove {
   min-height: 30px;
@@ -655,7 +663,7 @@ td small { margin-top: 3px; color: #718078; }
   margin: 0;
   padding: 11px 13px;
   border-radius: 9px;
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
 }
 .sale-balance.is-pending { background: #fff0d7; color: #805100; }
@@ -677,7 +685,7 @@ td small { margin-top: 3px; color: #718078; }
   padding: 0 0 7px;
   color: #33443b;
   font-size: 0.88rem;
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .chip {
@@ -689,7 +697,7 @@ td small { margin-top: 3px; color: #718078; }
   border-radius: 999px;
   background: #fff;
   font-size: 0.88rem;
-  font-weight: 750;
+  font-weight: 600;
   cursor: pointer;
 }
 .chip input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -710,7 +718,7 @@ td small { margin-top: 3px; color: #718078; }
   border: 0;
   background: none;
   color: #1d6b4e;
-  font-weight: 750;
+  font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -729,7 +737,7 @@ td small { margin-top: 3px; color: #718078; }
   background: #fff;
   color: #33443b;
   font-size: 0.86rem;
-  font-weight: 750;
+  font-weight: 600;
   cursor: pointer;
 }
 .sale-secondary button:hover:not(:disabled) { border-color: #1d6b4e; }

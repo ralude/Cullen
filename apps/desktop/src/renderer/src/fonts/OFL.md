@@ -5,16 +5,20 @@ CDN: una terminal aislada debe verse igual que una conectada.
 
 | Archivo | Familia | Uso |
 | --- | --- | --- |
-| `manrope-latin.woff2` | Manrope (variable, 200–800) | interfaz |
-| `jetbrains-mono-latin.woff2` | JetBrains Mono (variable, 400–700) | importes, códigos de barras, seriales e identificadores |
+| `ibm-plex-sans-latin.woff2` | IBM Plex Sans (variable, 100–700) | interfaz |
+| `ibm-plex-mono-latin-400.woff2` | IBM Plex Mono, regular | importes, códigos de barras, seriales e identificadores |
+| `ibm-plex-mono-latin-600.woff2` | IBM Plex Mono, semibold | lo mismo, cuando el dato va destacado |
 
-Ambas son variables y traen el subconjunto latino, suficiente para el español. Las dos se
-distribuyen bajo la **SIL Open Font License 1.1**, cuyo texto íntegro se reproduce abajo.
+IBM Plex fue dibujada para software de datos: es la que mejor aguanta los 12 px y la luz mala de
+una caja. La Sans es variable; la Mono no lo es en su distribución abierta, así que se empaquetan
+sus dos pesos reales en lugar de dejar que el navegador falsee la negrita —`font-synthesis: none`
+lo prohíbe a propósito—.
 
-- Manrope: Copyright (c) 2018 The Manrope Project Authors
-  (https://github.com/sharanda/manrope), with Reserved Font Name "Manrope".
-- JetBrains Mono: Copyright (c) 2020 The JetBrains Mono Project Authors
-  (https://github.com/JetBrains/JetBrainsMono), with Reserved Font Name "JetBrains Mono".
+Las tres traen el subconjunto latino, suficiente para el español, y se distribuyen bajo la
+**SIL Open Font License 1.1**, cuyo texto íntegro se reproduce abajo.
+
+- IBM Plex Sans e IBM Plex Mono: Copyright (c) 2017 IBM Corp.
+  (https://github.com/IBM/plex), with Reserved Font Name "Plex".
 
 ---
 
