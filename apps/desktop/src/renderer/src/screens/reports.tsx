@@ -152,7 +152,7 @@ const CsvButton = ({ fileName, rows }: {
 
 const CashClosures = ({ report }: {
   readonly report: ReportSection<readonly CashClosureReportResponse[]>;
-}): React.JSX.Element => <section className="panel">
+}): React.JSX.Element => <section className="panel is-plain">
   <h3>Cierres de caja y diferencias</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin turnos en el período consultado.</EmptyState> : <>
@@ -176,7 +176,7 @@ const CashClosures = ({ report }: {
 
 const Audit = ({ report }: {
   readonly report: ReportSection<readonly AuditReportResponse[]>;
-}): React.JSX.Element => <section className="panel">
+}): React.JSX.Element => <section className="panel is-plain">
   <h3>Auditoría de operaciones sensibles</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin entradas de auditoría en el período consultado.</EmptyState> : <>
@@ -200,7 +200,7 @@ const Audit = ({ report }: {
 
 const Fiscal = ({ report }: {
   readonly report: ReportSection<FiscalOperationsReportResponse>;
-}): React.JSX.Element => <section className="panel">
+}): React.JSX.Element => <section className="panel is-plain">
   <h3>Operaciones fiscales y estados recuperables</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.operations.length === 0
     ? <EmptyState>Sin operaciones fiscales en el período consultado.</EmptyState> : <>
@@ -217,7 +217,7 @@ const Fiscal = ({ report }: {
 
 const Sales = ({ report }: {
   readonly report: ReportSection<readonly SalesReportResponse[]>;
-}): React.JSX.Element => <section className="panel">
+}): React.JSX.Element => <section className="panel is-plain">
   <h3>Ventas completadas por moneda</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin ventas completadas en el período consultado.</EmptyState> : <>
@@ -245,7 +245,7 @@ const Sales = ({ report }: {
 const Margin = ({ report, products }: {
   readonly report: ReportSection<readonly MarginReportResponse[]>;
   readonly products: readonly ProductResponse[];
-}): React.JSX.Element => <section className="panel">
+}): React.JSX.Element => <section className="panel is-plain">
   <h3>Ingreso, costo y margen por producto</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin ventas valoradas en el período consultado.</EmptyState> : <>
@@ -271,7 +271,7 @@ const Margin = ({ report, products }: {
 const Inventory = ({ report, products }: {
   readonly report: ReportSection<readonly InventoryReportResponse[]>;
   readonly products: readonly ProductResponse[];
-}): React.JSX.Element => <section className="panel">
+}): React.JSX.Element => <section className="panel is-plain">
   <h3>Existencia por artículo y lote</h3>
   {!report.ok ? <SectionError error={report.error} /> : report.value.length === 0
     ? <EmptyState>Sin artículos de inventario para la fecha de corte.</EmptyState> : <>

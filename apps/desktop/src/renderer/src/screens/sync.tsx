@@ -266,7 +266,7 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
         )}
       </section>
 
-      <section className="panel">
+      <section className="panel is-plain">
         <h3>Ventas completadas que requieren atención</h3>
         {diagnostics === null
           ? <EmptyState>Consulta un destino para revisar efectos pendientes.</EmptyState>
@@ -292,7 +292,7 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
             )}
       </section>
 
-      <section className="panel">
+      <section className="panel is-plain">
         <h3>Entregas hacia el destino</h3>
         <p className="muted">
           Una entrega reservada está tomada por un ciclo de envío en curso; hasta que esa
@@ -323,7 +323,7 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
             )}
       </section>
 
-      <section className="panel">
+      <section className="panel is-plain">
         <h3>Recorrido de una operación</h3>
         {diagnostics === null || diagnostics.trace === null
           ? <EmptyState>
@@ -432,7 +432,7 @@ export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Ele
           )}
       </section>
 
-      <section className="panel">
+      <section className="panel is-plain">
         <h3>Antigüedad de las referencias recibidas</h3>
         {status === null
           ? <EmptyState>Consulta un destino para ver la antigüedad de sus referencias.</EmptyState>

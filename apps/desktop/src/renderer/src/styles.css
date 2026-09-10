@@ -474,7 +474,7 @@ input:focus-visible {
 .quick-action strong { font-size: var(--text-base); }
 .quick-action small { color: var(--ink-muted); line-height: 1.5; }
 
-.panel { display: grid; gap: 18px; padding: 24px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
+.panel { display: grid; gap: 18px; padding: 24px; border: 1px solid var(--line-soft); border-radius: var(--radius-panel); background: var(--surface); }
 .panel h3, .panel h4 { margin: 0; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .panel-heading h3 { margin: 0; font-size: var(--text-xl); }
@@ -1268,3 +1268,29 @@ td small { margin-top: 3px; color: var(--ink-faint); }
   background: var(--green-soft);
   color: var(--green-strong);
 }
+
+/**
+ * Dos niveles, no uno.
+ *
+ * `.panel` es un objeto: algo que se completa, se confirma o se decide. Lleva
+ * superficie propia y un borde que lo separa de la página.
+ *
+ * `.panel.is-plain` es una región: encabezado y contenido sobre el fondo de la
+ * página, sin caja. Sesenta y tres cajas idénticas no jerarquizan nada — el
+ * borde solo significa «objeto aparte» mientras no lo lleve todo.
+ */
+.panel.is-plain {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+/** Sin caja alrededor, el encabezado necesita su propio pie para separar. */
+.panel.is-plain > h3 {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+/** El peligro conserva su borde: ahí sí distingue de todo lo demás. */
+.danger-panel { border-color: var(--danger-line-soft); }
