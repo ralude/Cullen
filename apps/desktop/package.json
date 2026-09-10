@@ -7,9 +7,9 @@
   "description": "Cullen: aplicacion Electron y React para la estacion de supermercado.",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "install-electron && electron-vite dev",
     "build": "electron-vite build",
-    "start": "electron-vite preview",
+    "start": "install-electron && electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

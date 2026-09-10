@@ -302,6 +302,12 @@ un solo proceso dueño por nodo y, con el nodo activo, fallan con `DATABASE_NODE
 Autenticarse no basta para operar: sin el paso 2, abrir un turno falla con
 `CASH_REGISTER_NOT_FOUND` y cobrar con `POLICY_NOT_CONFIGURED`.
 
+El paso 5 descarga el binario de Electron la primera vez que se ejecuta en una máquina, unos
+100 MB que quedan en caché para los arranques siguientes. `pnpm install` **no** lo trae: desde
+Electron 44 el paquete no declara `postinstall` y expone el instalador como un ejecutable
+aparte, así que `dev` y `start` lo invocan antes de arrancar. Es idempotente y sale sin hacer
+nada cuando el binario ya está.
+
 Qué siembra ese catálogo, por qué se puede repetir y qué **no** hace —existencias, usuarios ni
 distribución automática a las terminales— está en
 [la guía de la seed](./docs/operacion/seed-de-catalogo-de-ejemplo.md). El recorrido completo de

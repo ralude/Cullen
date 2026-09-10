@@ -93,6 +93,9 @@ pnpm --filter @supermarket/desktop dev       # terminal Electron + React
 ```
 
 - [ ] El nodo reporta `Server listening at http://127.0.0.1:3000`.
+- [ ] La terminal descarga el binario de Electron —unos 100 MB— la primera vez que se ejecuta
+      en la máquina. Tarda y no imprime progreso: no es un cuelgue. Los arranques siguientes
+      lo encuentran en caché y no descargan nada.
 - [ ] **Captura 1 — ingreso:** la pantalla de ingreso con el rótulo fiscal visible.
 
 ### 5. Ingreso, credencial y sesión
@@ -149,4 +152,4 @@ corrigió.
 
 | Paso | Qué ocurrió | Corrección |
 | --- | --- | --- |
-| | | |
+| 4 | `electron-vite dev` abortó con `Error: Electron uninstall`. El binario no estaba: Electron 44 dejó de declarar `postinstall` y publica su instalador como ejecutable aparte, así que `pnpm install` ya no lo trae. La máquina de desarrollo lo tenía de una versión anterior y enmascaraba el defecto. | `apps/desktop` invoca `install-electron` antes de `dev` y `start`. Queda fuera de `build`, que no necesita el binario —CI ya lo demuestra en verde sobre un runner limpio—, para no cargar al pipeline una descarga de 100 MB. El README lo explica en el paso 5. |
