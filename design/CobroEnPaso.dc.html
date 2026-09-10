@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+  <style>
+    body { margin: 0; font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; }
+    a { color: #1d6b4e; } a:hover { color: #15563e; }
+    * { box-sizing: border-box; }
+    .num { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+
+<div style="position: relative; display: grid; grid-template-columns: {{nav.width}} minmax(0, 1fr); height: 800px; background: #f4f6f2; color: #17231d; font-size: 14px; overflow: hidden;">
+
+  <aside style="display: {{nav.display}}; flex-direction: column; gap: 18px; padding: {{nav.pad}}; background: #163d2f; color: #f5f8f6; overflow: hidden;">
+    <strong style="font-size: 1.15rem; letter-spacing: -0.02em; white-space: nowrap;">{{nav.brand}}</strong>
+    <nav style="display: grid; gap: 4px;">
+      <sc-for list="{{navItems}}" as="item" hint-placeholder-count="6">
+        <div style="display: flex; align-items: center; gap: 10px; padding: {{nav.itemPad}}; border-radius: 9px; background: {{item.bg}}; color: {{item.fg}}; font-weight: 600; font-size: 0.82rem;">
+          <span style="display: grid; place-items: center; width: 20px; height: 20px; flex: 0 0 20px;" innerHTML="{{item.icon}}"></span>
+          <span style="display: {{nav.labels}}; white-space: nowrap;">{{item.label}}</span>
+        </div>
+      </sc-for>
+    </nav>
+  </aside>
+
+  <main style="display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0;">
+    <header style="display: flex; align-items: center; gap: 16px; height: 56px; padding: 0 20px; border-bottom: 1px solid #dce3de; background: #ffffff;">
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <span style="width: 10px; height: 10px; border-radius: 50%; background: #27a36f; box-shadow: 0 0 0 3px #e4f4eb;"></span>
+        <strong style="font-size: 0.88rem;">Caja 1</strong>
+        <span style="color: #718078; font-size: 0.8rem;">turno abierto 13:14</span>
+      </div>
+      <span class="num" style="padding: 5px 10px; border-radius: 8px; background: #f1f4f1; color: #33443b; font-size: 0.8rem; font-weight: 600;">3 líneas</span>
+      <span style="margin-left: auto; padding: 6px 11px; border-radius: 999px; background: #fff0d7; color: #805100; font-size: 0.72rem; font-weight: 600;">Fiscal · SIMULACIÓN</span>
+    </header>
+
+    <!-- Dos zonas anchas: sin columna de cobro robando espacio -->
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; min-height: 0; padding: 14px 20px;">
+
+      <section style="display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 12px; min-height: 0; padding: 18px; border: 1px solid #e8ede9; border-radius: 14px; background: #ffffff; box-shadow: 0 10px 28px rgb(4 26 18 / 6%);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="num" style="display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #e4f4eb; color: #15563e; font-weight: 700; font-size: 0.88rem;">3</span>
+          <h2 style="margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em;">Ticket</h2>
+        </div>
+
+        <div style="display: flex; gap: 9px; padding: 12px; border: 1px solid #dce3de; border-radius: 12px; background: #f7f9f7;">
+          <div style="display: flex; align-items: center; gap: 9px; flex: 1 1 auto; min-width: 0; padding: 0 11px; height: 42px; border: 1px solid #bac7bf; border-radius: 8px; background: #ffffff;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#718078" stroke-width="1.6" stroke-linecap="round"><path d="M3 5v10M6 5v10M9 5v10M13 5v10M17 5v10"/></svg>
+            <span style="color: #718078; font-size: 0.88rem;">Escanea o escribe un código</span>
+          </div>
+          <button style="height: 42px; padding: 0 18px; border: 0; border-radius: 8px; background: #1d6b4e; color: #ffffff; font: inherit; font-weight: 600; cursor: pointer;">Agregar</button>
+        </div>
+
+        <div style="min-height: 0; overflow: hidden; border-top: 1px solid #e8ede9;">
+          <sc-for list="{{lines}}" as="line" hint-placeholder-count="3">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 54px 96px; gap: 12px; align-items: center; padding: 14px 2px; border-bottom: 1px solid #e8ede9;">
+              <div style="display: grid; gap: 2px; min-width: 0;">
+                <strong style="font-size: 0.88rem; font-weight: 600;">{{line.name}}</strong>
+                <small style="color: #718078; font-size: 0.72rem;">{{line.meta}}</small>
+              </div>
+              <span class="num" style="text-align: right; color: #33443b;">{{line.qty}}</span>
+              <strong class="num" style="text-align: right; font-weight: 600;">{{line.amount}}</strong>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- El total vive con el ticket; cobrar abre el paso -->
+        <div style="display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 12px; background: #f1f4f1;">
+          <div style="display: grid; gap: 2px;">
+            <span style="color: #64736a; font-size: 0.72rem; font-weight: 600;">Total</span>
+            <strong class="num" style="font-size: 1.7rem; letter-spacing: -0.04em; line-height: 1;">USD 20,85</strong>
+          </div>
+          <button style="margin-left: auto; height: 52px; padding: 0 26px; border: 0; border-radius: 10px; background: #1d6b4e; color: #ffffff; font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;">Cobrar →</button>
+        </div>
+      </section>
+
+      <section style="display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; min-height: 0; padding: 18px; border: 1px solid #e8ede9; border-radius: 14px; background: #f7f9f7; box-shadow: 0 10px 28px rgb(4 26 18 / 6%);">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <h2 style="margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em;">Catálogo</h2>
+          <span style="margin-left: auto; color: #718078; font-size: 0.72rem; font-weight: 600;">124 productos</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 9px; height: 42px; padding: 0 11px; border: 1px solid #bac7bf; border-radius: 8px; background: #ffffff;">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#718078" stroke-width="1.7" stroke-linecap="round"><circle cx="9" cy="9" r="5.5"/><path d="M13 13l4 4"/></svg>
+          <span style="color: #718078; font-size: 0.88rem;">Buscar por nombre</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; gap: 9px; min-height: 0; overflow: hidden;">
+          <sc-for list="{{tiles}}" as="tile" hint-placeholder-count="9">
+            <div style="display: grid; gap: 7px; align-content: start; padding: 12px; border: 1px solid #bac7bf; border-radius: 8px; background: #ffffff; box-shadow: 0 3px 10px rgb(4 26 18 / 4%);">
+              <span style="display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: {{tile.markBg}}; color: {{tile.markFg}}; font-size: 0.72rem; font-weight: 700;">{{tile.mark}}</span>
+              <strong style="font-size: 0.8rem; font-weight: 600; line-height: 1.25;">{{tile.name}}</strong>
+              <strong class="num" style="color: #163d2f; font-size: 0.88rem; font-weight: 700;">{{tile.price}}</strong>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- El paso de cobro: hoja a la derecha, el ticket sigue a la vista -->
+  <div style="position: absolute; inset: 0; background: rgb(9 26 19 / 46%);"></div>
+  <aside style="position: absolute; top: 0; right: 0; bottom: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: 430px; background: #ffffff; box-shadow: -24px 0 60px rgb(4 26 18 / 26%);">
+    <div style="display: grid; gap: 10px; padding: 22px 24px; background: #163d2f; color: #ffffff;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <h2 style="margin: 0; font-size: 1.2rem; font-weight: 600;">Cobrar</h2>
+        <button style="margin-left: auto; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; background: transparent; color: #ffffff; cursor: pointer;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        </button>
+      </div>
+      <strong class="num" style="font-size: 2.4rem; letter-spacing: -0.045em; line-height: 1;">USD 20,85</strong>
+      <span class="num" style="color: #a8bcb2; font-size: 0.72rem;">Subtotal 17,45 · IVA 2,79 · IGTF 0,61</span>
+    </div>
+
+    <div style="display: grid; gap: 16px; align-content: start; padding: 22px 24px; overflow: hidden;">
+      <div style="display: grid; gap: 9px;">
+        <span style="color: #33443b; font-size: 0.88rem; font-weight: 600;">Método</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <sc-for list="{{methods}}" as="m" hint-placeholder-count="4">
+            <div style="display: flex; align-items: baseline; gap: 6px; padding: 9px 14px; border: 1px solid {{m.border}}; border-radius: 999px; background: {{m.bg}}; color: {{m.fg}}; font-size: 0.82rem; font-weight: 600;">
+              <span>{{m.name}}</span>
+              <small style="opacity: 0.7; font-size: 0.72rem;">{{m.currency}}</small>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: grid; gap: 9px;">
+        <span style="color: #33443b; font-size: 0.88rem; font-weight: 600;">Importe (USD)</span>
+        <div style="display: flex; gap: 9px;">
+          <div class="num" style="display: flex; align-items: center; flex: 1 1 auto; height: 48px; padding: 0 13px; border: 1px solid #1d6b4e; border-radius: 8px; background: #fbfcfb; font-size: 1.2rem; font-weight: 600;">20,85</div>
+          <button style="height: 48px; padding: 0 16px; border: 1px solid #bac7bf; border-radius: 8px; background: #ffffff; color: #33443b; font: inherit; font-weight: 600; cursor: pointer;">Exacto</button>
+        </div>
+      </div>
+
+      <button style="justify-self: start; padding: 0; border: 0; background: none; color: #1d6b4e; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer;">Dividir en dos métodos</button>
+
+      <p style="margin: 0; padding: 12px 14px; border-radius: 10px; background: #fff0d7; color: #805100; font-size: 0.8rem; line-height: 1.5;">
+        El importe que cobras con un método gravado con IGTF <strong>incluye</strong> el impuesto.
+      </p>
+    </div>
+
+    <div style="display: grid; gap: 9px; padding: 18px 24px; border-top: 1px solid #e8ede9;">
+      <div class="num" style="padding: 8px 12px; border-radius: 8px; background: #fff0d7; color: #805100; font-size: 0.82rem; font-weight: 700; text-align: center;">Falta cobrar USD 20,85</div>
+      <button style="height: 56px; border: 0; border-radius: 10px; background: #1d6b4e; color: #ffffff; font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;">Registrar cobro y completar</button>
+    </div>
+  </aside>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"sidebar":{"editor":"enum","options":["Expandida","Compacta","Oculta"],"default":"Compacta","section":"Navegación"},"$preview":{"width":1200,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.sidebar ?? 'Compacta';
+    const nav = {
+      Expandida: { width: '236px', display: 'flex', pad: '20px 16px', labels: 'inline', itemPad: '10px 12px', brand: 'Cullen' },
+      Compacta: { width: '68px', display: 'flex', pad: '20px 10px', labels: 'none', itemPad: '10px', brand: 'C' },
+      Oculta: { width: '0px', display: 'none', pad: '0', labels: 'none', itemPad: '10px', brand: 'C' }
+    }[mode];
+
+    const icon = (d) => '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+    const items = [
+      ['Inicio', '<path d="M3 9l7-6 7 6v8H3z"/>', false],
+      ['Venta', '<path d="M3 4h2l2 9h8l2-6H6"/><circle cx="8.5" cy="16" r="1.2"/><circle cx="14.5" cy="16" r="1.2"/>', true],
+      ['Caja', '<rect x="2.5" y="5.5" width="15" height="9" rx="2"/><path d="M2.5 9h15"/>', false],
+      ['Catálogo', '<rect x="3" y="3" width="6" height="6" rx="1.4"/><rect x="11" y="3" width="6" height="6" rx="1.4"/><rect x="3" y="11" width="6" height="6" rx="1.4"/>', false],
+      ['Inventario', '<path d="M3 6l7-3 7 3v8l-7 3-7-3z"/><path d="M3 6l7 3 7-3M10 9v8"/>', false],
+      ['Reportes', '<path d="M4 16V9M10 16V4M16 16v-5"/>', false]
+    ];
+
+    return {
+      nav,
+      navItems: items.map(([label, d, active]) => ({
+        label, icon: icon(d),
+        bg: active ? '#ffffff' : 'transparent',
+        fg: active ? '#163d2f' : '#c7d7cf'
+      })),
+      lines: [
+        { name: 'Café molido 500 g', meta: 'UNIT', qty: '1', amount: 'USD 4,80' },
+        { name: 'Harina de maíz precocida 1 kg', meta: 'UNIT', qty: '2', amount: 'USD 6,20' },
+        { name: 'Aceite de maíz 1 L', meta: 'UNIT · −10%', qty: '1', amount: 'USD 6,45' }
+      ],
+      tiles: [
+        { mark: 'CAF', name: 'Café molido 500 g', price: 'USD 4,80', markBg: '#e4f4eb', markFg: '#1d6b4e' },
+        { mark: 'HAR', name: 'Harina de maíz 1 kg', price: 'USD 3,10', markBg: '#fff0d7', markFg: '#805100' },
+        { mark: 'ACE', name: 'Aceite de maíz 1 L', price: 'USD 6,45', markBg: '#e9edf8', markFg: '#3e578d' },
+        { mark: 'ARR', name: 'Arroz blanco 1 kg', price: 'USD 2,40', markBg: '#e4f4eb', markFg: '#1d6b4e' },
+        { mark: 'AZU', name: 'Azúcar refinada 1 kg', price: 'USD 1,95', markBg: '#fff0d7', markFg: '#805100' },
+        { mark: 'LEC', name: 'Leche en polvo 900 g', price: 'USD 7,20', markBg: '#e9edf8', markFg: '#3e578d' },
+        { mark: 'PAS', name: 'Pasta larga 1 kg', price: 'USD 2,10', markBg: '#e4f4eb', markFg: '#1d6b4e' },
+        { mark: 'SAL', name: 'Sal refinada 1 kg', price: 'USD 0,90', markBg: '#fff0d7', markFg: '#805100' },
+        { mark: 'MAR', name: 'Margarina 500 g', price: 'USD 3,45', markBg: '#e9edf8', markFg: '#3e578d' }
+      ],
+      methods: [
+        { name: 'Efectivo', currency: 'USD', bg: '#1d6b4e', fg: '#ffffff', border: '#1d6b4e' },
+        { name: 'Tarjeta', currency: 'USD', bg: '#ffffff', fg: '#33443b', border: '#bac7bf' },
+        { name: 'Pago móvil', currency: 'VES', bg: '#ffffff', fg: '#33443b', border: '#bac7bf' },
+        { name: 'Transferencia', currency: 'VES', bg: '#ffffff', fg: '#33443b', border: '#bac7bf' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

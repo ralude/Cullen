@@ -1,0 +1,54 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Elegida · A" },
+    { "id": "page-2", "name": "Descartadas" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1200, "h": 800, "title": "A · Barra de cobro", "page": "page-1" },
+    { "file": "CobroEnPaso.dc.html", "x": 0, "y": 0, "w": 1200, "h": 800, "title": "B · Cobro como paso", "page": "page-2" },
+    { "file": "TicketDominante.dc.html", "x": 1320, "y": 0, "w": 1200, "h": 800, "title": "C · Ticket dominante", "page": "page-2" }
+  ],
+  "annotations": [
+    {
+      "id": "el-gap",
+      "x": 0,
+      "y": -300,
+      "w": 620,
+      "page": "page-1",
+      "text": "El hueco del pago mixto, resuelto\n\nNo se resuelve haciendo crecer la barra: se resuelve cambiando el modelo de captura.\n\nHoy la pantalla pide los dos importes a la vez y manda un lote. Ahora se agrega un pago, el resto se recalcula, y se agrega el siguiente. Cada pago queda como una ficha que se puede quitar.\n\nLa altura de la barra NO cambia: la fila de fichas está siempre, con su vacío escrito. Nada empuja el área de trabajo a mitad de una venta."
+    },
+    {
+      "id": "la-palanca-cobro",
+      "x": 700,
+      "y": -300,
+      "w": 470,
+      "page": "page-1",
+      "text": "Palanca «Cobro»\n\nTres momentos en la misma barra, a la misma altura:\n\n· Sin pagos — el caso simple, un botón.\n· Pago dividido — una ficha agregada, resto recalculado, el botón cambia a «Agregar pago».\n· Cubierto — dos fichas, saldo en cero, «Completar venta».\n\nY «Navegación» sigue ahí: expandida, compacta u oculta."
+    },
+    {
+      "id": "lo-que-falta-decidir",
+      "x": 0,
+      "y": 880,
+      "w": 700,
+      "page": "page-1",
+      "text": "Lo único que esto necesita del nodo\n\nEl lote sigue siendo uno solo: el dominio acepta los pagos una vez (SALE_PAYMENTS_ALREADY_REGISTERED). Las fichas se acumulan en la pantalla y se envían juntas al final, así que no hay que tocar el agregado.\n\nLo que sí falta es el resto en vivo cuando un método cobra IGTF: para descontarlo bien hace falta la tasa, y la pantalla no la conoce. Dos salidas, ambas honestas:\n\n· El nodo publica la política activa (tasa y métodos gravados) como lectura. La pantalla la muestra —el chip «+IGTF»— y el nodo sigue siendo la autoridad al registrar.\n· Una consulta de previsualización: dada la mezcla, el nodo devuelve cuánto cobra cada método. Es la alternativa que ADR-0031 dejó anotada.\n\nSin ninguna de las dos, el resto se calcula contra el total comercial y el último centavo lo corrige el nodo al registrar."
+    },
+    {
+      "id": "nota-b",
+      "x": 0,
+      "y": 860,
+      "w": 380,
+      "page": "page-2",
+      "text": "B · El cobro como hoja que entra al pulsar «Cobrar». Descartada: un paso más en el gesto más repetido del día."
+    },
+    {
+      "id": "nota-c",
+      "x": 1320,
+      "y": 860,
+      "w": 380,
+      "page": "page-2",
+      "text": "C · Ticket grande con el catálogo en cajón. Descartada: el cajón tapa el ticket justo cuando hay que comparar contra él."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

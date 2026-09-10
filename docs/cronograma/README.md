@@ -63,6 +63,11 @@ bloquea, y absorbe [`operacion-diaria.md`](../operacion/operacion-diaria.md), qu
 redirección al cerrarse. Sus tres decisiones de alcance —una captura por pantalla, absorción de
 la guía anterior y ejecución posterior al release— quedaron fijadas el 2026-09-09 en su README.
 
+El [rediseño de la pantalla de venta](./rediseno-pantalla-de-venta.md), cuya dirección se
+aceptó el 2026-09-10, también espera al release: baja el cobro a una barra de ancho completo,
+captura un pago a la vez y publica la tasa de IGTF por método. Trae una enmienda pendiente de
+ADR-0031 y no toca el agregado `Sale`.
+
 El release de portafolio no habilita una tienda: el
 [gate de piloto](./gate-piloto-release.md) conserva sus requisitos de hardware, fabricante,
 laboratorio y operación real.

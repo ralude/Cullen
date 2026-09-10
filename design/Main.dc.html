@@ -1,0 +1,265 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+  <style>
+    body { margin: 0; font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; }
+    a { color: #1d6b4e; } a:hover { color: #15563e; }
+    * { box-sizing: border-box; }
+    .num { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+
+<div style="display: grid; grid-template-columns: {{nav.width}} minmax(0, 1fr); height: 800px; background: #f4f6f2; color: #17231d; font-size: 14px;">
+
+  <aside style="display: {{nav.display}}; flex-direction: column; gap: 18px; padding: {{nav.pad}}; background: #163d2f; color: #f5f8f6; overflow: hidden;">
+    <div style="display: grid; gap: 2px; padding-bottom: 4px;">
+      <strong style="font-size: 1.15rem; letter-spacing: -0.02em; white-space: nowrap;">{{nav.brand}}</strong>
+      <small style="color: #a8bcb2; font-size: 0.72rem; display: {{nav.labels}};">Punto de venta</small>
+    </div>
+    <nav style="display: grid; gap: 4px;">
+      <sc-for list="{{navItems}}" as="item" hint-placeholder-count="6">
+        <div style="display: flex; align-items: center; gap: 10px; padding: {{nav.itemPad}}; border-radius: 9px; background: {{item.bg}}; color: {{item.fg}}; font-weight: 600; font-size: 0.82rem;">
+          <span style="display: grid; place-items: center; width: 20px; height: 20px; flex: 0 0 20px;" innerHTML="{{item.icon}}"></span>
+          <span style="display: {{nav.labels}}; white-space: nowrap;">{{item.label}}</span>
+        </div>
+      </sc-for>
+    </nav>
+  </aside>
+
+  <main style="display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0;">
+
+    <header style="display: flex; align-items: center; gap: 16px; height: 56px; padding: 0 20px; border-bottom: 1px solid #dce3de; background: #ffffff;">
+      <button style="display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid #bac7bf; border-radius: 8px; background: #ffffff; color: #33443b; cursor: pointer;" title="Contraer o expandir la navegación">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 5h14M3 10h9M3 15h14"/></svg>
+      </button>
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <span style="width: 10px; height: 10px; border-radius: 50%; background: #27a36f; box-shadow: 0 0 0 3px #e4f4eb;"></span>
+        <strong style="font-size: 0.88rem;">Caja 1</strong>
+        <span style="color: #718078; font-size: 0.8rem;">turno abierto 13:14</span>
+      </div>
+      <span class="num" style="padding: 5px 10px; border-radius: 8px; background: #f1f4f1; color: #33443b; font-size: 0.8rem; font-weight: 600;">3 líneas</span>
+      <span style="margin-left: auto; padding: 6px 11px; border-radius: 999px; background: #fff0d7; color: #805100; font-size: 0.72rem; font-weight: 600;">Fiscal · SIMULACIÓN</span>
+      <div style="display: grid; gap: 1px; padding-left: 14px; border-left: 1px solid #dce3de;">
+        <small style="color: #718078; font-size: 0.72rem;">Operador</small>
+        <strong style="font-size: 0.8rem;">Ana Rivas</strong>
+      </div>
+    </header>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 14px; min-height: 0; padding: 14px 20px;">
+
+      <section style="display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; min-height: 0; padding: 18px; border: 1px solid #e8ede9; border-radius: 14px; background: #ffffff; box-shadow: 0 10px 28px rgb(4 26 18 / 6%);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="num" style="display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #e4f4eb; color: #15563e; font-weight: 700; font-size: 0.88rem;">3</span>
+          <h2 style="margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em;">Ticket</h2>
+        </div>
+
+        <div style="display: flex; gap: 9px; padding: 12px; border: 1px solid #dce3de; border-radius: 12px; background: #f7f9f7;">
+          <div style="display: flex; align-items: center; gap: 9px; flex: 1 1 auto; min-width: 0; padding: 0 11px; height: 42px; border: 1px solid #bac7bf; border-radius: 8px; background: #ffffff;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#718078" stroke-width="1.6" stroke-linecap="round"><path d="M3 5v10M6 5v10M9 5v10M13 5v10M17 5v10"/></svg>
+            <span style="color: #718078; font-size: 0.88rem;">Escanea o escribe un código</span>
+          </div>
+          <div class="num" style="display: grid; place-items: center; width: 62px; height: 42px; border: 1px solid #bac7bf; border-radius: 8px; background: #ffffff; font-weight: 600;">1</div>
+          <button style="height: 42px; padding: 0 18px; border: 0; border-radius: 8px; background: #1d6b4e; color: #ffffff; font: inherit; font-weight: 600; cursor: pointer;">Agregar</button>
+        </div>
+
+        <div style="min-height: 0; overflow: hidden; border-top: 1px solid #e8ede9;">
+          <sc-for list="{{lines}}" as="line" hint-placeholder-count="3">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 54px 96px 32px; gap: 12px; align-items: center; padding: 13px 2px; border-bottom: 1px solid #e8ede9;">
+              <div style="display: grid; gap: 2px; min-width: 0;">
+                <strong style="font-size: 0.88rem; font-weight: 600;">{{line.name}}</strong>
+                <small style="color: #718078; font-size: 0.72rem;">{{line.meta}}</small>
+              </div>
+              <span class="num" style="text-align: right; color: #33443b;">{{line.qty}}</span>
+              <strong class="num" style="text-align: right; font-weight: 600;">{{line.amount}}</strong>
+              <button style="display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid #e8ede9; border-radius: 8px; background: transparent; color: #718078; cursor: pointer;">
+                <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+              </button>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; min-height: 0; padding: 18px; border: 1px solid #e8ede9; border-radius: 14px; background: #f7f9f7; box-shadow: 0 10px 28px rgb(4 26 18 / 6%);">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <h2 style="margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em;">Catálogo</h2>
+          <span style="margin-left: auto; color: #718078; font-size: 0.72rem; font-weight: 600;">124 productos</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 9px; height: 42px; padding: 0 11px; border: 1px solid #bac7bf; border-radius: 8px; background: #ffffff;">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#718078" stroke-width="1.7" stroke-linecap="round"><circle cx="9" cy="9" r="5.5"/><path d="M13 13l4 4"/></svg>
+          <span style="color: #718078; font-size: 0.88rem;">Buscar por nombre</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 9px; min-height: 0; overflow: hidden;">
+          <sc-for list="{{tiles}}" as="tile" hint-placeholder-count="6">
+            <div style="display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: 1fr auto; gap: 8px 10px; align-items: center; padding: 12px; border: 1px solid #bac7bf; border-radius: 8px; background: #ffffff; box-shadow: 0 3px 10px rgb(4 26 18 / 4%);">
+              <span style="display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; background: {{tile.markBg}}; color: {{tile.markFg}}; font-size: 0.8rem; font-weight: 700;">{{tile.mark}}</span>
+              <div style="display: grid; gap: 2px; min-width: 0;">
+                <strong style="font-size: 0.8rem; font-weight: 600; line-height: 1.25;">{{tile.name}}</strong>
+                <small style="color: #718078; font-size: 0.72rem;">{{tile.unit}}</small>
+              </div>
+              <strong class="num" style="grid-column: 1 / -1; text-align: right; color: #163d2f; font-size: 0.88rem; font-weight: 700;">{{tile.price}}</strong>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+
+    <!--
+      Cobro. La altura NO cambia entre un método y varios: la fila de pagos
+      agregados está siempre, con su vacío escrito. Así la barra nunca empuja
+      el área de trabajo a mitad de una venta.
+    -->
+    <footer style="display: grid; grid-template-columns: 250px minmax(0, 1fr) 262px; gap: 22px; align-items: stretch; padding: 14px 20px; background: #163d2f; color: #ffffff;">
+
+      <div style="display: grid; gap: 3px; align-content: center;">
+        <span style="color: #c7d7cf; font-size: 0.72rem; font-weight: 600;">Total a cobrar</span>
+        <strong class="num" style="font-size: 2.1rem; letter-spacing: -0.045em; line-height: 1;">USD 20,85</strong>
+        <span class="num" style="color: #a8bcb2; font-size: 0.72rem;">Subtotal 17,45 · IVA 2,79 · IGTF {{igtf}}</span>
+      </div>
+
+      <div style="display: grid; grid-template-rows: auto 1fr; gap: 10px; min-width: 0;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+          <sc-for list="{{methods}}" as="m" hint-placeholder-count="4">
+            <div style="display: flex; align-items: baseline; gap: 6px; padding: 8px 13px; border: 1px solid {{m.border}}; border-radius: 999px; background: {{m.bg}}; color: {{m.fg}}; font-size: 0.82rem; font-weight: 600;">
+              <span>{{m.name}}</span>
+              <small style="opacity: 0.72; font-size: 0.72rem;">{{m.currency}}</small>
+              <sc-if value="{{m.taxed}}" hint-placeholder-val="{{true}}">
+                <small style="padding: 1px 6px; border-radius: 999px; background: rgba(226,166,25,0.24); color: #f4cd77; font-size: 0.66rem; font-weight: 700;">+IGTF</small>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- Fila de pagos agregados: siempre presente, por eso la altura es fija -->
+        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 36px; padding: 0 2px;">
+          <sc-if value="{{hasTenders}}" hint-placeholder-val="{{true}}">
+            <sc-for list="{{tenders}}" as="t" hint-placeholder-count="1">
+              <div style="display: flex; align-items: center; gap: 9px; padding: 7px 8px 7px 13px; border-radius: 999px; background: rgba(255,255,255,0.13);">
+                <span style="font-size: 0.82rem; font-weight: 600;">{{t.method}}</span>
+                <strong class="num" style="font-size: 0.82rem;">{{t.amount}}</strong>
+                <button style="display: grid; place-items: center; width: 21px; height: 21px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,0.18); color: #ffffff; cursor: pointer;">
+                  <svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+                </button>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{noTenders}}" hint-placeholder-val="{{false}}">
+            <span style="color: #8fb09f; font-size: 0.78rem;">Sin pagos agregados todavía</span>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-rows: auto 1fr; gap: 10px; align-content: center;">
+        <div style="display: flex; gap: 8px;">
+          <div class="num" style="display: flex; align-items: center; flex: 1 1 auto; min-width: 0; height: 38px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; background: rgba(255,255,255,0.1); font-size: 1rem; font-weight: 600;">{{amountValue}}</div>
+          <button style="height: 38px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.34); border-radius: 8px; background: transparent; color: #f5f8f6; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;">Resto</button>
+        </div>
+        <button style="height: 52px; border: 0; border-radius: 10px; background: {{action.bg}}; color: {{action.fg}}; font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;">{{action.label}}</button>
+      </div>
+    </footer>
+
+    <!-- Estado del cobro: una sola línea, siempre en el mismo sitio -->
+    <div class="num" style="padding: 9px 20px; background: {{balance.bg}}; color: {{balance.fg}}; font-size: 0.86rem; font-weight: 700; text-align: center;">{{balance.text}}</div>
+  </main>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"sidebar":{"editor":"enum","options":["Expandida","Compacta","Oculta"],"default":"Compacta","section":"Navegación"},"cobro":{"editor":"enum","options":["Sin pagos","Pago dividido","Cubierto"],"default":"Pago dividido","section":"Cobro"},"$preview":{"width":1200,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.sidebar ?? 'Compacta';
+    const nav = {
+      Expandida: { width: '236px', display: 'flex', pad: '20px 16px', labels: 'inline', itemPad: '10px 12px', brand: 'Cullen' },
+      Compacta: { width: '68px', display: 'flex', pad: '20px 10px', labels: 'none', itemPad: '10px', brand: 'C' },
+      Oculta: { width: '0px', display: 'none', pad: '0', labels: 'none', itemPad: '10px', brand: 'C' }
+    }[mode];
+
+    const icon = (d) => '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+    const items = [
+      ['Inicio', '<path d="M3 9l7-6 7 6v8H3z"/>', false],
+      ['Venta', '<path d="M3 4h2l2 9h8l2-6H6"/><circle cx="8.5" cy="16" r="1.2"/><circle cx="14.5" cy="16" r="1.2"/>', true],
+      ['Caja', '<rect x="2.5" y="5.5" width="15" height="9" rx="2"/><path d="M2.5 9h15"/>', false],
+      ['Catálogo', '<rect x="3" y="3" width="6" height="6" rx="1.4"/><rect x="11" y="3" width="6" height="6" rx="1.4"/><rect x="3" y="11" width="6" height="6" rx="1.4"/>', false],
+      ['Inventario', '<path d="M3 6l7-3 7 3v8l-7 3-7-3z"/><path d="M3 6l7 3 7-3M10 9v8"/>', false],
+      ['Reportes', '<path d="M4 16V9M10 16V4M16 16v-5"/>', false]
+    ];
+
+    /** Los tres momentos del cobro, en la misma barra y con la misma altura. */
+    const stage = this.props.cobro ?? 'Pago dividido';
+    const stages = {
+      'Sin pagos': {
+        tenders: [], igtf: '—', amountValue: '20,85', selected: 'Efectivo',
+        balance: { text: 'Falta cobrar USD 20,85', bg: '#fff0d7', fg: '#805100' },
+        action: { label: 'Cobrar y completar', bg: '#27a36f', fg: '#0f2a20' }
+      },
+      'Pago dividido': {
+        tenders: [{ method: 'Efectivo', amount: 'USD 10,00' }],
+        igtf: '0,61', amountValue: '10,85', selected: 'Tarjeta',
+        balance: { text: 'Falta cobrar USD 10,85 · el importe de tarjeta incluye su IGTF', bg: '#fff0d7', fg: '#805100' },
+        action: { label: 'Agregar pago', bg: '#ffffff', fg: '#163d2f' }
+      },
+      'Cubierto': {
+        tenders: [{ method: 'Efectivo', amount: 'USD 10,00' }, { method: 'Tarjeta', amount: 'USD 10,85' }],
+        igtf: '0,61', amountValue: '0,00', selected: 'Tarjeta',
+        balance: { text: 'Cobro cubierto · USD 20,85', bg: '#e4f4eb', fg: '#15563e' },
+        action: { label: 'Completar venta', bg: '#27a36f', fg: '#0f2a20' }
+      }
+    }[stage];
+
+    const methods = [
+      { name: 'Efectivo', currency: 'USD', taxed: false },
+      { name: 'Tarjeta', currency: 'USD', taxed: true },
+      { name: 'Pago móvil', currency: 'VES', taxed: false },
+      { name: 'Transferencia', currency: 'VES', taxed: true }
+    ].map((m) => {
+      const on = m.name === stages.selected;
+      return {
+        ...m,
+        bg: on ? '#ffffff' : 'transparent',
+        fg: on ? '#163d2f' : '#f5f8f6',
+        border: on ? '#ffffff' : 'rgba(255,255,255,0.34)'
+      };
+    });
+
+    return {
+      nav,
+      navItems: items.map(([label, d, active]) => ({
+        label, icon: icon(d),
+        bg: active ? '#ffffff' : 'transparent',
+        fg: active ? '#163d2f' : '#c7d7cf'
+      })),
+      methods,
+      tenders: stages.tenders,
+      hasTenders: stages.tenders.length > 0,
+      noTenders: stages.tenders.length === 0,
+      igtf: stages.igtf,
+      amountValue: stages.amountValue,
+      balance: stages.balance,
+      action: stages.action,
+      lines: [
+        { name: 'Café molido 500 g', meta: 'UNIT', qty: '1', amount: 'USD 4,80' },
+        { name: 'Harina de maíz precocida 1 kg', meta: 'UNIT', qty: '2', amount: 'USD 6,20' },
+        { name: 'Aceite de maíz 1 L', meta: 'UNIT · −10%', qty: '1', amount: 'USD 6,45' }
+      ],
+      tiles: [
+        { mark: 'CAF', name: 'Café molido 500 g', unit: 'UNIT', price: 'USD 4,80', markBg: '#e4f4eb', markFg: '#1d6b4e' },
+        { mark: 'HAR', name: 'Harina de maíz 1 kg', unit: 'UNIT', price: 'USD 3,10', markBg: '#fff0d7', markFg: '#805100' },
+        { mark: 'ACE', name: 'Aceite de maíz 1 L', unit: 'UNIT', price: 'USD 6,45', markBg: '#e9edf8', markFg: '#3e578d' },
+        { mark: 'ARR', name: 'Arroz blanco 1 kg', unit: 'UNIT', price: 'USD 2,40', markBg: '#e4f4eb', markFg: '#1d6b4e' },
+        { mark: 'AZU', name: 'Azúcar refinada 1 kg', unit: 'UNIT', price: 'USD 1,95', markBg: '#fff0d7', markFg: '#805100' },
+        { mark: 'LEC', name: 'Leche en polvo 900 g', unit: 'UNIT', price: 'USD 7,20', markBg: '#e9edf8', markFg: '#3e578d' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
