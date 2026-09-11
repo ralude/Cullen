@@ -27,8 +27,8 @@ const openShift: ShiftResponse = {
 };
 
 const methods: readonly PaymentMethodResponse[] = [
-  { code: 'CASH', name: 'Efectivo', kind: 'CASH', currencyCode: 'USD' },
-  { code: 'CARD', name: 'Tarjeta', kind: 'CARD', currencyCode: 'USD' }
+  { code: 'CASH', name: 'Efectivo', kind: 'CASH', currencyCode: 'USD', financialTransactionTaxBasisPoints: 0 },
+  { code: 'CARD', name: 'Tarjeta', kind: 'CARD', currencyCode: 'USD', financialTransactionTaxBasisPoints: 300 }
 ];
 
 /** Venta de 100,00 con una línea, tal como la devuelve el nodo. */

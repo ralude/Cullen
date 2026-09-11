@@ -3,6 +3,8 @@ export type PaymentMethodDto = {
   name: string;
   kind: 'CASH' | 'CARD' | 'MOBILE_PAYMENT' | 'BANK_TRANSFER' | 'OTHER';
   currencyCode: string;
+  /** Tasa de IGTF que cobra este método; 0 si no está gravado. Ver ADR-0031. */
+  financialTransactionTaxBasisPoints: number;
 };
 
 export type UpdateExchangeRateInput = {

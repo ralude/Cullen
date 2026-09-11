@@ -4,6 +4,7 @@ import {
   DrizzleCategoryRepository,
   DrizzlePaymentMethodRepository,
   DrizzleUnitOfMeasureRepository,
+  SqliteOperationalPolicyWriter,
   SqliteUnitOfWork
 } from '@supermarket/driver-db';
 import type {
@@ -242,11 +243,67 @@ describe('catalog and currency HTTP contracts', () => {
 
     const methods = await app.inject({ method: 'GET', url: '/api/v1/currency/payment-methods', headers: { cookie } });
     expect(methods.statusCode).toBe(200);
+    /** Un nodo sin política de IGTF activa no cobra el impuesto con ningún método. */
     expect(methods.json()).toEqual([
-      { code: 'CASH_USD', name: 'Efectivo USD', kind: 'CASH', currencyCode: 'USD' }
+      {
+        code: 'CASH_USD', name: 'Efectivo USD', kind: 'CASH', currencyCode: 'USD',
+        financialTransactionTaxBasisPoints: 0
+      }
     ]);
 
     const anonymous = await app.inject({ method: 'GET', url: '/api/v1/catalog/categories' });
     expect(anonymous.statusCode).toBe(401);
+  });
+
+  /**
+   * La pantalla marca «+IGTF» y precarga el bruto con este número, sin leer la
+   * política ni sus listas. Ver la enmienda de ADR-0031 del 2026-09-11.
+   */
+  it('publishes the IGTF rate each payment method charges', async () => {
+    const { app, cookie, runtime } = await setup();
+    await new SqliteUnitOfWork(runtime.handle.sqlite).execute(async () => {
+      const repository = new DrizzlePaymentMethodRepository(runtime.handle);
+      await repository.save(PaymentMethod.create({
+        code: 'CASH_USD', name: 'Efectivo USD', kind: 'CASH', currencyCode: 'USD'
+      }));
+      await repository.save(PaymentMethod.create({
+        code: 'CARD_USD', name: 'Tarjeta USD', kind: 'CARD', currencyCode: 'USD'
+      }));
+      await repository.save(PaymentMethod.create({
+        code: 'CARD_VES', name: 'Tarjeta VES', kind: 'CARD', currencyCode: 'VES'
+      }));
+      new SqliteOperationalPolicyWriter(runtime.handle).activateFinancialTransactionTaxPolicy(
+        {
+          rateBasisPoints: 300,
+          eligiblePaymentMethodCodes: ['CARD_USD', 'CARD_VES'],
+          eligibleCurrencies: ['USD']
+        },
+        {
+          policyId: 'policy-igtf-001', createdBy: 'OP001', reason: 'Alta contractual',
+          now: new Date('2026-09-11T12:00:00.000Z')
+        }
+      );
+    });
+
+    const methods = await app.inject({
+      method: 'GET', url: '/api/v1/currency/payment-methods', headers: { cookie }
+    });
+
+    expect(methods.statusCode).toBe(200);
+    expect(methods.json()).toEqual([
+      {
+        code: 'CASH_USD', name: 'Efectivo USD', kind: 'CASH', currencyCode: 'USD',
+        financialTransactionTaxBasisPoints: 0
+      },
+      {
+        code: 'CARD_USD', name: 'Tarjeta USD', kind: 'CARD', currencyCode: 'USD',
+        financialTransactionTaxBasisPoints: 300
+      },
+      {
+        /** Elegible por código, pero liquida en una moneda que no lo está. */
+        code: 'CARD_VES', name: 'Tarjeta VES', kind: 'CARD', currencyCode: 'VES',
+        financialTransactionTaxBasisPoints: 0
+      }
+    ]);
   });
 });

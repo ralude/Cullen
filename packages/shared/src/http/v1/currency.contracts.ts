@@ -210,14 +210,18 @@ export type PaymentMethodResponse = {
   readonly name: string;
   readonly kind: 'CASH' | 'CARD' | 'MOBILE_PAYMENT' | 'BANK_TRANSFER' | 'OTHER';
   readonly currencyCode: string;
+  /** Tasa de IGTF que cobra este método; 0 si no está gravado. Ver ADR-0031. */
+  readonly financialTransactionTaxBasisPoints: number;
 };
 
 const paymentMethodResponseSchema = {
-  type: 'object', additionalProperties: false, required: ['code', 'name', 'kind', 'currencyCode'],
+  type: 'object', additionalProperties: false,
+  required: ['code', 'name', 'kind', 'currencyCode', 'financialTransactionTaxBasisPoints'],
   properties: {
     code: { type: 'string' }, name: { type: 'string' },
     kind: { type: 'string', enum: ['CASH', 'CARD', 'MOBILE_PAYMENT', 'BANK_TRANSFER', 'OTHER'] },
-    currencyCode
+    currencyCode,
+    financialTransactionTaxBasisPoints: { type: 'integer', minimum: 0 }
   }
 } as const;
 

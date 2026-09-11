@@ -437,7 +437,9 @@ export const createSecurityRuntime = (
       masterData: {
         listCategories: new application.ListCategories(categoryRepository),
         listUnitsOfMeasure: new application.ListUnitsOfMeasure(unitRepository),
-        listPaymentMethods: new application.ListPaymentMethods(paymentMethodRepository),
+        listPaymentMethods: new application.ListPaymentMethods(
+          paymentMethodRepository, taxPolicyProvider
+        ),
         listCashRegisters: new application.ListCashRegisters(cashRegisterRepository)
       },
       currency: {

@@ -154,8 +154,9 @@ regla en silencio, o copiar la fórmula del nodo en el renderer y dejar que las 
       impuesto que el nodo calcula coincide con el que la sugerencia incluyó.
 - [x] CA-E3: un lote con dos pagos gravados redondeados por separado se rechaza con
       `SALE_PAYMENT_TOTAL_MISMATCH`; la prueba fija la razón de la regla agregada.
-- [ ] CA-E4: `PaymentMethodResponse` publica `financialTransactionTaxBasisPoints` derivado de la
-      política, y la pantalla no lee las listas de elegibilidad. **Pendiente: pertenece a la
-      ejecución del rediseño.**
+- [x] CA-E4: `PaymentMethodResponse` publica `financialTransactionTaxBasisPoints` derivado de la
+      política, y la pantalla no lee las listas de elegibilidad. Un nodo sin política activa
+      publica `0` en todos los métodos; un fallo de almacenamiento no se disfraza de método no
+      gravado.
 - [ ] CA-E5: la sugerencia de la pantalla es editable y un importe corregido a mano llega al nodo
       sin alterar. **Pendiente: pertenece a la ejecución del rediseño.**
