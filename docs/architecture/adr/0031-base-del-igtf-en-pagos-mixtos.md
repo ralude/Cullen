@@ -158,5 +158,7 @@ regla en silencio, o copiar la fórmula del nodo en el renderer y dejar que las 
       política, y la pantalla no lee las listas de elegibilidad. Un nodo sin política activa
       publica `0` en todos los métodos; un fallo de almacenamiento no se disfraza de método no
       gravado.
-- [ ] CA-E5: la sugerencia de la pantalla es editable y un importe corregido a mano llega al nodo
-      sin alterar. **Pendiente: pertenece a la ejecución del rediseño.**
+- [x] CA-E5: la sugerencia de la pantalla es editable y un importe corregido a mano llega al nodo
+      sin alterar. La pantalla marca «+IGTF», precarga el bruto al elegir el método y no sugiere
+      nada cuando el método liquida en otra moneda, porque convertir exige una tasa explícita que
+      todavía no envía (D-001).

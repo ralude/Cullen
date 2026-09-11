@@ -1,7 +1,9 @@
 # Rediseño de la pantalla de venta
 
-- **Estado:** dirección aceptada el 2026-09-10; su enmienda de ADR-0031 se aceptó y probó el
-  2026-09-11 y el resto de la ejecución sigue pendiente.
+- **Estado:** dirección aceptada el 2026-09-10. Entregado el 2026-09-11 lo que la enmienda de
+  ADR-0031 gobierna: la tasa por método que publica el nodo y la sugerencia editable de la
+  pantalla, con su marca «+IGTF». Queda la disposición —barra de cobro a lo ancho, captura por
+  fichas, barra lateral contraíble y D-003—.
 - **Origen:** exploración de tres direcciones sobre el sistema visual vigente.
 - **Fuentes de diseño:** [`design/`](../../design) — `Main.dc.html` es la dirección elegida.
 - **Índice:** [Cronograma maestro](./README.md).

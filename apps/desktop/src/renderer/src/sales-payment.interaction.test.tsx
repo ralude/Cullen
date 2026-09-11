@@ -179,3 +179,107 @@ describe('cobro de la venta', () => {
     screen.unmount();
   });
 });
+
+/**
+ * La pantalla precarga lo que se cobra con un método gravado, sin que el cajero
+ * calcule el IGTF. La enmienda de ADR-0031 del 2026-09-11 lo permite con dos
+ * condiciones que estas pruebas fijan: la sugerencia es editable, y lo que el
+ * cajero escribe llega al nodo sin que la pantalla lo toque.
+ */
+describe('cobro con un método gravado', () => {
+  beforeEach(() => { window.localStorage.clear(); });
+
+  const selectCard = async (screen: Awaited<ReturnType<typeof openSale>>): Promise<void> => {
+    await click(screen.get('input[name="paymentMethod"][value="CARD"]'));
+    await settle();
+  };
+
+  it('marca el método que cobra IGTF', async () => {
+    const screen = await openSale(operationApi());
+
+    const chips = screen.all('.method-chips .chip');
+    expect(chips[0]?.textContent).not.toContain('IGTF');
+    expect(chips[1]?.textContent).toContain('+IGTF');
+    screen.unmount();
+  });
+
+  it('precarga el bruto que ya incluye el impuesto al elegir ese método', async () => {
+    const screen = await openSale(operationApi());
+
+    await selectCard(screen);
+
+    /** 100,00 de venta más el 3% que la tarjeta cobra dentro del importe. */
+    expect(screen.get<HTMLInputElement>('.amount-field input').value).toBe('103.00');
+    screen.unmount();
+  });
+
+  it('vuelve al saldo sin impuesto cuando el método no está gravado', async () => {
+    const screen = await openSale(operationApi());
+
+    await selectCard(screen);
+    await click(screen.get('input[name="paymentMethod"][value="CASH"]'));
+    await settle();
+
+    expect(screen.get<HTMLInputElement>('.amount-field input').value).toBe('100.00');
+    screen.unmount();
+  });
+
+  it('sugiere el mismo bruto con «Exacto»', async () => {
+    const screen = await openSale(operationApi());
+    await selectCard(screen);
+    await type(screen.get<HTMLInputElement>('.amount-field input'), '');
+
+    await click(screen.button('Exacto'));
+
+    expect(screen.get<HTMLInputElement>('.amount-field input').value).toBe('103.00');
+    screen.unmount();
+  });
+
+  it('envía sin alterar el importe que el cajero corrige a mano', async () => {
+    const api = operationApi();
+    const screen = await openSale(api);
+    await selectCard(screen);
+
+    /** El cajero baja la tarjeta a la mitad y cubre el resto en efectivo. */
+    await type(screen.get<HTMLInputElement>('.amount-field input'), '51.50');
+    await click(screen.button('Dividir en dos métodos'));
+    await click(screen.get('input[name="paymentMethod2"][value="CASH"]'));
+    const amounts = screen.all<HTMLInputElement>('.amount-field input');
+    await type(amounts[1]!, '50.00');
+    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
+
+    expect(api.registerSalePayments).toHaveBeenCalledWith(
+      'sale-001',
+      {
+        payments: [
+          { methodCode: 'CARD', currencyCode: 'USD', amountMinorUnits: 5150 },
+          { methodCode: 'CASH', currencyCode: 'USD', amountMinorUnits: 5000 }
+        ]
+      },
+      expect.any(String)
+    );
+    screen.unmount();
+  });
+
+  it('no sugiere un bruto en una moneda distinta a la de la venta', async () => {
+    const screen = await openSale(operationApi({
+      listPaymentMethods: vi.fn(async () => [
+        ...methods,
+        {
+          code: 'CARD_VES', name: 'Tarjeta VES', kind: 'CARD' as const, currencyCode: 'VES',
+          financialTransactionTaxBasisPoints: 300
+        }
+      ])
+    }));
+
+    await click(screen.get('input[name="paymentMethod"][value="CARD_VES"]'));
+    await settle();
+
+    /**
+     * Convertir exige una tasa explícita que la pantalla todavía no envía
+     * (D-001), así que no inventa un bruto en otra moneda.
+     */
+    expect(screen.get<HTMLInputElement>('.amount-field input').value).toBe('100.00');
+    screen.unmount();
+  });
+});

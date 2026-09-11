@@ -3,8 +3,8 @@ import type {
   CashRegisterResponse, PaymentMethodResponse, ProductResponse, SaleResponse, ShiftResponse
 } from '@supermarket/shared';
 import {
-  applySaleDiscountContract, isPermissionGranted, issueSaleInvoiceContract, returnSaleContract,
-  voidSaleContract,
+  applySaleDiscountContract, isPermissionGranted, issueSaleInvoiceContract, Money, returnSaleContract,
+  TaxRate, voidSaleContract,
   type SaleReturnResponse, type SimulatedFiscalDocumentResponse
 } from '@supermarket/shared';
 import { ApiProblemError, createIdempotencyKey, formatScaledDecimal, parseMinorUnits } from '../api-client.js';
@@ -28,6 +28,30 @@ export const saleCompletionBlocker = (sale: SaleResponse | null, scale: number):
     return 'El pago supera el total en ' + money(-sale.balanceMinorUnits, sale.currencyCode, scale) + '.';
   }
   return null;
+};
+
+/**
+ * Importe que la pantalla precarga para cobrar con un método: el saldo
+ * pendiente, o el bruto que ya incluye el IGTF cuando ese método lo cobra.
+ *
+ * Es una **sugerencia no autoritativa** y editable: el nodo recalcula el
+ * impuesto del lote y rechaza lo que no cuadre. No reimplementa la fórmula sino
+ * que usa la misma primitiva compartida que el nodo aplica al revés. Ver la
+ * enmienda de ADR-0031 del 2026-09-11.
+ *
+ * Un método que liquida en otra moneda no recibe sugerencia: convertir exige
+ * una tasa explícita que esta pantalla todavía no envía (D-001).
+ */
+export const suggestedPaymentAmount = (
+  outstandingMinorUnits: number,
+  saleCurrencyCode: string,
+  method: PaymentMethodResponse | undefined
+): number => {
+  if (outstandingMinorUnits <= 0 || method === undefined) return outstandingMinorUnits;
+  if (method.financialTransactionTaxBasisPoints <= 0) return outstandingMinorUnits;
+  if (method.currencyCode !== saleCurrencyCode) return outstandingMinorUnits;
+  return TaxRate.fromBasisPoints(method.financialTransactionTaxBasisPoints)
+    .includeIn(Money.fromMinorUnits(outstandingMinorUnits, saleCurrencyCode)).minorUnits;
 };
 
 /**
@@ -149,13 +173,19 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
     } finally { setCatalogLoading(false); }
   }, [api]);
   useEffect(() => { void loadCatalog(''); }, [loadCatalog]);
-  const paymentCurrency = paymentMethods.find((method) => method.code === paymentMethodCode)?.currencyCode ?? '';
+  const paymentMethod = paymentMethods.find((method) => method.code === paymentMethodCode);
+  const paymentCurrency = paymentMethod?.currencyCode ?? '';
   const paymentCurrency2 = paymentMethods.find((method) => method.code === paymentMethodCode2)?.currencyCode ?? '';
   const outstanding = sale?.status === 'DRAFT' ? sale.balanceMinorUnits : 0;
-  /** Precarga el saldo pendiente como importe sugerido cada vez que el nodo lo recalcula. */
+  const suggestedAmount = suggestedPaymentAmount(outstanding, sale?.currencyCode ?? '', paymentMethod);
+  /**
+   * Precarga el importe sugerido cada vez que el nodo recalcula el saldo o el
+   * cajero cambia de método. Lo que él escriba después se conserva: escribir no
+   * mueve ninguna de estas dependencias.
+   */
   useEffect(() => {
-    if (outstanding > 0) setPaymentAmount(formatScaledDecimal(outstanding, scale));
-  }, [outstanding, scale]);
+    if (suggestedAmount > 0) setPaymentAmount(formatScaledDecimal(suggestedAmount, scale));
+  }, [suggestedAmount, scale]);
   const intentKey = (intent: string): string => {
     const storageKey = 'supermarket.sale-intent.' + intent;
     const saved = readStorage(storageKey);
@@ -525,7 +555,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
                     <label key={method.code} className={method.code === paymentMethodCode ? 'chip is-selected' : 'chip'}>
                       <input type="radio" name="paymentMethod" value={method.code} checked={method.code === paymentMethodCode} onChange={() => setPaymentMethodCode(method.code)} />
                       <span>{method.name}</span>
-                      <small>{method.currencyCode}</small>
+                      <small>{method.currencyCode}{method.financialTransactionTaxBasisPoints > 0 ? ' · +IGTF' : ''}</small>
                     </label>
                   ))}
                 </fieldset>
@@ -534,7 +564,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
                     Importe {paymentCurrency ? '(' + paymentCurrency + ')' : ''}
                     <input inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} placeholder="0,00" required />
                   </label>
-                  <button type="button" onClick={() => setPaymentAmount(formatScaledDecimal(outstanding, scale))} disabled={outstanding <= 0}>
+                  <button type="button" onClick={() => setPaymentAmount(formatScaledDecimal(suggestedAmount, scale))} disabled={outstanding <= 0}>
                     Exacto
                   </button>
                 </div>
@@ -547,7 +577,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
                         <label key={method.code} className={method.code === paymentMethodCode2 ? 'chip is-selected' : 'chip'}>
                           <input type="radio" name="paymentMethod2" value={method.code} checked={method.code === paymentMethodCode2} onChange={() => setPaymentMethodCode2(method.code)} />
                           <span>{method.name}</span>
-                          <small>{method.currencyCode}</small>
+                          <small>{method.currencyCode}{method.financialTransactionTaxBasisPoints > 0 ? ' · +IGTF' : ''}</small>
                         </label>
                       ))}
                     </fieldset>
@@ -562,7 +592,8 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
                     </div>
                   </>}
                 <p className="payment-note">
-                  Un importe gravado ya incluye IGTF; los demás métodos cubren el saldo restante.
+                  Un método marcado «+IGTF» cobra el impuesto dentro del importe: la pantalla lo
+                  precarga y puedes corregirlo. Los demás métodos cubren el saldo restante.
                 </p>
               </form>
             </section>
