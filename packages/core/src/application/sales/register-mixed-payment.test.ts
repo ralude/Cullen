@@ -229,3 +229,119 @@ describe('RegisterMixedPayment con IGTF sobre parte de la venta', () => {
       .toBe('SALE_PAYMENT_TOTAL_MISMATCH');
   });
 });
+
+/**
+ * Paridad entre lo que la pantalla sugiere y lo que el nodo acepta. La
+ * enmienda de ADR-0031 del 2026-09-11 permite al renderer precargar el bruto
+ * de un método gravado, con dos condiciones: que use la misma primitiva
+ * compartida que el nodo —`TaxRate.includeIn`, inversa de `extractFrom`— y que
+ * redondee una sola vez, sobre la base gravada agregada. Estas pruebas fijan
+ * ambas: si alguna dirección cambia, rompen aquí y no en la caja.
+ */
+describe('Sugerencia de la pantalla frente al cálculo del nodo', () => {
+  const igtf = TaxRate.fromBasisPoints(300);
+
+  /** Lo que la pantalla precargará para una porción comercial dada. */
+  const suggestedGross = (commercialBase: number): number =>
+    igtf.includeIn(Money.fromMinorUnits(commercialBase, 'USD')).minorUnits;
+
+  class SaleOf implements SaleRepository {
+    stored: Sale;
+
+    constructor(priceMinorUnits: number) {
+      this.stored = Sale.start({
+        id: 'sale-001', shiftId: 'shift-001', currencyCode: 'USD', terminalId: 'terminal-001',
+        originNodeId: 'node-001', startedBy: 'user-001',
+        startedAt: new Date('2026-08-15T10:00:00.000Z'), eventId: 'event-001'
+      });
+      this.stored.addItem({
+        id: 'item-001',
+        snapshot: ProductSnapshot.create({
+          productId: 'product-001', description: 'Coffee',
+          price: Money.fromMinorUnits(priceMinorUnits, 'USD'),
+          taxRate: TaxRate.fromBasisPoints(0), unitCode: 'UNIT', unitScale: 0
+        }), quantity: Quantity.fromScaled(1, 0),
+        occurredAt: new Date('2026-08-15T10:00:30.000Z'), eventId: 'event-002'
+      });
+    }
+
+    async save(sale: Sale): Promise<void> { this.stored = sale; }
+    async findById(): Promise<Sale | null> { return this.stored; }
+  }
+
+  const taxedMethods: Record<string, PaymentMethod> = {
+    CASH: PaymentMethod.create({ code: 'CASH', name: 'Efectivo', kind: 'CASH', currencyCode: 'USD' }),
+    CARD: PaymentMethod.create({ code: 'CARD', name: 'Tarjeta', kind: 'CARD', currencyCode: 'USD' }),
+    MOBILE: PaymentMethod.create({ code: 'MOBILE', name: 'Pago móvil', kind: 'MOBILE_PAYMENT', currencyCode: 'USD' })
+  };
+
+  const useCaseOver = (repository: SaleOf): RegisterMixedPayment => new RegisterMixedPayment(
+    repository,
+    { findByCode: async (code: string) => taxedMethods[code] ?? null, findAll: async () => [] },
+    { findById: async () => null, findCurrentByPair: async () => null, save: async () => 1 },
+    { getPolicy: async () => ({
+      id: 'igtf-001', rate: igtf,
+      eligiblePaymentMethodCodes: ['CARD', 'MOBILE'], eligibleCurrencies: ['USD']
+    }) },
+    { generate: () => 'payment-001' },
+    { generate: () => 'event-003' },
+    { now: () => new Date('2026-08-15T10:01:00.000Z') }
+  );
+
+  it('accepts the gross the screen suggests for the only taxed method of the batch', async () => {
+    const repository = new SaleOf(10000);
+
+    const result = await useCaseOver(repository).execute({
+      saleId: 'sale-001',
+      payments: [
+        { methodCode: 'CASH', amountMinorUnits: 5000, currencyCode: 'USD' },
+        { methodCode: 'CARD', amountMinorUnits: suggestedGross(5000), currencyCode: 'USD' }
+      ]
+    }, context);
+
+    expect(result.ok).toBe(true);
+    /** El impuesto del nodo es exactamente el que la sugerencia incluyó. */
+    expect(repository.stored.financialTransactionTax.minorUnits)
+      .toBe(suggestedGross(5000) - 5000);
+    expect(repository.stored.balance.minorUnits).toBe(0);
+  });
+
+  /**
+   * 1,00 cobrado en dos mitades gravadas es el caso donde el redondeo se nota:
+   * el 3% de 0,50 es 0,015 y sube a 0,02 en cada mitad.
+   */
+  it('balances a batch with two taxed methods when the rounding happens once over the aggregate base', async () => {
+    const repository = new SaleOf(100);
+
+    const result = await useCaseOver(repository).execute({
+      saleId: 'sale-001',
+      payments: [
+        { methodCode: 'CARD', amountMinorUnits: 52, currencyCode: 'USD' },
+        { methodCode: 'MOBILE', amountMinorUnits: suggestedGross(100) - 52, currencyCode: 'USD' }
+      ]
+    }, context);
+
+    expect(result.ok).toBe(true);
+    expect(suggestedGross(100)).toBe(103);
+    expect(repository.stored.financialTransactionTax.minorUnits).toBe(3);
+    expect(repository.stored.total.minorUnits).toBe(103);
+  });
+
+  it('rejects the same batch when each taxed payment rounds its own tax', async () => {
+    const repository = new SaleOf(100);
+
+    const result = await useCaseOver(repository).execute({
+      saleId: 'sale-001',
+      payments: [
+        { methodCode: 'CARD', amountMinorUnits: suggestedGross(50), currencyCode: 'USD' },
+        { methodCode: 'MOBILE', amountMinorUnits: suggestedGross(50), currencyCode: 'USD' }
+      ]
+    }, context);
+
+    /** 0,52 + 0,52 entrega una unidad menor de más sobre el 1,03 que se debe. */
+    expect(suggestedGross(50) * 2).toBe(104);
+    expect(result.ok).toBe(false);
+    expect(result.ok ? null : (result.error as { code: string }).code)
+      .toBe('SALE_PAYMENT_TOTAL_MISMATCH');
+  });
+});

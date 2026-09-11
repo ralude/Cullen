@@ -44,4 +44,18 @@ export class TaxRate {
   extractFrom(money: Money): Money {
     return money.extractIncludedPercentage(this.percentage);
   }
+
+  /**
+   * Devuelve el bruto que contiene el impuesto sobre `money`: la operacion
+   * inversa de `extractFrom` para cuando el dato conocido es la porcion
+   * comercial. La pantalla la usa para precargar lo que se cobra con un metodo
+   * gravado, sin reimplementar la formula del nodo; ver la enmienda de
+   * ADR-0031 del 2026-09-11.
+   *
+   * El redondeo ocurre una sola vez, sobre la base agregada, de modo que
+   * `extractFrom` sobre el bruto devuelto reconstruye esa misma base.
+   */
+  includeIn(money: Money): Money {
+    return money.add(this.applyTo(money));
+  }
 }

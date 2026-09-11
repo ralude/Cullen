@@ -71,9 +71,13 @@ redirección al cerrarse. Sus tres decisiones de alcance —una captura por pant
 la guía anterior y ejecución posterior al release— quedaron fijadas el 2026-09-09 en su README.
 
 El [rediseño de la pantalla de venta](./rediseno-pantalla-de-venta.md), cuya dirección se
-aceptó el 2026-09-10, también espera al release: baja el cobro a una barra de ancho completo,
-captura un pago a la vez y publica la tasa de IGTF por método. Trae una enmienda pendiente de
-ADR-0031 y no toca el agregado `Sale`.
+aceptó el 2026-09-10, baja el cobro a una barra de ancho completo, captura un pago a la vez y
+publica la tasa de IGTF por método. Su requisito previo ya está entregado: la
+[enmienda del 2026-09-11 a ADR-0031](../architecture/adr/0031-base-del-igtf-en-pagos-mixtos.md#enmienda-2026-09-11-la-pantalla-puede-sugerir-el-importe-gravado)
+autoriza a la pantalla a precargar el importe gravado como sugerencia no autoritativa, con la
+primitiva compartida `TaxRate.includeIn` en lugar de una segunda fórmula, y fija el redondeo
+único sobre la base gravada agregada. El resto del rediseño sigue pendiente y no toca el
+agregado `Sale`.
 
 El release de portafolio no habilita una tienda: el
 [gate de piloto](./gate-piloto-release.md) conserva sus requisitos de hardware, fabricante,

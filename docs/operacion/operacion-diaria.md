@@ -53,7 +53,11 @@ La pantalla de Venta toma el turno abierto de la caja de la estación y lo muest
 6. **Completar venta**.
 
 Todos los totales, impuestos y el IGTF los calcula el nodo. La pantalla nunca hace aritmética de
-negocio, y el botón de completar explica siempre por qué está deshabilitado: falta una línea,
+negocio: no determina totales, impuestos ni la validez de un lote. Precargar un importe que el
+cajero puede corregir —hoy el saldo pendiente— es sugerir, no decidir, y el nodo recalcula y
+rechaza lo que no cuadre; así lo precisa la
+[enmienda del 2026-09-11 de ADR-0031](../architecture/adr/0031-base-del-igtf-en-pagos-mixtos.md#enmienda-2026-09-11-la-pantalla-puede-sugerir-el-importe-gravado).
+El botón de completar explica siempre por qué está deshabilitado: falta una línea,
 falta cobrar o el pago supera el total.
 
 Al completar, en la misma transacción, el cobro se asienta en el turno y **la existencia

@@ -90,3 +90,56 @@ describe('TaxRate.extractFrom', () => {
     expect(TaxRate.fromBasisPoints(300).extractFrom(Money.zero('USD')).minorUnits).toBe(0);
   });
 });
+
+/**
+ * Inversa de `extractFrom`, para el caso en que el dato conocido es la porción
+ * comercial y falta el bruto que la pantalla precarga. Ver la enmienda de
+ * ADR-0031 del 2026-09-11: sugerir el bruto no convierte al renderer en
+ * autoridad, pero tampoco puede reimplementar la fórmula del nodo.
+ */
+describe('TaxRate.includeIn', () => {
+  it('includes the tax in a commercial portion', () => {
+    const igtf = TaxRate.fromBasisPoints(300);
+
+    const gross = igtf.includeIn(Money.fromMinorUnits(5000, 'USD'));
+
+    expect(gross.minorUnits).toBe(5150);
+    expect(gross.currency).toBe('USD');
+  });
+
+  it('produces a gross amount that extractFrom resolves back to the same base', () => {
+    const igtf = TaxRate.fromBasisPoints(300);
+
+    for (let base = 0; base <= 2000; base += 1) {
+      const commercial = Money.fromMinorUnits(base, 'USD');
+      const gross = igtf.includeIn(commercial);
+      const tax = igtf.extractFrom(gross);
+
+      expect(gross.subtract(tax).minorUnits).toBe(base);
+      expect(tax.minorUnits).toBe(igtf.applyTo(commercial).minorUnits);
+    }
+  });
+
+  it('holds the round trip for rates other than the IGTF', () => {
+    for (const basisPoints of [0, 1, 250, 300, 1600, 9999]) {
+      const rate = TaxRate.fromBasisPoints(basisPoints);
+
+      for (const base of [0, 1, 7, 50, 333, 12345]) {
+        const commercial = Money.fromMinorUnits(base, 'VES');
+        const gross = rate.includeIn(commercial);
+
+        expect(gross.subtract(rate.extractFrom(gross)).minorUnits).toBe(base);
+      }
+    }
+  });
+
+  it('changes nothing when the method is not taxed', () => {
+    const gross = TaxRate.fromBasisPoints(0).includeIn(Money.fromMinorUnits(5000, 'USD'));
+
+    expect(gross.minorUnits).toBe(5000);
+  });
+
+  it('returns zero over a zero base', () => {
+    expect(TaxRate.fromBasisPoints(300).includeIn(Money.zero('USD')).minorUnits).toBe(0);
+  });
+});

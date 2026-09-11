@@ -1,6 +1,6 @@
 # ADR-0031: Base del IGTF en pagos mixtos
 
-- Estado: **Aceptado**
+- Estado: **Aceptado**; **enmendado el 2026-09-11** (ver [Enmienda](#enmienda-2026-09-11-la-pantalla-puede-sugerir-el-importe-gravado)).
 - Fecha: 2026-09-09
 - Reemplaza el cálculo implícito que `RegisterMixedPayment` traía desde la sub-fase 2.04.
 
@@ -81,3 +81,81 @@ cliente.
       resultado anterior.
 - [x] Un lote que no cubre la venta más su impuesto, o que entrega de más, se rechaza con
       `SALE_PAYMENT_TOTAL_MISMATCH`.
+
+## Enmienda 2026-09-11: la pantalla puede sugerir el importe gravado
+
+- Estado: **Aceptada**
+- Origen: [rediseño de la pantalla de venta](../../cronograma/rediseno-pantalla-de-venta.md),
+  cuya dirección se aceptó el 2026-09-10 y declara esta enmienda como requisito previo.
+
+### Contexto
+
+La decisión de 2026-09-09 dejó la regla del cajero derivable en un paso, pero no dijo quién la
+ejecuta. El rediseño publica la tasa por método y precarga el importe con el impuesto incluido:
+eso es producir un importe que hasta ahora solo el nodo sabía construir, mientras
+[`operacion-diaria.md`](../../operacion/operacion-diaria.md) declara que «la pantalla nunca hace
+aritmética de negocio». Sin una decisión explícita quedarían dos salidas malas: contradecir esa
+regla en silencio, o copiar la fórmula del nodo en el renderer y dejar que las dos se separen.
+
+### Decisión
+
+1. **La pantalla puede precargar una sugerencia no autoritativa.** Al capturar un pago con un
+   método gravado, propone el bruto que ya incluye el impuesto. La sugerencia es siempre
+   editable, no decide si el lote es válido y no habilita ni bloquea el cobro.
+2. **No es una segunda implementación.** El renderer ya depende de `@supermarket/shared`, donde
+   vive la aritmética de dinero. La sugerencia usa `TaxRate.includeIn(base)`, inversa exacta de
+   `extractFrom`, y no reimplementa la fórmula: las dos direcciones son la misma primitiva y no
+   pueden separarse. El renderer sigue sin importar `@supermarket/core`, drivers ni Node.
+3. **La tasa la publica el nodo por método.** `PaymentMethodResponse` gana
+   `financialTransactionTaxBasisPoints`, que vale la tasa de la política cuando el código del
+   método está en `eligiblePaymentMethodCodes` **y** su moneda en `eligibleCurrencies`, y `0` en
+   cualquier otro caso. La pantalla no lee la política ni sus listas: recibe un número por método
+   y lo usa. Ese campo llega con el rediseño, no con esta enmienda.
+4. **La sugerencia se calcula sobre la base gravada agregada, no pago por pago.** El nodo extrae
+   el impuesto de la **suma** de lo entregado con métodos elegibles, de modo que en todo el cobro
+   ocurre un solo redondeo. Redondear cada pago por separado puede exceder el total en una unidad
+   menor: una venta de 1,00 cobrada 0,50 y 0,50 con dos métodos gravados al 3% da 0,52 + 0,52 =
+   1,04 por pago —rechazado— y 1,03 en agregado —aceptado—. Con un único método gravado en el
+   lote, que es el caso corriente, ambas formas coinciden.
+5. **El nodo sigue siendo la única autoridad.** Recalcula el impuesto con `extractFrom` sobre el
+   lote recibido y rechaza con `SALE_PAYMENT_TOTAL_MISMATCH` lo que no cuadre. Una sugerencia
+   equivocada produce un rechazo visible; nunca un importe aceptado en silencio.
+6. **Se precisa la regla de `operacion-diaria.md`**, que no cambia de fondo: la pantalla no
+   determina totales, impuestos ni validez. Precargar un importe que el cajero puede corregir y
+   el nodo verifica es sugerir, no decidir, y es lo que la pantalla ya hacía con el saldo
+   pendiente.
+
+### Alternativas descartadas
+
+- **Cobrar el importe neto y dejar que el nodo agregue el impuesto.** Cambiaría el significado
+  del lote que `Sale.registerPayments` recibe y la decisión de 2026-09-09 que lo fija.
+- **Pedir al nodo el bruto de cada método antes de capturar.** Es la consulta previa que la
+  decisión original ya había dejado disponible; sigue costando un contrato nuevo y un viaje por
+  pago, ahora en el gesto más repetido del día. Queda disponible si la interacción lo pide.
+- **Duplicar la fórmula en el renderer con una prueba que compare ambas.** Una prueba detecta la
+  divergencia después de escribirla; compartir la primitiva la hace imposible.
+
+### Consecuencias
+
+- La captura de un pago a la vez del rediseño se vuelve realizable sin que el cajero calcule nada.
+- `TaxRate` gana una operación pública que el nodo no necesitaba: la usa el renderer, y el nodo la
+  conserva como inversa documentada de `extractFrom`.
+- El caso de dos métodos gravados en un mismo lote queda declarado, con su regla y su prueba, en
+  lugar de aparecer como un rechazo inexplicable en caja.
+- Esta enmienda no toca el agregado `Sale`, el contrato de pagos ni la fiscalidad simulada, que
+  sigue siendo `SIMULACION` dentro de [ADR-0021](./0021-mvp-referencia-no-certificado.md).
+
+### Criterios de aceptación
+
+- [x] CA-E1: `TaxRate.includeIn` devuelve la base más su impuesto, y `extractFrom` lo revierte
+      exactamente para todo importe: el impuesto extraído del bruto sugerido es el mismo que se
+      incluyó, y el bruto menos ese impuesto reconstruye la base.
+- [x] CA-E2: un lote construido con la sugerencia agregada lo acepta `RegisterMixedPayment`, y el
+      impuesto que el nodo calcula coincide con el que la sugerencia incluyó.
+- [x] CA-E3: un lote con dos pagos gravados redondeados por separado se rechaza con
+      `SALE_PAYMENT_TOTAL_MISMATCH`; la prueba fija la razón de la regla agregada.
+- [ ] CA-E4: `PaymentMethodResponse` publica `financialTransactionTaxBasisPoints` derivado de la
+      política, y la pantalla no lee las listas de elegibilidad. **Pendiente: pertenece a la
+      ejecución del rediseño.**
+- [ ] CA-E5: la sugerencia de la pantalla es editable y un importe corregido a mano llega al nodo
+      sin alterar. **Pendiente: pertenece a la ejecución del rediseño.**

@@ -1,6 +1,7 @@
 # Rediseño de la pantalla de venta
 
-- **Estado:** dirección aceptada el 2026-09-10; ejecución **posterior** a `v0.1.0`.
+- **Estado:** dirección aceptada el 2026-09-10; su enmienda de ADR-0031 se aceptó y probó el
+  2026-09-11 y el resto de la ejecución sigue pendiente.
 - **Origen:** exploración de tres direcciones sobre el sistema visual vigente.
 - **Fuentes de diseño:** [`design/`](../../design) — `Main.dc.html` es la dirección elegida.
 - **Índice:** [Cronograma maestro](./README.md).
@@ -48,24 +49,31 @@ venta consume, así que no hace falta endpoint ni permiso nuevo, y el dato llega
 interfaz lo necesita: la marca «+IGTF» es un campo del método, no una política que la
 pantalla deba interpretar.
 
-## Decisión pendiente de ADR
+## Decisión de ADR: resuelta el 2026-09-11
 
 Con esa tasa la pantalla **etiqueta y sugiere**: muestra la marca y precarga el importe con
-el impuesto incluido. Sugerir implica reimplementar la fórmula de
-[ADR-0031](../architecture/adr/0031-base-del-igtf-en-pagos-mixtos.md) en un segundo lugar, y
-[`operacion-diaria.md`](../operacion/operacion-diaria.md) declara que la pantalla nunca hace
-aritmética de negocio.
+el impuesto incluido. Sugerir parecía obligar a reimplementar la fórmula de
+[ADR-0031](../architecture/adr/0031-base-del-igtf-en-pagos-mixtos.md) en un segundo lugar,
+contra [`operacion-diaria.md`](../operacion/operacion-diaria.md), que declara que la pantalla
+nunca hace aritmética de negocio.
 
-Antes de escribir esa parte, ADR-0031 se enmienda para declarar que el renderer puede
-producir una sugerencia **no autoritativa** a partir de la tasa publicada, y que el nodo
-sigue siendo la única autoridad: recalcula y rechaza un lote que no cuadre. La enmienda
-llega con una prueba que compara la sugerencia de la pantalla contra el cálculo del nodo,
-para que las dos implementaciones no se separen en silencio.
+La [enmienda del 2026-09-11](../architecture/adr/0031-base-del-igtf-en-pagos-mixtos.md#enmienda-2026-09-11-la-pantalla-puede-sugerir-el-importe-gravado)
+lo resolvió sin esa duplicación: el renderer ya depende de `@supermarket/shared`, así que la
+sugerencia usa `TaxRate.includeIn`, la inversa exacta de `extractFrom` que el nodo aplica. No
+hay dos implementaciones que puedan separarse, sino una primitiva compartida. El nodo sigue
+siendo la única autoridad: recalcula y rechaza con `SALE_PAYMENT_TOTAL_MISMATCH` el lote que no
+cuadre.
+
+La enmienda también fijó una regla que la exploración no había visto: **la sugerencia se calcula
+sobre la base gravada agregada, no pago por pago**, porque el nodo extrae el impuesto de la suma
+de lo entregado con métodos elegibles y debe ocurrir un solo redondeo. Con dos métodos gravados
+en el mismo lote, redondear cada uno por su cuenta excede el total en una unidad menor. Las tres
+pruebas que acompañan la enmienda fijan el caso aceptado y el rechazado.
 
 ## Alcance
 
-- **Entra:** barra de cobro, captura de un pago a la vez, tasa por método, enmienda de
-  ADR-0031 con su prueba, la barra lateral contraíble que devuelve los 236 px, y
+- **Entra:** barra de cobro, captura de un pago a la vez, tasa por método, la barra lateral
+  contraíble que devuelve los 236 px, y
   [D-003](./defectos-conocidos.md): acotar el `overflow: hidden` a la disposición de tres zonas
   para que la venta ya completada pueda desplazarse.
 - **No entra:** cambios en el agregado `Sale`, en el protocolo de sincronización ni en la
