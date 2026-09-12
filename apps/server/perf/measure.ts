@@ -44,7 +44,46 @@ type Summary = {
 };
 
 const PRODUCTS = 200;
+
+/**
+ * Profundidades de historia de inventario del perfil de crecimiento. No son
+ * cifras de una tienda concreta: son los tamaños que hacen visible el riesgo
+ * que la auditoría de Fase 11 dejó registrado sin benchmark —el repositorio
+ * carga todos los movimientos y `StockItem.restore` los reejecuta—, y que
+ * 12.03 exige recorrer «en escala habitual y de crecimiento».
+ */
+/**
+ * El sembrado guarda por tramos porque un solo `save` con ~9.000 movimientos
+ * nuevos desborda la pila: Drizzle arma un INSERT con una fila por movimiento y
+ * `mergeQueries` recurre por fila. El techo está entre 8.000 y 9.000, medido el
+ * 2026-09-11; queda registrado en el informe del perfil de crecimiento. Aquí se
+ * rodea porque lo que este arnés mide es la profundidad de la historia, no el
+ * tamaño del lote que la escribe.
+ */
+const SAVE_CHUNK = 1_000;
+
+const DEFAULT_HISTORY_DEPTHS = [100, 1_000, 10_000];
+
+/** `--depths 100,5000` reemplaza las profundidades por omisión. */
+const HISTORY_DEPTHS: readonly number[] = ((): readonly number[] => {
+  const at = process.argv.indexOf('--depths');
+  if (at < 0) return DEFAULT_HISTORY_DEPTHS;
+  const parsed = (process.argv[at + 1] ?? '').split(',')
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isSafeInteger(value) && value > 0);
+  return parsed.length > 0 ? parsed : DEFAULT_HISTORY_DEPTHS;
+})();
+
+const depthLabel = (depth: number): string =>
+  depth >= 1_000 && depth % 1_000 === 0 ? depth / 1_000 + 'k' : String(depth);
+
+const historyProductId = (depth: number): string => 'history-' + depthLabel(depth);
 const OPERATOR = { operatorCode: 'PERF01', displayName: 'Medición', pin: '123456' };
+
+const profile = (): 'habitual' | 'crecimiento' => {
+  const at = process.argv.indexOf('--profile');
+  return process.argv[at + 1] === 'crecimiento' ? 'crecimiento' : 'habitual';
+};
 
 const argument = (name: string, fallback: number): number => {
   const at = process.argv.indexOf('--' + name);
@@ -151,6 +190,48 @@ const seed = async (runtime: SecurityRuntime): Promise<void> => {
   });
 };
 
+/**
+ * Historia profunda de inventario para el perfil de crecimiento: un producto
+ * por profundidad, con sus movimientos construidos por el dominio —no
+ * insertados a mano— para que lo medido sea lo que el nodo realmente escribe y
+ * rehidrata. Se siembra una sola vez por corrida y fuera de toda medición.
+ */
+const seedHistory = async (runtime: SecurityRuntime): Promise<void> => {
+  const handle = runtime.handle;
+  const unit = UnitOfMeasure.create({ id: 'unit-001', code: 'UNIT', name: 'Unidad', quantityScale: 0 });
+  for (const depth of HISTORY_DEPTHS) {
+    const label = depthLabel(depth);
+    await new SqliteUnitOfWork(handle.sqlite).execute(async () => {
+      await new DrizzleProductRepository(handle).save(Product.create({
+        id: historyProductId(depth), name: 'Historia ' + label, description: 'Producto con historia',
+        categoryId: 'category-001', unitOfMeasure: unit,
+        barcodes: [Barcode.create({ id: 'barcode-history-' + label, value: '76900000' + label.padStart(4, '0') })],
+        price: Money.fromMinorUnits(1_500, 'USD'), taxRate: TaxRate.fromBasisPoints(1_600),
+        priceHistoryId: 'history-price-' + label, recordedBy: 'perf',
+        occurredAt: AT, eventId: 'event-history-' + label
+      }));
+      const item = StockItem.create({
+        id: 'stock-history-' + label, productId: historyProductId(depth), unitCode: 'UNIT',
+        quantityScale: 0, tracksBatches: false
+      });
+      const stock = new DrizzleStockItemRepository(handle);
+      for (let movement = 1; movement <= depth; movement += 1) {
+        item.registerMovement({
+          id: 'movement-' + label + '-' + movement, type: 'PURCHASE_RECEIPT',
+          quantity: Quantity.fromScaled(1, 0),
+          actorId: 'perf', reason: 'Historia de medición',
+          referenceId: 'reference-' + label + '-' + movement,
+          occurredAt: new Date(AT.getTime() + movement * 1_000),
+          eventId: 'event-movement-' + label + '-' + movement,
+          unitCost: Money.fromMinorUnits(800, 'USD')
+        });
+        if (movement % SAVE_CHUNK === 0) await stock.save(item);
+      }
+      await stock.save(item);
+    });
+  }
+};
+
 type Station = {
   readonly runtime: SecurityRuntime;
   readonly app: ReturnType<typeof buildApp>;
@@ -169,6 +250,7 @@ const station = async (databasePath: string): Promise<Station> => {
   });
   if (!provisioned.ok) throw new Error('No se pudo provisionar el administrador de medición.');
   await seed(runtime);
+  if (profile() === 'crecimiento') await seedHistory(runtime);
   const app = buildApp(runtime.dependencies, { logDestination: discard });
   const login = await app.inject({
     method: 'POST', url: '/api/v1/auth/session',
@@ -278,6 +360,50 @@ const scenarios: readonly Scenario[] = [
 ];
 
 /**
+ * Rehidratar el agregado y leer su kardex con historias de distinto tamaño.
+ * Es el riesgo que la auditoría de Fase 11 registró sin benchmark: el
+ * repositorio carga todos los movimientos y el agregado los reejecuta. Sólo
+ * existen en el perfil de crecimiento, que es el que siembra esa historia.
+ */
+const historyScenarios: readonly Scenario[] = HISTORY_DEPTHS.flatMap((depth) => {
+  const label = depthLabel(depth);
+  return [
+    {
+      id: 'stock-rehydrate-' + label,
+      run: async (place) => timed(async () => {
+        const item = await new DrizzleStockItemRepository(place.runtime.handle)
+          .findByProductId(historyProductId(depth));
+        if (item === null) throw new Error('Falta la historia de ' + label);
+      })
+    },
+    {
+      /**
+       * Traer las filas crudas del movimiento, sin agregado. Separa el costo
+       * de la consulta del de reejecutar la historia al rehidratar.
+       */
+      id: 'stock-rows-' + label,
+      run: async (place) => timed(async () => {
+        const rows = place.runtime.handle.sqlite.prepare(
+          'select * from stock_movements where stock_item_id = ? order by aggregate_version'
+        ).all('stock-history-' + label);
+        if (rows.length !== depth) throw new Error('Historia incompleta: ' + rows.length);
+      })
+    },
+    {
+      id: 'kardex-' + label,
+      run: async (place) => timed(async () => {
+        const response = await place.app.inject({
+          method: 'GET',
+          url: '/api/v1/inventory/products/' + historyProductId(depth) + '/kardex',
+          headers: { cookie: place.cookie }
+        });
+        expect200(response.statusCode, 'kardex ' + label);
+      })
+    }
+  ];
+});
+
+/**
  * Arranque frío del nodo: migrar una base vacía, componer el runtime y dejar la
  * aplicación lista. Se mide aparte porque cada repetición necesita su base.
  */
@@ -326,7 +452,8 @@ const main = async (): Promise<void> => {
     summaries.push(summarize('node-cold-start', measured));
   }
 
-  const inProcess = scenarios.filter((scenario) => selected(scenario.id));
+  const available = profile() === 'crecimiento' ? [...scenarios, ...historyScenarios] : scenarios;
+  const inProcess = available.filter((scenario) => selected(scenario.id));
   if (inProcess.length > 0) {
     for (const scenario of inProcess) {
       /** Base propia y recién migrada por escenario: ninguno hereda el estado del anterior. */
@@ -360,14 +487,16 @@ const main = async (): Promise<void> => {
     node: process.version,
     warmup,
     sample,
+    profile: profile(),
     products: PRODUCTS,
+    historyDepths: profile() === 'crecimiento' ? HISTORY_DEPTHS : [],
     measuredAt: new Date().toISOString()
   };
   writeFileSync(join(directory, 'observations.json'), JSON.stringify({ environment, observations }, null, 2));
   writeFileSync(join(directory, 'summary.json'), JSON.stringify({ environment, summaries }, null, 2));
 
   process.stdout.write('\nSerie ' + runId + ' sobre ' + environment.commit +
-    ' · warm-up ' + warmup + ' · muestra ' + sample + '\n\n');
+    ' · perfil ' + environment.profile + ' · warm-up ' + warmup + ' · muestra ' + sample + '\n\n');
   process.stdout.write('escenario            mediana      p90      mín      máx   IQR rel.\n');
   for (const summary of summaries) {
     process.stdout.write(

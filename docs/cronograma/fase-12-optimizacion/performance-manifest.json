@@ -98,10 +98,11 @@
       "pending": "Exige montar el renderer y recuperar la sesión: se instrumenta con el conductor de GUI."
     },
     {
-      "id": "kardex-and-reports",
-      "covers": "Escenario 5",
-      "instrumented": false,
-      "pending": "Exige el perfil de datos con historia de inventario en varios tamaños, que 12.01.02 todavía no construye."
+      "id": "stock-history",
+      "covers": "Escenario 5 (kardex)",
+      "instrumented": true,
+      "measures": "Rehidratar el StockItem, traer sus filas crudas y leer su kardex con historias de 100, 1.000 y 10.000 movimientos.",
+      "excludes": "Los reportes de ventas e inventario con filtros y paginación, que siguen sin instrumentar."
     },
     {
       "id": "lan-cycle",
@@ -111,9 +112,27 @@
     }
   ],
   "dataset": {
-    "id": "habitual-v1",
-    "seed": "Determinista y reconstruido por corrida: migraciones, un administrador, una caja, métodos de pago CASH_USD y CARD_USD, política de IGTF del 3% sobre CARD/USD, y un catálogo generado con identificadores y barcodes secuenciales.",
-    "products": 200,
-    "pendingProfile": "El perfil de crecimiento —catálogo, ventas, movimientos y eventos grandes— se fija en 12.01.02 antes de la serie BEFORE."
+    "profiles": {
+      "habitual": {
+        "id": "habitual-v1",
+        "seed": "Determinista y reconstruido por corrida: migraciones, un administrador, una caja, métodos CASH_USD y CARD_USD, política de IGTF del 3% sobre CARD/USD, y un catálogo de identificadores y barcodes secuenciales.",
+        "products": 200,
+        "inventoryHistoryPerItem": 1
+      },
+      "crecimiento": {
+        "id": "crecimiento-v1",
+        "extends": "habitual-v1",
+        "inventoryHistoryDepths": [
+          100,
+          1000,
+          10000
+        ],
+        "rationale": "Las profundidades no describen una tienda concreta: son los tamaños que hacen visible el riesgo que la auditoría de Fase 11 registró sin benchmark —el repositorio carga todos los movimientos y StockItem.restore los reejecuta— y que 12.03 exige recorrer en escala habitual y de crecimiento.",
+        "seedingNote": "La historia se construye por el dominio, no insertando filas a mano, y se guarda por tramos de 1.000 movimientos: un solo save con ~9.000 movimientos nuevos desborda la pila. Ver el hallazgo en perfil-de-crecimiento.md.",
+        "sample": 10,
+        "sampleNote": "Muestra 10 en vez de 30: con IQR del 0,9 % en los escenarios de 10k la mediana ya es estable, y 30 repeticiones costarían minutos sin cambiar la conclusión."
+      }
+    },
+    "command": "pnpm --filter @supermarket/server perf -- --profile crecimiento [--depths 100,1000,10000]"
   }
 }
