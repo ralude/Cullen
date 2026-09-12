@@ -27,7 +27,10 @@ import {
   DrizzleProductRepository, DrizzleStockItemRepository, DrizzleUnitOfMeasureRepository,
   SqliteOperationalPolicyWriter, SqliteUnitOfWork
 } from '@supermarket/driver-db';
-import { Money, Quantity, TaxRate, type SalesReportResponse } from '@supermarket/shared';
+import {
+  Money, Quantity, TaxRate,
+  type SalesReportResponse, type ShiftResponse, type SimulatedFiscalDocumentResponse
+} from '@supermarket/shared';
 import { buildApp } from '../src/app.ts';
 import { ADMIN_PERMISSIONS, createSecurityRuntime, type SecurityRuntime } from '../src/runtime.ts';
 
@@ -70,6 +73,9 @@ const SAVE_CHUNK = 1_000;
  * excelente que no mide nada.
  */
 const SEEDED_SALES = 300;
+
+/** Fondo de apertura del turno, en centavos de USD. */
+const OPENING_CASH = 50_000;
 
 const DEFAULT_HISTORY_DEPTHS = [100, 1_000, 10_000];
 
@@ -191,6 +197,10 @@ const seed = async (runtime: SecurityRuntime): Promise<void> => {
     await methods.save(PaymentMethod.create({
       code: 'CARD_USD', name: 'Tarjeta USD', kind: 'CARD', currencyCode: 'USD'
     }));
+    /** Segundo método no gravado: con él la jornada cobra un lote mixto y factura. */
+    await methods.save(PaymentMethod.create({
+      code: 'TRANSFER_USD', name: 'Transferencia USD', kind: 'BANK_TRANSFER', currencyCode: 'USD'
+    }));
     new SqliteOperationalPolicyWriter(handle).activateDiscountPolicy(
       { maximumBasisPoints: 1_500 },
       { policyId: 'policy-discount', createdBy: 'perf', reason: 'Medición', now: AT }
@@ -279,9 +289,12 @@ const seedHistory = async (runtime: SecurityRuntime): Promise<void> => {
 const productSuffix = (run: number): string =>
   String(((run % PRODUCTS) + PRODUCTS) % PRODUCTS + 1).padStart(4, '0');
 /**
- * Jornada principal: abrir venta, agregar línea, cobrar con un lote mixto y
- * completar. La usa el escenario y también la siembra del perfil de
- * crecimiento, para que la historia comercial se construya por el mismo
+ * Jornada principal: abrir venta, agregar línea, cobrar con un lote mixto,
+ * completar y emitir el documento fiscal simulado. La emisión es un comando
+ * propio de la venta ya completada —el nodo deriva su contenido de los
+ * snapshots que la venta congeló—, así que la medición no vuelve a declarar
+ * importes ni impuestos. La usa el escenario y también la siembra del perfil
+ * de crecimiento, para que la historia comercial se construya por el mismo
  * camino que se mide.
  */
 const journey = async (place: Station, run: number): Promise<number> => {
@@ -302,18 +315,23 @@ const journey = async (place: Station, run: number): Promise<number> => {
     });
     expect200(added.statusCode, 'agregar línea');
     const sale = added.json() as { readonly totalMinorUnits: number };
-    /** Cobro mixto: la mitad en efectivo y el resto con el método gravado. */
+    /**
+     * Cobro mixto de dos métodos no gravados: la mitad en efectivo y el resto
+     * por transferencia. La jornada medida **no** usa el método gravado con
+     * IGTF porque una venta que cobró IGTF no puede emitir su factura hoy
+     * —D-003 en [defectos conocidos](../../../docs/cronograma/defectos-conocidos.md)—,
+     * y una jornada sin documento no cubre el escenario 4. La política de IGTF
+     * sigue sembrada: el dataset conserva el caso, no lo borra.
+     */
     const cash = Number(BigInt(sale.totalMinorUnits) / 2n);
-    const commercial = sale.totalMinorUnits - cash;
-    const card = TaxRate.fromBasisPoints(300)
-      .includeIn(Money.fromMinorUnits(commercial, 'USD')).minorUnits;
+    const transfer = sale.totalMinorUnits - cash;
     const paid = await place.app.inject({
       method: 'POST', url: '/api/v1/sales/' + saleId + '/payments',
       headers: { cookie: place.cookie, 'idempotency-key': key('pay') },
       payload: {
         payments: [
           { methodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: cash },
-          { methodCode: 'CARD_USD', currencyCode: 'USD', amountMinorUnits: card }
+          { methodCode: 'TRANSFER_USD', currencyCode: 'USD', amountMinorUnits: transfer }
         ]
       }
     });
@@ -323,6 +341,20 @@ const journey = async (place: Station, run: number): Promise<number> => {
       headers: { cookie: place.cookie, 'idempotency-key': key('complete') }
     });
     expect200(completed.statusCode, 'completar venta');
+    const invoiced = await place.app.inject({
+      method: 'POST', url: '/api/v1/sales/' + saleId + '/fiscal-document',
+      headers: { cookie: place.cookie, 'idempotency-key': key('invoice') },
+      payload: { reason: 'Factura de la jornada de medición' }
+    });
+    expect200(invoiced.statusCode, 'emitir documento');
+    const issued = invoiced.json<SimulatedFiscalDocumentResponse>();
+    if (issued.fiscalMode !== 'SIMULATION' || issued.document.status !== 'ISSUED'
+      || issued.document.fiscalNumber === null) {
+      throw new Error('PERF_DATASET_MISMATCH: la jornada no dejó un documento emitido en simulación.');
+    }
+    place.charged.sales += 1;
+    place.charged.cashMinorUnits += cash;
+    place.charged.transferMinorUnits += transfer;
   });
 };
 
@@ -331,6 +363,12 @@ type Station = {
   readonly app: ReturnType<typeof buildApp>;
   readonly cookie: string;
   readonly shiftId: string;
+  /**
+   * Lo que la estación cobró, contado por el mismo camino que lo cobró:
+   * preparación y repeticiones suman aquí para que la verificación compare el
+   * turno contra lo ocurrido y no contra una cifra escrita a mano.
+   */
+  readonly charged: { sales: number; cashMinorUnits: number; transferMinorUnits: number };
   close(): Promise<void>;
 };
 
@@ -359,13 +397,16 @@ const station = async (databasePath: string): Promise<Station> => {
       headers: { cookie: session, 'idempotency-key': 'perf-shift' },
       payload: {
         cashRegisterId: 'register-001',
-        openingFunds: [{ paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 50_000 }]
+        openingFunds: [
+          { paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: OPENING_CASH }
+        ]
       }
     });
     if (opened.statusCode !== 201) throw new Error('Turno rechazado: ' + opened.statusCode);
     const place: Station = {
       runtime, app, cookie: session,
       shiftId: (opened.json() as { readonly id: string }).id,
+      charged: { sales: 0, cashMinorUnits: 0, transferMinorUnits: 0 },
       close: async (): Promise<void> => { await app.close(); runtime.handle.close(); }
     };
     if (profile() === 'crecimiento') {
@@ -383,6 +424,14 @@ type Scenario = {
   readonly id: string;
   /** Prepara lo que el escenario necesita y devuelve la medición de una repetición. */
   readonly run: (station: Station, run: number) => Promise<number>;
+  /**
+   * Comprobación posterior a la serie y fuera de toda medición: aborta si el
+   * escenario no dejó los asientos que dice ejercitar, y devuelve el recuento
+   * que se publica como evidencia junto al resumen. Una latencia excelente de
+   * una operación que no asentó nada no es una medición. Recibe las
+   * repeticiones corridas, warm-up incluido, porque también ellas asientan.
+   */
+  readonly verify?: (station: Station, runs: number) => Promise<Record<string, number>>;
 };
 
 const timed = async (action: () => Promise<void>): Promise<number> => {
@@ -407,6 +456,21 @@ const expectRows = (body: string, expected: number, what: string): void => {
 };
 
 const productCount = (): number => PRODUCTS + (profile() === 'crecimiento' ? HISTORY_DEPTHS.length : 0);
+
+/** Recuento sobre la base de la estación, usado solo por las verificaciones. */
+const count = (place: Station, sql: string, ...parameters: readonly string[]): number =>
+  Number(place.runtime.handle.sqlite.prepare(sql).pluck().get(...parameters) ?? 0);
+
+/**
+ * Saldo esperado del turno para un método. La estación lo compara contra lo
+ * que cobró; publicar el importe no aportaría evidencia y sí filtraría cifras
+ * comerciales a un artefacto versionado.
+ */
+const shiftBalance = (
+  balances: ShiftResponse['expectedBalances'], methodCode: string
+): number | undefined => balances
+  .find((balance) => balance.paymentMethodCode === methodCode && balance.currencyCode === 'USD')
+  ?.minorUnits;
 
 const scenarios: readonly Scenario[] = [
   {
@@ -467,7 +531,86 @@ const scenarios: readonly Scenario[] = [
   },
   {
     id: 'sale-journey',
-    run: async (place, run) => journey(place, run)
+    run: async (place, run) => journey(place, run),
+    /**
+     * La jornada sólo está completa si el cobro quedó asentado en el turno, el
+     * inventario salió y el documento quedó emitido. Se comprueba una vez, al
+     * final de la serie, para no cobrarle a la latencia tres lecturas que la
+     * operación real no hace.
+     */
+    verify: async (place) => {
+      const response = await place.app.inject({
+        method: 'GET', url: '/api/v1/cash/shifts/' + place.shiftId,
+        headers: { cookie: place.cookie }
+      });
+      expect200(response.statusCode, 'consultar turno');
+      const shift = response.json<ShiftResponse>();
+      const expected: readonly [string, number][] = [
+        ['CASH_USD', OPENING_CASH + place.charged.cashMinorUnits],
+        ['TRANSFER_USD', place.charged.transferMinorUnits]
+      ];
+      for (const [methodCode, minorUnits] of expected) {
+        if (shiftBalance(shift.expectedBalances, methodCode) !== minorUnits) {
+          throw new Error('PERF_DATASET_MISMATCH: el turno no asentó lo que la jornada cobró.');
+        }
+      }
+      const shiftPostings = shift.movements.filter(({ type }) => type === 'SALE_PAYMENT').length;
+      const stockIssues = count(
+        place, 'select count(*) from stock_movements where type = ?', 'SALE_ISSUE'
+      );
+      const issuedDocuments = count(
+        place,
+        'select count(*) from fiscal_documents where document_type = ? and status = ?',
+        'INVOICE', 'ISSUED'
+      );
+      if (shiftPostings !== place.charged.sales * 2 || stockIssues !== place.charged.sales
+        || issuedDocuments !== place.charged.sales) {
+        throw new Error('PERF_DATASET_MISMATCH: la jornada no dejó los asientos de sus ventas.');
+      }
+      return { sales: place.charged.sales, issuedDocuments, shiftPostings, stockIssues };
+    }
+  },
+  {
+    /**
+     * Apertura de caja. Una caja admite un solo turno abierto, así que cada
+     * repetición estrena la suya: la caja se crea antes de medir y lo medido es
+     * la apertura, no su preparación.
+     */
+    id: 'cash-shift-open',
+    run: async (place, run) => {
+      const suffix = String(run).padStart(4, '0');
+      const handle = place.runtime.handle;
+      await new SqliteUnitOfWork(handle.sqlite).execute(async () => {
+        await new DrizzleCashRegisterRepository(handle).save(CashRegister.create({
+          id: 'register-shift-' + suffix, name: 'Caja de medición ' + suffix,
+          terminalId: 'terminal-001', originNodeId: 'node-001'
+        }));
+      });
+      return timed(async () => {
+        const opened = await place.app.inject({
+          method: 'POST', url: '/api/v1/cash/shifts',
+          headers: { cookie: place.cookie, 'idempotency-key': 'perf-shift-' + suffix },
+          payload: {
+            cashRegisterId: 'register-shift-' + suffix,
+            openingFunds: [
+              { paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: OPENING_CASH }
+            ]
+          }
+        });
+        expect200(opened.statusCode, 'abrir turno');
+        if (opened.json<ShiftResponse>().status !== 'OPEN') {
+          throw new Error('PERF_DATASET_MISMATCH: la apertura no dejó el turno abierto.');
+        }
+      });
+    },
+    /** Cada repetición dejó su turno abierto; el restante es el de la estación. */
+    verify: async (place, runs) => {
+      const openShifts = count(place, 'select count(*) from shifts where status = ?', 'OPEN');
+      if (openShifts !== runs + 1) {
+        throw new Error('PERF_DATASET_MISMATCH: faltan turnos abiertos por las repeticiones.');
+      }
+      return { openShifts };
+    }
   }
 ];
 
@@ -572,6 +715,8 @@ const main = async (): Promise<void> => {
 
   const observations: Observation[] = [];
   const summaries: Summary[] = [];
+  /** Evidencia de lo que cada escenario dejó asentado, por escenario. */
+  const checks: Record<string, Record<string, number>> = {};
   const selected = (id: string): boolean => only.length === 0 || only.includes(id);
 
   if (selected('node-cold-start')) {
@@ -600,6 +745,7 @@ const main = async (): Promise<void> => {
           measured.push(ms);
           observations.push({ scenario: scenario.id, run: run - warmup, ms });
         }
+        if (scenario.verify) checks[scenario.id] = await scenario.verify(place, warmup + sample);
       } finally {
         await place?.close();
         rmSync(path, { force: true });
@@ -630,6 +776,7 @@ const main = async (): Promise<void> => {
     reportPeriod,
     inventoryAsOf,
     historyDepths: profile() === 'crecimiento' ? HISTORY_DEPTHS : [],
+    checks,
     measuredAt: new Date().toISOString()
   };
   const finalRevision = revision();

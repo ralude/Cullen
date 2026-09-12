@@ -51,6 +51,44 @@ renderer, y no se toma dentro de una ventana de publicación.
 **Mientras tanto:** con todas las monedas en escala 2 —lo que hoy siembra
 `bootstrap-operations`— el defecto no se manifiesta.
 
+## D-003 · Una venta que cobró IGTF no puede emitir su factura
+
+- **Estado:** abierto desde el 2026-09-12.
+- **Dueña:** decisión normativa pendiente —cómo representa el IGTF un documento fiscal—; ver
+  abajo. No la toma 12.01, que solo lo encontró al instrumentar la jornada.
+- **Severidad:** deja inalcanzable el cierre de la venta gravada —factura y, con ella,
+  devolución—; no produce importes incorrectos.
+
+`IssueSaleInvoice` deriva el contenido de la venta: las líneas salen de los snapshots congelados
+y `totalMinorUnits` de `sale.total`, que por [ADR-0031](../architecture/adr/0031-base-del-igtf-en-pagos-mixtos.md)
+es `commercialTotal + IGTF`. `FiscalDocument` exige que la suma de líneas, el total y la suma de
+pagos sean el mismo entero. Con IGTF mayor que cero la suma de líneas es la porción comercial y
+el total la incluye gravada: el invariante no puede cumplirse y la emisión aborta.
+
+La causa no es la traducción sino el contenido: `FiscalDocumentContent` no tiene dónde declarar
+el IGTF —ni campo propio ni línea—, así que el contrato genérico
+`POST /api/v1/fiscal/documents` está igual de bloqueado.
+
+**Reproducción:** activar la política de IGTF (3% sobre `CARD_USD`/`USD`), abrir una venta,
+agregar una línea, cobrarla mitad en efectivo y mitad con el método gravado —el importe con
+tarjeta incluye su IGTF, como fija ADR-0031—, completarla y emitir:
+
+```
+POST /api/v1/sales/:saleId/fiscal-document  →  400 FISCAL_TOTALS_INCONSISTENT
+```
+
+**Alcance real:** la pantalla de venta emite la factura al completar
+([`api-client.ts`](../../apps/desktop/src/renderer/src/api-client.ts), `issueSaleInvoice`), y
+`ReturnSale` exige el documento `('INVOICE', saleId)` en estado `ISSUED`, de modo que una venta
+gravada tampoco puede devolverse. Sin política de IGTF configurada el defecto no se manifiesta:
+`bootstrap-operations` solo la activa con `--igtf-basis-points` mayor que cero.
+
+**Por qué no se corrigió aquí:** decidir si el IGTF viaja como campo del documento, como línea o
+de otra forma cambia el contenido fiscal, el protocolo del dispositivo y la nota de crédito que
+se deriva de él. Es una decisión normativa con su ADR, no un ajuste del emisor, y 12.01 tiene
+fuera de alcance cambiar contratos. Mientras tanto la jornada medida cobra con dos métodos no
+gravados y lo declara: ver [12.01](./fase-12-optimizacion/12.01-profiler-baseline.md).
+
 ## Cómo se relacionan
 
 D-001 tapa a D-002. Corregir solo D-001 convertiría un camino bloqueado en uno que acepta

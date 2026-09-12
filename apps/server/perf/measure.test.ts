@@ -92,4 +92,32 @@ describe('comando público de medición de 12.01', () => {
       expect(raw).not.toContain(forbidden);
     }
   }, 60_000);
+
+  it('mide la jornada completa y publica los asientos que dejó', async () => {
+    const result = await run(['--scenario', 'sale-journey', '--warmup', '1', '--sample', '2']);
+    expect(result.succeeded, result.stderr).toBe(true);
+    const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+    /**
+     * Tres jornadas —una de warm-up y dos medidas—, cada una con su documento
+     * emitido, sus dos cobros asentados en el turno y su salida de inventario.
+     */
+    expect(report.environment.checks).toEqual({
+      'sale-journey': { sales: 3, issuedDocuments: 3, shiftPostings: 6, stockIssues: 3 }
+    });
+    expect(report.environment.fiscalMode).toBe('SIMULATION');
+    expect(report.summaries).toEqual([expect.objectContaining({
+      scenario: 'sale-journey', sample: 2
+    })]);
+  }, 60_000);
+
+  it('mide la apertura de caja sobre una caja propia por repetición', async () => {
+    const result = await run(['--scenario', 'cash-shift-open', '--warmup', '0', '--sample', '2']);
+    expect(result.succeeded, result.stderr).toBe(true);
+    const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+    /** Dos aperturas medidas más la del turno que prepara la estación. */
+    expect(report.environment.checks).toEqual({ 'cash-shift-open': { openShifts: 3 } });
+    expect(report.summaries).toEqual([expect.objectContaining({
+      scenario: 'cash-shift-open', sample: 2
+    })]);
+  }, 60_000);
 });

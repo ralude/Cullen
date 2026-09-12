@@ -52,14 +52,14 @@
     },
     "logging": "El destino del registro técnico es un sumidero en memoria: la medición paga componer cada línea —que el nodo también paga— y no escribirla al disco.",
     "transport": "Las peticiones entran por app.inject: se mide enrutado, validación, aplicación y SQLite, no el socket. Medir el socket exige otra serie y queda declarado como tal.",
-    "validation": "Perfiles, escenarios, enteros y profundidades inválidos abortan antes de crear una serie. Las lecturas comprueban cantidades esperadas; ventas exige un grupo USD con las 300 ventas de preparación. Las validaciones de respuesta están incluidas en la latencia.",
+    "validation": "Perfiles, escenarios, enteros y profundidades inválidos abortan antes de crear una serie. Las lecturas comprueban cantidades esperadas; ventas exige un grupo USD con las 300 ventas de preparación. Las validaciones de respuesta están incluidas en la latencia. Un escenario que asienta puede además verificarse al cerrar la serie, fuera de toda medición: si no dejó los asientos que dice ejercitar, aborta; si los dejó, su recuento se publica en environment.checks.",
     "provenance": "Cada resultado identifica revisión Git completa, indicador dirty, SHA-256 del arnés, versión de protocolo, proceso y modo fiscal. Una revisión sucia no es BEFORE; un cambio de commit o arnés durante la serie la aborta. Los IDs operativos usan el generador UUIDv7 existente y las operaciones usan el reloj real del runtime."
   },
   "artifacts": {
     "rawDirectory": ".perf/",
     "rawDirectoryIgnored": true,
     "rawFiles": "<run-id>/observations.json — toda observación individual, con su escenario y su número de repetición.",
-    "summaryFiles": "<run-id>/summary.json — estadísticos por escenario, entorno y commit.",
+    "summaryFiles": "<run-id>/summary.json — estadísticos por escenario, entorno, commit y environment.checks, el recuento de asientos verificado al cerrar cada serie.",
     "versioned": "Este manifiesto y los informes resumidos de piloto, crecimiento y verificación del arnés. Las trazas crudas no entran a Git."
   },
   "commands": {
@@ -89,11 +89,19 @@
       "measures": "GET /api/v1/catalog/products sobre el conjunto representativo."
     },
     {
-      "id": "sale-journey",
-      "covers": "Escenario 4",
+      "id": "cash-shift-open",
+      "covers": "Escenario 4 (apertura de caja)",
       "instrumented": true,
-      "measures": "Abrir venta, agregar línea, registrar el lote mixto de pagos y completar, con su asiento en el turno y su salida de inventario.",
-      "excludes": "La apertura del turno ocurre en preparación y la emisión del documento simulado todavía no se ejecuta. Ambas faltan para cubrir el escenario 4 completo."
+      "measures": "POST /api/v1/cash/shifts con su fondo de apertura, verificando que el turno quede ABIERTO.",
+      "guard": "Una caja admite un solo turno abierto, así que cada repetición estrena su caja, creada fuera de la medición. La verificación cuenta los turnos abiertos: las repeticiones más el de la estación."
+    },
+    {
+      "id": "sale-journey",
+      "covers": "Escenario 4 (venta y emisión)",
+      "instrumented": true,
+      "measures": "Abrir venta, agregar línea, registrar el lote mixto de pagos, completar y emitir el documento fiscal simulado desde la venta completada, con su asiento en el turno y su salida de inventario.",
+      "guard": "Cada repetición exige el documento en estado ISSUED, modo SIMULATION y con número fiscal. Al cerrar la serie se comprueba que el turno asentó exactamente lo cobrado y que hay un SALE_ISSUE y una factura emitida por venta; el recuento se publica en environment.checks.",
+      "excludes": "El lote mixto cobra con dos métodos NO gravados. Una venta que cobró IGTF no puede emitir su factura hoy —D-003 en defectos-conocidos.md—, y una jornada sin documento no cubre el escenario 4. La política de IGTF sigue sembrada en el dataset."
     },
     {
       "id": "login-and-shell",
@@ -119,7 +127,7 @@
     "profiles": {
       "habitual": {
         "id": "habitual-v1",
-        "seed": "Determinista y reconstruido por corrida: migraciones, un administrador, una caja, métodos CASH_USD y CARD_USD, política de IGTF del 3% sobre CARD/USD, y un catálogo de identificadores y barcodes secuenciales.",
+        "seed": "Determinista y reconstruido por corrida: migraciones, un administrador, una caja, métodos CASH_USD, CARD_USD y TRANSFER_USD, política de IGTF del 3% sobre CARD/USD, y un catálogo de identificadores y barcodes secuenciales.",
         "products": 200,
         "inventoryHistoryPerItem": 1,
         "completedSales": 0,
