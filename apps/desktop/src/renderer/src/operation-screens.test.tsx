@@ -4,7 +4,8 @@ import type { DesktopApi, OperationApi } from './api-client.js';
 import {
   SalesScreen, CashScreen, CatalogScreen, InventoryScreen, ReportsScreen, SuppliersScreen,
   canManageConfig, canManageSuppliers, canWorkOnStockCounts, ConfigScreen, DEVICE_TYPE_LABELS,
-  filterSuppliers, money, saleCompletionBlocker, StockCountsScreen, supplierTaxTypeFor,
+  filterSuppliers, money, projectCheckout, saleCompletionBlocker, StockCountsScreen,
+  supplierTaxTypeFor,
   supplierUpdatePayload, toFiscalAddress, toSupplierForm
 } from './operation-screens.js';
 import type { SaleResponse, SupplierResponse } from '@supermarket/shared';
@@ -98,6 +99,55 @@ describe('operation screens', () => {
     expect(saleCompletionBlocker({ ...withItem, balanceMinorUnits: -500 }, 2)).toContain('supera el total');
     expect(saleCompletionBlocker({ ...withItem, balanceMinorUnits: 0 }, 2)).toBeNull();
     expect(saleCompletionBlocker({ ...withItem, status: 'COMPLETED' } as SaleResponse, 2)).toBeNull();
+  });
+
+  /**
+   * La barra de cobro proyecta lo que el cajero está armando. Las dos reglas
+   * que fija la enmienda de ADR-0031 del 2026-09-11 se prueban aquí: el
+   * impuesto sale de la suma de lo gravado —un solo redondeo— y el total sube
+   * sólo cuando entra un pago gravado.
+   */
+  it('projects the checkout a cashier is assembling, one rounding over the taxed base', () => {
+    const cash = { code: 'CASH', name: 'Efectivo', kind: 'CASH', currencyCode: 'USD', financialTransactionTaxBasisPoints: 0 } as const;
+    const card = { code: 'CARD', name: 'Tarjeta', kind: 'CARD', currencyCode: 'USD', financialTransactionTaxBasisPoints: 300 } as const;
+    const tender = (method: typeof cash | typeof card, amountMinorUnits: number) => ({
+      methodCode: method.code, methodName: method.name, currencyCode: method.currencyCode,
+      amountMinorUnits, financialTransactionTaxBasisPoints: method.financialTransactionTaxBasisPoints
+    });
+
+    /** Sin pagos: el impuesto todavía no existe y el total es el comercial. */
+    const empty = projectCheckout(10000, 'USD', [], cash);
+    expect(empty).toMatchObject({
+      taxMinorUnits: 0, totalMinorUnits: 10000, tenderedMinorUnits: 0,
+      remainingMinorUnits: 10000, suggestedAmountMinorUnits: 10000
+    });
+
+    /** Elegir el método gravado precarga el bruto que ya lo incluye. */
+    expect(projectCheckout(10000, 'USD', [], card).suggestedAmountMinorUnits).toBe(10300);
+
+    /** Con la mitad en efectivo, la tarjeta cubre el resto más su impuesto. */
+    const half = projectCheckout(10000, 'USD', [tender(cash, 5000)], card);
+    expect(half).toMatchObject({ remainingMinorUnits: 5000, suggestedAmountMinorUnits: 5150 });
+
+    /** Cubierto: el total sube al entrar el pago gravado, y el saldo queda en cero. */
+    const covered = projectCheckout(2024, 'USD', [tender(cash, 1000), tender(card, 1055)], card);
+    expect(covered).toMatchObject({
+      taxMinorUnits: 31, totalMinorUnits: 2055, tenderedMinorUnits: 2055, remainingMinorUnits: 0
+    });
+
+    /**
+     * Dos pagos gravados: la sugerencia se calcula sobre la base agregada, así
+     * que el segundo cierra en 0,51 y no en los 0,52 que produciría redondear
+     * ese pago por su cuenta —el lote que el nodo rechaza—.
+     */
+    const second = projectCheckout(100, 'USD', [tender(card, 52)], card);
+    expect(second.suggestedAmountMinorUnits).toBe(51);
+    expect(projectCheckout(100, 'USD', [tender(card, 52), tender(card, 51)], card))
+      .toMatchObject({ taxMinorUnits: 3, totalMinorUnits: 103, remainingMinorUnits: 0 });
+
+    /** Otra moneda no recibe sugerencia: convertir exige una tasa (D-001). */
+    const foreign = { ...card, code: 'CARD_VES', currencyCode: 'VES' };
+    expect(projectCheckout(10000, 'USD', [], foreign).suggestedAmountMinorUnits).toBe(10000);
   });
 
   it('formats money without throwing on codes Intl does not know', () => {

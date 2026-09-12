@@ -30,28 +30,87 @@ export const saleCompletionBlocker = (sale: SaleResponse | null, scale: number):
   return null;
 };
 
+/** Un pago capturado en la barra, todavía sin enviar al nodo. */
+export type CapturedTender = {
+  readonly methodCode: string;
+  readonly methodName: string;
+  readonly currencyCode: string;
+  readonly amountMinorUnits: number;
+  readonly financialTransactionTaxBasisPoints: number;
+};
+
+/** Lo que la barra de cobro muestra mientras el cajero arma el lote. */
+export type CheckoutProjection = {
+  /** IGTF que los pagos capturados ya contienen. */
+  readonly taxMinorUnits: number;
+  /** Comercial más ese impuesto: el total sube al entrar un pago gravado. */
+  readonly totalMinorUnits: number;
+  readonly tenderedMinorUnits: number;
+  /** Porción comercial que falta cubrir, sin impuesto. */
+  readonly remainingMinorUnits: number;
+  /** Importe que se precarga para el método elegido. */
+  readonly suggestedAmountMinorUnits: number;
+};
+
 /**
- * Importe que la pantalla precarga para cobrar con un método: el saldo
- * pendiente, o el bruto que ya incluye el IGTF cuando ese método lo cobra.
+ * Proyecta el cobro que el cajero está armando: cuánto impuesto contienen los
+ * pagos capturados, cuánto falta y qué precargar para el siguiente.
  *
- * Es una **sugerencia no autoritativa** y editable: el nodo recalcula el
- * impuesto del lote y rechaza lo que no cuadre. No reimplementa la fórmula sino
- * que usa la misma primitiva compartida que el nodo aplica al revés. Ver la
- * enmienda de ADR-0031 del 2026-09-11.
+ * **Es una sugerencia, no una autoridad.** El nodo recalcula el impuesto del
+ * lote recibido y rechaza lo que no cuadre; ver la enmienda de ADR-0031 del
+ * 2026-09-11. De ella salen las dos reglas que esta función respeta:
  *
- * Un método que liquida en otra moneda no recibe sugerencia: convertir exige
- * una tasa explícita que esta pantalla todavía no envía (D-001).
+ * 1. el impuesto se extrae de la **suma** de lo entregado con métodos
+ *    gravados, no pago por pago, de modo que en todo el cobro ocurre un solo
+ *    redondeo: con dos pagos gravados, redondear cada uno por su cuenta
+ *    entrega una unidad menor de más y el nodo rechaza el lote;
+ * 2. un método que liquida en otra moneda no recibe sugerencia, porque
+ *    convertir exige una tasa explícita que la pantalla todavía no envía
+ *    (D-001).
+ *
+ * Todos los métodos gravados comparten la tasa de la única política activa, así
+ * que basta la del primero para reconstruir lo ya capturado.
  */
-export const suggestedPaymentAmount = (
-  outstandingMinorUnits: number,
+export const projectCheckout = (
+  commercialTotalMinorUnits: number,
   saleCurrencyCode: string,
-  method: PaymentMethodResponse | undefined
-): number => {
-  if (outstandingMinorUnits <= 0 || method === undefined) return outstandingMinorUnits;
-  if (method.financialTransactionTaxBasisPoints <= 0) return outstandingMinorUnits;
-  if (method.currencyCode !== saleCurrencyCode) return outstandingMinorUnits;
-  return TaxRate.fromBasisPoints(method.financialTransactionTaxBasisPoints)
-    .includeIn(Money.fromMinorUnits(outstandingMinorUnits, saleCurrencyCode)).minorUnits;
+  tenders: readonly CapturedTender[],
+  nextMethod: PaymentMethodResponse | undefined
+): CheckoutProjection => {
+  const taxed = tenders.filter((tender) => tender.financialTransactionTaxBasisPoints > 0);
+  const taxedGross = taxed.reduce((total, tender) => total + tender.amountMinorUnits, 0);
+  const tendered = tenders.reduce((total, tender) => total + tender.amountMinorUnits, 0);
+  const capturedRate = taxed[0]?.financialTransactionTaxBasisPoints ?? 0;
+  const tax = capturedRate > 0 && taxedGross > 0
+    ? TaxRate.fromBasisPoints(capturedRate)
+      .extractFrom(Money.fromMinorUnits(taxedGross, saleCurrencyCode)).minorUnits
+    : 0;
+  const taxedBase = taxedGross - tax;
+  const remaining = commercialTotalMinorUnits - (tendered - taxedGross) - taxedBase;
+  const suggests = nextMethod !== undefined &&
+    nextMethod.financialTransactionTaxBasisPoints > 0 &&
+    nextMethod.currencyCode === saleCurrencyCode;
+  const suggested = remaining <= 0 || !suggests
+    ? Math.max(remaining, 0)
+    : TaxRate.fromBasisPoints(nextMethod.financialTransactionTaxBasisPoints)
+      .includeIn(Money.fromMinorUnits(taxedBase + remaining, saleCurrencyCode)).minorUnits - taxedGross;
+
+  return {
+    taxMinorUnits: tax,
+    totalMinorUnits: commercialTotalMinorUnits + tax,
+    tenderedMinorUnits: tendered,
+    remainingMinorUnits: remaining,
+    suggestedAmountMinorUnits: suggested
+  };
+};
+
+/**
+ * Importe escrito en la barra, o `0` mientras no sea un número que el nodo
+ * aceptaría. La barra no rechaza lo que el cajero teclea: deshabilita la
+ * acción hasta que hay un importe.
+ */
+const typedAmount = (value: string, scale: number): number => {
+  try { return parseMinorUnits(value, scale); } catch { return 0; }
 };
 
 /**
@@ -85,8 +144,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
   const [catalogFailed, setCatalogFailed] = useState(false);
   const [paymentMethodCode, setPaymentMethodCode] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethodCode2, setPaymentMethodCode2] = useState('');
-  const [paymentAmount2, setPaymentAmount2] = useState('');
+  const [tenders, setTenders] = useState<readonly CapturedTender[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<readonly PaymentMethodResponse[]>([]);
   const [discountItemId, setDiscountItemId] = useState('');
   const [discountBasisPoints, setDiscountBasisPoints] = useState('');
@@ -107,7 +165,6 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
    * Ahora se abren cuando hacen falta.
    */
   const [dialog, setDialog] = useState<'recipient' | 'discount' | 'void' | null>(null);
-  const [splitPayment, setSplitPayment] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -175,13 +232,21 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
   useEffect(() => { void loadCatalog(''); }, [loadCatalog]);
   const paymentMethod = paymentMethods.find((method) => method.code === paymentMethodCode);
   const paymentCurrency = paymentMethod?.currencyCode ?? '';
-  const paymentCurrency2 = paymentMethods.find((method) => method.code === paymentMethodCode2)?.currencyCode ?? '';
   const outstanding = sale?.status === 'DRAFT' ? sale.balanceMinorUnits : 0;
-  const suggestedAmount = suggestedPaymentAmount(outstanding, sale?.currencyCode ?? '', paymentMethod);
   /**
-   * Precarga el importe sugerido cada vez que el nodo recalcula el saldo o el
-   * cajero cambia de método. Lo que él escriba después se conserva: escribir no
-   * mueve ninguna de estas dependencias.
+   * Porción comercial de la venta: el total que el nodo devuelve menos el IGTF
+   * que ya haya asentado. Mientras el lote no se registra, el impuesto vale
+   * cero y las dos cifras coinciden.
+   */
+  const commercialOutstanding = outstanding - (sale?.financialTransactionTaxMinorUnits ?? 0);
+  const checkout = projectCheckout(
+    commercialOutstanding, sale?.currencyCode ?? '', tenders, paymentMethod
+  );
+  const suggestedAmount = checkout.suggestedAmountMinorUnits;
+  /**
+   * Precarga el importe sugerido cada vez que el nodo recalcula el saldo, el
+   * cajero cambia de método o agrega un pago. Lo que él escriba después se
+   * conserva: escribir no mueve ninguna de estas dependencias.
    */
   useEffect(() => {
     if (suggestedAmount > 0) setPaymentAmount(formatScaledDecimal(suggestedAmount, scale));
@@ -265,16 +330,6 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
     const intent = 'discount-' + discountItemId + '-' + discountBasisPoints + '-' + discountReason.trim();
     void run(() => api.applySaleDiscount(sale.id, { itemId: discountItemId, basisPoints: Number(discountBasisPoints), reason: discountReason.trim() }, intentKey(intent)), 'Descuento aplicado.', intent);
   };
-  const registerPayment = (event: React.FormEvent<HTMLFormElement>): void => {
-    event.preventDefault(); if (!sale) return;
-    try {
-      const amountMinorUnits = parseMinorUnits(paymentAmount, scale);
-      const payments = [{ methodCode: paymentMethodCode, currencyCode: paymentCurrency, amountMinorUnits }];
-      if (paymentMethodCode2 && paymentAmount2.trim()) payments.push({ methodCode: paymentMethodCode2, currencyCode: paymentCurrency2, amountMinorUnits: parseMinorUnits(paymentAmount2, scale) });
-      const intent = 'payment-' + paymentMethodCode + '-' + paymentCurrency + '-' + paymentAmount + '-' + paymentMethodCode2 + '-' + paymentAmount2;
-      void run(() => api.registerSalePayments(sale.id, { payments }, intentKey(intent)), 'Pago registrado.', intent);
-    } catch (nextError) { setError(nextError); }
-  };
   const complete = (): void => { if (sale) void run(() => api.completeSale(sale.id, intentKey('complete')), 'Venta completada.', 'complete'); };
   /** La pantalla no deriva el tipo ni valida la forma: la API es la autoridad. */
   const setRecipient = (event: React.FormEvent<HTMLFormElement>): void => {
@@ -332,15 +387,75 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
   };
   const startAnotherSale = (): void => {
     setSale(null); setError(null); setNotice(null); setHighlightedItemId(null);
-    setBarcode(''); setQuantity('1'); setPaymentAmount(''); setPaymentAmount2('');
-    setPaymentMethodCode2(''); setVoidReason(''); setVoidConfirming(false);
-    setDialog(null); setSplitPayment(false);
+    setBarcode(''); setQuantity('1'); setPaymentAmount(''); setTenders([]);
+    setVoidReason(''); setVoidConfirming(false); setDialog(null);
     setDiscountItemId(''); setDiscountBasisPoints(''); setDiscountReason(''); setReturnReason(''); setSaleReturn(null); setInvoice(null);
     setRecipientValue(''); setRecipientName(''); setRecipientAddress('');
   };
   const closeDialog = useCallback((): void => { setDialog(null); setVoidConfirming(false); }, []);
   const shiftLabel = activeShiftLabel(shift, cashRegister?.name ?? null);
   const completionBlocker = saleCompletionBlocker(sale, scale);
+  /**
+   * El pago que la barra tiene capturado y todavía no es ficha: método elegido
+   * más importe escrito. `null` mientras falte alguno de los dos.
+   */
+  const captured: CapturedTender | null = paymentMethod && typedAmount(paymentAmount, scale) > 0
+    ? {
+      methodCode: paymentMethod.code, methodName: paymentMethod.name,
+      currencyCode: paymentMethod.currencyCode,
+      amountMinorUnits: typedAmount(paymentAmount, scale),
+      financialTransactionTaxBasisPoints: paymentMethod.financialTransactionTaxBasisPoints
+    }
+    : null;
+  /**
+   * Agrega el pago capturado como ficha. El lote no viaja todavía: el dominio
+   * acepta los pagos una sola vez —`SALE_PAYMENTS_ALREADY_REGISTERED`—, así que
+   * las fichas se acumulan en la pantalla y se envían juntas al final.
+   */
+  const addTender = (): void => {
+    if (!captured) return;
+    setTenders([...tenders, captured]);
+    setPaymentAmount('');
+  };
+  const removeTender = (index: number): void => {
+    setTenders(tenders.filter((_, position) => position !== index));
+  };
+  /**
+   * Envía el lote completo y cierra la venta en un gesto. Si el registro pasa y
+   * el cierre falla, la venta queda cobrada y sin completar: el nodo devuelve
+   * saldo cero y la barra vuelve a ofrecer «Completar venta», que es
+   * exactamente lo que queda por hacer.
+   */
+  const settle = (batch: readonly CapturedTender[]): void => {
+    if (!sale || batch.length === 0) return;
+    const payments = batch.map((tender) => ({
+      methodCode: tender.methodCode, currencyCode: tender.currencyCode,
+      amountMinorUnits: tender.amountMinorUnits
+    }));
+    const intent = 'payment-' + payments
+      .map((payment) => payment.methodCode + ':' + payment.currencyCode + ':' + payment.amountMinorUnits)
+      .join('|');
+    void run(() => api.registerSalePayments(sale.id, { payments }, intentKey(intent)), 'Pago registrado.', intent)
+      .then((next) => { if (next) { setTenders([]); complete(); } });
+  };
+  /**
+   * La acción de la barra, según el momento del cobro: cubrir el saldo de un
+   * gesto cuando no hay fichas, sumar un pago más, o cerrar lo que ya está
+   * cubierto. Es siempre un único botón, en el mismo sitio.
+   */
+  const checkoutAction = checkout.remainingMinorUnits <= 0
+    ? {
+      label: 'Completar venta',
+      act: (): void => { if (tenders.length > 0) settle(tenders); else complete(); },
+      disabled: tenders.length === 0 && completionBlocker !== null
+    }
+    : tenders.length === 0 && captured !== null && captured.amountMinorUnits >= suggestedAmount
+      ? {
+        label: 'Cobrar y completar',
+        act: (): void => { if (captured) settle([captured]); },
+        disabled: false
+      }
+      : { label: 'Agregar pago', act: addTender, disabled: captured === null };
   const voidAuthorized = isPermissionGranted(voidSaleContract.permission, permissionCodes);
   const returnAuthorized = isPermissionGranted(returnSaleContract.permission, permissionCodes);
   const invoiceAuthorized = isPermissionGranted(issueSaleInvoiceContract.permission, permissionCodes);
@@ -515,100 +630,80 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.El
                   </div>}
           </section>
 
-          {/* Total, cobro y finalización forman una sola unidad fija de caja. */}
-          <aside className="panel sale-ticket" aria-label="Cobro de la venta">
-            <section className="totals-panel" aria-labelledby="totals-title">
-              <p className="eyebrow">03 · Cobro</p>
-              <div className="checkout-total">
-                <h3 id="totals-title">Total</h3>
-                <strong>{money(sale.totalMinorUnits, sale.currencyCode, scale)}</strong>
-              </div>
-              <dl className="totals">
-                <div><dt>Subtotal</dt><dd>{money(sale.subtotalMinorUnits, sale.currencyCode, scale)}</dd></div>
-                {sale.discountTotalMinorUnits > 0 && (
-                  <div><dt>Descuentos</dt><dd>−{money(sale.discountTotalMinorUnits, sale.currencyCode, scale)}</dd></div>
-                )}
-                <div><dt>IVA</dt><dd>{money(sale.taxTotalMinorUnits, sale.currencyCode, scale)}</dd></div>
-                {sale.financialTransactionTaxMinorUnits > 0 && (
-                  <div><dt>IGTF</dt><dd>{money(sale.financialTransactionTaxMinorUnits, sale.currencyCode, scale)}</dd></div>
-                )}
-                {sale.paidTotalMinorUnits > 0 && (
-                  <div><dt>Pagado</dt><dd>{money(sale.paidTotalMinorUnits, sale.currencyCode, scale)}</dd></div>
-                )}
-              </dl>
-              <p className={outstanding > 0 ? 'sale-balance is-pending' : 'sale-balance is-settled'} role="status">
-                {outstanding > 0
-                  ? 'Falta cobrar ' + money(outstanding, sale.currencyCode, scale)
-                  : 'Cobro cubierto'}
-              </p>
-            </section>
-
-            <section className="payment-panel" aria-labelledby="payment-title">
-              <div className="payment-heading">
-                <h3 id="payment-title">Método de pago</h3>
-                <small>Selecciona cómo recibes el importe</small>
-              </div>
-              <form className="stack-form" id="sale-payment-form" onSubmit={registerPayment}>
-                <fieldset className="method-chips">
-                  <legend>Método</legend>
-                  {paymentMethods.map((method) => (
-                    <label key={method.code} className={method.code === paymentMethodCode ? 'chip is-selected' : 'chip'}>
-                      <input type="radio" name="paymentMethod" value={method.code} checked={method.code === paymentMethodCode} onChange={() => setPaymentMethodCode(method.code)} />
-                      <span>{method.name}</span>
-                      <small>{method.currencyCode}{method.financialTransactionTaxBasisPoints > 0 ? ' · +IGTF' : ''}</small>
-                    </label>
-                  ))}
-                </fieldset>
-                <div className="amount-field">
-                  <label className="grow">
-                    Importe {paymentCurrency ? '(' + paymentCurrency + ')' : ''}
-                    <input inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} placeholder="0,00" required />
-                  </label>
-                  <button type="button" onClick={() => setPaymentAmount(formatScaledDecimal(suggestedAmount, scale))} disabled={outstanding <= 0}>
-                    Exacto
-                  </button>
-                </div>
-                {!splitPayment
-                  ? <button type="button" className="link-button" onClick={() => setSplitPayment(true)}>Dividir en dos métodos</button>
-                  : <>
-                    <fieldset className="method-chips">
-                      <legend>Segundo método</legend>
-                      {paymentMethods.map((method) => (
-                        <label key={method.code} className={method.code === paymentMethodCode2 ? 'chip is-selected' : 'chip'}>
-                          <input type="radio" name="paymentMethod2" value={method.code} checked={method.code === paymentMethodCode2} onChange={() => setPaymentMethodCode2(method.code)} />
-                          <span>{method.name}</span>
-                          <small>{method.currencyCode}{method.financialTransactionTaxBasisPoints > 0 ? ' · +IGTF' : ''}</small>
-                        </label>
-                      ))}
-                    </fieldset>
-                    <div className="amount-field">
-                      <label className="grow">
-                        Importe {paymentCurrency2 ? '(' + paymentCurrency2 + ')' : ''}
-                        <input inputMode="decimal" value={paymentAmount2} onChange={(event) => setPaymentAmount2(event.target.value)} placeholder="0,00" required />
-                      </label>
-                      <button type="button" onClick={() => { setSplitPayment(false); setPaymentMethodCode2(''); setPaymentAmount2(''); }}>
-                        Quitar
-                      </button>
-                    </div>
-                  </>}
-                <p className="payment-note">
-                  Un método marcado «+IGTF» cobra el impuesto dentro del importe: la pantalla lo
-                  precarga y puedes corregirlo. Los demás métodos cubren el saldo restante.
-                </p>
-              </form>
-            </section>
-
-            <div className="complete-block">
-              <ActionButton className="primary-button payment-submit" type="submit" form="sale-payment-form" busy={loading} disabled={loading || !paymentMethodCode}>
-                {loading ? 'Registrando…' : 'Registrar cobro'}
-              </ActionButton>
-              <ActionButton className="primary-button complete-button" type="button" onClick={complete} busy={loading} disabled={loading || completionBlocker !== null} aria-describedby={completionBlocker ? 'complete-blocker' : undefined}>
-                {loading ? 'Completando…' : 'Completar venta'}
-              </ActionButton>
-              {completionBlocker && <p className="muted" id="complete-blocker" role="status">{completionBlocker}</p>}
-            </div>
-          </aside>
         </div>
+
+        {/*
+          El cobro deja de ser columna: baja a una barra de ancho completo al
+          pie del área de trabajo. La fila de fichas está siempre presente, con
+          su vacío escrito, para que la altura no cambie entre un método y
+          varios y nada empuje el ticket a mitad de una venta.
+        */}
+        <footer className="checkout-bar" aria-label="Cobro de la venta">
+          <div className="checkout-total">
+            <span className="checkout-label">Total a cobrar</span>
+            <strong>{money(checkout.totalMinorUnits, sale.currencyCode, scale)}</strong>
+            <span className="checkout-breakdown">
+              {'Subtotal ' + money(sale.subtotalMinorUnits, sale.currencyCode, scale) +
+                ' · IVA ' + money(sale.taxTotalMinorUnits, sale.currencyCode, scale) +
+                ' · IGTF ' + (checkout.taxMinorUnits > 0
+                ? money(checkout.taxMinorUnits, sale.currencyCode, scale)
+                : '—')}
+            </span>
+          </div>
+
+          <div className="checkout-capture">
+            <fieldset className="method-chips">
+              <legend className="sr-only">Método de pago</legend>
+              {paymentMethods.map((method) => (
+                <label key={method.code} className={method.code === paymentMethodCode ? 'chip is-selected' : 'chip'}>
+                  <input type="radio" name="paymentMethod" value={method.code} checked={method.code === paymentMethodCode} onChange={() => setPaymentMethodCode(method.code)} />
+                  <span>{method.name}</span>
+                  <small>{method.currencyCode}</small>
+                  {method.financialTransactionTaxBasisPoints > 0 && <small className="chip-tax">+IGTF</small>}
+                </label>
+              ))}
+            </fieldset>
+            <ul className="tender-row">
+              {tenders.length === 0
+                ? <li className="tender-empty">Sin pagos agregados todavía</li>
+                : tenders.map((tender, index) => (
+                  <li key={tender.methodCode + '-' + index} className="tender">
+                    <span>{tender.methodName}</span>
+                    <strong>{money(tender.amountMinorUnits, tender.currencyCode, scale)}</strong>
+                    <button type="button" onClick={() => removeTender(index)} aria-label={'Quitar ' + tender.methodName}>
+                      ×
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </div>
+
+          <form className="checkout-action" id="sale-payment-form" onSubmit={(event) => { event.preventDefault(); checkoutAction.act(); }}>
+            <div className="amount-field">
+              <label className="grow">
+                <span className="sr-only">Importe {paymentCurrency ? '(' + paymentCurrency + ')' : ''}</span>
+                <input inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} placeholder="0,00" />
+              </label>
+              <button type="button" onClick={() => setPaymentAmount(formatScaledDecimal(suggestedAmount, scale))} disabled={suggestedAmount <= 0}>
+                Resto
+              </button>
+            </div>
+            <ActionButton className="primary-button complete-button" type="submit" busy={loading} disabled={loading || checkoutAction.disabled} aria-describedby={completionBlocker ? 'complete-blocker' : undefined}>
+              {loading ? 'Registrando…' : checkoutAction.label}
+            </ActionButton>
+          </form>
+        </footer>
+
+        <p className={checkout.remainingMinorUnits > 0 ? 'sale-balance is-pending' : 'sale-balance is-settled'} role="status" id="complete-blocker">
+          {checkout.remainingMinorUnits > 0
+            ? 'Falta cobrar ' + money(checkout.remainingMinorUnits, sale.currencyCode, scale) +
+              (paymentMethod && paymentMethod.financialTransactionTaxBasisPoints > 0 &&
+                suggestedAmount !== checkout.remainingMinorUnits
+                ? ' · con ' + paymentMethod.name.toLowerCase() + ' son ' +
+                  money(suggestedAmount, sale.currencyCode, scale) + ', IGTF incluido'
+                : '')
+            : 'Cobro cubierto · ' + money(checkout.totalMinorUnits, sale.currencyCode, scale)}
+        </p>
 
         {dialog === 'recipient' && (
           <Modal title="Receptor fiscal" description="La venta anónima es válida en simulación. El dato se guarda como copia en esta venta; no crea un cliente reutilizable." onClose={closeDialog}>

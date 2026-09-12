@@ -4,7 +4,7 @@ import type {
 } from '@supermarket/shared';
 import { type OperationApi } from './api-client.js';
 import { SalesScreen } from './operation-screens.js';
-import { click, mount, settle, submit, type } from './testing/dom.js';
+import { click, mount, settle, type } from './testing/dom.js';
 
 /**
  * Cobro de la venta desde la pantalla.
@@ -53,6 +53,7 @@ const operationApi = (overrides: Partial<OperationApi> = {}): OperationApi => ({
   getOpenShift: vi.fn(async () => openShift),
   startSale: vi.fn(async () => draft()),
   getSale: vi.fn(async () => draft()),
+  completeSale: vi.fn(async () => draft({ status: 'COMPLETED', paidTotalMinorUnits: 10000, balanceMinorUnits: 0 })),
   registerSalePayments: vi.fn(async () => draft({
     payments: [{ id: 'payment-001' }] as unknown as SaleResponse['payments'],
     paidTotalMinorUnits: 10000, balanceMinorUnits: 0
@@ -95,22 +96,34 @@ describe('cobro de la venta', () => {
     const amount = screen.get<HTMLInputElement>('.amount-field input');
     await type(amount, '');
 
-    await click(screen.button('Exacto'));
+    await click(screen.button('Resto'));
 
     expect(screen.get<HTMLInputElement>('.amount-field input').value).toBe('100.00');
     screen.unmount();
   });
 
-  it('registra un cobro dividido entre dos métodos', async () => {
+  /**
+   * El cobro mixto deja de pedir los dos importes a la vez: se agrega un pago,
+   * el resto se recalcula y se agrega el siguiente. Las fichas se acumulan en
+   * la pantalla y viajan juntas, porque el dominio acepta el lote una sola vez.
+   */
+  it('registra un cobro dividido agregando un pago a la vez', async () => {
     const api = operationApi();
     const screen = await openSale(api);
 
-    await click(screen.button('Dividir en dos métodos'));
-    await click(screen.get('input[name="paymentMethod2"][value="CARD"]'));
-    const amounts = screen.all<HTMLInputElement>('.amount-field input');
-    await type(amounts[0]!, '50.00');
-    await type(amounts[1]!, '51.50');
-    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
+    await type(screen.get<HTMLInputElement>('.amount-field input'), '50.00');
+    await click(screen.button('Agregar pago'));
+    expect(screen.get('.tender').textContent).toContain('Efectivo');
+    /** Con la mitad cubierta, la tarjeta precarga su resto más el IGTF. */
+    await click(screen.get('input[name="paymentMethod"][value="CARD"]'));
+    await settle();
+    expect(screen.get<HTMLInputElement>('.amount-field input').value).toBe('51.50');
+
+    await click(screen.button('Agregar pago'));
+    await settle();
+    /** Cubierto el saldo, la barra ofrece cerrar y envía el lote entero. */
+    await click(screen.button('Completar venta'));
+    await settle();
 
     expect(api.registerSalePayments).toHaveBeenCalledWith(
       'sale-001',
@@ -122,6 +135,35 @@ describe('cobro de la venta', () => {
       },
       expect.any(String)
     );
+    expect(api.completeSale).toHaveBeenCalled();
+    screen.unmount();
+  });
+
+  it('deja quitar una ficha y devuelve el resto a lo que era', async () => {
+    const screen = await openSale(operationApi());
+    await type(screen.get<HTMLInputElement>('.amount-field input'), '50.00');
+    await click(screen.button('Agregar pago'));
+    expect(screen.get('.sale-balance').textContent).toContain('50,00');
+
+    await click(screen.get('button[aria-label="Quitar Efectivo"]'));
+    await settle();
+
+    expect(screen.query('.tender')).toBeNull();
+    expect(screen.get('.tender-empty').textContent).toContain('Sin pagos agregados');
+    expect(screen.get('.sale-balance').textContent).toContain('100,00');
+    screen.unmount();
+  });
+
+  /**
+   * La fila de fichas está siempre presente, con su vacío escrito: la altura de
+   * la barra no puede cambiar entre un método y varios, porque empujaría el
+   * ticket a mitad de una venta.
+   */
+  it('reserva la fila de pagos aunque todavía no haya ninguno', async () => {
+    const screen = await openSale(operationApi());
+
+    expect(screen.get('.checkout-bar .tender-row')).not.toBeNull();
+    expect(screen.get('.tender-empty').textContent).toContain('Sin pagos agregados');
     screen.unmount();
   });
 
@@ -129,41 +171,47 @@ describe('cobro de la venta', () => {
     const screen = await openSale(operationApi());
     expect(screen.get('.sale-balance').textContent).toContain('Falta cobrar');
 
-    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
+    /** Dos fichas cubren el saldo sin cerrar todavía la venta. */
+    await type(screen.get<HTMLInputElement>('.amount-field input'), '50.00');
+    await click(screen.button('Agregar pago'));
+    await settle();
+    await click(screen.button('Agregar pago'));
+    await settle();
 
     expect(screen.get('.sale-balance').textContent).toContain('Cobro cubierto');
     screen.unmount();
   });
 
-  it('muestra el IGTF en el ticket solo cuando el cobro lo generó', async () => {
-    const withTax = operationApi({
-      registerSalePayments: vi.fn(async () => draft({
-        financialTransactionTaxMinorUnits: 150, totalMinorUnits: 10150,
-        paidTotalMinorUnits: 10150, balanceMinorUnits: 0
-      }))
-    });
-    const screen = await openSale(withTax);
-    /** Se mira el desglose, no la pantalla entera: la ayuda del cobro lo nombra siempre. */
-    expect(screen.get('.totals').textContent).not.toContain('IGTF');
+  it('muestra el IGTF en el desglose solo cuando el cobro lo generó', async () => {
+    const screen = await openSale(operationApi());
+    /** Sin pagos el impuesto todavía no existe: depende de con qué se pague. */
+    expect(screen.get('.checkout-breakdown').textContent).toContain('IGTF —');
 
-    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
+    await click(screen.get('input[name="paymentMethod"][value="CARD"]'));
+    await settle();
+    await type(screen.get<HTMLInputElement>('.amount-field input'), '51.50');
+    await click(screen.button('Agregar pago'));
+    await settle();
 
-    expect(screen.get('.totals').textContent).toContain('IGTF');
-    expect(screen.get('.totals').textContent).toContain('101,50');
+    /** 1,50 es el 3% de los 50,00 que la tarjeta liquida, no de los 51,50. */
+    expect(screen.get('.checkout-breakdown').textContent).toContain('1,50');
+    expect(screen.get('.checkout-total').textContent).toContain('101,50');
     screen.unmount();
   });
 
   /**
-   * El botón de completar vivía al final de una columna de seis paneles: cerrar
-   * una venta ya cobrada exigía desplazarse. Ahora comparte la columna pegada
-   * del ticket con el total.
+   * El cobro era una columna de 320 px que no cabía junto al ticket y el
+   * catálogo. Ahora es una barra de ancho completo al pie, con el total, la
+   * captura y la acción en la misma línea de visión.
    */
-  it('mantiene el total y el botón de completar en la columna del ticket', async () => {
+  it('cobra desde una barra al pie y no desde una tercera columna', async () => {
     const screen = await openSale(operationApi());
 
-    const ticket = screen.get('.sale-ticket');
-    expect(ticket.querySelector('.totals-panel')).not.toBeNull();
-    expect(ticket.querySelector('.complete-button')).not.toBeNull();
+    expect(screen.query('.sale-ticket')).toBeNull();
+    const bar = screen.get('.checkout-bar');
+    expect(bar.querySelector('.checkout-total')).not.toBeNull();
+    expect(bar.querySelector('.method-chips')).not.toBeNull();
+    expect(bar.querySelector('.complete-button')).not.toBeNull();
     screen.unmount();
   });
 
@@ -224,12 +272,12 @@ describe('cobro con un método gravado', () => {
     screen.unmount();
   });
 
-  it('sugiere el mismo bruto con «Exacto»', async () => {
+  it('sugiere el mismo bruto con «Resto»', async () => {
     const screen = await openSale(operationApi());
     await selectCard(screen);
     await type(screen.get<HTMLInputElement>('.amount-field input'), '');
 
-    await click(screen.button('Exacto'));
+    await click(screen.button('Resto'));
 
     expect(screen.get<HTMLInputElement>('.amount-field input').value).toBe('103.00');
     screen.unmount();
@@ -242,11 +290,14 @@ describe('cobro con un método gravado', () => {
 
     /** El cajero baja la tarjeta a la mitad y cubre el resto en efectivo. */
     await type(screen.get<HTMLInputElement>('.amount-field input'), '51.50');
-    await click(screen.button('Dividir en dos métodos'));
-    await click(screen.get('input[name="paymentMethod2"][value="CASH"]'));
-    const amounts = screen.all<HTMLInputElement>('.amount-field input');
-    await type(amounts[1]!, '50.00');
-    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
+    await click(screen.button('Agregar pago'));
+    await settle();
+    await click(screen.get('input[name="paymentMethod"][value="CASH"]'));
+    await settle();
+    await click(screen.button('Agregar pago'));
+    await settle();
+    await click(screen.button('Completar venta'));
+    await settle();
 
     expect(api.registerSalePayments).toHaveBeenCalledWith(
       'sale-001',

@@ -164,14 +164,12 @@ describe('venta E2E sobre el nodo real', () => {
     await eventually(() => expect(screen.text()).toContain('Producto agregado al ticket.'));
     expect(screen.text()).toContain('Café');
 
-    const paymentButton = screen.button('Registrar cobro');
-    await eventually(() => expect(paymentButton.disabled).toBe(false));
-    await submit(screen.get<HTMLFormElement>('#sale-payment-form'));
-    await eventually(() => expect(screen.text()).toContain('Pago registrado.'));
-
-    const completeButton = screen.button('Completar venta');
-    await eventually(() => expect(completeButton.disabled).toBe(false));
-    await click(completeButton);
+    /**
+     * La barra de cobro cierra en un gesto cuando un solo método cubre la
+     * venta: registra el lote y completa. Ver el rediseño de la pantalla.
+     */
+    await eventually(() => expect(screen.button('Cobrar y completar').disabled).toBe(false));
+    await click(screen.button('Cobrar y completar'));
     await eventually(() => expect(screen.text()).toContain('Venta completada'));
 
     const persisted = runtime.handle.sqlite.prepare(
