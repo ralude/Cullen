@@ -1,0 +1,119 @@
+{
+  "manifestVersion": 1,
+  "phase": "12.01",
+  "createdOn": "2026-09-11",
+  "commit": "163548c",
+  "status": "PROTOCOLO_FIJADO",
+  "note": "Formato y protocolo de medición de la Fase 12. El estado, la aceptación y los commits viven únicamente en 12.01-profiler-baseline.md; aquí sólo el cómo se mide y qué se midió.",
+  "environment": {
+    "id": "estacion-de-desarrollo-2026-09",
+    "role": "Comparar commits entre sí. NO certifica capacidad de piloto ni de producción: es una sola máquina de desarrollo, no hardware de tienda bajo carga representativa.",
+    "os": "Microsoft Windows 11 Pro 10.0.26200",
+    "cpu": "AMD Ryzen 5 5500",
+    "cores": 12,
+    "ramGiB": 32,
+    "memorySpeedMHz": 3200,
+    "storage": "CT1000P3SSD8 (NVMe SSD)",
+    "powerPlan": "Alto rendimiento",
+    "node": "v24.21.0",
+    "v8": "13.6.233.17-node.53",
+    "pnpm": "11.17.0",
+    "electron": "44.1.0",
+    "fiscalMode": "SIMULACION"
+  },
+  "protocol": {
+    "clock": "performance.now(), milisegundos con decimales",
+    "warmup": 5,
+    "sample": 30,
+    "discards": "Ninguna observación se descarta a posteriori. Una corrida fallida no se registra como observación rápida: aborta la serie.",
+    "statistics": [
+      "median",
+      "p90",
+      "min",
+      "max",
+      "iqr",
+      "relativeIqr"
+    ],
+    "percentileRule": "Con muestra de 30 se publican mediana y p90. No se publica p95 ni p99: la muestra no los sostiene.",
+    "isolation": "Un escenario por proceso, base SQLite propia y recién migrada por corrida, sin servidor de desarrollo ni Electron compitiendo por el disco.",
+    "noiseFloor": "El estadístico comparable es la MEDIANA de cada serie, no la observación individual. El piloto del 2026-09-11 mostró que el IQR dentro de una serie llega al 41 % en los escenarios de pocos milisegundos —dispersión de GC y planificador— mientras la mediana entre series apenas se mueve. Usar el IQR como margen habría exigido mejoras absurdas. El margen por escenario es el doble de la deriva observada entre tres series; un cambio que no lo supere es fluctuación.",
+    "series": 3,
+    "noiseMargins": {
+      "measuredOn": "2026-09-11",
+      "commit": "163548c",
+      "series": 3,
+      "unit": "porcentaje sobre la mediana",
+      "node-cold-start": 2,
+      "catalog-barcode": 12,
+      "catalog-list": 11,
+      "sale-journey": 4,
+      "note": "Margen de ruido, NO presupuesto. Los presupuestos los fija 12.01.06 con una expectativa de uso documentada."
+    },
+    "logging": "El destino del registro técnico es un sumidero en memoria: la medición paga componer cada línea —que el nodo también paga— y no escribirla al disco.",
+    "transport": "Las peticiones entran por app.inject: se mide enrutado, validación, aplicación y SQLite, no el socket. Medir el socket exige otra serie y queda declarado como tal."
+  },
+  "artifacts": {
+    "rawDirectory": ".perf/",
+    "rawDirectoryIgnored": true,
+    "rawFiles": "<run-id>/observations.json — toda observación individual, con su escenario y su número de repetición.",
+    "summaryFiles": "<run-id>/summary.json — estadísticos por escenario, entorno y commit.",
+    "versioned": "Sólo este manifiesto y el resumen del piloto en piloto-de-ruido.md. Las trazas crudas no entran a Git."
+  },
+  "commands": {
+    "run": "pnpm --filter @supermarket/server perf",
+    "runOne": "pnpm --filter @supermarket/server perf -- --scenario sale-journey",
+    "options": "--warmup N --sample N --scenario <id> (repetible)"
+  },
+  "scenarios": [
+    {
+      "id": "node-cold-start",
+      "covers": "Escenario 1 (mitad del nodo)",
+      "instrumented": true,
+      "measures": "Migrar una base vacía, componer el runtime y dejar la aplicación Fastify lista para atender.",
+      "excludes": "El arranque de Electron y la carga del renderer, que exigen un conductor de GUI todavía no construido."
+    },
+    {
+      "id": "catalog-barcode",
+      "covers": "Escenario 3 (barcode)",
+      "instrumented": true,
+      "measures": "GET /api/v1/catalog/products/by-barcode/:barcode sobre el conjunto representativo, con sesión autenticada."
+    },
+    {
+      "id": "catalog-list",
+      "covers": "Escenario 3 (listado)",
+      "instrumented": true,
+      "measures": "GET /api/v1/catalog/products sobre el conjunto representativo."
+    },
+    {
+      "id": "sale-journey",
+      "covers": "Escenario 4",
+      "instrumented": true,
+      "measures": "Abrir venta, agregar línea, registrar el lote mixto de pagos y completar, con su asiento en el turno y su salida de inventario.",
+      "excludes": "La emisión del documento simulado, que se mide aparte cuando 12.01.05 fije la serie BEFORE."
+    },
+    {
+      "id": "login-and-shell",
+      "covers": "Escenario 2",
+      "instrumented": false,
+      "pending": "Exige montar el renderer y recuperar la sesión: se instrumenta con el conductor de GUI."
+    },
+    {
+      "id": "kardex-and-reports",
+      "covers": "Escenario 5",
+      "instrumented": false,
+      "pending": "Exige el perfil de datos con historia de inventario en varios tamaños, que 12.01.02 todavía no construye."
+    },
+    {
+      "id": "lan-cycle",
+      "covers": "Escenario 6",
+      "instrumented": false,
+      "pending": "Exige dos nodos con material TLS emitido; se instrumenta reutilizando el arnés de las pruebas de sincronización."
+    }
+  ],
+  "dataset": {
+    "id": "habitual-v1",
+    "seed": "Determinista y reconstruido por corrida: migraciones, un administrador, una caja, métodos de pago CASH_USD y CARD_USD, política de IGTF del 3% sobre CARD/USD, y un catálogo generado con identificadores y barcodes secuenciales.",
+    "products": 200,
+    "pendingProfile": "El perfil de crecimiento —catálogo, ventas, movimientos y eventos grandes— se fija en 12.01.02 antes de la serie BEFORE."
+  }
+}

@@ -18,6 +18,7 @@ logs/
 .DS_Store
 Thumbs.db
 .data/
+.perf/
 
 # Lienzo de diseño ya compuesto: se regenera desde los .dc.html
 design/pantallas-de-venta.html
