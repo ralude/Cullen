@@ -69,6 +69,45 @@ describe('interacción del shell del renderer', () => {
     await goTo('#/');
   });
 
+  /**
+   * La navegación ocupa 236 px que la pantalla de venta necesita para el
+   * ticket y el catálogo. Se puede plegar y desplegar sin salir de la vista, y
+   * el control sigue visible mientras está plegada: una navegación que se
+   * esconde sin forma de volver es una trampa.
+   */
+  it('pliega y despliega la navegación para devolver su ancho al trabajo', async () => {
+    const screen = await mount(<App api={desktopApi()} />);
+    await signIn(screen);
+
+    expect(screen.get('nav[aria-label="Navegación principal"]')).toBeTruthy();
+    const toggle = screen.get<HTMLButtonElement>('.nav-toggle');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+    await click(toggle);
+
+    expect(screen.query('nav[aria-label="Navegación principal"]')).toBeNull();
+    expect(screen.get<HTMLButtonElement>('.nav-toggle').getAttribute('aria-expanded')).toBe('false');
+
+    await click(screen.get('.nav-toggle'));
+
+    expect(screen.get('nav[aria-label="Navegación principal"]')).toBeTruthy();
+    await goTo('#/');
+  });
+
+  it('recuerda la navegación plegada entre montajes', async () => {
+    const first = await mount(<App api={desktopApi()} />);
+    await signIn(first);
+    await click(first.get('.nav-toggle'));
+    first.unmount();
+
+    const second = await mount(<App api={desktopApi()} />);
+    await signIn(second);
+
+    expect(second.query('nav[aria-label="Navegación principal"]')).toBeNull();
+    await click(second.get('.nav-toggle'));
+    await goTo('#/');
+  });
+
   it('lleva a la pantalla de sincronización desde la navegación y carga sus nodos', async () => {
     const api = desktopApi();
     const screen = await mount(<App api={api} />);

@@ -33,6 +33,8 @@ const render = (state: AppViewState, route = '#/', connection: NodeConnection = 
     onPinChanged={() => undefined}
     showsEnrollment={false}
     onToggleEnrollment={() => undefined}
+    navigationCollapsed={false}
+    onToggleNavigation={() => undefined}
     api={apiStub}
   />
 );

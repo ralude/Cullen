@@ -310,6 +310,31 @@ input:focus-visible {
   grid-template-columns: 236px 1fr;
 }
 
+/**
+ * Navegación plegable. Plegarla devuelve sus 236 px al área de trabajo, que es
+ * lo que la pantalla de venta necesita para el ticket y el catálogo. El control
+ * vive en la barra superior y sigue visible mientras está plegada: una
+ * navegación que se esconde sin forma de volver es una trampa.
+ */
+.app-shell.is-nav-collapsed { grid-template-columns: minmax(0, 1fr); }
+
+.topbar-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.nav-toggle {
+  display: grid;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink-secondary);
+  cursor: pointer;
+  place-items: center;
+}
+.nav-toggle:hover { border-color: var(--green); color: var(--green); }
+.nav-toggle:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+
 /** La venta usa una estación más densa para conservar ticket, catálogo y cobro simultáneos. */
 .sales-shell {
   overflow: hidden;
@@ -340,9 +365,15 @@ input:focus-visible {
 .sales-shell .topbar-hint { display: none; }
 .sales-shell .workspace-content {
   min-height: 0;
-  overflow: hidden;
   padding: 16px 18px;
 }
+/**
+ * El punto de venta desactiva el desplazamiento a propósito: sus zonas están
+ * dimensionadas para caber sin mover la página. La venta ya completada es otra
+ * vista —una columna alta que termina en «Devolver venta»— y sí desborda, así
+ * que el recorte se acota a la disposición que lo necesita (D-003).
+ */
+.sales-shell .workspace-content:has(.sale-pos) { overflow: hidden; }
 
 .sidebar {
   display: flex;
@@ -692,11 +723,11 @@ td small { margin-top: 3px; color: var(--ink-faint); }
 
 .sales-screen {
   width: 100%;
-  height: 100%;
   min-height: 0;
   max-width: none;
   gap: 14px;
 }
+.sales-screen:has(.sale-pos) { height: 100%; }
 
 .sale-pos {
   display: grid;
@@ -1146,7 +1177,8 @@ td small { margin-top: 3px; color: var(--ink-faint); }
 }
 
 @media (max-width: 980px) {
-  .sales-shell .workspace-content { overflow-y: auto; }
+  /** Apilado, el punto de venta sí se desplaza: gana en especificidad al recorte. */
+  .sales-shell .workspace-content:has(.sale-pos) { overflow-y: auto; }
   .sales-screen { height: auto; }
   .sale-pos { flex: none; grid-template-rows: auto auto auto auto; }
   .sale-workspace {

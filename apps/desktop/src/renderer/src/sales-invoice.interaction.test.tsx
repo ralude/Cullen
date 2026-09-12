@@ -57,6 +57,22 @@ const completeASale = async (api: OperationApi) => {
 };
 
 describe('factura de la venta completada', () => {
+  /**
+   * D-003: la venta completada quedaba recortada por el `overflow: hidden` que
+   * el punto de venta necesita. El recorte se acotó a `.sale-pos` —la
+   * disposición dimensionada para caber— así que esta vista no debe llevarlo.
+   *
+   * La hoja de estilos no se carga en `jsdom`: lo que esta prueba guarda es el
+   * gancho del que depende la corrección, no el desplazamiento en sí.
+   */
+  it('deja la venta completada fuera de la disposición que no se desplaza', async () => {
+    const screen = await completeASale(apiWith({}));
+
+    expect(screen.text()).toContain('Venta completada');
+    expect(screen.query('.sale-pos')).toBeNull();
+    screen.unmount();
+  });
+
   it('emite la factura y muestra su número fiscal', async () => {
     const issueSaleInvoice = vi.fn(async () => ({
       fiscalMode: 'SIMULATION' as const,

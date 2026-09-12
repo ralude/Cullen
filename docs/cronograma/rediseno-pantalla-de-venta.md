@@ -1,9 +1,8 @@
 # Rediseño de la pantalla de venta
 
-- **Estado:** dirección aceptada el 2026-09-10. Entregado el 2026-09-11: la tasa por método que
-  publica el nodo y la sugerencia editable de la pantalla que gobierna la enmienda de ADR-0031,
-  y la barra de cobro de ancho completo con captura por fichas —un pago a la vez, resto
-  recalculado—. Quedan la barra lateral contraíble y [D-003](./defectos-conocidos.md).
+- **Estado:** **completo.** Dirección aceptada el 2026-09-10 y ejecutada el 2026-09-11: la tasa
+  por método que publica el nodo y la sugerencia editable que gobierna la enmienda de ADR-0031,
+  la barra de cobro de ancho completo con captura por fichas, la navegación plegable y D-003.
 - **Origen:** exploración de tres direcciones sobre el sistema visual vigente.
 - **Fuentes de diseño:** [`design/`](../../design) — `Main.dc.html` es la dirección elegida.
 - **Índice:** [Cronograma maestro](./README.md).
@@ -74,10 +73,9 @@ pruebas que acompañan la enmienda fijan el caso aceptado y el rechazado.
 
 ## Alcance
 
-- **Entra:** barra de cobro, captura de un pago a la vez, tasa por método, la barra lateral
-  contraíble que devuelve los 236 px, y
-  [D-003](./defectos-conocidos.md): acotar el `overflow: hidden` a la disposición de tres zonas
-  para que la venta ya completada pueda desplazarse.
+- **Entregado:** barra de cobro, captura de un pago a la vez, tasa por método, la navegación
+  plegable que devuelve los 236 px, y D-003: el `overflow: hidden` quedó acotado a la
+  disposición del punto de venta, de modo que la venta ya completada se desplaza.
 - **No entra:** cambios en el agregado `Sale`, en el protocolo de sincronización ni en la
   fiscalidad simulada.
 

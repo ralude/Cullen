@@ -30,8 +30,16 @@ import {
   canAdministerIdentity, canManageConfig, canManageSuppliers, canReviewSync,
   canWorkOnStockCounts, routeScreen
 } from './operation-screens.js';
+import { readStorage, writeStorage } from './screens/shared.js';
 
 export const PRODUCT_NAME = 'Cullen';
+
+/**
+ * La navegación ocupa 236 px que la pantalla de venta necesita para el ticket
+ * y el catálogo. Plegarla los devuelve al trabajo, y la preferencia sobrevive
+ * al montaje porque es del puesto, no de la sesión.
+ */
+export const NAVIGATION_COLLAPSED_KEY = 'supermarket.navigation-collapsed.v1';
 
 type AppRoute = {
   readonly id: string;
@@ -280,6 +288,8 @@ type AppViewProps = {
   readonly onPinChanged: () => void;
   readonly showsEnrollment: boolean;
   readonly onToggleEnrollment: () => void;
+  readonly navigationCollapsed: boolean;
+  readonly onToggleNavigation: () => void;
   readonly api: DesktopApi;
 };
 
@@ -338,6 +348,8 @@ export const AppView = ({
   onPinChanged,
   showsEnrollment,
   onToggleEnrollment,
+  navigationCollapsed,
+  onToggleNavigation,
   api
 }: AppViewProps): React.JSX.Element => {
   if (state.kind === 'loading') {
@@ -444,34 +456,56 @@ export const AppView = ({
     );
   }
 
+  const shellClass = [
+    'app-shell',
+    route.id === 'sales' ? 'sales-shell' : null,
+    navigationCollapsed ? 'is-nav-collapsed' : null
+  ].filter((name) => name !== null).join(' ');
+
   return (
-    <div className={route.id === 'sales' ? 'app-shell sales-shell' : 'app-shell'}>
-      <aside className="sidebar">
-        <Brand />
-        <nav aria-label="Navegación principal">
-          {visibleNavigationGroups(state.session.permissionCodes).map((group) => (
-            <div className="navigation-group" key={group.label}>
-              {group.label !== 'General' && <p>{group.label}</p>}
-              {group.routes.map((item) => (
-                <a
-                  key={item.id}
-                  href={item.hash}
-                  aria-current={route.id === item.id ? 'page' : undefined}
-                  title={item.description}
-                >
-                  <span>{item.label}</span>
-                  <kbd aria-hidden="true">Alt+{item.shortcut}</kbd>
-                </a>
-              ))}
-            </div>
-          ))}
-        </nav>
-      </aside>
+    <div className={shellClass}>
+      {!navigationCollapsed && (
+        <aside className="sidebar">
+          <Brand />
+          <nav aria-label="Navegación principal">
+            {visibleNavigationGroups(state.session.permissionCodes).map((group) => (
+              <div className="navigation-group" key={group.label}>
+                {group.label !== 'General' && <p>{group.label}</p>}
+                {group.routes.map((item) => (
+                  <a
+                    key={item.id}
+                    href={item.hash}
+                    aria-current={route.id === item.id ? 'page' : undefined}
+                    title={item.description}
+                  >
+                    <span>{item.label}</span>
+                    <kbd aria-hidden="true">Alt+{item.shortcut}</kbd>
+                  </a>
+                ))}
+              </div>
+            ))}
+          </nav>
+        </aside>
+      )}
       <main className="workspace">
         <header className="topbar">
-          <div>
-            <h1 id="workspace-title">{route.title}</h1>
-            <p className="topbar-hint">{route.description}</p>
+          <div className="topbar-title">
+            <button
+              type="button"
+              className="nav-toggle"
+              onClick={onToggleNavigation}
+              aria-expanded={!navigationCollapsed}
+              aria-label={navigationCollapsed ? 'Mostrar navegación' : 'Ocultar navegación'}
+              title={navigationCollapsed ? 'Mostrar navegación' : 'Ocultar navegación'}
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <path d="M3 5h14M3 10h14M3 15h14" />
+              </svg>
+            </button>
+            <div>
+              <h1 id="workspace-title">{route.title}</h1>
+              <p className="topbar-hint">{route.description}</p>
+            </div>
           </div>
           <div className="topbar-actions">
             <span className={connection === 'offline' ? 'simulation-label' : 'status-label'}>
@@ -518,6 +552,14 @@ export const App = ({ api = defaultApi }: { readonly api?: DesktopApi }): React.
   const [operatorCode, setOperatorCode] = useState('');
   const [pin, setPin] = useState('');
   const [showsEnrollment, setShowsEnrollment] = useState(false);
+  const [navigationCollapsed, setNavigationCollapsed] = useState(() => readStorage(NAVIGATION_COLLAPSED_KEY) === 'true');
+  const toggleNavigation = (): void => {
+    setNavigationCollapsed((collapsed) => {
+      const next = !collapsed;
+      writeStorage(NAVIGATION_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  };
   const [route, setRoute] = useState(() => resolveRoute(
     typeof window === 'undefined' ? '#/' : window.location.hash || '#/'
   ));
@@ -596,6 +638,8 @@ export const App = ({ api = defaultApi }: { readonly api?: DesktopApi }): React.
       onPinChanged={() => { void loadSession(); }}
       showsEnrollment={showsEnrollment}
       onToggleEnrollment={() => setShowsEnrollment((value) => !value)}
+      navigationCollapsed={navigationCollapsed}
+      onToggleNavigation={toggleNavigation}
       api={api}
     />
   );
