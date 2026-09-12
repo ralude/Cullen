@@ -69,6 +69,12 @@ type Harness = {
   readonly closeShift: application.CloseShift;
 };
 
+/** Identificadores estables y legibles: payment-001, payment-002, … */
+const paddedIds = (prefix: string): { generate: () => string } => {
+  let issued = 0;
+  return { generate: (): string => prefix + '-' + String((issued += 1)).padStart(3, '0') };
+};
+
 const sequentialIds = (prefix: string): { generate: () => string } => {
   let issued = 0;
   return { generate: (): string => `${prefix}-${(issued += 1)}` };
@@ -97,6 +103,9 @@ const harness = async (): Promise<Harness> => {
     }));
     await methods.save(PaymentMethod.create({
       code: 'CASH_USD', name: 'Efectivo USD', kind: 'CASH', currencyCode: 'USD'
+    }));
+    await methods.save(PaymentMethod.create({
+      code: 'CARD_USD', name: 'Tarjeta USD', kind: 'CARD', currencyCode: 'USD'
     }));
     await new DrizzleCategoryRepository(handle).save(
       Category.create({ id: 'category-001', name: 'Granos' })
@@ -149,7 +158,7 @@ const harness = async (): Promise<Harness> => {
     ),
     registerPayment: new application.RegisterMixedPayment(
       sales, methods, new DrizzleExchangeRateRepository(handle), noTax,
-      { generate: () => 'payment-001' }, { generate: () => 'sale-event-003' },
+      paddedIds('payment'), { generate: () => 'sale-event-003' },
       { now: () => SOLD_AT }, unitOfWork, ledger, idempotency
     ),
     completeSale: new application.CompleteSale(
@@ -252,6 +261,50 @@ describe('efecto de caja de una venta completada', () => {
       currencyCode: 'USD',
       source: 'LOCAL_AVERAGE'
     });
+    kit.handle.close();
+  });
+
+  /**
+   * Un cobro mixto asienta **un movimiento por pago**, así que el turno avanza
+   * tantas versiones como métodos tenga el lote. El arqueo tiene que aceptarlo:
+   * la venta ya está cobrada y no puede quedarse sin cerrar.
+   */
+  it('asienta en el turno cada método de un cobro mixto', async () => {
+    const kit = await harness();
+    expect((await kit.startSale.execute(
+      { currencyCode: 'USD', shiftId: 'shift-001' },
+      { ...context, idempotencyKey: 'start-001' }
+    )).ok).toBe(true);
+    expect((await kit.addItem.execute(
+      { saleId: 'sale-001', barcode: '1234', quantityScaled: 1, quantityScale: 0 },
+      { ...context, idempotencyKey: 'add-001' }
+    )).ok).toBe(true);
+    expect((await kit.registerPayment.execute(
+      {
+        saleId: 'sale-001',
+        payments: [
+          { methodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 500 },
+          { methodCode: 'CARD_USD', currencyCode: 'USD', amountMinorUnits: 700 }
+        ]
+      },
+      { ...context, idempotencyKey: 'pay-001' }
+    )).ok).toBe(true);
+
+    const completed = await kit.completeSale.execute(
+      { saleId: 'sale-001' }, { ...context, idempotencyKey: 'complete-001' }
+    );
+
+    expect(completed.ok).toBe(true);
+    expect((await kit.sales.findById('sale-001'))?.status).toBe('COMPLETED');
+    expect(movementRows(kit.handle)).toEqual([
+      { id: 'opening-001', type: 'OPENING_FLOAT', amountMinorUnits: 5_000, sourceId: null },
+      { id: 'payment-001', type: 'SALE_PAYMENT', amountMinorUnits: 500, sourceId: 'sale-001' },
+      { id: 'payment-002', type: 'SALE_PAYMENT', amountMinorUnits: 700, sourceId: 'sale-001' }
+    ]);
+    /** El turno avanzó una versión por movimiento, no una por guardado. */
+    expect(kit.handle.sqlite.prepare(
+      "select version from shifts where id = 'shift-001'"
+    ).pluck().get()).toBe(3);
     kit.handle.close();
   });
 

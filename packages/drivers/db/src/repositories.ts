@@ -597,7 +597,13 @@ export class DrizzleShiftRepository implements ShiftRepository {
         'A closed shift cannot be overwritten.'
       );
     }
-    if (existing && shift.version !== existing.version + 1) {
+    /**
+     * El guardado exige avanzar, no avanzar exactamente uno: un cobro mixto
+     * asienta un movimiento por método y sube el turno tantas versiones como
+     * pagos tenga el lote. Exigir un solo incremento rechazaba esa venta con
+     * el cobro ya registrado, que es lo peor que puede pasarle a una caja.
+     */
+    if (existing && shift.version <= existing.version) {
       throw new InfrastructureError('DATABASE_CONCURRENCY_CONFLICT', 'Shift version is stale.');
     }
     if (!existing && shift.version !== 1) {
