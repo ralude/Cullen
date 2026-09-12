@@ -26,12 +26,12 @@
       "text": "Palanca «Cobro»\n\nTres momentos en la misma barra, a la misma altura:\n\n· Sin pagos — el caso simple, un botón.\n· Pago dividido — una ficha agregada, resto recalculado, el botón cambia a «Agregar pago».\n· Cubierto — dos fichas, saldo en cero, «Completar venta».\n\nY «Navegación» sigue ahí: expandida, compacta u oculta."
     },
     {
-      "id": "lo-que-falta-decidir",
+      "id": "lo-que-el-nodo-ya-publica",
       "x": 0,
       "y": 880,
       "w": 700,
       "page": "page-1",
-      "text": "Lo único que esto necesita del nodo\n\nEl lote sigue siendo uno solo: el dominio acepta los pagos una vez (SALE_PAYMENTS_ALREADY_REGISTERED). Las fichas se acumulan en la pantalla y se envían juntas al final, así que no hay que tocar el agregado.\n\nLo que sí falta es el resto en vivo cuando un método cobra IGTF: para descontarlo bien hace falta la tasa, y la pantalla no la conoce. Dos salidas, ambas honestas:\n\n· El nodo publica la política activa (tasa y métodos gravados) como lectura. La pantalla la muestra —el chip «+IGTF»— y el nodo sigue siendo la autoridad al registrar.\n· Una consulta de previsualización: dada la mezcla, el nodo devuelve cuánto cobra cada método. Es la alternativa que ADR-0031 dejó anotada.\n\nSin ninguna de las dos, el resto se calcula contra el total comercial y el último centavo lo corrige el nodo al registrar."
+      "text": "Lo que el nodo ya publica\n\nEl lote sigue siendo uno solo: el dominio acepta los pagos una vez (SALE_PAYMENTS_ALREADY_REGISTERED). Las fichas se acumulan en la pantalla y se envían juntas al final, así que no hay que tocar el agregado.\n\nEl resto en vivo ya se puede calcular. La enmienda del 2026-09-11 a ADR-0031 tomó la primera de las dos salidas que esta nota dejaba abiertas: GET /api/v1/currency/payment-methods publica financialTransactionTaxBasisPoints por método —0 si no está gravado—, la pantalla muestra el chip «+IGTF» y precarga el bruto con TaxRate.includeIn, y el nodo sigue siendo la autoridad al registrar.\n\nDos reglas que la barra debe respetar:\n\n· El IGTF se calcula sobre la porción comercial que el método gravado liquida, no sobre toda la venta. Aquí: 10,24 de base con tarjeta, 0,31 de impuesto, 10,55 cobrados.\n· Con dos métodos gravados en el mismo lote, el redondeo ocurre UNA vez sobre la base gravada agregada. Redondear cada ficha por su cuenta entrega una unidad menor de más y el nodo rechaza el lote.\n\nQueda abierto cómo se le comunica al cajero que «Total a cobrar» cambia cuando entra una ficha gravada: aquí sube de 20,24 a 20,55 al agregar la tarjeta."
     },
     {
       "id": "nota-b",

@@ -121,7 +121,7 @@
 
       <div style="display: grid; gap: 3px; align-content: center;">
         <span style="color: #c7d7cf; font-size: 0.72rem; font-weight: 600;">Total a cobrar</span>
-        <strong class="num" style="font-size: 2.1rem; letter-spacing: -0.045em; line-height: 1;">USD 20,85</strong>
+        <strong class="num" style="font-size: 2.1rem; letter-spacing: -0.045em; line-height: 1;">USD {{total}}</strong>
         <span class="num" style="color: #a8bcb2; font-size: 0.72rem;">Subtotal 17,45 · IVA 2,79 · IGTF {{igtf}}</span>
       </div>
 
@@ -192,24 +192,35 @@ class Component extends DCLogic {
       ['Reportes', '<path d="M4 16V9M10 16V4M16 16v-5"/>', false]
     ];
 
-    /** Los tres momentos del cobro, en la misma barra y con la misma altura. */
+    /**
+     * Los tres momentos del cobro, en la misma barra y con la misma altura.
+     *
+     * La aritmética sigue ADR-0031 y su enmienda del 2026-09-11: el IGTF se
+     * calcula sobre la porción comercial que el método gravado liquida, no
+     * sobre toda la venta, y viaja dentro del importe que se cobra con él. Por
+     * eso el total sube de 20,24 a 20,55 sólo cuando la tarjeta entra al lote:
+     * antes de elegir con qué se paga, el impuesto todavía no existe.
+     *
+     * Comercial: subtotal 17,45 + IVA 2,79 = 20,24. La tarjeta cubre 10,24 de
+     * esa base, su 3% son 0,31, y por eso se cobran 10,55 con ella.
+     */
     const stage = this.props.cobro ?? 'Pago dividido';
     const stages = {
       'Sin pagos': {
-        tenders: [], igtf: '—', amountValue: '20,85', selected: 'Efectivo',
-        balance: { text: 'Falta cobrar USD 20,85', bg: '#fff0d7', fg: '#805100' },
+        tenders: [], igtf: '—', total: '20,24', amountValue: '20,24', selected: 'Efectivo',
+        balance: { text: 'Falta cobrar USD 20,24', bg: '#fff0d7', fg: '#805100' },
         action: { label: 'Cobrar y completar', bg: '#27a36f', fg: '#0f2a20' }
       },
       'Pago dividido': {
         tenders: [{ method: 'Efectivo', amount: 'USD 10,00' }],
-        igtf: '0,61', amountValue: '10,85', selected: 'Tarjeta',
-        balance: { text: 'Falta cobrar USD 10,85 · el importe de tarjeta incluye su IGTF', bg: '#fff0d7', fg: '#805100' },
+        igtf: '—', total: '20,24', amountValue: '10,55', selected: 'Tarjeta',
+        balance: { text: 'Falta cobrar USD 10,24 · con tarjeta son 10,55, IGTF incluido', bg: '#fff0d7', fg: '#805100' },
         action: { label: 'Agregar pago', bg: '#ffffff', fg: '#163d2f' }
       },
       'Cubierto': {
-        tenders: [{ method: 'Efectivo', amount: 'USD 10,00' }, { method: 'Tarjeta', amount: 'USD 10,85' }],
-        igtf: '0,61', amountValue: '0,00', selected: 'Tarjeta',
-        balance: { text: 'Cobro cubierto · USD 20,85', bg: '#e4f4eb', fg: '#15563e' },
+        tenders: [{ method: 'Efectivo', amount: 'USD 10,00' }, { method: 'Tarjeta', amount: 'USD 10,55' }],
+        igtf: '0,31', total: '20,55', amountValue: '0,00', selected: 'Tarjeta',
+        balance: { text: 'Cobro cubierto · USD 20,55', bg: '#e4f4eb', fg: '#15563e' },
         action: { label: 'Completar venta', bg: '#27a36f', fg: '#0f2a20' }
       }
     }[stage];
@@ -241,6 +252,7 @@ class Component extends DCLogic {
       hasTenders: stages.tenders.length > 0,
       noTenders: stages.tenders.length === 0,
       igtf: stages.igtf,
+      total: stages.total,
       amountValue: stages.amountValue,
       balance: stages.balance,
       action: stages.action,
