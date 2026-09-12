@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'perf/**/*.test.ts'],
     environment: 'node',
     /**
      * Las pruebas de contrato del servidor autentican de verdad: scrypt es

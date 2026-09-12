@@ -13,10 +13,12 @@
  *   pnpm --filter @supermarket/server perf -- --scenario sale-journey --sample 10
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { hostname, totalmem, cpus, platform, release } from 'node:os';
 import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 import {
   Barcode, Category, CashRegister, PaymentMethod, Product, StockItem, UnitOfMeasure
 } from '@supermarket/core';
@@ -25,7 +27,7 @@ import {
   DrizzleProductRepository, DrizzleStockItemRepository, DrizzleUnitOfMeasureRepository,
   SqliteOperationalPolicyWriter, SqliteUnitOfWork
 } from '@supermarket/driver-db';
-import { Money, Quantity, TaxRate } from '@supermarket/shared';
+import { Money, Quantity, TaxRate, type SalesReportResponse } from '@supermarket/shared';
 import { buildApp } from '../src/app.ts';
 import { ADMIN_PERMISSIONS, createSecurityRuntime, type SecurityRuntime } from '../src/runtime.ts';
 
@@ -35,11 +37,11 @@ type Summary = {
   readonly scenario: string;
   readonly sample: number;
   readonly medianMs: number;
-  readonly p90Ms: number;
+  readonly p90Ms?: number;
   readonly minMs: number;
   readonly maxMs: number;
   readonly iqrMs: number;
-  /** Margen de ruido: un cambio que no lo supere es fluctuación, no mejora. */
+  /** Dispersión dentro de la serie; no sustituye la deriva entre series. */
   readonly relativeIqr: number;
 };
 
@@ -62,17 +64,59 @@ const PRODUCTS = 200;
  */
 const SAVE_CHUNK = 1_000;
 
+/**
+ * Ventas completadas que el perfil de crecimiento deja en la base antes de
+ * medir. Sin ellas el reporte de ventas leería un período vacío: un número
+ * excelente que no mide nada.
+ */
+const SEEDED_SALES = 300;
+
 const DEFAULT_HISTORY_DEPTHS = [100, 1_000, 10_000];
 
-/** `--depths 100,5000` reemplaza las profundidades por omisión. */
-const HISTORY_DEPTHS: readonly number[] = ((): readonly number[] => {
-  const at = process.argv.indexOf('--depths');
-  if (at < 0) return DEFAULT_HISTORY_DEPTHS;
-  const parsed = (process.argv[at + 1] ?? '').split(',')
-    .map((value) => Number.parseInt(value, 10))
-    .filter((value) => Number.isSafeInteger(value) && value > 0);
-  return parsed.length > 0 ? parsed : DEFAULT_HISTORY_DEPTHS;
-})();
+/** Rechazar entradas inválidas antes de crear bases o publicar resultados. */
+const invalidArgument: () => never = () => {
+  throw new Error('PERF_INVALID_ARGUMENT: revisa perfil, escenario, muestra, warm-up y profundidades.');
+};
+
+const parseOptions = (args: readonly string[]) => {
+  const values = new Map<string, string>();
+  const scenarios: string[] = [];
+  const allowed = ['--profile', '--scenario', '--sample', '--warmup', '--depths'];
+  for (let index = 0; index < args.length; index += 1) {
+    const key = args[index]!;
+    if (key === '--') continue;
+    const value = args[++index];
+    if (!allowed.includes(key) || !value || value.startsWith('--')) invalidArgument();
+    if (key === '--scenario') scenarios.push(value);
+    else {
+      if (values.has(key)) invalidArgument();
+      values.set(key, value);
+    }
+  }
+  const integer = (raw: string, minimum: number): number => {
+    if (!/^\d+$/.test(raw)) invalidArgument();
+    const value = Number(raw);
+    if (!Number.isSafeInteger(value) || value < minimum) invalidArgument();
+    return value;
+  };
+  const profile = values.get('--profile') ?? 'habitual';
+  if (profile !== 'habitual' && profile !== 'crecimiento') invalidArgument();
+  const historyDepths = values.has('--depths')
+    ? values.get('--depths')!.split(',').map((value) => integer(value, 1))
+    : DEFAULT_HISTORY_DEPTHS;
+  if (new Set(historyDepths).size !== historyDepths.length) invalidArgument();
+  if (values.has('--depths') && profile !== 'crecimiento') invalidArgument();
+  return {
+    profile,
+    historyDepths,
+    warmup: integer(values.get('--warmup') ?? '5', 0),
+    sample: integer(values.get('--sample') ?? (profile === 'crecimiento' ? '10' : '30'), 1),
+    scenarios: [...new Set(scenarios)]
+  };
+};
+
+const options = parseOptions(process.argv.slice(2));
+const HISTORY_DEPTHS = options.historyDepths;
 
 const depthLabel = (depth: number): string =>
   depth >= 1_000 && depth % 1_000 === 0 ? depth / 1_000 + 'k' : String(depth);
@@ -80,21 +124,7 @@ const depthLabel = (depth: number): string =>
 const historyProductId = (depth: number): string => 'history-' + depthLabel(depth);
 const OPERATOR = { operatorCode: 'PERF01', displayName: 'Medición', pin: '123456' };
 
-const profile = (): 'habitual' | 'crecimiento' => {
-  const at = process.argv.indexOf('--profile');
-  return process.argv[at + 1] === 'crecimiento' ? 'crecimiento' : 'habitual';
-};
-
-const argument = (name: string, fallback: number): number => {
-  const at = process.argv.indexOf('--' + name);
-  if (at < 0) return fallback;
-  const value = Number.parseInt(process.argv[at + 1] ?? '', 10);
-  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
-};
-
-const requested = (): readonly string[] => process.argv
-  .flatMap((value, at) => value === '--scenario' ? [process.argv[at + 1] ?? ''] : [])
-  .filter((value) => value.length > 0);
+const profile = (): string => options.profile;
 
 const quantile = (sorted: readonly number[], fraction: number): number => {
   const position = (sorted.length - 1) * fraction;
@@ -111,7 +141,7 @@ const summarize = (scenario: string, observations: readonly number[]): Summary =
     scenario,
     sample: sorted.length,
     medianMs: Number(median.toFixed(3)),
-    p90Ms: Number(quantile(sorted, 0.9).toFixed(3)),
+    ...(sorted.length >= 30 ? { p90Ms: Number(quantile(sorted, 0.9).toFixed(3)) } : {}),
     minMs: Number(sorted[0]!.toFixed(3)),
     maxMs: Number(sorted.at(-1)!.toFixed(3)),
     iqrMs: Number(iqr.toFixed(3)),
@@ -127,6 +157,16 @@ const summarize = (scenario: string, observations: readonly number[]): Summary =
 const discard = { write: (): void => undefined };
 
 const AT = new Date('2026-09-11T12:00:00.000Z');
+/** El runtime usa su reloj real; el período se ancla al inicio de cada proceso. */
+const reportAnchor = new Date();
+const reportPeriod = {
+  from: new Date(reportAnchor.getTime() - 86_400_000).toISOString(),
+  to: new Date(reportAnchor.getTime() + 86_400_000).toISOString()
+};
+const inventoryAsOf = new Date(Math.max(
+  reportAnchor.getTime() + 86_400_000,
+  AT.getTime() + Math.max(...HISTORY_DEPTHS) * 1_000
+)).toISOString();
 
 /**
  * Semilla determinista: misma base para toda corrida y toda repetición. Los
@@ -232,6 +272,60 @@ const seedHistory = async (runtime: SecurityRuntime): Promise<void> => {
   }
 };
 
+/**
+ * Producto que le toca a una repetición. La siembra recorre repeticiones
+ * negativas, así que el resto se normaliza en vez de salirse del catálogo.
+ */
+const productSuffix = (run: number): string =>
+  String(((run % PRODUCTS) + PRODUCTS) % PRODUCTS + 1).padStart(4, '0');
+/**
+ * Jornada principal: abrir venta, agregar línea, cobrar con un lote mixto y
+ * completar. La usa el escenario y también la siembra del perfil de
+ * crecimiento, para que la historia comercial se construya por el mismo
+ * camino que se mide.
+ */
+const journey = async (place: Station, run: number): Promise<number> => {
+  const suffix = productSuffix(run);
+  const key = (step: string): string => 'perf-' + step + '-' + run;
+  return timed(async () => {
+    const started = await place.app.inject({
+      method: 'POST', url: '/api/v1/sales',
+      headers: { cookie: place.cookie, 'idempotency-key': key('start') },
+      payload: { shiftId: place.shiftId, currencyCode: 'USD' }
+    });
+    expect200(started.statusCode, 'abrir venta');
+    const saleId = (started.json() as { readonly id: string }).id;
+    const added = await place.app.inject({
+      method: 'POST', url: '/api/v1/sales/' + saleId + '/items',
+      headers: { cookie: place.cookie, 'idempotency-key': key('item') },
+      payload: { barcode: '75900000' + suffix, quantityScaled: 1, quantityScale: 0 }
+    });
+    expect200(added.statusCode, 'agregar línea');
+    const sale = added.json() as { readonly totalMinorUnits: number };
+    /** Cobro mixto: la mitad en efectivo y el resto con el método gravado. */
+    const cash = Number(BigInt(sale.totalMinorUnits) / 2n);
+    const commercial = sale.totalMinorUnits - cash;
+    const card = TaxRate.fromBasisPoints(300)
+      .includeIn(Money.fromMinorUnits(commercial, 'USD')).minorUnits;
+    const paid = await place.app.inject({
+      method: 'POST', url: '/api/v1/sales/' + saleId + '/payments',
+      headers: { cookie: place.cookie, 'idempotency-key': key('pay') },
+      payload: {
+        payments: [
+          { methodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: cash },
+          { methodCode: 'CARD_USD', currencyCode: 'USD', amountMinorUnits: card }
+        ]
+      }
+    });
+    expect200(paid.statusCode, 'registrar pagos');
+    const completed = await place.app.inject({
+      method: 'POST', url: '/api/v1/sales/' + saleId + '/complete',
+      headers: { cookie: place.cookie, 'idempotency-key': key('complete') }
+    });
+    expect200(completed.statusCode, 'completar venta');
+  });
+};
+
 type Station = {
   readonly runtime: SecurityRuntime;
   readonly app: ReturnType<typeof buildApp>;
@@ -245,34 +339,44 @@ const station = async (databasePath: string): Promise<Station> => {
   const runtime = createSecurityRuntime(databasePath, {
     terminalId: 'terminal-001', originNodeId: 'node-001'
   });
-  const provisioned = await runtime.provisionInitialAdmin.execute({
-    ...OPERATOR, permissions: ADMIN_PERMISSIONS
-  });
-  if (!provisioned.ok) throw new Error('No se pudo provisionar el administrador de medición.');
-  await seed(runtime);
-  if (profile() === 'crecimiento') await seedHistory(runtime);
   const app = buildApp(runtime.dependencies, { logDestination: discard });
-  const login = await app.inject({
-    method: 'POST', url: '/api/v1/auth/session',
-    payload: { operatorCode: OPERATOR.operatorCode, pin: OPERATOR.pin }
-  });
-  if (login.statusCode !== 200) throw new Error('Ingreso rechazado: ' + login.statusCode);
-  const cookie = login.headers['set-cookie'];
-  const session = Array.isArray(cookie) ? cookie.join('; ') : String(cookie ?? '');
-  const opened = await app.inject({
-    method: 'POST', url: '/api/v1/cash/shifts',
-    headers: { cookie: session, 'idempotency-key': 'perf-shift' },
-    payload: {
-      cashRegisterId: 'register-001',
-      openingFunds: [{ paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 50_000 }]
+  try {
+    const provisioned = await runtime.provisionInitialAdmin.execute({
+      ...OPERATOR, permissions: ADMIN_PERMISSIONS
+    });
+    if (!provisioned.ok) throw new Error('No se pudo provisionar el administrador de medición.');
+    await seed(runtime);
+    if (profile() === 'crecimiento') await seedHistory(runtime);
+    const login = await app.inject({
+      method: 'POST', url: '/api/v1/auth/session',
+      payload: { operatorCode: OPERATOR.operatorCode, pin: OPERATOR.pin }
+    });
+    if (login.statusCode !== 200) throw new Error('Ingreso rechazado: ' + login.statusCode);
+    const cookie = login.headers['set-cookie'];
+    const session = Array.isArray(cookie) ? cookie.join('; ') : String(cookie ?? '');
+    const opened = await app.inject({
+      method: 'POST', url: '/api/v1/cash/shifts',
+      headers: { cookie: session, 'idempotency-key': 'perf-shift' },
+      payload: {
+        cashRegisterId: 'register-001',
+        openingFunds: [{ paymentMethodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: 50_000 }]
+      }
+    });
+    if (opened.statusCode !== 201) throw new Error('Turno rechazado: ' + opened.statusCode);
+    const place: Station = {
+      runtime, app, cookie: session,
+      shiftId: (opened.json() as { readonly id: string }).id,
+      close: async (): Promise<void> => { await app.close(); runtime.handle.close(); }
+    };
+    if (profile() === 'crecimiento') {
+      for (let sale = 0; sale < SEEDED_SALES; sale += 1) await journey(place, -1 - sale);
     }
-  });
-  if (opened.statusCode !== 201) throw new Error('Turno rechazado: ' + opened.statusCode + ' ' + opened.body);
-  return {
-    runtime, app, cookie: session,
-    shiftId: (opened.json() as { readonly id: string }).id,
-    close: async (): Promise<void> => { await app.close(); runtime.handle.close(); }
-  };
+    return place;
+  } catch (error) {
+    await app.close();
+    runtime.handle.close();
+    throw error;
+  }
 };
 
 type Scenario = {
@@ -291,11 +395,24 @@ const expect200 = (status: number, what: string): void => {
   if (status !== 200 && status !== 201) throw new Error(what + ' devolvió ' + status);
 };
 
+/**
+ * Una lectura vacía es un número excelente que no mide nada. Los escenarios de
+ * lectura exigen filas para que su medición signifique algo.
+ */
+const expectRows = (body: string, expected: number, what: string): void => {
+  const rows: unknown = JSON.parse(body);
+  if (!Array.isArray(rows) || rows.length !== expected) {
+    throw new Error('PERF_DATASET_MISMATCH: ' + what + ' no devolvió la cantidad de filas prevista.');
+  }
+};
+
+const productCount = (): number => PRODUCTS + (profile() === 'crecimiento' ? HISTORY_DEPTHS.length : 0);
+
 const scenarios: readonly Scenario[] = [
   {
     id: 'catalog-barcode',
     run: async (place, run) => {
-      const suffix = String((run % PRODUCTS) + 1).padStart(4, '0');
+      const suffix = productSuffix(run);
       return timed(async () => {
         const response = await place.app.inject({
           method: 'GET', url: '/api/v1/catalog/products/by-barcode/75900000' + suffix,
@@ -312,50 +429,45 @@ const scenarios: readonly Scenario[] = [
         method: 'GET', url: '/api/v1/catalog/products', headers: { cookie: place.cookie }
       });
       expect200(response.statusCode, 'listado');
+      expectRows(response.body, productCount(), 'El listado de catálogo');
+    })
+  },
+  {
+    /**
+     * Reporte de inventario con su filtro y su paginación vigentes. Lee la
+     * existencia de todos los artículos, no la historia de uno.
+     */
+    id: 'report-inventory',
+    run: async (place) => timed(async () => {
+      const response = await place.app.inject({
+        method: 'GET',
+        url: '/api/v1/reports/inventory?asOf=' + inventoryAsOf + '&limit=500',
+        headers: { cookie: place.cookie }
+      });
+      expect200(response.statusCode, 'reporte de inventario');
+      expectRows(response.body, Math.min(productCount(), 500), 'El reporte de inventario');
+    })
+  },
+  {
+    id: 'report-sales',
+    run: async (place) => timed(async () => {
+      const response = await place.app.inject({
+        method: 'GET',
+        url: '/api/v1/reports/sales?from=' + reportPeriod.from + '&to=' + reportPeriod.to + '&limit=500',
+        headers: { cookie: place.cookie }
+      });
+      expect200(response.statusCode, 'reporte de ventas');
+      expectRows(response.body, 1, 'El reporte de ventas');
+      const rows = response.json<readonly SalesReportResponse[]>();
+      if (rows[0]?.salesCount !== SEEDED_SALES || rows[0]?.quantitySoldScaled !== SEEDED_SALES
+        || rows[0]?.currencyCode !== 'USD' || rows[0]?.quantityScale !== 0) {
+        throw new Error('PERF_DATASET_MISMATCH: el reporte no resume las ventas sembradas.');
+      }
     })
   },
   {
     id: 'sale-journey',
-    run: async (place, run) => {
-      const suffix = String((run % PRODUCTS) + 1).padStart(4, '0');
-      const key = (step: string): string => 'perf-' + step + '-' + run;
-      return timed(async () => {
-        const started = await place.app.inject({
-          method: 'POST', url: '/api/v1/sales',
-          headers: { cookie: place.cookie, 'idempotency-key': key('start') },
-          payload: { shiftId: place.shiftId, currencyCode: 'USD' }
-        });
-        expect200(started.statusCode, 'abrir venta');
-        const saleId = (started.json() as { readonly id: string }).id;
-        const added = await place.app.inject({
-          method: 'POST', url: '/api/v1/sales/' + saleId + '/items',
-          headers: { cookie: place.cookie, 'idempotency-key': key('item') },
-          payload: { barcode: '75900000' + suffix, quantityScaled: 1, quantityScale: 0 }
-        });
-        expect200(added.statusCode, 'agregar línea');
-        const sale = added.json() as { readonly totalMinorUnits: number };
-        /** Cobro mixto: la mitad en efectivo y el resto con el método gravado. */
-        const cash = Math.floor(sale.totalMinorUnits / 2);
-        const commercial = sale.totalMinorUnits - cash;
-        const card = commercial + Math.round(commercial * 300 / 10_000);
-        const paid = await place.app.inject({
-          method: 'POST', url: '/api/v1/sales/' + saleId + '/payments',
-          headers: { cookie: place.cookie, 'idempotency-key': key('pay') },
-          payload: {
-            payments: [
-              { methodCode: 'CASH_USD', currencyCode: 'USD', amountMinorUnits: cash },
-              { methodCode: 'CARD_USD', currencyCode: 'USD', amountMinorUnits: card }
-            ]
-          }
-        });
-        expect200(paid.statusCode, 'registrar pagos');
-        const completed = await place.app.inject({
-          method: 'POST', url: '/api/v1/sales/' + saleId + '/complete',
-          headers: { cookie: place.cookie, 'idempotency-key': key('complete') }
-        });
-        expect200(completed.statusCode, 'completar venta');
-      });
-    }
+    run: async (place, run) => journey(place, run)
   }
 ];
 
@@ -422,16 +534,37 @@ const coldStart = async (directory: string, run: number): Promise<number> => {
   return elapsed;
 };
 
-const commit = (): string => {
-  try {
-    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim();
-  } catch { return 'desconocido'; }
+const revision = () => {
+  const git = (args: readonly string[]): string => execFileSync('git', args, {
+    encoding: 'utf8', windowsHide: true
+  }).trim();
+  return {
+    commit: git(['rev-parse', 'HEAD']),
+    dirty: git(['status', '--porcelain']).length > 0,
+    harnessSha256: createHash('sha256').update(readFileSync(fileURLToPath(import.meta.url))).digest('hex')
+  };
 };
 
 const main = async (): Promise<void> => {
-  const warmup = argument('warmup', 5);
-  const sample = argument('sample', 30);
-  const only = requested();
+  const { warmup, sample } = options;
+  const available = profile() === 'crecimiento'
+    ? [...scenarios, ...historyScenarios]
+    : scenarios.filter(({ id }) => id !== 'report-sales');
+  const availableIds = ['node-cold-start', ...available.map(({ id }) => id)];
+  const only = options.scenarios.length > 0 ? options.scenarios : availableIds;
+  if (only.some((id) => !availableIds.includes(id))) invalidArgument();
+  if (only.length > 1) {
+    /** Un proceso por escenario; las series nunca compiten entre sí. */
+    for (const id of only) {
+      execFileSync(process.execPath, [
+        ...process.execArgv, fileURLToPath(import.meta.url), '--profile', profile(),
+        '--sample', String(sample), '--warmup', String(warmup), '--scenario', id,
+        ...(profile() === 'crecimiento' ? ['--depths', HISTORY_DEPTHS.join(',')] : [])
+      ], { stdio: 'inherit', windowsHide: true });
+    }
+    return;
+  }
+  const source = revision();
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
   const root = resolve(process.cwd(), '../..');
   const directory = join(root, '.perf', runId);
@@ -452,15 +585,15 @@ const main = async (): Promise<void> => {
     summaries.push(summarize('node-cold-start', measured));
   }
 
-  const available = profile() === 'crecimiento' ? [...scenarios, ...historyScenarios] : scenarios;
   const inProcess = available.filter((scenario) => selected(scenario.id));
   if (inProcess.length > 0) {
     for (const scenario of inProcess) {
       /** Base propia y recién migrada por escenario: ninguno hereda el estado del anterior. */
       const path = join(directory, scenario.id + '.sqlite');
-      const place = await station(path);
+      let place: Station | undefined;
       const measured: number[] = [];
       try {
+        place = await station(path);
         for (let run = 0; run < warmup + sample; run += 1) {
           const ms = await scenario.run(place, run);
           if (run < warmup) continue;
@@ -468,7 +601,7 @@ const main = async (): Promise<void> => {
           observations.push({ scenario: scenario.id, run: run - warmup, ms });
         }
       } finally {
-        await place.close();
+        await place?.close();
         rmSync(path, { force: true });
         rmSync(path + '-shm', { force: true });
         rmSync(path + '-wal', { force: true });
@@ -478,7 +611,11 @@ const main = async (): Promise<void> => {
   }
 
   const environment = {
-    commit: commit(),
+    commit: source.commit.slice(0, 7),
+    revision: source,
+    protocolVersion: 2,
+    processId: process.pid,
+    fiscalMode: 'SIMULATION',
     host: hostname(),
     platform: platform() + ' ' + release(),
     cpu: cpus()[0]?.model.trim() ?? 'desconocido',
@@ -488,21 +625,30 @@ const main = async (): Promise<void> => {
     warmup,
     sample,
     profile: profile(),
-    products: PRODUCTS,
+    products: inProcess.length === 0 ? 0 : productCount(),
+    completedSales: inProcess.length > 0 && profile() === 'crecimiento' ? SEEDED_SALES : 0,
+    reportPeriod,
+    inventoryAsOf,
     historyDepths: profile() === 'crecimiento' ? HISTORY_DEPTHS : [],
     measuredAt: new Date().toISOString()
   };
+  const finalRevision = revision();
+  if (finalRevision.commit !== source.commit || finalRevision.harnessSha256 !== source.harnessSha256) {
+    throw new Error('PERF_REVISION_CHANGED: el código cambió durante la serie.');
+  }
+  source.dirty ||= finalRevision.dirty;
   writeFileSync(join(directory, 'observations.json'), JSON.stringify({ environment, observations }, null, 2));
   writeFileSync(join(directory, 'summary.json'), JSON.stringify({ environment, summaries }, null, 2));
 
   process.stdout.write('\nSerie ' + runId + ' sobre ' + environment.commit +
-    ' · perfil ' + environment.profile + ' · warm-up ' + warmup + ' · muestra ' + sample + '\n\n');
+    ' · SIMULACION · perfil ' + environment.profile + ' · warm-up ' + warmup + ' · muestra ' + sample +
+    (source.dirty ? ' · cambios pendientes (no BEFORE)' : '') + '\n\n');
   process.stdout.write('escenario            mediana      p90      mín      máx   IQR rel.\n');
   for (const summary of summaries) {
     process.stdout.write(
       summary.scenario.padEnd(20) +
       String(summary.medianMs).padStart(8) +
-      String(summary.p90Ms).padStart(9) +
+      String(summary.p90Ms ?? '—').padStart(9) +
       String(summary.minMs).padStart(9) +
       String(summary.maxMs).padStart(9) +
       (' ' + (summary.relativeIqr * 100).toFixed(1) + ' %').padStart(11) + '\n'

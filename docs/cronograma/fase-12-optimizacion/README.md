@@ -1,6 +1,6 @@
 # Fase 12: Optimización
 
-- **Estado:** Planificada después del release `v0.1.0`; ejecución pendiente.
+- **Estado:** En ejecución: 12.01 desde el 2026-09-11; 12.02, 12.03 y 12.05 pendientes.
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Excepción:** 12.04 permanece suspendida con Fase 8 y no bloquea el cierre en modo simulado.
 - **Índice:** [Cronograma maestro](../README.md).

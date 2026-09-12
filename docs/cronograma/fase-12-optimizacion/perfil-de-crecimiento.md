@@ -40,6 +40,30 @@ un lote así —una recepción o un conteo muy grandes serían los candidatos—
 reproducción para que 12.03 decida; el arnés lo rodea guardando por tramos de 1.000, porque lo que
 mide es la profundidad de la historia y no el tamaño del lote que la escribe.
 
+## Las lecturas que el escenario 5 también pedía
+
+Exploración separada: serie `.perf/2026-09-12T01-49-30-464Z`, sobre `ee65cc3` con cambios
+locales del arnés, warm-up 1 y muestra **3**. No pertenece a la serie de historia de muestra 10
+descrita arriba y no constituye BEFORE. El perfil contenía 300 ventas completadas y **203**
+productos (200 base más tres con historia). Los números se conservan como observaciones
+exploratorias del instrumento anterior:
+
+| Lectura | Mediana |
+|---|---:|
+| `report-sales` (300 ventas, período de dos días) | 1,70 ms |
+| `report-inventory` (corte anterior a la historia profunda, límite 500) | 4,50 ms |
+| `catalog-list` (203 productos) | 62,0 ms |
+
+En esa exploración el listado costó unas catorce veces el reporte de inventario. La muestra y
+el corte temporal impiden usar esa relación como presupuesto o como comparación final.
+
+La revisión del 2026-09-12 reprodujo otro fallo: el período fijo excluía las ventas creadas con
+la fecha actual. El protocolo 2 ancla el período al inicio de la corrida y comprueba las 300
+ventas del resumen, la cantidad real de productos y las filas de inventario. El perfil
+habitual no admite `report-sales` porque no siembra historia comercial. También omite p90 con
+menos de 30 observaciones. Estos cambios obligan a repetir el piloto; las cifras anteriores
+no se reinterpretan como resultados del protocolo corregido.
+
 ## Lo habitual, para comparar
 
 La misma serie sobre el perfil habitual, que no tiene historia profunda:
@@ -54,8 +78,14 @@ La misma serie sobre el perfil habitual, que no tiene historia profunda:
 ## Lo que sigue sin medir
 
 De los seis escenarios obligatorios, dos siguen sin instrumentar: el **ingreso y shell** —exige
-conductor de GUI— y el **ciclo LAN** —exige dos nodos con material TLS—. Del escenario 5 se mide
-el kardex; los reportes de ventas e inventario con filtros y paginación no.
+conductor de GUI— y el **ciclo LAN**. Sobre este último conviene corregir algo que se dijo antes:
+no basta «reutilizar el arnés de las pruebas de sincronización». Ese arnés no existe como tal;
+la composición vive dentro de `lan-sync.e2e.test.ts` y usa estado mutable del módulo. Su
+reutilización se evalúa en el [plan de 12.01](./plan-12.01-baseline.md).
+
+También falta completar la medición de arranque con Electron y la jornada con apertura de
+caja y emisión fiscal simulada. El arnés actual registra latencias; CPU, memoria, tráfico y
+tamaño de SQLite requieren instrumentación adicional.
 
 Ninguna de estas cifras es un presupuesto. Un presupuesto dice qué es aceptable para operar y
 exige una expectativa de uso documentada: eso es 12.01.06, y con dos escenarios sin instrumentar

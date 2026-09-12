@@ -1,8 +1,9 @@
 {
-  "manifestVersion": 1,
+  "manifestVersion": 2,
+  "protocolVersion": 2,
   "phase": "12.01",
   "createdOn": "2026-09-11",
-  "commit": "163548c",
+  "initialPilotCommit": "163548c",
   "status": "PROTOCOLO_FIJADO",
   "note": "Formato y protocolo de medición de la Fase 12. El estado, la aceptación y los commits viven únicamente en 12.01-profiler-baseline.md; aquí sólo el cómo se mide y qué se midió.",
   "environment": {
@@ -34,8 +35,8 @@
       "iqr",
       "relativeIqr"
     ],
-    "percentileRule": "Con muestra de 30 se publican mediana y p90. No se publica p95 ni p99: la muestra no los sostiene.",
-    "isolation": "Un escenario por proceso, base SQLite propia y recién migrada por corrida, sin servidor de desarrollo ni Electron compitiendo por el disco.",
+    "percentileRule": "Con muestra de al menos 30 se publican mediana y p90. Por debajo de 30 se omite p90. No se publica p95 ni p99. Una muestra de 1 o 3 sólo verifica el instrumento; no fija el ruido ni los presupuestos.",
+    "isolation": "Un escenario por proceso y una base SQLite propia y recién migrada. Seleccionar varios escenarios crea procesos hijos secuenciales y un directorio por escenario. Cada repetición de node-cold-start migra otra base dentro del proceso de ese escenario: no incluye iniciar Node, Electron ni un servicio instalado. Ejecutar sin suites, servidor de desarrollo ni Electron compitiendo por recursos.",
     "noiseFloor": "El estadístico comparable es la MEDIANA de cada serie, no la observación individual. El piloto del 2026-09-11 mostró que el IQR dentro de una serie llega al 41 % en los escenarios de pocos milisegundos —dispersión de GC y planificador— mientras la mediana entre series apenas se mueve. Usar el IQR como margen habría exigido mejoras absurdas. El margen por escenario es el doble de la deriva observada entre tres series; un cambio que no lo supere es fluctuación.",
     "series": 3,
     "noiseMargins": {
@@ -47,22 +48,25 @@
       "catalog-barcode": 12,
       "catalog-list": 11,
       "sale-journey": 4,
-      "note": "Margen de ruido, NO presupuesto. Los presupuestos los fija 12.01.06 con una expectativa de uso documentada."
+      "note": "Márgenes históricos del primer piloto, no presupuestos. El protocolo 2 cambia aislamiento, fechas y validaciones: exige repetir el piloto antes de reutilizar un margen. Los presupuestos los fija 12.01.06 con una expectativa de uso documentada."
     },
     "logging": "El destino del registro técnico es un sumidero en memoria: la medición paga componer cada línea —que el nodo también paga— y no escribirla al disco.",
-    "transport": "Las peticiones entran por app.inject: se mide enrutado, validación, aplicación y SQLite, no el socket. Medir el socket exige otra serie y queda declarado como tal."
+    "transport": "Las peticiones entran por app.inject: se mide enrutado, validación, aplicación y SQLite, no el socket. Medir el socket exige otra serie y queda declarado como tal.",
+    "validation": "Perfiles, escenarios, enteros y profundidades inválidos abortan antes de crear una serie. Las lecturas comprueban cantidades esperadas; ventas exige un grupo USD con las 300 ventas de preparación. Las validaciones de respuesta están incluidas en la latencia.",
+    "provenance": "Cada resultado identifica revisión Git completa, indicador dirty, SHA-256 del arnés, versión de protocolo, proceso y modo fiscal. Una revisión sucia no es BEFORE; un cambio de commit o arnés durante la serie la aborta. Los IDs operativos usan el generador UUIDv7 existente y las operaciones usan el reloj real del runtime."
   },
   "artifacts": {
     "rawDirectory": ".perf/",
     "rawDirectoryIgnored": true,
     "rawFiles": "<run-id>/observations.json — toda observación individual, con su escenario y su número de repetición.",
     "summaryFiles": "<run-id>/summary.json — estadísticos por escenario, entorno y commit.",
-    "versioned": "Sólo este manifiesto y el resumen del piloto en piloto-de-ruido.md. Las trazas crudas no entran a Git."
+    "versioned": "Este manifiesto y los informes resumidos de piloto, crecimiento y verificación del arnés. Las trazas crudas no entran a Git."
   },
   "commands": {
     "run": "pnpm --filter @supermarket/server perf",
     "runOne": "pnpm --filter @supermarket/server perf -- --scenario sale-journey",
-    "options": "--warmup N --sample N --scenario <id> (repetible)"
+    "options": "--warmup N (>=0) --sample N (>0) --scenario <id> (repetible) --profile habitual|crecimiento --depths N,N (sólo crecimiento, enteros positivos únicos)",
+    "runReports": "pnpm --filter @supermarket/server perf -- --profile crecimiento --scenario report-sales --scenario report-inventory"
   },
   "scenarios": [
     {
@@ -89,7 +93,7 @@
       "covers": "Escenario 4",
       "instrumented": true,
       "measures": "Abrir venta, agregar línea, registrar el lote mixto de pagos y completar, con su asiento en el turno y su salida de inventario.",
-      "excludes": "La emisión del documento simulado, que se mide aparte cuando 12.01.05 fije la serie BEFORE."
+      "excludes": "La apertura del turno ocurre en preparación y la emisión del documento simulado todavía no se ejecuta. Ambas faltan para cubrir el escenario 4 completo."
     },
     {
       "id": "login-and-shell",
@@ -98,17 +102,17 @@
       "pending": "Exige montar el renderer y recuperar la sesión: se instrumenta con el conductor de GUI."
     },
     {
-      "id": "stock-history",
-      "covers": "Escenario 5 (kardex)",
+      "id": "stock-history-and-reports",
+      "covers": "Escenario 5",
       "instrumented": true,
-      "measures": "Rehidratar el StockItem, traer sus filas crudas y leer su kardex con historias de 100, 1.000 y 10.000 movimientos.",
-      "excludes": "Los reportes de ventas e inventario con filtros y paginación, que siguen sin instrumentar."
+      "measures": "Rehidratar el StockItem, traer sus filas crudas y leer su kardex con historias de 100, 1.000 y 10.000 movimientos; más report-inventory y report-sales con sus filtros y límites de filas vigentes.",
+      "guard": "Catálogo e inventario comprueban la cantidad exacta de productos del perfil, con límite 500 en inventario. report-sales sólo se admite en crecimiento, donde comprueba el resumen de las 300 ventas sembradas; habitual aún no tiene una historia comercial acordada. El período de ventas abarca 24 horas antes y después del inicio del proceso, conservado en environment.reportPeriod. El corte de inventario incluye la última fecha de historia y las ventas de preparación."
     },
     {
       "id": "lan-cycle",
       "covers": "Escenario 6",
       "instrumented": false,
-      "pending": "Exige dos nodos con material TLS emitido; se instrumenta reutilizando el arnés de las pruebas de sincronización."
+      "pending": "Exige dos nodos con material TLS emitido. La composición existe dentro de lan-sync.e2e.test.ts; aún no es un arnés reutilizable. Su extracción se evalúa en el corte LAN del plan de 12.01."
     }
   ],
   "dataset": {
@@ -117,10 +121,12 @@
         "id": "habitual-v1",
         "seed": "Determinista y reconstruido por corrida: migraciones, un administrador, una caja, métodos CASH_USD y CARD_USD, política de IGTF del 3% sobre CARD/USD, y un catálogo de identificadores y barcodes secuenciales.",
         "products": 200,
-        "inventoryHistoryPerItem": 1
+        "inventoryHistoryPerItem": 1,
+        "completedSales": 0,
+        "reportSales": "No disponible: el perfil no siembra ventas; seleccionar report-sales falla antes de medir."
       },
       "crecimiento": {
-        "id": "crecimiento-v1",
+        "id": "crecimiento-v2",
         "extends": "habitual-v1",
         "inventoryHistoryDepths": [
           100,
@@ -130,7 +136,10 @@
         "rationale": "Las profundidades no describen una tienda concreta: son los tamaños que hacen visible el riesgo que la auditoría de Fase 11 registró sin benchmark —el repositorio carga todos los movimientos y StockItem.restore los reejecuta— y que 12.03 exige recorrer en escala habitual y de crecimiento.",
         "seedingNote": "La historia se construye por el dominio, no insertando filas a mano, y se guarda por tramos de 1.000 movimientos: un solo save con ~9.000 movimientos nuevos desborda la pila. Ver el hallazgo en perfil-de-crecimiento.md.",
         "sample": 10,
-        "sampleNote": "Muestra 10 en vez de 30: con IQR del 0,9 % en los escenarios de 10k la mediana ya es estable, y 30 repeticiones costarían minutos sin cambiar la conclusión."
+        "sampleNote": "10 observaciones por serie, sin p90. El IQR del piloto histórico describe dispersión interna, no estabilidad entre series. Falta repetir las tres series del protocolo 2 para fijar su margen.",
+        "completedSales": 300,
+        "completedSalesNote": "Sembradas por el mismo camino que mide la jornada y fuera de la medición. El reporte devuelve un grupo por moneda/escala que debe resumir exactamente 300 ventas, no 300 filas.",
+        "totalProducts": "200 más un producto por profundidad solicitada: 203 con las profundidades por omisión."
       }
     },
     "command": "pnpm --filter @supermarket/server perf -- --profile crecimiento [--depths 100,1000,10000]"
