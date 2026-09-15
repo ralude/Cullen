@@ -1,8 +1,12 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import { join } from 'node:path';
+import { measureLoginAndShell, PERFORMANCE_SCENARIO } from './performance-run.js';
 
 /** Nombre comercial del sistema, visible en la ventana nativa. */
 const PRODUCT_NAME = 'Cullen';
+
+const performanceScenario = process.env.CULLEN_PERFORMANCE_SCENARIO?.trim();
+const measuresLoginAndShell = performanceScenario === PERFORMANCE_SCENARIO;
 
 /**
  * Nodo local de esta terminal. La interfaz se carga desde él, no desde
@@ -34,7 +38,7 @@ const unreachableNodePage = (url: string): string => `data:text/html;charset=utf
 </main>`)
 }`;
 
-const createWindow = (): void => {
+const createWindow = (): BrowserWindow => {
   const window = new BrowserWindow({
     title: PRODUCT_NAME,
     autoHideMenuBar: true,
@@ -42,6 +46,7 @@ const createWindow = (): void => {
     height: 800,
     minWidth: 960,
     minHeight: 640,
+    show: !measuresLoginAndShell,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -52,7 +57,7 @@ const createWindow = (): void => {
 
   if (process.env.ELECTRON_RENDERER_URL) {
     void window.loadURL(process.env.ELECTRON_RENDERER_URL);
-    return;
+    return window;
   }
 
   const target = `${nodeUrl()}/app/`;
@@ -65,9 +70,10 @@ const createWindow = (): void => {
     void window.loadURL(unreachableNodePage(nodeUrl()));
   });
   void window.loadURL(target);
+  return window;
 };
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   /**
    * El menu por defecto de Electron ofrece Archivo, Ver, Ventana y sus atajos
    * de recarga y devtools. Nada de eso pertenece a una caja: la terminal se
@@ -75,13 +81,30 @@ void app.whenReady().then(() => {
    * cobro no es una funcion, es un riesgo.
    */
   Menu.setApplicationMenu(null);
-  createWindow();
+  const window = createWindow();
+
+  if (measuresLoginAndShell) {
+    const code = process.env.CULLEN_PERFORMANCE_OPERATOR_CODE;
+    const secret = process.env.CULLEN_PERFORMANCE_PIN;
+    const processStartedAt = Number(process.env.CULLEN_PERFORMANCE_STARTED_AT);
+    if (!code || !secret || !Number.isFinite(processStartedAt)
+      || !nodeUrl().startsWith('http://127.0.0.1:')) {
+      throw new Error('PERF_DESKTOP_CONFIGURATION_INVALID');
+    }
+    const result = await measureLoginAndShell(window, processStartedAt, { code, secret });
+    process.stdout.write('CULLEN_PERF_RESULT ' + JSON.stringify(result) + '\n');
+    app.quit();
+    return;
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
+}).catch(() => {
+  process.stderr.write(measuresLoginAndShell ? 'PERF_DESKTOP_FAILED\n' : 'DESKTOP_START_FAILED\n');
+  app.exit(1);
 });
 
 app.on('window-all-closed', () => {

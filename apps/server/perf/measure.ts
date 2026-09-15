@@ -12,11 +12,11 @@
  *   pnpm --filter @supermarket/server perf
  *   pnpm --filter @supermarket/server perf -- --scenario sale-journey --sample 10
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { hostname, totalmem, cpus, platform, release } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import {
@@ -677,14 +677,152 @@ const coldStart = async (directory: string, run: number): Promise<number> => {
   return elapsed;
 };
 
+const DESKTOP_METRICS = [
+  'desktop-to-login', 'login-to-shell', 'session-recovery'
+] as const;
+type DesktopMetric = typeof DESKTOP_METRICS[number];
+type DesktopMeasurement = Readonly<Record<DesktopMetric, number>>;
+
+const monotonicEpoch = (): number => performance.timeOrigin + performance.now();
+
+/**
+ * Construye los dos artefactos que intervienen y resuelve el Electron del
+ * workspace desktop. El build queda fuera de toda observación.
+ */
+const prepareDesktopArtifacts = (root: string): {
+  readonly executable: string;
+  readonly app: string;
+  readonly hashes: { readonly electronMain: string; readonly rendererHtml: string };
+} => {
+  const pnpm = process.env.npm_execpath;
+  if (!pnpm) throw new Error('PERF_PACKAGE_MANAGER_NOT_FOUND');
+  execFileSync(process.execPath, [pnpm, '--filter', '@supermarket/desktop', 'build'], {
+    cwd: root, stdio: 'ignore', windowsHide: true, timeout: 120_000
+  });
+  const executable = execFileSync(
+    process.execPath,
+    [pnpm, '--filter', '@supermarket/desktop', 'exec', 'node', '-e', "process.stdout.write(require('electron'))"],
+    { cwd: root, encoding: 'utf8', windowsHide: true }
+  ).trim();
+  if (!executable) throw new Error('PERF_DESKTOP_ELECTRON_NOT_FOUND');
+  const app = join(root, 'apps', 'desktop');
+  const hash = (path: string): string => createHash('sha256').update(readFileSync(path)).digest('hex');
+  return {
+    executable,
+    app,
+    hashes: {
+      electronMain: hash(join(app, 'out', 'main', 'index.js')),
+      rendererHtml: hash(join(app, 'out', 'renderer', 'index.html'))
+    }
+  };
+};
+
+const validateDesktopMeasurement = (value: unknown): DesktopMeasurement => {
+  if (typeof value !== 'object' || value === null) throw new Error('PERF_DESKTOP_RESULT_INVALID');
+  for (const metric of DESKTOP_METRICS) {
+    const duration = (value as Record<string, unknown>)[metric];
+    if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) {
+      throw new Error('PERF_DESKTOP_RESULT_INVALID');
+    }
+  }
+  return value as DesktopMeasurement;
+};
+
+/**
+ * Una repetición usa un perfil Chromium nuevo. Se elimina siempre porque su
+ * cookie de sesión no pertenece a los artefactos de rendimiento.
+ */
+const runDesktop = (
+  artifacts: { readonly executable: string; readonly app: string },
+  origin: string,
+  directory: string,
+  run: number
+): Promise<DesktopMeasurement> => {
+  const profileDirectory = join(directory, 'electron-profile-' + run);
+  const profileChild = relative(directory, profileDirectory);
+  if (!profileChild || profileChild === '..' || profileChild.startsWith('..' + sep)
+    || isAbsolute(profileChild)) {
+    throw new Error('PERF_DESKTOP_PROFILE_PATH_INVALID');
+  }
+  mkdirSync(profileDirectory, { recursive: true });
+
+  return new Promise((resolveRun, rejectRun) => {
+    const environment: NodeJS.ProcessEnv = {
+      ...process.env,
+      CULLEN_NODE_URL: origin,
+      CULLEN_PERFORMANCE_SCENARIO: 'login-and-shell',
+      CULLEN_PERFORMANCE_OPERATOR_CODE: OPERATOR.operatorCode,
+      CULLEN_PERFORMANCE_PIN: OPERATOR.pin,
+      CULLEN_PERFORMANCE_STARTED_AT: String(monotonicEpoch()),
+      ELECTRON_DISABLE_SECURITY_WARNINGS: 'true'
+    };
+    delete environment.ELECTRON_RUN_AS_NODE;
+    const child = spawn(artifacts.executable, [
+      '--disable-gpu', '--no-first-run', '--user-data-dir=' + profileDirectory, artifacts.app
+    ], {
+      cwd: artifacts.app,
+      env: environment,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    let stdout = '';
+    let settled = false;
+    let timedOut = false;
+    let hardTimeout: ReturnType<typeof setTimeout> | undefined;
+    const finish = (action: () => void): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (hardTimeout) clearTimeout(hardTimeout);
+      try {
+        rmSync(profileDirectory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch {
+        rejectRun(new Error('PERF_DESKTOP_PROFILE_CLEANUP_FAILED'));
+        return;
+      }
+      action();
+    };
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+      hardTimeout = setTimeout(
+        () => finish(() => rejectRun(new Error('PERF_DESKTOP_TIMEOUT'))),
+        5_000
+      );
+    }, 45_000);
+    child.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
+    /** stderr se drena, pero nunca se publica: Chromium puede incluir rutas del perfil. */
+    child.stderr?.resume();
+    child.once('error', () => finish(() => rejectRun(new Error('PERF_DESKTOP_START_FAILED'))));
+    child.once('exit', (code) => finish(() => {
+      if (timedOut) return rejectRun(new Error('PERF_DESKTOP_TIMEOUT'));
+      const line = /^CULLEN_PERF_RESULT (\{.+\})$/m.exec(stdout);
+      if (code !== 0 || !line) return rejectRun(new Error('PERF_DESKTOP_RUN_FAILED'));
+      try {
+        resolveRun(validateDesktopMeasurement(JSON.parse(line[1]!)));
+      } catch {
+        rejectRun(new Error('PERF_DESKTOP_RESULT_INVALID'));
+      }
+    }));
+  });
+};
+
 const revision = () => {
   const git = (args: readonly string[]): string => execFileSync('git', args, {
     encoding: 'utf8', windowsHide: true
   }).trim();
+  const harness = createHash('sha256');
+  for (const path of [
+    fileURLToPath(import.meta.url),
+    resolve(dirname(fileURLToPath(import.meta.url)), '../../desktop/src/main/index.ts'),
+    resolve(dirname(fileURLToPath(import.meta.url)), '../../desktop/src/main/performance-run.ts')
+  ]) {
+    harness.update(path).update(readFileSync(path));
+  }
   return {
     commit: git(['rev-parse', 'HEAD']),
     dirty: git(['status', '--porcelain']).length > 0,
-    harnessSha256: createHash('sha256').update(readFileSync(fileURLToPath(import.meta.url))).digest('hex')
+    harnessSha256: harness.digest('hex')
   };
 };
 
@@ -693,7 +831,11 @@ const main = async (): Promise<void> => {
   const available = profile() === 'crecimiento'
     ? [...scenarios, ...historyScenarios]
     : scenarios.filter(({ id }) => id !== 'report-sales');
-  const availableIds = ['node-cold-start', ...available.map(({ id }) => id)];
+  const availableIds = [
+    'node-cold-start',
+    ...(process.platform === 'win32' ? ['login-and-shell'] : []),
+    ...available.map(({ id }) => id)
+  ];
   const only = options.scenarios.length > 0 ? options.scenarios : availableIds;
   if (only.some((id) => !availableIds.includes(id))) invalidArgument();
   if (only.length > 1) {
@@ -728,6 +870,49 @@ const main = async (): Promise<void> => {
       observations.push({ scenario: 'node-cold-start', run: run - warmup, ms });
     }
     summaries.push(summarize('node-cold-start', measured));
+  }
+
+  let desktopMeasured = false;
+  let desktopArtifactHashes: { readonly electronMain: string; readonly rendererHtml: string } | undefined;
+  if (selected('login-and-shell')) {
+    desktopMeasured = true;
+    const artifacts = prepareDesktopArtifacts(root);
+    desktopArtifactHashes = artifacts.hashes;
+    const rendererPath = join(artifacts.app, 'out', 'renderer');
+    const databasePath = join(directory, 'login-and-shell.sqlite');
+    const previousRendererPath = process.env.RENDERER_DIST_PATH;
+    let place: Station | undefined;
+    const measured = new Map<DesktopMetric, number[]>(
+      DESKTOP_METRICS.map((metric) => [metric, []])
+    );
+    try {
+      process.env.RENDERER_DIST_PATH = rendererPath;
+      place = await station(databasePath);
+      if (previousRendererPath === undefined) delete process.env.RENDERER_DIST_PATH;
+      else process.env.RENDERER_DIST_PATH = previousRendererPath;
+      const origin = await place.app.listen({ host: '127.0.0.1', port: 0 });
+      for (let run = 0; run < warmup + sample; run += 1) {
+        const result = await runDesktop(artifacts, origin, directory, run);
+        if (run < warmup) continue;
+        for (const metric of DESKTOP_METRICS) {
+          measured.get(metric)!.push(result[metric]);
+          observations.push({ scenario: metric, run: run - warmup, ms: result[metric] });
+        }
+      }
+      checks['login-and-shell'] = {
+        loginForms: warmup + sample,
+        authorizedShells: warmup + sample,
+        recoveredSessions: warmup + sample
+      };
+    } finally {
+      if (previousRendererPath === undefined) delete process.env.RENDERER_DIST_PATH;
+      else process.env.RENDERER_DIST_PATH = previousRendererPath;
+      await place?.close();
+      rmSync(databasePath, { force: true });
+      rmSync(databasePath + '-shm', { force: true });
+      rmSync(databasePath + '-wal', { force: true });
+    }
+    for (const metric of DESKTOP_METRICS) summaries.push(summarize(metric, measured.get(metric)!));
   }
 
   const inProcess = available.filter((scenario) => selected(scenario.id));
@@ -768,11 +953,16 @@ const main = async (): Promise<void> => {
     cores: cpus().length,
     ramGiB: Math.round(totalmem() / 1024 / 1024 / 1024),
     node: process.version,
+    ...(desktopMeasured ? {
+      renderer: 'electron', transport: 'http-loopback', desktopArtifactHashes
+    } : {}),
     warmup,
     sample,
     profile: profile(),
-    products: inProcess.length === 0 ? 0 : productCount(),
-    completedSales: inProcess.length > 0 && profile() === 'crecimiento' ? SEEDED_SALES : 0,
+    products: inProcess.length === 0 && !desktopMeasured ? 0 : productCount(),
+    completedSales: (inProcess.length > 0 || desktopMeasured) && profile() === 'crecimiento'
+      ? SEEDED_SALES
+      : 0,
     reportPeriod,
     inventoryAsOf,
     historyDepths: profile() === 'crecimiento' ? HISTORY_DEPTHS : [],

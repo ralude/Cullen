@@ -120,4 +120,38 @@ describe('comando público de medición de 12.01', () => {
       scenario: 'cash-shift-open', sample: 2
     })]);
   }, 60_000);
+
+  it.runIf(process.platform === 'win32')(
+    'mide el renderer real desde Electron hasta el shell y recupera la sesión',
+    async () => {
+      const result = await run([
+        '--scenario', 'login-and-shell', '--warmup', '0', '--sample', '1'
+      ]);
+      expect(result.succeeded, result.stderr).toBe(true);
+      expect(result.directory).toBeDefined();
+      const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+      expect(report.environment.checks).toEqual({
+        'login-and-shell': { loginForms: 1, authorizedShells: 1, recoveredSessions: 1 }
+      });
+      expect(report.environment).toMatchObject({
+        renderer: 'electron', transport: 'http-loopback', sample: 1,
+        desktopArtifactHashes: {
+          electronMain: expect.stringMatching(/^[0-9a-f]{64}$/),
+          rendererHtml: expect.stringMatching(/^[0-9a-f]{64}$/)
+        }
+      });
+      expect(report.summaries.map((entry: { readonly scenario: string }) => entry.scenario))
+        .toEqual(['desktop-to-login', 'login-to-shell', 'session-recovery']);
+      for (const summary of report.summaries) {
+        expect(summary).toMatchObject({ sample: 1, medianMs: expect.any(Number) });
+        expect(summary).not.toHaveProperty('p90Ms');
+      }
+      const raw = readFileSync(resolve(result.directory!, 'observations.json'), 'utf8');
+      expect(JSON.parse(raw).observations).toHaveLength(3);
+      for (const forbidden of ['"123456"', 'PERF01', 'set-cookie', 'operatorCode', 'pin']) {
+        expect(raw).not.toContain(forbidden);
+      }
+    },
+    120_000
+  );
 });

@@ -36,7 +36,7 @@
       "relativeIqr"
     ],
     "percentileRule": "Con muestra de al menos 30 se publican mediana y p90. Por debajo de 30 se omite p90. No se publica p95 ni p99. Una muestra de 1 o 3 sólo verifica el instrumento; no fija el ruido ni los presupuestos.",
-    "isolation": "Un escenario por proceso y una base SQLite propia y recién migrada. Seleccionar varios escenarios crea procesos hijos secuenciales y un directorio por escenario. Cada repetición de node-cold-start migra otra base dentro del proceso de ese escenario: no incluye iniciar Node, Electron ni un servicio instalado. Ejecutar sin suites, servidor de desarrollo ni Electron compitiendo por recursos.",
+    "isolation": "Un escenario por proceso y una base SQLite propia y recién migrada. Seleccionar varios escenarios crea procesos hijos secuenciales y un directorio por escenario. Cada repetición de node-cold-start migra otra base dentro del proceso de ese escenario: no incluye iniciar Node ni un servicio instalado. login-and-shell construye desktop fuera de la medición, deja Fastify listo en loopback y lanza un Electron compilado con perfil Chromium nuevo por repetición; el perfil y su cookie se eliminan al terminar. Ejecutar sin suites, servidor de desarrollo ni otro Electron compitiendo por recursos.",
     "noiseFloor": "El estadístico comparable es la MEDIANA de cada serie, no la observación individual. El piloto del 2026-09-11 mostró que el IQR dentro de una serie llega al 41 % en los escenarios de pocos milisegundos —dispersión de GC y planificador— mientras la mediana entre series apenas se mueve. Usar el IQR como margen habría exigido mejoras absurdas. El margen por escenario es el doble de la deriva observada entre tres series; un cambio que no lo supere es fluctuación.",
     "series": 3,
     "noiseMargins": {
@@ -51,22 +51,23 @@
       "note": "Márgenes históricos del primer piloto, no presupuestos. El protocolo 2 cambia aislamiento, fechas y validaciones: exige repetir el piloto antes de reutilizar un margen. Los presupuestos los fija 12.01.06 con una expectativa de uso documentada."
     },
     "logging": "El destino del registro técnico es un sumidero en memoria: la medición paga componer cada línea —que el nodo también paga— y no escribirla al disco.",
-    "transport": "Las peticiones entran por app.inject: se mide enrutado, validación, aplicación y SQLite, no el socket. Medir el socket exige otra serie y queda declarado como tal.",
-    "validation": "Perfiles, escenarios, enteros y profundidades inválidos abortan antes de crear una serie. Las lecturas comprueban cantidades esperadas; ventas exige un grupo USD con las 300 ventas de preparación. Las validaciones de respuesta están incluidas en la latencia. Un escenario que asienta puede además verificarse al cerrar la serie, fuera de toda medición: si no dejó los asientos que dice ejercitar, aborta; si los dejó, su recuento se publica en environment.checks.",
-    "provenance": "Cada resultado identifica revisión Git completa, indicador dirty, SHA-256 del arnés, versión de protocolo, proceso y modo fiscal. Una revisión sucia no es BEFORE; un cambio de commit o arnés durante la serie la aborta. Los IDs operativos usan el generador UUIDv7 existente y las operaciones usan el reloj real del runtime."
+    "transport": "Los escenarios de nodo entran por app.inject: miden enrutado, validación, aplicación y SQLite, no el socket. login-and-shell es la serie explícita de transporte real: Chromium usa fetch contra Fastify por HTTP loopback y comparte origen con /app/. No se comparan ambas clases como si midieran el mismo tramo.",
+    "validation": "Perfiles, escenarios, enteros y profundidades inválidos abortan antes de crear una serie. Las lecturas comprueban cantidades esperadas; ventas exige un grupo USD con las 300 ventas de preparación. login-and-shell exige formulario, shell autorizado y shell recuperado; stderr de Chromium se drena sin publicarlo. Las validaciones de respuesta están incluidas en la latencia. Un escenario que asienta puede además verificarse al cerrar la serie, fuera de toda medición: si no dejó los asientos que dice ejercitar, aborta; si los dejó, su recuento se publica en environment.checks.",
+    "provenance": "Cada resultado identifica revisión Git completa, indicador dirty, SHA-256 compuesto del arnés, versión de protocolo, proceso y modo fiscal. login-and-shell agrega SHA-256 del main Electron y del HTML del renderer compilados. Una revisión sucia no es BEFORE; un cambio de commit o arnés durante la serie la aborta. Los IDs operativos usan el generador UUIDv7 existente y las operaciones usan el reloj real del runtime."
   },
   "artifacts": {
     "rawDirectory": ".perf/",
     "rawDirectoryIgnored": true,
     "rawFiles": "<run-id>/observations.json — toda observación individual, con su escenario y su número de repetición.",
     "summaryFiles": "<run-id>/summary.json — estadísticos por escenario, entorno, commit y environment.checks, el recuento de asientos verificado al cerrar cada serie.",
-    "versioned": "Este manifiesto y los informes resumidos de piloto, crecimiento y verificación del arnés. Las trazas crudas no entran a Git."
+    "versioned": "Este manifiesto y los informes resumidos de piloto, crecimiento y verificación del arnés. Las trazas crudas no entran a Git. Los perfiles Chromium de login-and-shell tampoco se conservan: contienen estado de sesión y se eliminan tras cada repetición."
   },
   "commands": {
     "run": "pnpm --filter @supermarket/server perf",
     "runOne": "pnpm --filter @supermarket/server perf -- --scenario sale-journey",
     "options": "--warmup N (>=0) --sample N (>0) --scenario <id> (repetible) --profile habitual|crecimiento --depths N,N (sólo crecimiento, enteros positivos únicos)",
-    "runReports": "pnpm --filter @supermarket/server perf -- --profile crecimiento --scenario report-sales --scenario report-inventory"
+    "runReports": "pnpm --filter @supermarket/server perf -- --profile crecimiento --scenario report-sales --scenario report-inventory",
+    "runDesktop": "pnpm --filter @supermarket/server perf -- --scenario login-and-shell"
   },
   "scenarios": [
     {
@@ -106,8 +107,10 @@
     {
       "id": "login-and-shell",
       "covers": "Escenario 2",
-      "instrumented": false,
-      "pending": "Exige montar el renderer y recuperar la sesión: se instrumenta con el conductor de GUI."
+      "instrumented": true,
+      "measures": "Sobre el build actual y Chromium real: proceso Electron hasta el formulario (desktop-to-login), envío de credenciales sintéticas hasta el shell autorizado (login-to-shell) y recarga hasta recuperar la misma sesión (session-recovery). Fastify sirve renderer y API por el mismo origen HTTP loopback.",
+      "guard": "Cada repetición usa un perfil Chromium nuevo, exige formulario, shell autorizado y shell recuperado, y elimina el perfil con su cookie. Los hashes de main e index.html quedan en environment.desktopArtifactHashes; PIN, cookie, stderr y texto del DOM no se publican.",
+      "excludes": "El nodo se prepara antes de lanzar Electron. Primera instalación y nuevo proceso con base existente pertenecen al escenario 1; CPU, RSS, bytes y tamaño SQLite se agregan en el corte de métricas."
     },
     {
       "id": "stock-history-and-reports",
