@@ -33,6 +33,7 @@ import {
 } from '@supermarket/shared';
 import { buildApp } from '../src/app.ts';
 import { ADMIN_PERMISSIONS, createSecurityRuntime, type SecurityRuntime } from '../src/runtime.ts';
+import { LanCycleBenchmark } from './lan-cycle.ts';
 
 type Observation = { readonly scenario: string; readonly run: number; readonly ms: number };
 
@@ -683,6 +684,9 @@ const DESKTOP_METRICS = [
 type DesktopMetric = typeof DESKTOP_METRICS[number];
 type DesktopMeasurement = Readonly<Record<DesktopMetric, number>>;
 
+const LAN_METRICS = ['lan-delivery', 'lan-application'] as const;
+type LanMetric = typeof LAN_METRICS[number];
+
 const monotonicEpoch = (): number => performance.timeOrigin + performance.now();
 
 /**
@@ -814,6 +818,7 @@ const revision = () => {
   const harness = createHash('sha256');
   for (const path of [
     fileURLToPath(import.meta.url),
+    resolve(dirname(fileURLToPath(import.meta.url)), 'lan-cycle.ts'),
     resolve(dirname(fileURLToPath(import.meta.url)), '../../desktop/src/main/index.ts'),
     resolve(dirname(fileURLToPath(import.meta.url)), '../../desktop/src/main/performance-run.ts')
   ]) {
@@ -833,6 +838,7 @@ const main = async (): Promise<void> => {
     : scenarios.filter(({ id }) => id !== 'report-sales');
   const availableIds = [
     'node-cold-start',
+    'lan-cycle',
     ...(process.platform === 'win32' ? ['login-and-shell'] : []),
     ...available.map(({ id }) => id)
   ];
@@ -915,6 +921,37 @@ const main = async (): Promise<void> => {
     for (const metric of DESKTOP_METRICS) summaries.push(summarize(metric, measured.get(metric)!));
   }
 
+  let lanMeasured = false;
+  if (selected('lan-cycle')) {
+    lanMeasured = true;
+    const benchmark = new LanCycleBenchmark(directory);
+    const measured = new Map<LanMetric, number[]>(LAN_METRICS.map((metric) => [metric, []]));
+    const lanChecks = {
+      interruptedDeliveries: 0,
+      durableReceipts: 0,
+      appliedEvents: 0,
+      authoritativeMovements: 0
+    };
+    for (let run = 0; run < warmup + sample; run += 1) {
+      const result = await benchmark.run(run);
+      lanChecks.interruptedDeliveries += result.interruptedDeliveries;
+      lanChecks.durableReceipts += result.durableReceipts;
+      lanChecks.appliedEvents += result.appliedEvents;
+      lanChecks.authoritativeMovements += result.authoritativeMovements;
+      if (run < warmup) continue;
+      const values: Readonly<Record<LanMetric, number>> = {
+        'lan-delivery': result.deliveryMs,
+        'lan-application': result.applicationMs
+      };
+      for (const metric of LAN_METRICS) {
+        measured.get(metric)!.push(values[metric]);
+        observations.push({ scenario: metric, run: run - warmup, ms: values[metric] });
+      }
+    }
+    checks['lan-cycle'] = lanChecks;
+    for (const metric of LAN_METRICS) summaries.push(summarize(metric, measured.get(metric)!));
+  }
+
   const inProcess = available.filter((scenario) => selected(scenario.id));
   if (inProcess.length > 0) {
     for (const scenario of inProcess) {
@@ -956,10 +993,11 @@ const main = async (): Promise<void> => {
     ...(desktopMeasured ? {
       renderer: 'electron', transport: 'http-loopback', desktopArtifactHashes
     } : {}),
+    ...(lanMeasured ? { transport: 'https-mtls', nodes: 2 } : {}),
     warmup,
     sample,
     profile: profile(),
-    products: inProcess.length === 0 && !desktopMeasured ? 0 : productCount(),
+    products: lanMeasured ? 1 : inProcess.length === 0 && !desktopMeasured ? 0 : productCount(),
     completedSales: (inProcess.length > 0 || desktopMeasured) && profile() === 'crecimiento'
       ? SEEDED_SALES
       : 0,

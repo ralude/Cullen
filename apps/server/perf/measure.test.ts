@@ -154,4 +154,36 @@ describe('comando público de medición de 12.01', () => {
     },
     120_000
   );
+
+  it('separa custodia y aplicación del ciclo LAN después de una reconexión real', async () => {
+    const result = await run([
+      '--scenario', 'lan-cycle', '--warmup', '0', '--sample', '1'
+    ]);
+    expect(result.succeeded, result.stderr).toBe(true);
+    expect(result.directory).toBeDefined();
+    const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+    expect(report.environment).toMatchObject({
+      transport: 'https-mtls', nodes: 2, sample: 1,
+      checks: {
+        'lan-cycle': {
+          interruptedDeliveries: 1,
+          durableReceipts: 1,
+          appliedEvents: 1,
+          authoritativeMovements: 1
+        }
+      }
+    });
+    expect(report.summaries.map((entry: { readonly scenario: string }) => entry.scenario))
+      .toEqual(['lan-delivery', 'lan-application']);
+    for (const summary of report.summaries) {
+      expect(summary).toMatchObject({ sample: 1, medianMs: expect.any(Number) });
+      expect(summary).not.toHaveProperty('p90Ms');
+    }
+    const raw = readFileSync(resolve(result.directory!, 'observations.json'), 'utf8');
+    expect(JSON.parse(raw).observations).toHaveLength(2);
+    expect(result.stdout).not.toContain('Sync event reception completed');
+    for (const forbidden of ['PRIVATE KEY', 'certificatePem', 'privateKeyPem', 'payload']) {
+      expect(raw).not.toContain(forbidden);
+    }
+  }, 120_000);
 });

@@ -113,16 +113,24 @@ const peerIdentity = (request: FastifyRequest): PeerIdentity | null => {
   return { credentialFingerprint: fingerprint, presentedNodeId: commonName };
 };
 
+type SyncLogDestination = { write(chunk: string): void };
+
 /**
  * Listener técnico de sincronización. Es el único servicio que se expone en
  * LAN: las rutas de operadores conservan loopback y sus sesiones. Comparte el
  * proceso dueño de SQLite y no abre una segunda conexión a la base.
  */
-export const buildSyncApp = (dependencies: SyncTransportDependencies): FastifyInstance => {
+export const buildSyncApp = (
+  dependencies: SyncTransportDependencies,
+  options?: { readonly logDestination?: SyncLogDestination }
+): FastifyInstance => {
   const app = Fastify({
     bodyLimit: SYNC_LIMITS_V1.maxEnvelopeBytes,
     logController: new LogController({ disableRequestLogging: true }),
-    logger: createRedactionOptions(['req.body', 'res.body']),
+    logger: {
+      ...createRedactionOptions(['req.body', 'res.body']),
+      ...(options?.logDestination ? { stream: options.logDestination } : {})
+    },
     ...(dependencies.https
       ? {
         https: {
