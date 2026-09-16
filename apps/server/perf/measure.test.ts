@@ -142,7 +142,13 @@ describe('comando público de medición de 12.01', () => {
       mode: 'auto', runs: 200, maxRuns: 200, budgetMs: 1_000
     });
 
-    const slow = await run(['--scenario', 'catalog-list', '--sample', '2']);
+    /**
+     * `sale-journey` cuesta decenas de milisegundos, así que agota antes el
+     * presupuesto de tiempo que el tope de repeticiones. Ilustraba esto
+     * `catalog-list` hasta que dejó de hacer una consulta por producto y pasó a
+     * la otra categoría: ahora llega al tope de 200.
+     */
+    const slow = await run(['--scenario', 'sale-journey', '--sample', '2']);
     expect(slow.succeeded, slow.stderr).toBe(true);
     const slowReport = JSON.parse(readFileSync(resolve(slow.directory!, 'summary.json'), 'utf8'));
     expect(slowReport.environment.warmup.mode).toBe('auto');

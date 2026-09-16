@@ -64,6 +64,17 @@ const read = async <T>(operation: () => T): Promise<T> => {
   }
 };
 
+/** Agrupa filas ya traídas, para ensamblar sin volver a consultar por cada padre. */
+const groupBy = <T>(rows: readonly T[], key: (row: T) => string): Map<string, T[]> => {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    const bucket = grouped.get(key(row));
+    if (bucket) bucket.push(row);
+    else grouped.set(key(row), [row]);
+  }
+  return grouped;
+};
+
 export class DrizzleCategoryRepository implements CategoryRepository {
   constructor(private readonly handle: DatabaseHandle) {}
 
@@ -305,16 +316,66 @@ export class DrizzleProductRepository implements ProductRepository {
     });
   }
 
+  /**
+   * Catálogo completo en un número fijo de consultas.
+   *
+   * Resolver producto por producto costaba cuatro sentencias cada uno, y las
+   * de `product_id = ?` escanean la tabla entera porque no existe ese índice:
+   * doscientos artículos disparaban más de ochocientas sentencias y el costo
+   * crecía de forma cuadrática. Aquí se traen los cuatro conjuntos completos y
+   * se ensamblan en memoria, con el mismo mapeo que usa la lectura individual.
+   *
+   * Vive en el repositorio, no en la lectura de catálogo, para que el mapeo del
+   * agregado tenga un solo dueño; devuelve `Product`, así que no expone Drizzle.
+   */
+  findAllProducts(): Promise<readonly Product[]> {
+    return read(() => {
+      const rows = this.handle.db.select().from(products).all();
+      if (rows.length === 0) return [];
+      const units = new Map(this.handle.db.select().from(unitsOfMeasure).all()
+        .map((unitRow) => [unitRow.id, unitRow]));
+      const barcodesByProduct = groupBy(
+        this.handle.db.select().from(productBarcodes).all(),
+        (barcode) => barcode.productId
+      );
+      /**
+       * El orden por producto se conserva ordenando también por `product_id`:
+       * la lectura individual lo pedía por fecha dentro de un solo producto.
+       */
+      const historyByProduct = groupBy(
+        this.handle.db.select().from(productPriceHistory)
+          .orderBy(productPriceHistory.productId, productPriceHistory.recordedAt).all(),
+        (history) => history.productId
+      );
+      return rows.map((row) => this.build(
+        row,
+        units.get(row.unitId),
+        barcodesByProduct.get(row.id) ?? [],
+        historyByProduct.get(row.id) ?? []
+      ));
+    });
+  }
+
   private restore(row: typeof products.$inferSelect | undefined): Product | null {
     if (!row) return null;
     const unitRow = this.handle.db.select().from(unitsOfMeasure)
       .where(eq(unitsOfMeasure.id, row.unitId)).get();
-    if (!unitRow) throw new Error('Persisted product unit is missing.');
     const barcodeRows = this.handle.db.select().from(productBarcodes)
       .where(eq(productBarcodes.productId, row.id)).all();
     const histories = this.handle.db.select().from(productPriceHistory)
       .where(eq(productPriceHistory.productId, row.id))
       .orderBy(productPriceHistory.recordedAt).all();
+    return this.build(row, unitRow, barcodeRows, histories);
+  }
+
+  /** Mapeo puro: no consulta, así que sirve a la lectura individual y a la masiva. */
+  private build(
+    row: typeof products.$inferSelect,
+    unitRow: typeof unitsOfMeasure.$inferSelect | undefined,
+    barcodeRows: readonly (typeof productBarcodes.$inferSelect)[],
+    histories: readonly (typeof productPriceHistory.$inferSelect)[]
+  ): Product {
+    if (!unitRow) throw new Error('Persisted product unit is missing.');
     return Product.restore({
       id: row.id,
       name: row.name,
