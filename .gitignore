@@ -22,3 +22,6 @@ Thumbs.db
 
 # Lienzo de diseño ya compuesto: se regenera desde los .dc.html
 design/pantallas-de-venta.html
+
+# Material de marketing del proyecto: nunca entra al repositorio
+docs/marketing/
