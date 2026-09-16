@@ -79,8 +79,12 @@
         "stock-rehydrate-1k@crecimiento": 5,
         "stock-rows-100@crecimiento": 7,
         "stock-rows-10k@crecimiento": 6,
-        "stock-rows-1k@crecimiento": 5
-      }
+        "stock-rows-1k@crecimiento": 5,
+        "sale-start": 8,
+        "sale-add-line": 62,
+        "sale-settle": 5
+      },
+      "saleFromShellNote": "Márgenes del escenario de interfaz, medidos el 2026-09-16 sobre 958f920 con archivos sin rastrear de otro agente en el árbol. sale-add-line lleva 62 % porque su dispersión es de render: el handler que dispara cuesta 2,72 ms con desviación mínima. Un margen así no sirve para validar mejoras finas, y ese trabajo pertenece a 12.05."
     },
     "resources": "Cada serie publica además de la latencia su consumo, en resources. Un escenario que corre dentro del arnés acumula CPU sobre el MISMO intervalo cronometrado —la semilla, el warm-up y la verificación quedan fuera— y publica también el consumo del proceso entero: la diferencia es el costo del instrumento, que no se estima. Un escenario que corre en procesos aparte se mide a sí mismo dentro del hijo y publica la mediana entre repeticiones, porque cada repetición es un proceso entero. La memoria se observa al cerrar cada repetición: se publican línea base, pico observado y heap; no es un muestreo continuo y no se presenta como tal. El tamaño de la base se lee con su WAL todavía sin consolidar, antes de cerrar la conexión. El tráfico se cuenta en el socket TCP, antes de TLS, así que incluye handshake y cabeceras y no es el tamaño del cuerpo. process.cpuUsage se actualiza en Windows con la granularidad del planificador —unos 15,6 ms—: una repetición corta puede registrar cero y sólo la suma de la serie tiene significado.",
     "resourcesNotInstrumented": "Cantidad de consultas y tiempo dentro de SQLite NO se instrumentan. Contarlas exige interceptar la preparación de sentencias, y hacerlo dentro del intervalo cronometrado contaminaría la latencia que la serie publica. Declarado como brecha del protocolo 2, no como métrica disponible; el 2026-09-16 se asignó su construcción a 12.03, con una serie propia separada de la de latencia.",
@@ -117,7 +121,8 @@
     "runReports": "pnpm --filter @supermarket/server perf -- --profile crecimiento --scenario report-sales --scenario report-inventory",
     "runStartup": "pnpm --filter @supermarket/server perf -- --scenario node-startup",
     "runDesktop": "pnpm --filter @supermarket/server perf -- --scenario login-and-shell",
-    "runLan": "pnpm --filter @supermarket/server perf -- --scenario lan-cycle"
+    "runLan": "pnpm --filter @supermarket/server perf -- --scenario lan-cycle",
+    "runSale": "pnpm --filter @supermarket/server perf -- --scenario sale-from-shell --sample 30"
   },
   "scenarios": [
     {
@@ -180,6 +185,14 @@
       "guard": "Cada repetición crea una terminal y un coordinador con SQLite independiente, material TLS efímero y un PurchaseReceiptCompleted.v1 único. El alta, las migraciones, el fallo de red y el reinicio quedan fuera de los cronómetros. Antes de aplicar se exige progreso PENDING; al final, una recepción y un movimiento por eventId. environment.checks publica solo recuentos técnicos.",
       "resources": "El tráfico se cuenta en el socket del coordinador durante el tramo de entrega: son los bytes cifrados que viajan por la LAN, handshake incluido, no el tamaño del evento. Cada nodo publica el tamaño de su propia base. CPU y memoria se acumulan como en cualquier escenario en proceso, sumando los dos tramos de cada repetición.",
       "excludes": "No mide descubrimiento, red externa, bootstrap masivo, agotamiento de diez intentos ni intervención manual. El tráfico publicado es el del tramo de entrega; la aplicación no cruza la red."
+    },
+    {
+      "id": "sale-from-shell",
+      "covers": "Escenario 4 desde la interfaz (12.02)",
+      "instrumented": true,
+      "measures": "Jornada de venta conducida por Chromium con los gestos del operador: abrir el carrito (sale-start), agregar una línea del catálogo (sale-add-line) y cobrar y completar (sale-settle). Cada tramo empieza en un clic y termina cuando la pantalla refleja el resultado, así que incluye render y espera de la UI, a diferencia de sale-journey, que entra por app.inject.",
+      "guard": "Las ventas se encadenan con «Iniciar otra venta» SIN salir de la pantalla: el catálogo se carga en un efecto de montaje y navegar fuera y volver le cargaría a cada venta un costo que la operación real paga una sola vez. Entrar a la pantalla se mide aparte y se publica en environment.checks.enterSaleScreenMs. El ingreso queda fuera de la medición porque su scrypt dominaría cada observación. Al cerrar la serie se comprueba una venta completada y una salida de inventario por repetición.",
+      "excludes": "No emite documento fiscal y cobra con un solo método no gravado, por D-003. El ticket es de una línea: una compra real lleva varias. Un solo proceso Electron atiende todas las repeticiones, así que no mide arranque."
     }
   ],
   "dataset": {
