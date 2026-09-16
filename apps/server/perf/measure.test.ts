@@ -336,6 +336,50 @@ describe('comando público de medición de 12.01', () => {
     180_000
   );
 
+  it.runIf(process.platform === 'win32')(
+    'conduce ventas encadenadas por la interfaz y cuenta lo que cada una pide',
+    async () => {
+      const result = await run([
+        '--scenario', 'sale-from-shell', '--warmup', '0', '--sample', '2'
+      ]);
+      expect(result.succeeded, result.stderr).toBe(true);
+      const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+
+      /** Cada repetición deja su venta completada y su salida de inventario. */
+      expect(report.environment.checks['sale-from-shell']).toMatchObject({
+        completedSales: 2, stockIssues: 2, enterSaleScreenMs: expect.any(Number)
+      });
+      expect(report.summaries.map((entry: { readonly scenario: string }) => entry.scenario))
+        .toEqual(['sale-start', 'sale-add-line', 'sale-settle']);
+
+      /**
+       * Una venta encadenada pide cuatro comandos y nada más: abrir, agregar
+       * línea, cobrar y completar. El catálogo se carga al entrar a la
+       * pantalla, no por venta, y por eso no se repite aquí.
+       */
+      const exchanges = report.resources['sale-from-shell'].exchanges;
+      const perSale = new Map<string, number>(
+        exchanges.byRoute.map((entry: { readonly route: string; readonly count: number }) =>
+          [entry.route, entry.count])
+      );
+      for (const route of [
+        'POST /api/v1/sales',
+        'POST /api/v1/sales/:saleId/items',
+        'POST /api/v1/sales/:saleId/payments',
+        'POST /api/v1/sales/:saleId/complete'
+      ]) {
+        expect(perSale.get(route), route).toBe(2);
+      }
+      expect(perSale.get('GET /api/v1/catalog/products')).toBe(1);
+
+      const raw = readFileSync(resolve(result.directory!, 'observations.json'), 'utf8');
+      for (const forbidden of ['"123456"', 'PERF01', 'set-cookie', 'operatorCode']) {
+        expect(raw).not.toContain(forbidden);
+      }
+    },
+    240_000
+  );
+
   it('separa custodia y aplicación del ciclo LAN después de una reconexión real', async () => {
     const result = await run([
       '--scenario', 'lan-cycle', '--warmup', '0', '--sample', '1'

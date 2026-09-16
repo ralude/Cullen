@@ -777,6 +777,17 @@ type DesktopResources = {
   readonly exchanges: ExchangeReport;
 };
 
+const SALE_METRICS = ['sale-start', 'sale-add-line', 'sale-settle'] as const;
+type SaleMetric = typeof SALE_METRICS[number];
+type SaleMeasurement = Readonly<Record<SaleMetric, number>> & { readonly usage: DesktopUsage };
+
+/**
+ * Recursos de la jornada conducida por la interfaz. Comparte forma con la del
+ * ingreso porque mide la misma terminal; lo propio es que sus intercambios
+ * describen una venta y no un arranque.
+ */
+type SaleResources = DesktopResources;
+
 const LAN_METRICS = ['lan-delivery', 'lan-application'] as const;
 type LanMetric = typeof LAN_METRICS[number];
 
@@ -875,12 +886,15 @@ const validateDesktopMeasurement = (value: unknown): DesktopMeasurement => {
  * Una repetición usa un perfil Chromium nuevo. Se elimina siempre porque su
  * cookie de sesión no pertenece a los artefactos de rendimiento.
  */
-const runDesktop = (
+const runElectron = (
   artifacts: { readonly executable: string; readonly app: string },
   origin: string,
   directory: string,
-  run: number
-): Promise<DesktopMeasurement> => {
+  run: number,
+  scenario: string,
+  extra: Readonly<Record<string, string>>,
+  timeoutMs: number
+): Promise<{ readonly lines: readonly unknown[]; readonly screenMs?: number }> => {
   const profileDirectory = join(directory, 'electron-profile-' + run);
   const profileChild = relative(directory, profileDirectory);
   if (!profileChild || profileChild === '..' || profileChild.startsWith('..' + sep)
@@ -893,11 +907,11 @@ const runDesktop = (
     const environment: NodeJS.ProcessEnv = {
       ...process.env,
       CULLEN_NODE_URL: origin,
-      CULLEN_PERFORMANCE_SCENARIO: 'login-and-shell',
+      CULLEN_PERFORMANCE_SCENARIO: scenario,
       CULLEN_PERFORMANCE_OPERATOR_CODE: OPERATOR.operatorCode,
       CULLEN_PERFORMANCE_PIN: OPERATOR.pin,
-      CULLEN_PERFORMANCE_STARTED_AT: String(monotonicEpoch()),
-      ELECTRON_DISABLE_SECURITY_WARNINGS: 'true'
+      ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+      ...extra
     };
     delete environment.ELECTRON_RUN_AS_NODE;
     const child = spawn(artifacts.executable, [
@@ -909,6 +923,12 @@ const runDesktop = (
       windowsHide: true
     });
     let stdout = '';
+    /**
+     * De stderr sólo se conserva el código estable del conductor. Chromium
+     * escribe ahí rutas del perfil y ruido propio que no se publica, pero sin
+     * el código una medición fallida no dice qué paso no ocurrió.
+     */
+    let failure = '';
     let settled = false;
     let timedOut = false;
     let hardTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -932,22 +952,87 @@ const runDesktop = (
         () => finish(() => rejectRun(new Error('PERF_DESKTOP_TIMEOUT'))),
         5_000
       );
-    }, 45_000);
+    }, timeoutMs);
     child.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
-    /** stderr se drena, pero nunca se publica: Chromium puede incluir rutas del perfil. */
-    child.stderr?.resume();
+    child.stderr?.on('data', (chunk: Buffer) => {
+      /** El conductor escribe `PERF_DESKTOP_FAILED <CÓDIGO>`: interesa el último. */
+      const codes = [...chunk.toString('utf8').matchAll(/PERF_[A-Z_]+/g)];
+      if (codes.length > 0) failure = codes.at(-1)![0];
+    });
     child.once('error', () => finish(() => rejectRun(new Error('PERF_DESKTOP_START_FAILED'))));
     child.once('exit', (code) => finish(() => {
       if (timedOut) return rejectRun(new Error('PERF_DESKTOP_TIMEOUT'));
-      const line = /^CULLEN_PERF_RESULT (\{.+\})$/m.exec(stdout);
-      if (code !== 0 || !line) return rejectRun(new Error('PERF_DESKTOP_RUN_FAILED'));
+      const lines = [...stdout.matchAll(/^CULLEN_PERF_RESULT (\{.+\})$/gm)];
+      const screen = /^CULLEN_PERF_SCREEN ([0-9.]+)$/m.exec(stdout);
+      if (code !== 0 || lines.length === 0) {
+        return rejectRun(new Error('PERF_DESKTOP_RUN_FAILED' + (failure ? ': ' + failure : '')));
+      }
       try {
-        resolveRun(validateDesktopMeasurement(JSON.parse(line[1]!)));
+        resolveRun({
+          lines: lines.map((line) => JSON.parse(line[1]!) as unknown),
+          ...(screen ? { screenMs: Number(screen[1]) } : {})
+        });
       } catch {
         rejectRun(new Error('PERF_DESKTOP_RESULT_INVALID'));
       }
     }));
   });
+};
+
+/** Una repetición de ingreso: un proceso Electron, un resultado. */
+const runDesktop = async (
+  artifacts: { readonly executable: string; readonly app: string },
+  origin: string,
+  directory: string,
+  run: number
+): Promise<DesktopMeasurement> => {
+  const results = await runElectron(
+    artifacts, origin, directory, run, 'login-and-shell',
+    { CULLEN_PERFORMANCE_STARTED_AT: String(monotonicEpoch()) }, 45_000
+  );
+  return validateDesktopMeasurement(results.lines[0]);
+};
+
+const validateSaleMeasurement = (value: unknown): SaleMeasurement => {
+  if (typeof value !== 'object' || value === null) throw new Error('PERF_DESKTOP_RESULT_INVALID');
+  for (const metric of SALE_METRICS) {
+    const duration = (value as Record<string, unknown>)[metric];
+    if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) {
+      throw new Error('PERF_DESKTOP_RESULT_INVALID');
+    }
+  }
+  const usage = (value as { readonly usage?: Record<string, unknown> }).usage;
+  if (typeof usage !== 'object' || usage === null) throw new Error('PERF_DESKTOP_RESULT_INVALID');
+  return value as SaleMeasurement;
+};
+
+/**
+ * Jornadas de venta conducidas por la interfaz. Un solo proceso Electron
+ * atiende todas las repeticiones: el ingreso queda fuera —lo mide
+ * `login-and-shell`— y arrancar Chromium por venta mediría el arranque.
+ */
+const runSales = async (
+  artifacts: { readonly executable: string; readonly app: string },
+  origin: string,
+  directory: string,
+  repetitions: number
+): Promise<{
+  readonly sales: readonly SaleMeasurement[];
+  /** Entrar a la pantalla: una vez por sesión, no por venta. */
+  readonly screenMs: number;
+}> => {
+  const results = await runElectron(
+    artifacts, origin, directory, 0, 'sale-from-shell',
+    {
+      CULLEN_PERFORMANCE_REPETITIONS: String(repetitions),
+      CULLEN_PERFORMANCE_PAYMENT_METHOD: 'CASH_USD'
+    },
+    Math.max(60_000, repetitions * 10_000)
+  );
+  if (results.lines.length !== repetitions || results.screenMs === undefined) {
+    throw new Error('PERF_DESKTOP_RESULT_INVALID');
+  }
+  return { sales: results.lines.map(validateSaleMeasurement), screenMs: results.screenMs };
 };
 
 const revision = () => {
@@ -982,7 +1067,7 @@ const main = async (): Promise<void> => {
   const availableIds = [
     'node-startup',
     'lan-cycle',
-    ...(process.platform === 'win32' ? ['login-and-shell'] : []),
+    ...(process.platform === 'win32' ? ['login-and-shell', 'sale-from-shell'] : []),
     ...available.map(({ id }) => id)
   ];
   const only = options.scenarios.length > 0 ? options.scenarios : availableIds;
@@ -1169,6 +1254,91 @@ const main = async (): Promise<void> => {
     for (const metric of DESKTOP_METRICS) summaries.push(summarize(metric, measured.get(metric)!));
   }
 
+  let saleFromShellMeasured = false;
+  if (selected('sale-from-shell')) {
+    saleFromShellMeasured = true;
+    const artifacts = prepareDesktopArtifacts(root);
+    desktopArtifactHashes = artifacts.hashes;
+    const rendererPath = join(artifacts.app, 'out', 'renderer');
+    const databasePath = join(directory, 'sale-from-shell.sqlite');
+    const previousRendererPath = process.env.RENDERER_DIST_PATH;
+    let place: Station | undefined;
+    const measured = new Map<SaleMetric, number[]>(SALE_METRICS.map((metric) => [metric, []]));
+    try {
+      process.env.RENDERER_DIST_PATH = rendererPath;
+      let exchanges: ReturnType<typeof countExchanges> | undefined;
+      place = await station(databasePath, (app) => { exchanges = countExchanges(app); });
+      if (previousRendererPath === undefined) delete process.env.RENDERER_DIST_PATH;
+      else process.env.RENDERER_DIST_PATH = previousRendererPath;
+      const traffic = countTraffic(place.app.server);
+      const origin = await place.app.listen({ host: '127.0.0.1', port: 0 });
+
+      /**
+       * El warm-up conduce jornadas completas en su propio proceso, para que
+       * V8 y React estén calientes; el proceso medido empieza limpio y sólo
+       * entonces se leen intercambios y tráfico.
+       */
+      const warmed = await warmUp(async () => {
+        const { sales: warmSales } = await runSales(artifacts, origin, directory, 1);
+        return SALE_METRICS.reduce((total, metric) => total + warmSales[0]![metric], 0);
+      });
+      warmupRuns['sale-from-shell'] = warmed;
+
+      exchanges?.reset();
+      const before = traffic();
+      const { sales, screenMs } = await runSales(artifacts, origin, directory, sample);
+      const after = traffic();
+      const exchangeReport = exchanges!.report();
+      for (const [index, sale] of sales.entries()) {
+        for (const metric of SALE_METRICS) {
+          measured.get(metric)!.push(sale[metric]);
+          observations.push({ scenario: metric, run: index, ms: sale[metric] });
+        }
+      }
+      /** Una venta completada por repetición, con su salida de inventario. */
+      const completed = count(place, 'select count(*) from sales where status = ?', 'COMPLETED');
+      const issues = count(
+        place, 'select count(*) from stock_movements where type = ?', 'SALE_ISSUE'
+      );
+      if (completed < sample || issues < sample) {
+        throw new Error('PERF_DATASET_MISMATCH: la jornada de interfaz no completó sus ventas.');
+      }
+      /**
+       * Entrar a la pantalla se publica aparte, con una sola observación: es
+       * una acción por sesión y no una repetición, y ahí es donde el efecto de
+       * montaje carga el catálogo entero.
+       */
+      checks['sale-from-shell'] = {
+        completedSales: completed,
+        stockIssues: issues,
+        enterSaleScreenMs: Number(screenMs.toFixed(3))
+      };
+      const last = sales.at(-1)!.usage;
+      resources['sale-from-shell'] = {
+        electron: {
+          sample: sales.length,
+          medianMainCpuUserMs: microsToMs(median(sales.map((s) => s.usage.mainCpuUserMicros))),
+          medianMainCpuSystemMs: microsToMs(median(sales.map((s) => s.usage.mainCpuSystemMicros))),
+          medianWorkingSetBytes: medianBytes(sales.map((s) => s.usage.workingSetBytes)),
+          peakWorkingSetBytes: Math.max(...sales.map((s) => s.usage.workingSetBytes)),
+          processCount: last.processCount
+        },
+        /** Tráfico de la tanda entera dividido por las ventas que la compusieron. */
+        traffic: {
+          medianBytesRead: Math.round((after.bytesRead - before.bytesRead) / sample),
+          medianBytesWritten: Math.round((after.bytesWritten - before.bytesWritten) / sample)
+        },
+        exchanges: exchangeReport
+      } satisfies SaleResources;
+    } finally {
+      if (previousRendererPath === undefined) delete process.env.RENDERER_DIST_PATH;
+      else process.env.RENDERER_DIST_PATH = previousRendererPath;
+      await place?.close();
+      for (const suffix of ['', '-shm', '-wal']) rmSync(databasePath + suffix, { force: true });
+    }
+    for (const metric of SALE_METRICS) summaries.push(summarize(metric, measured.get(metric)!));
+  }
+
   let lanMeasured = false;
   if (selected('lan-cycle')) {
     lanMeasured = true;
@@ -1302,7 +1472,7 @@ const main = async (): Promise<void> => {
     ramGiB: Math.round(totalmem() / 1024 / 1024 / 1024),
     node: process.version,
     ...(startupArtifactSha256 ? { startupArtifactSha256 } : {}),
-    ...(desktopMeasured ? {
+    ...(desktopMeasured || saleFromShellMeasured ? {
       renderer: 'electron', transport: 'http-loopback', desktopArtifactHashes
     } : {}),
     ...(lanMeasured ? { transport: 'https-mtls', nodes: 2 } : {}),

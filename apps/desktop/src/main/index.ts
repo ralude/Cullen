@@ -1,12 +1,34 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import { join } from 'node:path';
-import { measureLoginAndShell, PERFORMANCE_SCENARIO } from './performance-run.js';
+import {
+  enterSaleScreen, measureLoginAndShell, measureSaleFromShell, signInForMeasurement,
+  startAnotherSale,
+  PERFORMANCE_SCENARIO, SALE_SCENARIO, type DesktopProcessUsage
+} from './performance-run.js';
 
 /** Nombre comercial del sistema, visible en la ventana nativa. */
 const PRODUCT_NAME = 'Cullen';
 
 const performanceScenario = process.env.CULLEN_PERFORMANCE_SCENARIO?.trim();
 const measuresLoginAndShell = performanceScenario === PERFORMANCE_SCENARIO;
+const measuresSaleFromShell = performanceScenario === SALE_SCENARIO;
+const measuresPerformance = measuresLoginAndShell || measuresSaleFromShell;
+
+/**
+ * `getAppMetrics` cubre todos los procesos de Electron —principal, GPU,
+ * utilidades y renderer—; `workingSetSize` viene en KiB. El CPU acumulado sólo
+ * existe para el proceso principal.
+ */
+const readDesktopUsage = (): DesktopProcessUsage => {
+  const metrics = app.getAppMetrics();
+  const cpu = process.cpuUsage();
+  return {
+    mainCpuUserMicros: cpu.user,
+    mainCpuSystemMicros: cpu.system,
+    workingSetBytes: metrics.reduce((total, metric) => total + metric.memory.workingSetSize * 1024, 0),
+    processCount: metrics.length
+  };
+};
 
 /**
  * Nodo local de esta terminal. La interfaz se carga desde él, no desde
@@ -46,7 +68,7 @@ const createWindow = (): BrowserWindow => {
     height: 800,
     minWidth: 960,
     minHeight: 640,
-    show: !measuresLoginAndShell,
+    show: !measuresPerformance,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -91,21 +113,42 @@ void app.whenReady().then(async () => {
       || !nodeUrl().startsWith('http://127.0.0.1:')) {
       throw new Error('PERF_DESKTOP_CONFIGURATION_INVALID');
     }
-    /**
-     * `getAppMetrics` cubre todos los procesos de Electron —principal, GPU,
-     * utilidades y renderer—; `workingSetSize` viene en KiB.
-     */
-    const result = await measureLoginAndShell(window, processStartedAt, { code, secret }, () => {
-      const metrics = app.getAppMetrics();
-      const cpu = process.cpuUsage();
-      return {
-        mainCpuUserMicros: cpu.user,
-        mainCpuSystemMicros: cpu.system,
-        workingSetBytes: metrics.reduce((total, metric) => total + metric.memory.workingSetSize * 1024, 0),
-        processCount: metrics.length
-      };
-    });
+    const result = await measureLoginAndShell(
+      window, processStartedAt, { code, secret }, readDesktopUsage
+    );
     process.stdout.write('CULLEN_PERF_RESULT ' + JSON.stringify(result) + '\n');
+    app.quit();
+    return;
+  }
+
+  if (measuresSaleFromShell) {
+    const code = process.env.CULLEN_PERFORMANCE_OPERATOR_CODE;
+    const secret = process.env.CULLEN_PERFORMANCE_PIN;
+    const method = process.env.CULLEN_PERFORMANCE_PAYMENT_METHOD;
+    const repetitions = Number(process.env.CULLEN_PERFORMANCE_REPETITIONS);
+    if (!code || !secret || !method || !Number.isSafeInteger(repetitions) || repetitions < 1
+      || !nodeUrl().startsWith('http://127.0.0.1:')) {
+      throw new Error('PERF_DESKTOP_CONFIGURATION_INVALID');
+    }
+    /**
+     * El ingreso queda fuera de toda medición: lo cubre `login-and-shell`, y
+     * repetirlo por jornada añadiría su scrypt a cada observación. Todas las
+     * repeticiones comparten un proceso porque la jornada es una acción dentro
+     * de una sesión abierta; arrancar Chromium por repetición mediría el
+     * arranque, no la venta.
+     */
+    await signInForMeasurement(window, code, secret);
+    /**
+     * Entrar a la pantalla se mide aparte y una sola vez: ahí es donde el
+     * efecto de montaje carga el catálogo entero, y el operador paga ese costo
+     * al entrar, no en cada cobro. Las ventas se encadenan sin salir.
+     */
+    process.stdout.write('CULLEN_PERF_SCREEN ' + await enterSaleScreen(window) + '\n');
+    for (let run = 0; run < repetitions; run += 1) {
+      const sale = await measureSaleFromShell(window, readDesktopUsage, method);
+      process.stdout.write('CULLEN_PERF_RESULT ' + JSON.stringify(sale) + '\n');
+      if (run + 1 < repetitions) await startAnotherSale(window);
+    }
     app.quit();
     return;
   }
@@ -115,8 +158,17 @@ void app.whenReady().then(async () => {
       createWindow();
     }
   });
-}).catch(() => {
-  process.stderr.write(measuresLoginAndShell ? 'PERF_DESKTOP_FAILED\n' : 'DESKTOP_START_FAILED\n');
+}).catch((error: unknown) => {
+  /**
+   * Sólo el código estable del conductor, nunca el stack ni el mensaje libre:
+   * sin él, una medición fallida no dice qué paso de la jornada no ocurrió.
+   */
+  const code = error instanceof Error && /^PERF_[A-Z_]+$/.test(error.message)
+    ? ' ' + error.message
+    : '';
+  process.stderr.write(
+    (measuresPerformance ? 'PERF_DESKTOP_FAILED' + code : 'DESKTOP_START_FAILED') + '\n'
+  );
   app.exit(1);
 });
 

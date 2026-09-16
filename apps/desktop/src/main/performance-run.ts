@@ -22,6 +22,15 @@ export type DesktopPerformanceResult = {
   readonly usage: DesktopProcessUsage;
 };
 
+export const SALE_SCENARIO = 'sale-from-shell';
+
+export type DesktopSaleResult = {
+  readonly 'sale-start': number;
+  readonly 'sale-add-line': number;
+  readonly 'sale-settle': number;
+  readonly usage: DesktopProcessUsage;
+};
+
 const WAIT_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 10;
 const monotonicEpoch = (): number => performance.timeOrigin + performance.now();
@@ -34,13 +43,13 @@ const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => 
  * Espera una condición observable dentro de Chromium. El predicado es fijo y
  * no devuelve texto del DOM, cookies ni credenciales al proceso principal.
  */
-const waitFor = async (window: BrowserWindow, expression: string): Promise<void> => {
+const waitFor = async (window: BrowserWindow, expression: string, step = ''): Promise<void> => {
   const deadline = monotonicEpoch() + WAIT_TIMEOUT_MS;
   while (monotonicEpoch() < deadline) {
     if (await window.webContents.executeJavaScript(expression, true) as boolean) return;
     await delay(POLL_INTERVAL_MS);
   }
-  throw new Error('PERF_DESKTOP_TIMEOUT');
+  throw new Error('PERF_DESKTOP_TIMEOUT' + (step ? '_' + step : ''));
 };
 
 /**
@@ -108,4 +117,120 @@ export const measureLoginAndShell = async (
     /** Se lee con la terminal ya operando, antes de cerrarla. */
     usage: readUsage()
   };
+};
+
+/**
+ * Hace clic donde el operador haría clic. Devuelve false si el elemento no
+ * está, para que el conductor aborte en vez de medir una pantalla que no
+ * llegó: una jornada que no ocurrió no es una observación rápida.
+ */
+const click = async (window: BrowserWindow, selector: string): Promise<void> => {
+  const script = `(() => {
+    const target = document.querySelector(${JSON.stringify(selector)});
+    if (!(target instanceof HTMLElement)) return false;
+    target.click();
+    return true;
+  })()`;
+  const clicked = await window.webContents.executeJavaScript(script, true) as boolean;
+  if (!clicked) throw new Error('PERF_DESKTOP_SALE_TARGET_MISSING');
+};
+
+/**
+ * Jornada de venta conducida por la interfaz real, no por la API.
+ *
+ * Existe porque 12.02 mide el camino renderer–nodo, y la jornada de la línea
+ * base entra por `app.inject`: no cruza socket, cliente HTTP ni React. Aquí
+ * cada tramo empieza en un gesto del operador y termina cuando la pantalla
+ * refleja el resultado, así que incluye render y espera de la UI.
+ *
+ * Cobra con un solo método **no gravado**: una venta que cobró IGTF no puede
+ * emitir su factura hoy —D-003—, y aunque este recorrido no factura, se
+ * conserva el mismo criterio que la jornada medida para que ambas comparen lo
+ * mismo. La emisión del documento no forma parte de este escenario.
+ */
+export const measureSaleFromShell = async (
+  window: BrowserWindow,
+  readUsage: () => DesktopProcessUsage,
+  paymentMethodCode: string
+): Promise<DesktopSaleResult> => {
+  const screenAt = monotonicEpoch();
+  await click(window, '.start-panel .primary-button');
+  await waitFor(window, "document.querySelector('.sale-catalog .product-tile') !== null", 'CATALOG');
+  const startedAt = monotonicEpoch();
+
+  await click(window, '.sale-catalog .product-tile');
+  await waitFor(window, "document.querySelectorAll('.sale-lines tbody tr').length > 0", 'LINE');
+  const lineAt = monotonicEpoch();
+
+  await click(window, `.method-chips input[value=${JSON.stringify(paymentMethodCode)}]`);
+  await click(window, '.amount-field button');
+  await waitFor(window, "document.querySelector('.amount-field input').value !== ''", 'AMOUNT');
+  await click(window, '#sale-payment-form .complete-button');
+  await waitFor(window, "document.querySelector('.closed-sale') !== null", 'SETTLED');
+  const settledAt = monotonicEpoch();
+
+  /** La venta tiene que haber quedado completada, no anulada. */
+  const completed = await window.webContents.executeJavaScript(
+    "document.querySelector('.closed-sale .eyebrow').textContent.includes('completada')", true
+  ) as boolean;
+  if (!completed) throw new Error('PERF_DESKTOP_SALE_NOT_COMPLETED');
+
+  return {
+    'sale-start': startedAt - screenAt,
+    'sale-add-line': lineAt - startedAt,
+    'sale-settle': settledAt - lineAt,
+    usage: readUsage()
+  };
+};
+
+/**
+ * Encadena otra venta como lo haría el operador: pulsando «Iniciar otra venta»
+ * **sin salir de la pantalla**.
+ *
+ * Importa para no medir un artefacto: el catálogo se carga en un efecto al
+ * montar la pantalla, así que navegar fuera y volver lo recargaría entero en
+ * cada repetición y cargaría a la venta un costo que la operación real paga una
+ * sola vez, al entrar.
+ */
+export const startAnotherSale = async (window: BrowserWindow): Promise<void> => {
+  /**
+   * Hijo directo: «Emitir factura» y «Registrar devolución» también son
+   * `.primary-button`, pero viven dentro de sus propias secciones. Un selector
+   * descendente pulsaría la factura y la jornada mediría otra cosa.
+   */
+  await click(window, '.closed-sale > .primary-button');
+  /** Vuelve el panel de apertura, no el catálogo: la venta activa se limpió. */
+  await waitFor(
+    window, "document.querySelector('.start-panel .primary-button:not([disabled])') !== null",
+    'REOPEN'
+  );
+};
+
+/**
+ * Ingreso fuera de medición, para escenarios que necesitan una sesión abierta
+ * antes de empezar a medir. El costo del ingreso ya lo mide `login-and-shell`.
+ */
+export const signInForMeasurement = async (
+  window: BrowserWindow, code: string, secret: string
+): Promise<void> => {
+  await waitFor(window, "document.querySelector('form.login-card') !== null");
+  await submitCredentials(window, code, secret);
+  await waitFor(window, "document.querySelector('.app-shell') !== null");
+};
+
+/**
+ * Entra a la pantalla de venta desde el shell. Se mide **una vez por sesión**,
+ * no por venta: aquí es donde el efecto de montaje carga el catálogo entero, y
+ * el operador paga ese costo al entrar, no en cada cobro.
+ */
+export const enterSaleScreen = async (window: BrowserWindow): Promise<number> => {
+  const at = monotonicEpoch();
+  await window.webContents.executeJavaScript("window.location.hash = '#/sales'", true);
+  await waitFor(window, "document.querySelector('.sales-screen .start-panel') !== null", 'SALE_SCREEN');
+  /** El carrito no abre hasta que la pantalla resolvió el turno de la estación. */
+  await waitFor(
+    window, "document.querySelector('.start-panel .primary-button:not([disabled])') !== null",
+    'SHIFT_READY'
+  );
+  return monotonicEpoch() - at;
 };
