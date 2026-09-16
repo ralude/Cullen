@@ -36,7 +36,7 @@
       "relativeIqr"
     ],
     "percentileRule": "Con muestra de al menos 30 se publican mediana y p90. Por debajo de 30 se omite p90. No se publica p95 ni p99. Una muestra de 1 o 3 sólo verifica el instrumento; no fija el ruido ni los presupuestos.",
-    "isolation": "Un escenario por proceso y una base SQLite propia y recién migrada. Seleccionar varios escenarios crea procesos hijos secuenciales y un directorio por escenario. Cada repetición de node-cold-start migra otra base dentro del proceso de ese escenario: no incluye iniciar Node ni un servicio instalado. login-and-shell construye desktop fuera de la medición, deja Fastify listo en loopback y lanza un Electron compilado con perfil Chromium nuevo por repetición; el perfil y su cookie se eliminan al terminar. lan-cycle crea dos bases nuevas por repetición, conserva la del coordinador durante un reinicio y elimina ambas al terminar; sus certificados efímeros solo viven en memoria. Ejecutar sin suites, servidor de desarrollo ni otro Electron compitiendo por recursos.",
+    "isolation": "Un escenario por proceso y una base SQLite propia y recién migrada. Seleccionar varios escenarios crea procesos hijos secuenciales y un directorio por escenario. node-startup compila una vez y fuera del cronómetro un conductor ESM con el contrato de distribución de ADR-0030; después crea una base por repetición: un primer proceso Node la migra y deja Fastify listo, y un segundo proceso abre la misma base y, ya listo, atiende /health como ejecución caliente. El bundle temporal, la base, WAL y SHM se eliminan al terminar. login-and-shell construye desktop fuera de la medición, deja Fastify listo en loopback y lanza un Electron compilado con perfil Chromium nuevo por repetición; el perfil y su cookie se eliminan al terminar. lan-cycle crea dos bases nuevas por repetición, conserva la del coordinador durante un reinicio y elimina ambas al terminar; sus certificados efímeros solo viven en memoria. Ejecutar sin suites, servidor de desarrollo ni otro Electron compitiendo por recursos.",
     "noiseFloor": "El estadístico comparable es la MEDIANA de cada serie, no la observación individual. El piloto del 2026-09-11 mostró que el IQR dentro de una serie llega al 41 % en los escenarios de pocos milisegundos —dispersión de GC y planificador— mientras la mediana entre series apenas se mueve. Usar el IQR como margen habría exigido mejoras absurdas. El margen por escenario es el doble de la deriva observada entre tres series; un cambio que no lo supere es fluctuación.",
     "series": 3,
     "noiseMargins": {
@@ -67,16 +67,18 @@
     "runOne": "pnpm --filter @supermarket/server perf -- --scenario sale-journey",
     "options": "--warmup N (>=0) --sample N (>0) --scenario <id> (repetible) --profile habitual|crecimiento --depths N,N (sólo crecimiento, enteros positivos únicos)",
     "runReports": "pnpm --filter @supermarket/server perf -- --profile crecimiento --scenario report-sales --scenario report-inventory",
+    "runStartup": "pnpm --filter @supermarket/server perf -- --scenario node-startup",
     "runDesktop": "pnpm --filter @supermarket/server perf -- --scenario login-and-shell",
     "runLan": "pnpm --filter @supermarket/server perf -- --scenario lan-cycle"
   },
   "scenarios": [
     {
-      "id": "node-cold-start",
-      "covers": "Escenario 1 (mitad del nodo)",
+      "id": "node-startup",
+      "covers": "Escenario 1 (tramos del nodo)",
       "instrumented": true,
-      "measures": "Migrar una base vacía, componer el runtime y dejar la aplicación Fastify lista para atender.",
-      "excludes": "El arranque de Electron y la carga del renderer, que exigen un conductor de GUI todavía no construido."
+      "measures": "node-first-install mide creación de un proceso Node, carga del bundle, migraciones, runtime y Fastify listo sobre una base nueva; node-existing-start mide otro proceso sobre esa base ya migrada; node-hot-health mide GET /health dentro del segundo proceso ya listo.",
+      "guard": "El conductor se empaqueta antes de medir con esbuild, ESM, target node24 y better-sqlite3 externo, como ADR-0030 D2; su SHA-256 queda en environment.startupArtifactSha256. Cada repetición usa una base propia. Los dos arranques ocurren en procesos hijos sin tsx ni otro loader y el padre confirma su cierre antes de continuar. La petición caliente empieza después de ready y no incluye el arranque.",
+      "excludes": "El conductor compone el runtime y Fastify directamente; no mide el ciclo completo de src/index.ts, lectura de configuración, escucha de red, WinSW, MSI ni lanzamiento del runtime Node embebido. Electron se mide por separado en desktop-to-login; sumar medianas de procesos separados es una estimación, no una observación extremo a extremo de primera instalación hasta formulario. No incluye autoactualización."
     },
     {
       "id": "catalog-barcode",

@@ -34,6 +34,9 @@ import {
 import { buildApp } from '../src/app.ts';
 import { ADMIN_PERMISSIONS, createSecurityRuntime, type SecurityRuntime } from '../src/runtime.ts';
 import { LanCycleBenchmark } from './lan-cycle.ts';
+import {
+  measureStartup, prepareStartupArtifact, removeStartupArtifact
+} from './startup.ts';
 
 type Observation = { readonly scenario: string; readonly run: number; readonly ms: number };
 
@@ -659,25 +662,6 @@ const historyScenarios: readonly Scenario[] = HISTORY_DEPTHS.flatMap((depth) => 
   ];
 });
 
-/**
- * Arranque frío del nodo: migrar una base vacía, componer el runtime y dejar la
- * aplicación lista. Se mide aparte porque cada repetición necesita su base.
- */
-const coldStart = async (directory: string, run: number): Promise<number> => {
-  const path = join(directory, 'cold-' + run + '.sqlite');
-  const started = performance.now();
-  const runtime = createSecurityRuntime(path, {
-    terminalId: 'terminal-001', originNodeId: 'node-001'
-  });
-  const app = buildApp(runtime.dependencies, { logDestination: discard });
-  await app.ready();
-  const elapsed = performance.now() - started;
-  await app.close();
-  runtime.handle.close();
-  rmSync(path, { force: true });
-  return elapsed;
-};
-
 const DESKTOP_METRICS = [
   'desktop-to-login', 'login-to-shell', 'session-recovery'
 ] as const;
@@ -686,6 +670,11 @@ type DesktopMeasurement = Readonly<Record<DesktopMetric, number>>;
 
 const LAN_METRICS = ['lan-delivery', 'lan-application'] as const;
 type LanMetric = typeof LAN_METRICS[number];
+
+const STARTUP_METRICS = [
+  'node-first-install', 'node-existing-start', 'node-hot-health'
+] as const;
+type StartupMetric = typeof STARTUP_METRICS[number];
 
 const monotonicEpoch = (): number => performance.timeOrigin + performance.now();
 
@@ -819,6 +808,8 @@ const revision = () => {
   for (const path of [
     fileURLToPath(import.meta.url),
     resolve(dirname(fileURLToPath(import.meta.url)), 'lan-cycle.ts'),
+    resolve(dirname(fileURLToPath(import.meta.url)), 'startup.ts'),
+    resolve(dirname(fileURLToPath(import.meta.url)), 'startup-run.ts'),
     resolve(dirname(fileURLToPath(import.meta.url)), '../../desktop/src/main/index.ts'),
     resolve(dirname(fileURLToPath(import.meta.url)), '../../desktop/src/main/performance-run.ts')
   ]) {
@@ -837,7 +828,7 @@ const main = async (): Promise<void> => {
     ? [...scenarios, ...historyScenarios]
     : scenarios.filter(({ id }) => id !== 'report-sales');
   const availableIds = [
-    'node-cold-start',
+    'node-startup',
     'lan-cycle',
     ...(process.platform === 'win32' ? ['login-and-shell'] : []),
     ...available.map(({ id }) => id)
@@ -867,15 +858,36 @@ const main = async (): Promise<void> => {
   const checks: Record<string, Record<string, number>> = {};
   const selected = (id: string): boolean => only.length === 0 || only.includes(id);
 
-  if (selected('node-cold-start')) {
-    const measured: number[] = [];
-    for (let run = 0; run < warmup + sample; run += 1) {
-      const ms = await coldStart(directory, run);
-      if (run < warmup) continue;
-      measured.push(ms);
-      observations.push({ scenario: 'node-cold-start', run: run - warmup, ms });
+  let startupArtifactSha256: string | undefined;
+  if (selected('node-startup')) {
+    const measured = new Map<StartupMetric, number[]>(
+      STARTUP_METRICS.map((metric) => [metric, []])
+    );
+    const artifact = await prepareStartupArtifact();
+    startupArtifactSha256 = artifact.sha256;
+    try {
+      for (let run = 0; run < warmup + sample; run += 1) {
+        const result = await measureStartup(directory, artifact.path, run);
+        if (run < warmup) continue;
+        const values: Readonly<Record<StartupMetric, number>> = {
+          'node-first-install': result.firstInstallMs,
+          'node-existing-start': result.existingDatabaseMs,
+          'node-hot-health': result.hotHealthMs
+        };
+        for (const metric of STARTUP_METRICS) {
+          measured.get(metric)!.push(values[metric]);
+          observations.push({ scenario: metric, run: run - warmup, ms: values[metric] });
+        }
+      }
+    } finally {
+      removeStartupArtifact(artifact);
     }
-    summaries.push(summarize('node-cold-start', measured));
+    checks['node-startup'] = {
+      firstInstallProcesses: warmup + sample,
+      existingDatabaseProcesses: warmup + sample,
+      hotHealthChecks: warmup + sample
+    };
+    for (const metric of STARTUP_METRICS) summaries.push(summarize(metric, measured.get(metric)!));
   }
 
   let desktopMeasured = false;
@@ -990,6 +1002,7 @@ const main = async (): Promise<void> => {
     cores: cpus().length,
     ramGiB: Math.round(totalmem() / 1024 / 1024 / 1024),
     node: process.version,
+    ...(startupArtifactSha256 ? { startupArtifactSha256 } : {}),
     ...(desktopMeasured ? {
       renderer: 'electron', transport: 'http-loopback', desktopArtifactHashes
     } : {}),

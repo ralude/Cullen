@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -119,6 +119,24 @@ describe('comando público de medición de 12.01', () => {
     expect(report.summaries).toEqual([expect.objectContaining({
       scenario: 'cash-shift-open', sample: 2
     })]);
+  }, 60_000);
+
+  it('separa primera instalación, nuevo proceso sobre la base y ejecución caliente', async () => {
+    const result = await run([
+      '--scenario', 'node-startup', '--warmup', '0', '--sample', '1'
+    ]);
+    expect(result.succeeded, result.stderr).toBe(true);
+    const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+    expect(report.environment.checks).toEqual({
+      'node-startup': { firstInstallProcesses: 1, existingDatabaseProcesses: 1, hotHealthChecks: 1 }
+    });
+    expect(report.environment.startupArtifactSha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(report.summaries.map((entry: { readonly scenario: string }) => entry.scenario))
+      .toEqual(['node-first-install', 'node-existing-start', 'node-hot-health']);
+    expect(JSON.parse(readFileSync(resolve(result.directory!, 'observations.json'), 'utf8')).observations)
+      .toHaveLength(3);
+    expect(readdirSync(result.directory!)).toEqual(['observations.json', 'summary.json']);
+    expect(result.stdout).not.toContain('HTTP request completed');
   }, 60_000);
 
   it.runIf(process.platform === 'win32')(
