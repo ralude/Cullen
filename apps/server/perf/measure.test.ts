@@ -21,9 +21,15 @@ afterEach(() => {
   }
 });
 
+/**
+ * Estas pruebas comprueban comportamiento, no rendimiento, y corren junto al
+ * resto de la suite: la estación está ocupada por definición. Desactivan la
+ * guarda de aislamiento salvo que el caso la esté ejercitando.
+ */
 const run = async (args: readonly string[]) => {
+  const withLoadLimit = args.includes('--max-load') ? args : [...args, '--max-load', '100'];
   try {
-    const { stdout, stderr } = await execute(process.execPath, ['--import', 'tsx', 'perf/measure.ts', ...args], {
+    const { stdout, stderr } = await execute(process.execPath, ['--import', 'tsx', 'perf/measure.ts', ...withLoadLimit], {
       cwd: serverDirectory, windowsHide: true, timeout: 60_000, maxBuffer: 512 * 1024
     });
     const directories = [...stdout.matchAll(/Crudos en (.+)/g)].map((match) => match[1]!.trim());
@@ -147,6 +153,33 @@ describe('comando público de medición de 12.01', () => {
     expect(JSON.parse(readFileSync(resolve(slow.directory!, 'observations.json'), 'utf8')).observations)
       .toHaveLength(2);
   }, 120_000);
+
+  it('declara la carga del sistema con la que midió', async () => {
+    const result = await run(['--scenario', 'catalog-barcode', '--warmup', '0', '--sample', '1']);
+    expect(result.succeeded, result.stderr).toBe(true);
+    const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+    /**
+     * La ocupación se observa antes de abrir la serie y después de cerrarla:
+     * una línea base tomada con la estación cargada mide otro nodo.
+     */
+    expect(report.environment.systemLoad).toMatchObject({
+      beforeBusyPercent: expect.any(Number),
+      afterBusyPercent: expect.any(Number),
+      limitPercent: expect.any(Number),
+      cores: expect.any(Number)
+    });
+    expect(report.environment.systemLoad.beforeBusyPercent).toBeGreaterThanOrEqual(0);
+    expect(report.environment.systemLoad.beforeBusyPercent).toBeLessThanOrEqual(100);
+  }, 60_000);
+
+  it('aborta una serie que la estación no puede medir aislada', async () => {
+    const result = await run([
+      '--scenario', 'catalog-barcode', '--warmup', '0', '--sample', '1', '--max-load', '0'
+    ]);
+    expect(result.succeeded).toBe(false);
+    expect(result.stdout).not.toContain('Crudos en');
+    expect(result.stderr).toContain('PERF_STATION_BUSY');
+  }, 60_000);
 
   it('conserva un warm-up explícito cuando la comparación lo exige', async () => {
     const result = await run(['--scenario', 'catalog-barcode', '--warmup', '3', '--sample', '2']);

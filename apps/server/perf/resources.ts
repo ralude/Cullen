@@ -12,6 +12,7 @@
  * individual de CPU no lo tiene.
  */
 import { statSync } from 'node:fs';
+import { cpus } from 'node:os';
 import type { Server, Socket } from 'node:net';
 
 /** Bytes sobre el cable, cifrado incluido: se leen del socket TCP, no del cuerpo. */
@@ -154,4 +155,39 @@ export const recordResources = (databasePath?: string) => {
       };
     }
   };
+};
+
+/**
+ * Ocupación de la estación, en porcentaje sobre el total de sus núcleos.
+ *
+ * El manifiesto exige medir sin suites, servidor de desarrollo ni otro Electron
+ * compitiendo, pero hasta el 2026-09-16 nadie lo verificaba: el BEFORE de ese
+ * día salió un 50 % más lento en su tercera serie porque la estación tenía
+ * navegadores y aplicaciones Chromium abiertas, y sólo se detectó comparando
+ * medianas a mano. Ahora la serie lo declara y aborta si no puede medir aislada.
+ *
+ * Se obtiene de `os.cpus()`, que acumula tiempo por núcleo desde el arranque:
+ * dos lecturas separadas por un intervalo dan la ocupación de ese intervalo. No
+ * distingue qué proceso consume —no hace falta para decidir si la estación está
+ * libre— y no lee línea de comandos ni nombres de proceso ajenos.
+ */
+export const measureSystemLoad = async (sampleMs = 300): Promise<number> => {
+  const snapshot = (): { idle: number; total: number } => {
+    let idle = 0;
+    let total = 0;
+    for (const core of cpus()) {
+      for (const [mode, ticks] of Object.entries(core.times)) {
+        total += ticks;
+        if (mode === 'idle') idle += ticks;
+      }
+    }
+    return { idle, total };
+  };
+  const first = snapshot();
+  await new Promise((resolve) => { setTimeout(resolve, sampleMs); });
+  const second = snapshot();
+  const total = second.total - first.total;
+  if (total <= 0) return 0;
+  const busy = 1 - (second.idle - first.idle) / total;
+  return Number((Math.min(Math.max(busy, 0), 1) * 100).toFixed(1));
 };

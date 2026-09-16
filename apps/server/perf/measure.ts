@@ -35,7 +35,8 @@ import { buildApp } from '../src/app.ts';
 import { ADMIN_PERMISSIONS, createSecurityRuntime, type SecurityRuntime } from '../src/runtime.ts';
 import { LanCycleBenchmark } from './lan-cycle.ts';
 import {
-  countTraffic, median, medianBytes, microsToMs, recordResources, summarizeProcessResources,
+  countTraffic, measureSystemLoad, median, medianBytes, microsToMs, recordResources,
+  summarizeProcessResources,
   type ProcessResources, type ScenarioResources
 } from './resources.ts';
 import {
@@ -103,7 +104,7 @@ const invalidArgument: () => never = () => {
 const parseOptions = (args: readonly string[]) => {
   const values = new Map<string, string>();
   const scenarios: string[] = [];
-  const allowed = ['--profile', '--scenario', '--sample', '--warmup', '--depths'];
+  const allowed = ['--profile', '--scenario', '--sample', '--warmup', '--depths', '--max-load'];
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index]!;
     if (key === '--') continue;
@@ -131,6 +132,7 @@ const parseOptions = (args: readonly string[]) => {
   return {
     profile,
     historyDepths,
+    maxLoadPercent: values.has('--max-load') ? integer(values.get('--max-load')!, 0) : 15,
     warmup: values.has('--warmup')
       ? { mode: 'fixed' as const, runs: integer(values.get('--warmup')!, 0) }
       : { mode: 'auto' as const },
@@ -980,12 +982,28 @@ const main = async (): Promise<void> => {
         ...process.execArgv, fileURLToPath(import.meta.url), '--profile', profile(),
         '--sample', String(sample),
         ...(options.warmup.mode === 'fixed' ? ['--warmup', String(options.warmup.runs)] : []),
+        /** El hijo revalida la estación: una serie larga puede ensuciarse a mitad. */
+        '--max-load', String(options.maxLoadPercent),
         '--scenario', id,
         ...(profile() === 'crecimiento' ? ['--depths', HISTORY_DEPTHS.join(',')] : [])
       ], { stdio: 'inherit', windowsHide: true });
     }
     return;
   }
+  /**
+   * El manifiesto exige medir sin nada compitiendo por la estación. Se
+   * comprueba antes de sembrar: una serie larga sobre una máquina ocupada mide
+   * otro nodo, y descubrirlo comparando medianas a mano ya costó un BEFORE
+   * entero el 2026-09-16.
+   */
+  const beforeBusyPercent = await measureSystemLoad();
+  if (beforeBusyPercent > options.maxLoadPercent) {
+    throw new Error(
+      'PERF_STATION_BUSY: la estación está al ' + beforeBusyPercent + ' % y el límite es ' +
+      options.maxLoadPercent + ' %. Cierra lo que compita por CPU antes de medir.'
+    );
+  }
+
   const source = revision();
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
   const root = resolve(process.cwd(), '../..');
@@ -1241,6 +1259,13 @@ const main = async (): Promise<void> => {
     }
   }
 
+  /**
+   * La ocupación al cerrar dice si algo apareció durante la serie. No aborta
+   * —la medición ya ocurrió y descartarla perdería evidencia—, pero queda
+   * publicada para que nadie lea como línea base una serie que compitió.
+   */
+  const afterBusyPercent = await measureSystemLoad();
+
   const environment = {
     commit: source.commit.slice(0, 7),
     revision: source,
@@ -1272,6 +1297,12 @@ const main = async (): Promise<void> => {
         budgetMs: WARMUP_BUDGET_MS
       },
     sample,
+    systemLoad: {
+      beforeBusyPercent,
+      afterBusyPercent,
+      limitPercent: options.maxLoadPercent,
+      cores: cpus().length
+    },
     profile: profile(),
     products: lanMeasured ? 1 : inProcess.length === 0 && !desktopMeasured ? 0 : productCount(),
     completedSales: (inProcess.length > 0 || desktopMeasured) && profile() === 'crecimiento'
