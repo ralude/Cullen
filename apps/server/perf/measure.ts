@@ -36,6 +36,7 @@ import { ADMIN_PERMISSIONS, createSecurityRuntime, type SecurityRuntime } from '
 import { LanCycleBenchmark } from './lan-cycle.ts';
 import {
   countTraffic, measureSystemLoad, median, medianBytes, microsToMs, recordResources,
+  waitForIdleStation,
   summarizeProcessResources,
   type ProcessResources, type ScenarioResources
 } from './resources.ts';
@@ -996,11 +997,11 @@ const main = async (): Promise<void> => {
    * otro nodo, y descubrirlo comparando medianas a mano ya costó un BEFORE
    * entero el 2026-09-16.
    */
-  const beforeBusyPercent = await measureSystemLoad();
+  const beforeBusyPercent = await waitForIdleStation(options.maxLoadPercent);
   if (beforeBusyPercent > options.maxLoadPercent) {
     throw new Error(
-      'PERF_STATION_BUSY: la estación está al ' + beforeBusyPercent + ' % y el límite es ' +
-      options.maxLoadPercent + ' %. Cierra lo que compita por CPU antes de medir.'
+      'PERF_STATION_BUSY: la estación sigue al ' + beforeBusyPercent + ' % tras esperar, y el ' +
+      'límite es ' + options.maxLoadPercent + ' %. Cierra lo que compita por CPU antes de medir.'
     );
   }
 

@@ -172,6 +172,28 @@ export const recordResources = (databasePath?: string) => {
  * libre— y no lee línea de comandos ni nombres de proceso ajenos.
  */
 export const measureSystemLoad = async (sampleMs = 300): Promise<number> => {
+  return measureBusyPercent(sampleMs);
+};
+
+/**
+ * Espera a que la estación se libere antes de decidir que está ocupada. Una
+ * lectura sola confunde un pico transitorio con una máquina cargada: al cerrar
+ * una tanda, los procesos hijos y Electron siguen liberándose unos segundos, y
+ * el escenario siguiente los leía como ocupación ajena. Reintenta con pausas y
+ * devuelve la última lectura; quien llama decide si aborta.
+ */
+export const waitForIdleStation = async (
+  limitPercent: number, attempts = 6, pauseMs = 2_000
+): Promise<number> => {
+  let busy = await measureBusyPercent();
+  for (let attempt = 1; busy > limitPercent && attempt < attempts; attempt += 1) {
+    await new Promise((resolve) => { setTimeout(resolve, pauseMs); });
+    busy = await measureBusyPercent();
+  }
+  return busy;
+};
+
+const measureBusyPercent = async (sampleMs = 300): Promise<number> => {
   const snapshot = (): { idle: number; total: number } => {
     let idle = 0;
     let total = 0;

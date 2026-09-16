@@ -89,6 +89,27 @@ se deriva de él. Es una decisión normativa con su ADR, no un ajuste del emisor
 fuera de alcance cambiar contratos. Mientras tanto la jornada medida cobra con dos métodos no
 gravados y lo declara: ver [12.01](./fase-12-optimizacion/12.01-profiler-baseline.md).
 
+## D-004 · Una prueba E2E de LAN falla de forma intermitente bajo carga
+
+**Observado:** 2026-09-16, durante la validación del corte de aislamiento de 12.01.
+
+`src/sync/lan-sync.e2e.test.ts` → «corta entre cada paso de compra, conteo y devolución y recupera
+la misma intención» falló una vez con `expected 'PENDING' to be 'PUBLISHED'`. La misma prueba había
+pasado minutos antes dentro de la suite completa, y corrida aislada pasó junto a las otras dieciséis
+de su archivo.
+
+**Reproducción:** no determinista. Se observó con la suite completa en paralelo y la estación
+ocupada por otras aplicaciones. Aisladamente no reproduce.
+
+**Hipótesis, sin confirmar:** el paso espera que una entrega alcance `PUBLISHED` y la lectura ocurre
+antes de que el relay complete su reintento; bajo contención de CPU el margen se agota. No se
+instrumentó para confirmarlo: eso es trabajo de quien atienda el defecto.
+
+**Por qué no se corrigió aquí:** es ajeno al alcance del corte que lo destapó —12.01 no toca código
+de sincronización— y ajustar una espera de prueba sin entender la causa puede esconder un defecto
+real de reintento. Queda registrado para que nadie lo lea como un fallo introducido por las
+mediciones ni como una prueba estable.
+
 ## Cómo se relacionan
 
 D-001 tapa a D-002. Corregir solo D-001 convertiría un camino bloqueado en uno que acepta
