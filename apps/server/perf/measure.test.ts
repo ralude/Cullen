@@ -298,6 +298,44 @@ describe('comando público de medición de 12.01', () => {
     120_000
   );
 
+  it.runIf(process.platform === 'win32')(
+    'publica cuántas peticiones dispara la terminal, en qué orden y con qué tamaño',
+    async () => {
+      const result = await run([
+        '--scenario', 'login-and-shell', '--warmup', '0', '--sample', '1'
+      ]);
+      expect(result.succeeded, result.stderr).toBe(true);
+      const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+      const exchanges = report.resources['login-and-shell'].exchanges;
+
+      /**
+       * El camino renderer-nodo se describe por ruta declarada, nunca por URL
+       * concreta: una URL lleva identificadores de operación y una cookie de
+       * sesión, y esto es un artefacto versionable.
+       */
+      const routes = exchanges.byRoute.map((entry: { readonly route: string }) => entry.route);
+      expect(routes).toContain('POST /api/v1/auth/session');
+      expect(routes).toContain('GET /api/v1/system/capabilities');
+      for (const entry of exchanges.byRoute) {
+        expect(entry.count).toBeGreaterThan(0);
+        expect(entry.responseBytes).toBeGreaterThanOrEqual(0);
+        expect(entry.medianMs).toBeGreaterThanOrEqual(0);
+      }
+      /** El arranque del shell encadena sesión y capacidades: se ve en el orden. */
+      expect(exchanges.firstApiSequence).toEqual(
+        expect.arrayContaining(['GET /api/v1/system/capabilities'])
+      );
+      expect(exchanges.maxConcurrent).toBeGreaterThanOrEqual(1);
+      expect(exchanges.total).toBeGreaterThanOrEqual(exchanges.byRoute.length);
+
+      const raw = readFileSync(resolve(result.directory!, 'observations.json'), 'utf8');
+      for (const forbidden of ['"123456"', 'PERF01', 'set-cookie', 'cookie', 'operatorCode']) {
+        expect(raw).not.toContain(forbidden);
+      }
+    },
+    180_000
+  );
+
   it('separa custodia y aplicación del ciclo LAN después de una reconexión real', async () => {
     const result = await run([
       '--scenario', 'lan-cycle', '--warmup', '0', '--sample', '1'

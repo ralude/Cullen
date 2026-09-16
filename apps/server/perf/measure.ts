@@ -35,10 +35,11 @@ import { buildApp } from '../src/app.ts';
 import { ADMIN_PERMISSIONS, createSecurityRuntime, type SecurityRuntime } from '../src/runtime.ts';
 import { LanCycleBenchmark } from './lan-cycle.ts';
 import {
-  countTraffic, measureSystemLoad, median, medianBytes, microsToMs, recordResources,
+  countExchanges, countTraffic, measureSystemLoad, median, medianBytes, microsToMs,
+  recordResources,
   waitForIdleStation,
   summarizeProcessResources,
-  type ProcessResources, type ScenarioResources
+  type ExchangeReport, type ProcessResources, type ScenarioResources
 } from './resources.ts';
 import {
   measureStartup, prepareStartupArtifact, removeStartupArtifact, type StartupProcessUsage
@@ -433,12 +434,20 @@ type Station = {
   close(): Promise<void>;
 };
 
-/** Estación lista para operar: base migrada, semilla, sesión y turno abierto. */
-const station = async (databasePath: string): Promise<Station> => {
+/**
+ * Estación lista para operar: base migrada, semilla, sesión y turno abierto.
+ *
+ * `observe` recibe el Fastify recién construido, antes de su primera petición:
+ * los hooks no se pueden registrar después, porque sembrar ya lo sella.
+ */
+const station = async (
+  databasePath: string, observe?: (app: ReturnType<typeof buildApp>) => void
+): Promise<Station> => {
   const runtime = createSecurityRuntime(databasePath, {
     terminalId: 'terminal-001', originNodeId: 'node-001'
   });
   const app = buildApp(runtime.dependencies, { logDestination: discard });
+  observe?.(app);
   try {
     const provisioned = await runtime.provisionInitialAdmin.execute({
       ...OPERATOR, permissions: ADMIN_PERMISSIONS
@@ -764,6 +773,8 @@ type DesktopResources = {
     readonly medianBytesRead: number;
     readonly medianBytesWritten: number;
   };
+  /** Qué pide la terminal, en qué orden y con qué concurrencia. Lo exige 12.02. */
+  readonly exchanges: ExchangeReport;
 };
 
 const LAN_METRICS = ['lan-delivery', 'lan-application'] as const;
@@ -1091,7 +1102,13 @@ const main = async (): Promise<void> => {
     );
     try {
       process.env.RENDERER_DIST_PATH = rendererPath;
-      place = await station(databasePath);
+      /**
+       * Los intercambios se observan sobre una sola repetición medida, la
+       * primera: el informe describe lo que una acción dispara, y sumar
+       * repeticiones lo volvería un total sin significado por acción.
+       */
+      let exchanges: ReturnType<typeof countExchanges> | undefined;
+      place = await station(databasePath, (app) => { exchanges = countExchanges(app); });
       if (previousRendererPath === undefined) delete process.env.RENDERER_DIST_PATH;
       else process.env.RENDERER_DIST_PATH = previousRendererPath;
       /** Renderer y API comparten origen: el contador ve la terminal entera. */
@@ -1105,10 +1122,14 @@ const main = async (): Promise<void> => {
         return DESKTOP_METRICS.reduce((total, metric) => total + result[metric], 0);
       });
       warmupRuns['login-and-shell'] = warmed;
+      /** El detalle describe la primera repetición medida, ya con todo caliente. */
+      exchanges?.reset();
+      let exchangeReport: ExchangeReport | undefined;
       for (let index = 0; index < sample; index += 1) {
         const before = traffic();
         const result = await runDesktop(artifacts, origin, directory, warmed + index);
         const after = traffic();
+        if (index === 0) exchangeReport = exchanges?.report();
         usages.push(result.usage);
         bytesRead.push(after.bytesRead - before.bytesRead);
         bytesWritten.push(after.bytesWritten - before.bytesWritten);
@@ -1134,7 +1155,8 @@ const main = async (): Promise<void> => {
         traffic: {
           medianBytesRead: medianBytes(bytesRead),
           medianBytesWritten: medianBytes(bytesWritten)
-        }
+        },
+        exchanges: exchangeReport ?? exchanges!.report()
       };
     } finally {
       if (previousRendererPath === undefined) delete process.env.RENDERER_DIST_PATH;

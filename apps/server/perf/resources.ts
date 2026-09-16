@@ -14,6 +14,7 @@
 import { statSync } from 'node:fs';
 import { cpus } from 'node:os';
 import type { Server, Socket } from 'node:net';
+import type { FastifyInstance } from 'fastify';
 
 /** Bytes sobre el cable, cifrado incluido: se leen del socket TCP, no del cuerpo. */
 export type Traffic = { readonly bytesRead: number; readonly bytesWritten: number };
@@ -212,4 +213,118 @@ const measureBusyPercent = async (sampleMs = 300): Promise<number> => {
   if (total <= 0) return 0;
   const busy = 1 - (second.idle - first.idle) / total;
   return Number((Math.min(Math.max(busy, 0), 1) * 100).toFixed(1));
+};
+
+/**
+ * Intercambios del camino renderer–nodo: cuántas peticiones dispara una acción,
+ * en qué orden, con cuánta concurrencia y de qué tamaño.
+ *
+ * Lo pide 12.02, que sólo puede intervenir sobre sobrecarga demostrada. Se
+ * describe cada petición por su **ruta declarada** —el patrón que Fastify
+ * registró—, nunca por la URL concreta: una URL lleva identificadores de
+ * operación, y las cabeceras llevan la cookie de sesión. No se registra cuerpo,
+ * query, cabecera ni cookie alguna; sólo método, ruta, estado, duración y
+ * tamaños declarados.
+ */
+export type ExchangeReport = {
+  readonly total: number;
+  readonly maxConcurrent: number;
+  /** Primeras rutas de API en el orden en que se pidieron, sin estáticos. */
+  readonly firstApiSequence: readonly string[];
+  readonly byRoute: readonly {
+    readonly route: string;
+    readonly count: number;
+    readonly medianMs: number;
+    readonly requestBytes: number;
+    readonly responseBytes: number;
+  }[];
+};
+
+type ExchangeRecord = {
+  route: string;
+  ms: number;
+  requestBytes: number;
+  responseBytes: number;
+};
+
+/**
+ * Agrupa los estáticos del renderer por extensión. Sus nombres llevan hash de
+ * build y cambian en cada compilación: publicarlos haría el artefacto ilegible
+ * y no aportaría nada que 12.02 pueda decidir.
+ */
+const staticRoute = (url: string): string => {
+  const clean = url.split('?')[0]!;
+  const extension = /\.([a-z0-9]+)$/i.exec(clean)?.[1]?.toLowerCase();
+  return extension === undefined ? 'GET /app/ (documento)' : 'GET /app/*.' + extension;
+};
+
+const SEQUENCE_LIMIT = 12;
+
+/**
+ * Observa un Fastify. Los hooks se registran antes de que escuche —Fastify no
+ * los acepta después de `ready`— y `reset` descarta lo acumulado, para que el
+ * informe describa UNA repetición y no la suma del warm-up.
+ */
+export const countExchanges = (
+  app: FastifyInstance
+): { readonly reset: () => void; readonly report: () => ExchangeReport } => {
+  const records: ExchangeRecord[] = [];
+  const sequence: string[] = [];
+  let concurrent = 0;
+  let maxConcurrent = 0;
+
+  app.addHook('onRequest', (_request, _reply, done) => {
+    concurrent += 1;
+    maxConcurrent = Math.max(maxConcurrent, concurrent);
+    done();
+  });
+
+  app.addHook('onResponse', (request, reply, done) => {
+    concurrent = Math.max(0, concurrent - 1);
+    const declared = request.routeOptions.url;
+    const route = declared !== undefined && !declared.startsWith('/app/')
+      ? request.method + ' ' + declared
+      : staticRoute(request.url);
+    const length = Number(reply.getHeader('content-length') ?? 0);
+    records.push({
+      route,
+      ms: Number(reply.elapsedTime.toFixed(3)),
+      requestBytes: Number(request.headers['content-length'] ?? 0),
+      responseBytes: Number.isFinite(length) ? length : 0
+    });
+    if (!route.includes('/app/') && sequence.length < SEQUENCE_LIMIT) sequence.push(route);
+    done();
+  });
+
+  const report = (): ExchangeReport => {
+    const grouped = new Map<string, ExchangeRecord[]>();
+    for (const record of records) {
+      const bucket = grouped.get(record.route) ?? [];
+      bucket.push(record);
+      grouped.set(record.route, bucket);
+    }
+    return {
+      total: records.length,
+      maxConcurrent,
+      firstApiSequence: [...sequence],
+      byRoute: [...grouped.entries()]
+        .map(([route, bucket]) => ({
+          route,
+          count: bucket.length,
+          medianMs: Number(median(bucket.map(({ ms }) => ms)).toFixed(3)),
+          requestBytes: bucket.reduce((total, { requestBytes }) => total + requestBytes, 0),
+          responseBytes: bucket.reduce((total, { responseBytes }) => total + responseBytes, 0)
+        }))
+        .sort((left, right) => right.responseBytes - left.responseBytes)
+    };
+  };
+
+  return {
+    reset: (): void => {
+      records.length = 0;
+      sequence.length = 0;
+      maxConcurrent = concurrent;
+    },
+    report
+  };
 };
