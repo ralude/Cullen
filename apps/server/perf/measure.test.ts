@@ -188,6 +188,38 @@ describe('comando público de medición de 12.01', () => {
     expect(report.environment.warmup).toEqual({ mode: 'fixed', runs: 3 });
   }, 60_000);
 
+  it('separa el costo de SQLite del resto sólo cuando se le pide, en su propia serie', async () => {
+    const plain = await run(['--scenario', 'catalog-list', '--warmup', '0', '--sample', '2']);
+    expect(plain.succeeded, plain.stderr).toBe(true);
+    const withoutProfile = JSON.parse(
+      readFileSync(resolve(plain.directory!, 'summary.json'), 'utf8')
+    );
+    /**
+     * La serie de latencia no lleva el instrumento: contar sentencias dentro
+     * del intervalo cronometrado contaminaría el número que esa serie publica.
+     */
+    expect(withoutProfile.resources['catalog-list'].sqlite).toBeUndefined();
+    expect(withoutProfile.environment.sqliteProfile).toBe(false);
+
+    const profiled = await run([
+      '--scenario', 'catalog-list', '--warmup', '0', '--sample', '2', '--sqlite-profile'
+    ]);
+    expect(profiled.succeeded, profiled.stderr).toBe(true);
+    const report = JSON.parse(readFileSync(resolve(profiled.directory!, 'summary.json'), 'utf8'));
+    expect(report.environment.sqliteProfile).toBe(true);
+
+    const sqlite = report.resources['catalog-list'].sqlite;
+    expect(sqlite.statements).toBeGreaterThan(0);
+    expect(sqlite.totalMs).toBeGreaterThanOrEqual(0);
+    expect(sqlite.byStatement.length).toBeGreaterThan(0);
+    for (const entry of sqlite.byStatement) {
+      expect(entry.sql).toEqual(expect.any(String));
+      expect(entry.count).toBeGreaterThan(0);
+      /** Sólo el SQL preparado: los parámetros viajan aparte y no se registran. */
+      expect(entry.sql).not.toMatch(/PERF01|123456/);
+    }
+  }, 120_000);
+
   it('registra CPU, memoria y tamaño de base sobre el mismo intervalo que la latencia', async () => {
     const result = await run(['--scenario', 'cash-shift-open', '--warmup', '1', '--sample', '2']);
     expect(result.succeeded, result.stderr).toBe(true);

@@ -41,6 +41,7 @@ import {
   summarizeProcessResources,
   type ExchangeReport, type ProcessResources, type ScenarioResources
 } from './resources.ts';
+import { profileSqlite, type SqliteProfile } from './sqlite-profile.ts';
 import {
   measureStartup, prepareStartupArtifact, removeStartupArtifact, type StartupProcessUsage
 } from './startup.ts';
@@ -107,9 +108,17 @@ const parseOptions = (args: readonly string[]) => {
   const values = new Map<string, string>();
   const scenarios: string[] = [];
   const allowed = ['--profile', '--scenario', '--sample', '--warmup', '--depths', '--max-load'];
+  /** Interruptores sin valor: activan una serie distinta, no un parámetro. */
+  const flags = new Set<string>();
+  const allowedFlags = ['--sqlite-profile'];
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index]!;
     if (key === '--') continue;
+    if (allowedFlags.includes(key)) {
+      if (flags.has(key)) invalidArgument();
+      flags.add(key);
+      continue;
+    }
     const value = args[++index];
     if (!allowed.includes(key) || !value || value.startsWith('--')) invalidArgument();
     if (key === '--scenario') scenarios.push(value);
@@ -135,6 +144,7 @@ const parseOptions = (args: readonly string[]) => {
     profile,
     historyDepths,
     maxLoadPercent: values.has('--max-load') ? integer(values.get('--max-load')!, 0) : 15,
+    sqliteProfile: flags.has('--sqlite-profile'),
     warmup: values.has('--warmup')
       ? { mode: 'fixed' as const, runs: integer(values.get('--warmup')!, 0) }
       : { mode: 'auto' as const },
@@ -1081,6 +1091,7 @@ const main = async (): Promise<void> => {
         ...(options.warmup.mode === 'fixed' ? ['--warmup', String(options.warmup.runs)] : []),
         /** El hijo revalida la estación: una serie larga puede ensuciarse a mitad. */
         '--max-load', String(options.maxLoadPercent),
+        ...(options.sqliteProfile ? ['--sqlite-profile'] : []),
         '--scenario', id,
         ...(profile() === 'crecimiento' ? ['--depths', HISTORY_DEPTHS.join(',')] : [])
       ], { stdio: 'inherit', windowsHide: true });
@@ -1113,7 +1124,9 @@ const main = async (): Promise<void> => {
   const checks: Record<string, Record<string, number>> = {};
   /** Recursos consumidos por cada escenario seleccionado, medidos aparte del tiempo. */
   const resources: Record<
-    string, ScenarioResources | StartupResources | LanResources | DesktopResources
+    string,
+    (ScenarioResources & { readonly sqlite?: SqliteProfile })
+    | StartupResources | LanResources | DesktopResources | SaleResources
   > = {};
   const selected = (id: string): boolean => only.length === 0 || only.includes(id);
 
@@ -1425,6 +1438,12 @@ const main = async (): Promise<void> => {
         place = await station(path);
         const warmed = await warmUp((run) => scenario.run(place!, run));
         warmupRuns[scenario.id] = warmed;
+        /**
+         * El perfil de SQLite se engancha después del warm-up y sólo cuando se
+         * pidió: dentro de la serie de latencia contaminaría su medición, así
+         * que vive en una serie propia declarada en environment.sqliteProfile.
+         */
+        const sqlite = options.sqliteProfile ? profileSqlite(place.runtime.handle) : undefined;
         /** La línea base se toma ya caliente, con el warm-up fuera. */
         const usage = recordResources(path);
         for (let index = 0; index < sample; index += 1) {
@@ -1439,9 +1458,15 @@ const main = async (): Promise<void> => {
             rssBytes: memory.rss
           });
         }
+        /** El informe se toma antes de verificar: la verificación también consulta. */
+        const sqliteReport = sqlite?.report();
+        sqlite?.restore();
         if (scenario.verify) checks[scenario.id] = await scenario.verify(place, warmed + sample);
         /** Antes del cierre: después, el WAL ya se consolidó y no se puede leer. */
-        resources[scenario.id] = usage.close();
+        resources[scenario.id] = {
+          ...usage.close(),
+          ...(sqliteReport ? { sqlite: sqliteReport } : {})
+        };
       } finally {
         await place?.close();
         rmSync(path, { force: true });
@@ -1490,6 +1515,7 @@ const main = async (): Promise<void> => {
         budgetMs: WARMUP_BUDGET_MS
       },
     sample,
+    sqliteProfile: options.sqliteProfile,
     systemLoad: {
       beforeBusyPercent,
       afterBusyPercent,
