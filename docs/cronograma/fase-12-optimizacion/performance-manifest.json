@@ -1,6 +1,6 @@
 {
-  "manifestVersion": 2,
-  "protocolVersion": 2,
+  "manifestVersion": 3,
+  "protocolVersion": 3,
   "phase": "12.01",
   "createdOn": "2026-09-11",
   "initialPilotCommit": "163548c",
@@ -24,7 +24,8 @@
   },
   "protocol": {
     "clock": "performance.now(), milisegundos con decimales",
-    "warmup": 5,
+    "warmup": "Proporcional al costo del escenario desde el 2026-09-16 (protocolo 3). Cada escenario calienta hasta agotar lo primero de dos topes —200 repeticiones o 1.000 ms acumulados del camino medido—, con un piso de 5 que todos cumplen. Las repeticiones realmente consumidas se publican en environment.warmup.runs. Un --warmup explícito conserva el modo fijo y queda registrado como tal: sirve para reproducir una serie antigua, no para el protocolo vigente.",
+    "warmupRationale": "El warm-up fijo de 5 del protocolo 2 no medía el código que el nodo ejecuta en régimen. El piloto del 2026-09-16 lo demostró: catalog-barcode derivaba 71,6 % entre series y su mediana caía de 1,0–1,7 ms a 0,888 ms al calentar, con la deriva en 3,3 %; lan-delivery pasaba de 188,2 % a 6,7 % y lan-application de 49,8 % a 9,2 %. No era ruido ni interferencia externa: era código sin optimizar entrando a la muestra, y además sesgaba las medianas al alza. Un warm-up fijo alto tampoco sirve —200 repeticiones cuestan 0,18 s en catalog-barcode y unos diez minutos en kardex-10k—, de ahí el doble tope. Los escenarios del perfil crecimiento parecían estables en el protocolo 2 sólo porque su sembrado de ~14 s calentaba V8 por accidente.",
     "sample": 30,
     "discards": "Ninguna observación se descarta a posteriori. Una corrida fallida no se registra como observación rápida: aborta la serie.",
     "statistics": [
@@ -48,7 +49,7 @@
       "catalog-barcode": 12,
       "catalog-list": 11,
       "sale-journey": 4,
-      "note": "Márgenes históricos del primer piloto, no presupuestos. El protocolo 2 cambia aislamiento, fechas y validaciones: exige repetir el piloto antes de reutilizar un margen. Los presupuestos los fija 12.01.06 con una expectativa de uso documentada."
+      "note": "Márgenes históricos del primer piloto, no presupuestos. El protocolo 3 cambia el warm-up, que era la causa de la deriva alta en los escenarios de pocos milisegundos: esos márgenes NO se heredan. Los presupuestos los fija 12.01.06 con la expectativa de uso ya documentada en usageExpectation."
     },
     "resources": "Cada serie publica además de la latencia su consumo, en resources. Un escenario que corre dentro del arnés acumula CPU sobre el MISMO intervalo cronometrado —la semilla, el warm-up y la verificación quedan fuera— y publica también el consumo del proceso entero: la diferencia es el costo del instrumento, que no se estima. Un escenario que corre en procesos aparte se mide a sí mismo dentro del hijo y publica la mediana entre repeticiones, porque cada repetición es un proceso entero. La memoria se observa al cerrar cada repetición: se publican línea base, pico observado y heap; no es un muestreo continuo y no se presenta como tal. El tamaño de la base se lee con su WAL todavía sin consolidar, antes de cerrar la conexión. El tráfico se cuenta en el socket TCP, antes de TLS, así que incluye handshake y cabeceras y no es el tamaño del cuerpo. process.cpuUsage se actualiza en Windows con la granularidad del planificador —unos 15,6 ms—: una repetición corta puede registrar cero y sólo la suma de la serie tiene significado.",
     "resourcesNotInstrumented": "Cantidad de consultas y tiempo dentro de SQLite NO se instrumentan. Contarlas exige interceptar la preparación de sentencias, y hacerlo dentro del intervalo cronometrado contaminaría la latencia que la serie publica. Declarado como brecha del protocolo 2, no como métrica disponible; el 2026-09-16 se asignó su construcción a 12.03, con una serie propia separada de la de latencia.",
@@ -68,7 +69,7 @@
   "commands": {
     "run": "pnpm --filter @supermarket/server perf",
     "runOne": "pnpm --filter @supermarket/server perf -- --scenario sale-journey",
-    "options": "--warmup N (>=0) --sample N (>0) --scenario <id> (repetible) --profile habitual|crecimiento --depths N,N (sólo crecimiento, enteros positivos únicos)",
+    "options": "--warmup N (>=0; omitir para el warm-up proporcional del protocolo 3) --sample N (>0) --scenario <id> (repetible) --profile habitual|crecimiento --depths N,N (sólo crecimiento, enteros positivos únicos)",
     "runReports": "pnpm --filter @supermarket/server perf -- --profile crecimiento --scenario report-sales --scenario report-inventory",
     "runStartup": "pnpm --filter @supermarket/server perf -- --scenario node-startup",
     "runDesktop": "pnpm --filter @supermarket/server perf -- --scenario login-and-shell",

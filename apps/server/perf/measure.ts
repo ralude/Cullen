@@ -131,7 +131,9 @@ const parseOptions = (args: readonly string[]) => {
   return {
     profile,
     historyDepths,
-    warmup: integer(values.get('--warmup') ?? '5', 0),
+    warmup: values.has('--warmup')
+      ? { mode: 'fixed' as const, runs: integer(values.get('--warmup')!, 0) }
+      : { mode: 'auto' as const },
     sample: integer(values.get('--sample') ?? (profile === 'crecimiento' ? '10' : '30'), 1),
     scenarios: [...new Set(scenarios)]
   };
@@ -139,6 +141,46 @@ const parseOptions = (args: readonly string[]) => {
 
 const options = parseOptions(process.argv.slice(2));
 const HISTORY_DEPTHS = options.historyDepths;
+
+/**
+ * Warm-up proporcional al costo del escenario. El piloto del 2026-09-16 mostró
+ * que un warm-up fijo de 5 no sirve a esta escala: `catalog-barcode` derivaba
+ * 71,6 % entre series y medía 1,0–1,7 ms sin calentar, contra 0,888 ms y 3,3 %
+ * de deriva una vez caliente. No es ruido, es código todavía sin optimizar
+ * entrando a la muestra.
+ *
+ * Un warm-up fijo alto tampoco sirve: 200 repeticiones cuestan 0,18 s en
+ * `catalog-barcode` y unos diez minutos en `kardex-10k`. Por eso el warm-up
+ * termina cuando se agota lo primero de dos topes —repeticiones o tiempo
+ * acumulado del camino medido—, con un piso que todo escenario cumple. Un
+ * escenario de microsegundos llega al tope de repeticiones; uno de segundos se
+ * queda en el piso, que es lo que ya hacía.
+ *
+ * Las repeticiones realmente usadas se publican con cada serie: el protocolo
+ * sigue siendo reproducible aunque el número no sea el mismo en cada escenario.
+ */
+const WARMUP_MIN_RUNS = 5;
+const WARMUP_MAX_RUNS = 200;
+const WARMUP_BUDGET_MS = 1_000;
+
+/**
+ * Corre el warm-up y devuelve cuántas repeticiones consumió. Recibe el índice
+ * de repetición que toca para que los identificadores idempotentes y los
+ * asientos del escenario sigan siendo únicos entre warm-up y muestra.
+ */
+const warmUp = async (runOnce: (run: number) => Promise<number>): Promise<number> => {
+  if (options.warmup.mode === 'fixed') {
+    for (let run = 0; run < options.warmup.runs; run += 1) await runOnce(run);
+    return options.warmup.runs;
+  }
+  let runs = 0;
+  let accumulated = 0;
+  while (runs < WARMUP_MIN_RUNS || (runs < WARMUP_MAX_RUNS && accumulated < WARMUP_BUDGET_MS)) {
+    accumulated += await runOnce(runs);
+    runs += 1;
+  }
+  return runs;
+};
 
 const depthLabel = (depth: number): string =>
   depth >= 1_000 && depth % 1_000 === 0 ? depth / 1_000 + 'k' : String(depth);
@@ -917,7 +959,9 @@ const revision = () => {
 };
 
 const main = async (): Promise<void> => {
-  const { warmup, sample } = options;
+  const { sample } = options;
+  /** Repeticiones de warm-up realmente consumidas, por escenario. */
+  const warmupRuns: Record<string, number> = {};
   const available = profile() === 'crecimiento'
     ? [...scenarios, ...historyScenarios]
     : scenarios.filter(({ id }) => id !== 'report-sales');
@@ -934,7 +978,9 @@ const main = async (): Promise<void> => {
     for (const id of only) {
       execFileSync(process.execPath, [
         ...process.execArgv, fileURLToPath(import.meta.url), '--profile', profile(),
-        '--sample', String(sample), '--warmup', String(warmup), '--scenario', id,
+        '--sample', String(sample),
+        ...(options.warmup.mode === 'fixed' ? ['--warmup', String(options.warmup.runs)] : []),
+        '--scenario', id,
         ...(profile() === 'crecimiento' ? ['--depths', HISTORY_DEPTHS.join(',')] : [])
       ], { stdio: 'inherit', windowsHide: true });
     }
@@ -968,10 +1014,14 @@ const main = async (): Promise<void> => {
     const databaseSizes: { firstInstallBytes: number[]; existingBytes: number[] } = {
       firstInstallBytes: [], existingBytes: []
     };
+    let warmed = 0;
     try {
-      for (let run = 0; run < warmup + sample; run += 1) {
+      warmed = await warmUp(async (run) => {
         const result = await measureStartup(directory, artifact.path, run);
-        if (run < warmup) continue;
+        return result.firstInstallMs + result.existingDatabaseMs + result.hotHealthMs;
+      });
+      for (let index = 0; index < sample; index += 1) {
+        const result = await measureStartup(directory, artifact.path, warmed + index);
         firstInstallUsages.push(result.firstInstallUsage);
         existingUsages.push(result.existingDatabaseUsage);
         databaseSizes.firstInstallBytes.push(result.firstInstallDatabaseBytes);
@@ -983,16 +1033,17 @@ const main = async (): Promise<void> => {
         };
         for (const metric of STARTUP_METRICS) {
           measured.get(metric)!.push(values[metric]);
-          observations.push({ scenario: metric, run: run - warmup, ms: values[metric] });
+          observations.push({ scenario: metric, run: index, ms: values[metric] });
         }
       }
     } finally {
       removeStartupArtifact(artifact);
     }
+    warmupRuns['node-startup'] = warmed;
     checks['node-startup'] = {
-      firstInstallProcesses: warmup + sample,
-      existingDatabaseProcesses: warmup + sample,
-      hotHealthChecks: warmup + sample
+      firstInstallProcesses: warmed + sample,
+      existingDatabaseProcesses: warmed + sample,
+      hotHealthChecks: warmed + sample
     };
     /** La base es la misma en toda repetición; su tamaño es el de una instalación. */
     resources['node-startup'] = {
@@ -1030,23 +1081,27 @@ const main = async (): Promise<void> => {
       const usages: DesktopUsage[] = [];
       const bytesRead: number[] = [];
       const bytesWritten: number[] = [];
-      for (let run = 0; run < warmup + sample; run += 1) {
-        const before = traffic();
+      const warmed = await warmUp(async (run) => {
         const result = await runDesktop(artifacts, origin, directory, run);
+        return DESKTOP_METRICS.reduce((total, metric) => total + result[metric], 0);
+      });
+      warmupRuns['login-and-shell'] = warmed;
+      for (let index = 0; index < sample; index += 1) {
+        const before = traffic();
+        const result = await runDesktop(artifacts, origin, directory, warmed + index);
         const after = traffic();
-        if (run < warmup) continue;
         usages.push(result.usage);
         bytesRead.push(after.bytesRead - before.bytesRead);
         bytesWritten.push(after.bytesWritten - before.bytesWritten);
         for (const metric of DESKTOP_METRICS) {
           measured.get(metric)!.push(result[metric]);
-          observations.push({ scenario: metric, run: run - warmup, ms: result[metric] });
+          observations.push({ scenario: metric, run: index, ms: result[metric] });
         }
       }
       checks['login-and-shell'] = {
-        loginForms: warmup + sample,
-        authorizedShells: warmup + sample,
-        recoveredSessions: warmup + sample
+        loginForms: warmed + sample,
+        authorizedShells: warmed + sample,
+        recoveredSessions: warmed + sample
       };
       resources['login-and-shell'] = {
         electron: {
@@ -1084,18 +1139,27 @@ const main = async (): Promise<void> => {
       appliedEvents: 0,
       authoritativeMovements: 0
     };
-    const usage = recordResources();
     const deliveryBytesRead: number[] = [];
     const deliveryBytesWritten: number[] = [];
     const coordinatorBytes: number[] = [];
     const terminalBytes: number[] = [];
-    for (let run = 0; run < warmup + sample; run += 1) {
-      const result = await benchmark.run(run);
+    const countCycle = (result: Awaited<ReturnType<LanCycleBenchmark['run']>>): void => {
       lanChecks.interruptedDeliveries += result.interruptedDeliveries;
       lanChecks.durableReceipts += result.durableReceipts;
       lanChecks.appliedEvents += result.appliedEvents;
       lanChecks.authoritativeMovements += result.authoritativeMovements;
-      if (run < warmup) continue;
+    };
+    const warmed = await warmUp(async (run) => {
+      const result = await benchmark.run(run);
+      countCycle(result);
+      return result.deliveryMs + result.applicationMs;
+    });
+    warmupRuns['lan-cycle'] = warmed;
+    /** La línea base se toma ya caliente: antes del warm-up mediría otro proceso. */
+    const usage = recordResources();
+    for (let index = 0; index < sample; index += 1) {
+      const result = await benchmark.run(warmed + index);
+      countCycle(result);
       const memory = process.memoryUsage();
       /** Los dos tramos de una repetición suman: ambos son parte de lo medido. */
       usage.add(result.deliveryCpu, memory);
@@ -1115,7 +1179,7 @@ const main = async (): Promise<void> => {
       for (const metric of LAN_METRICS) {
         measured.get(metric)!.push(values[metric]);
         observations.push({
-          scenario: metric, run: run - warmup, ms: values[metric],
+          scenario: metric, run: index, ms: values[metric],
           cpuUserMs: microsToMs(cpu[metric].user), cpuSystemMs: microsToMs(cpu[metric].system),
           rssBytes: memory.rss
         });
@@ -1148,21 +1212,23 @@ const main = async (): Promise<void> => {
       const measured: number[] = [];
       try {
         place = await station(path);
+        const warmed = await warmUp((run) => scenario.run(place!, run));
+        warmupRuns[scenario.id] = warmed;
+        /** La línea base se toma ya caliente, con el warm-up fuera. */
         const usage = recordResources(path);
-        for (let run = 0; run < warmup + sample; run += 1) {
-          const ms = await scenario.run(place, run);
-          if (run < warmup) continue;
+        for (let index = 0; index < sample; index += 1) {
+          const ms = await scenario.run(place, warmed + index);
           const cpu = lastIntervalCpu;
           const memory = process.memoryUsage();
           usage.add(cpu, memory);
           measured.push(ms);
           observations.push({
-            scenario: scenario.id, run: run - warmup, ms,
+            scenario: scenario.id, run: index, ms,
             cpuUserMs: microsToMs(cpu.user), cpuSystemMs: microsToMs(cpu.system),
             rssBytes: memory.rss
           });
         }
-        if (scenario.verify) checks[scenario.id] = await scenario.verify(place, warmup + sample);
+        if (scenario.verify) checks[scenario.id] = await scenario.verify(place, warmed + sample);
         /** Antes del cierre: después, el WAL ya se consolidó y no se puede leer. */
         resources[scenario.id] = usage.close();
       } finally {
@@ -1192,7 +1258,19 @@ const main = async (): Promise<void> => {
       renderer: 'electron', transport: 'http-loopback', desktopArtifactHashes
     } : {}),
     ...(lanMeasured ? { transport: 'https-mtls', nodes: 2 } : {}),
-    warmup,
+    /**
+     * Las repeticiones de warm-up son parte del protocolo reproducible: en modo
+     * automático cada escenario consume las suyas y aquí quedan registradas.
+     */
+    warmup: options.warmup.mode === 'fixed'
+      ? { mode: 'fixed' as const, runs: options.warmup.runs }
+      : {
+        mode: 'auto' as const,
+        runs: only.length === 1 ? warmupRuns[only[0]!] ?? 0 : warmupRuns,
+        minRuns: WARMUP_MIN_RUNS,
+        maxRuns: WARMUP_MAX_RUNS,
+        budgetMs: WARMUP_BUDGET_MS
+      },
     sample,
     profile: profile(),
     products: lanMeasured ? 1 : inProcess.length === 0 && !desktopMeasured ? 0 : productCount(),
@@ -1220,7 +1298,11 @@ const main = async (): Promise<void> => {
   );
 
   process.stdout.write('\nSerie ' + runId + ' sobre ' + environment.commit +
-    ' · SIMULACION · perfil ' + environment.profile + ' · warm-up ' + warmup + ' · muestra ' + sample +
+    ' · SIMULACION · perfil ' + environment.profile +
+    ' · warm-up ' + (options.warmup.mode === 'fixed'
+      ? String(options.warmup.runs)
+      : Object.values(warmupRuns).join('/') + ' (auto)') +
+    ' · muestra ' + sample +
     (source.dirty ? ' · cambios pendientes (no BEFORE)' : '') + '\n\n');
   process.stdout.write('escenario            mediana      p90      mín      máx   IQR rel.\n');
   for (const summary of summaries) {

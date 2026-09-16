@@ -75,7 +75,8 @@ describe('comando público de medición de 12.01', () => {
     expect(result.directory).toBeDefined();
     const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
     expect(report.environment).toMatchObject({
-      warmup: 0, sample: 1, profile: 'crecimiento', completedSales: 300,
+      warmup: { mode: 'fixed', runs: 0 },
+      sample: 1, profile: 'crecimiento', completedSales: 300,
       products: 201, historyDepths: [1], fiscalMode: 'SIMULATION',
       revision: { commit: expect.stringMatching(/^[0-9a-f]{40}$/), dirty: expect.any(Boolean) }
     });
@@ -119,6 +120,39 @@ describe('comando público de medición de 12.01', () => {
     expect(report.summaries).toEqual([expect.objectContaining({
       scenario: 'cash-shift-open', sample: 2
     })]);
+  }, 60_000);
+
+  it('calienta cada escenario en proporción a lo que cuesta y publica las repeticiones que usó', async () => {
+    /**
+     * Un escenario de microsegundos agota el tope de repeticiones; uno de
+     * decenas de milisegundos agota antes el presupuesto de tiempo. Un warm-up
+     * fijo serviría a uno y arruinaría al otro: con 5 repeticiones el barcode
+     * mide código sin optimizar, y con 200 el kardex profundo tardaría minutos.
+     */
+    const quick = await run(['--scenario', 'catalog-barcode', '--sample', '2']);
+    expect(quick.succeeded, quick.stderr).toBe(true);
+    const quickReport = JSON.parse(readFileSync(resolve(quick.directory!, 'summary.json'), 'utf8'));
+    expect(quickReport.environment.warmup).toMatchObject({
+      mode: 'auto', runs: 200, maxRuns: 200, budgetMs: 1_000
+    });
+
+    const slow = await run(['--scenario', 'catalog-list', '--sample', '2']);
+    expect(slow.succeeded, slow.stderr).toBe(true);
+    const slowReport = JSON.parse(readFileSync(resolve(slow.directory!, 'summary.json'), 'utf8'));
+    expect(slowReport.environment.warmup.mode).toBe('auto');
+    expect(slowReport.environment.warmup.runs).toBeGreaterThanOrEqual(5);
+    expect(slowReport.environment.warmup.runs).toBeLessThan(200);
+
+    /** El warm-up no entra a las observaciones: sólo la muestra declarada. */
+    expect(JSON.parse(readFileSync(resolve(slow.directory!, 'observations.json'), 'utf8')).observations)
+      .toHaveLength(2);
+  }, 120_000);
+
+  it('conserva un warm-up explícito cuando la comparación lo exige', async () => {
+    const result = await run(['--scenario', 'catalog-barcode', '--warmup', '3', '--sample', '2']);
+    expect(result.succeeded, result.stderr).toBe(true);
+    const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+    expect(report.environment.warmup).toEqual({ mode: 'fixed', runs: 3 });
   }, 60_000);
 
   it('registra CPU, memoria y tamaño de base sobre el mismo intervalo que la latencia', async () => {
