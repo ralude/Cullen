@@ -51,17 +51,19 @@ CPU, memoria, bytes y tamaño de SQLite tampoco están registrados por el arnés
    justificar los casos sin intervención. Verificar los seis criterios de 12.01 y actualizar
    el cronograma al cerrarlos. Todavía no se ejecutan optimizaciones productivas.
 
-## Decisión de uso pendiente
+## Decisión de uso — resuelta el 2026-09-16
 
-El repositorio describe una estación de desarrollo y perfiles sintéticos, pero no una carga
-operativa objetivo. Antes de convertir mediciones en límites aceptables hay que precisar si
-se evaluará la demo sobre esa estación o una operación de supermercado determinada. En este
-último caso hacen falta tamaño de catálogo, cajas simultáneas, volumen de ventas/historia y
-hardware previsto. Las profundidades 100/1.000/10.000 sirven para caracterizar crecimiento;
-no equivalen por sí solas a una tienda representativa.
+El repositorio describía una estación de desarrollo y perfiles sintéticos, pero no una carga
+operativa objetivo. La decisión se tomó: **los presupuestos se fijan sobre la estación de
+desarrollo**, para comparar commits entre sí. No representan una tienda concreta y no certifican
+capacidad de piloto ni de producción. Los perfiles vigentes se conservan; las profundidades
+100/1.000/10.000 siguen sirviendo para caracterizar crecimiento y siguen sin equivaler a una
+tienda representativa.
 
-Esa decisión pertenece a 12.01.06. Se puede revisar el arnés y preparar instrumentos sin
-inventar estos datos, pero no declarar presupuestos ni cerrar el BEFORE representativo.
+Cuando exista una operación objetivo hará falta tamaño de catálogo, cajas simultáneas, volumen de
+ventas/historia y hardware previsto: será otro dataset, otra serie y otros presupuestos, nunca una
+reinterpretación de estos. El registro normativo de ésta y las otras tres decisiones vive en
+[12.01](./12.01-profiler-baseline.md#decisiones-de-alcance--2026-09-16).
 
 ## Checkpoints
 
