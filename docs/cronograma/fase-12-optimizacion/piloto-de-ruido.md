@@ -1,4 +1,8 @@
-# Piloto de ruido — Fase 12.01
+# Piloto de ruido del protocolo 1 — Fase 12.01
+
+> **Superado.** Este informe describe el primer piloto y se conserva como historia. El vigente es
+> el [piloto del protocolo 3](./piloto-de-ruido-protocolo-3.md), que demostró que el warm-up fijo
+> de 5 usado aquí no medía el código ya optimizado: sus márgenes no se heredan.
 
 Tres series sobre `163548c`, el 2026-09-11, en la estación descrita por el
 [manifiesto](./performance-manifest.json). Este informe precede a cualquier serie BEFORE y a
