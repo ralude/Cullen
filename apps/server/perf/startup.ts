@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { databaseBytes } from './resources.ts';
 
 export type StartupArtifact = {
   readonly path: string;
@@ -12,14 +13,26 @@ export type StartupArtifact = {
   readonly temporaryDirectory: string;
 };
 
+/** Consumo del proceso hijo al quedar listo, leído por él mismo. */
+export type StartupProcessUsage = {
+  readonly cpuUserMicros: number;
+  readonly cpuSystemMicros: number;
+  readonly rssBytes: number;
+};
+
 export type StartupMeasurement = {
   readonly firstInstallMs: number;
   readonly existingDatabaseMs: number;
   readonly hotHealthMs: number;
+  readonly firstInstallUsage: StartupProcessUsage;
+  readonly existingDatabaseUsage: StartupProcessUsage;
+  /** Tamaño de la base —con su WAL— tras migrarla y tras el segundo proceso. */
+  readonly firstInstallDatabaseBytes: number;
+  readonly existingDatabaseBytes: number;
 };
 
 type WorkerMessage =
-  | { readonly type: 'ready'; readonly at: number }
+  | ({ readonly type: 'ready'; readonly at: number } & StartupProcessUsage)
   | { readonly type: 'health'; readonly ms: number }
   | { readonly type: 'closed' };
 
@@ -27,7 +40,11 @@ const runProcess = (
   artifactPath: string,
   databasePath: string,
   measureHealth: boolean
-): Promise<{ readonly startupMs: number; readonly healthMs?: number }> => {
+): Promise<{
+  readonly startupMs: number;
+  readonly healthMs?: number;
+  readonly usage: StartupProcessUsage;
+}> => {
   const startedAt = performance.timeOrigin + performance.now();
   return new Promise((resolve, reject) => {
     const child = fork(artifactPath, [], {
@@ -40,12 +57,18 @@ const runProcess = (
     child.stderr?.resume();
     let startupMs: number | undefined;
     let healthMs: number | undefined;
+    let usage: StartupProcessUsage | undefined;
     let closed = false;
     const timeout = setTimeout(() => child.kill(), 30_000);
     child.on('message', (raw: unknown) => {
       const message = raw as WorkerMessage;
       if (message.type === 'ready') {
         startupMs = message.at - startedAt;
+        usage = {
+          cpuUserMicros: message.cpuUserMicros,
+          cpuSystemMicros: message.cpuSystemMicros,
+          rssBytes: message.rssBytes
+        };
         child.send(measureHealth ? 'health' : 'close');
       } else if (message.type === 'health') {
         healthMs = message.ms;
@@ -61,6 +84,7 @@ const runProcess = (
     child.once('exit', (code) => {
       clearTimeout(timeout);
       if (code !== 0 || !closed || startupMs === undefined || startupMs <= 0
+        || usage === undefined || usage.rssBytes <= 0
         || (measureHealth && (healthMs === undefined || healthMs <= 0))) {
         reject(new Error(
           'PERF_STARTUP_RESULT_INVALID'
@@ -69,7 +93,7 @@ const runProcess = (
         ));
         return;
       }
-      resolve({ startupMs, ...(healthMs === undefined ? {} : { healthMs }) });
+      resolve({ startupMs, usage, ...(healthMs === undefined ? {} : { healthMs }) });
     });
   });
 };
@@ -133,11 +157,17 @@ export const measureStartup = async (
   }
   try {
     const first = await runProcess(artifactPath, databasePath, false);
+    /** Entre los dos procesos: lo que dejó migrar, sin el segundo arranque encima. */
+    const firstInstallDatabaseBytes = databaseBytes(databasePath);
     const existing = await runProcess(artifactPath, databasePath, true);
     return {
       firstInstallMs: first.startupMs,
       existingDatabaseMs: existing.startupMs,
-      hotHealthMs: existing.healthMs as number
+      hotHealthMs: existing.healthMs as number,
+      firstInstallUsage: first.usage,
+      existingDatabaseUsage: existing.usage,
+      firstInstallDatabaseBytes,
+      existingDatabaseBytes: databaseBytes(databasePath)
     };
   } finally {
     rmSync(databasePath, { force: true });

@@ -2,10 +2,24 @@ import type { BrowserWindow } from 'electron';
 
 export const PERFORMANCE_SCENARIO = 'login-and-shell';
 
+/**
+ * Consumo de la terminal al terminar la jornada medida. El CPU acumulado sólo
+ * existe para el proceso principal —Chromium expone por proceso un porcentaje
+ * instantáneo, que no es consumo acumulado y no se publica como si lo fuera—,
+ * mientras que la memoria sí se suma sobre todos los procesos de Electron.
+ */
+export type DesktopProcessUsage = {
+  readonly mainCpuUserMicros: number;
+  readonly mainCpuSystemMicros: number;
+  readonly workingSetBytes: number;
+  readonly processCount: number;
+};
+
 export type DesktopPerformanceResult = {
   readonly 'desktop-to-login': number;
   readonly 'login-to-shell': number;
   readonly 'session-recovery': number;
+  readonly usage: DesktopProcessUsage;
 };
 
 const WAIT_TIMEOUT_MS = 30_000;
@@ -72,7 +86,8 @@ const reload = (window: BrowserWindow): Promise<void> => new Promise((resolveRel
 export const measureLoginAndShell = async (
   window: BrowserWindow,
   processStartedAt: number,
-  credentials: { readonly code: string; readonly secret: string }
+  credentials: { readonly code: string; readonly secret: string },
+  readUsage: () => DesktopProcessUsage
 ): Promise<DesktopPerformanceResult> => {
   await waitFor(window, "document.querySelector('form.login-card') !== null");
   const loginReadyAt = monotonicEpoch();
@@ -85,9 +100,12 @@ export const measureLoginAndShell = async (
   await reload(window);
   await waitFor(window, "document.querySelector('.app-shell') !== null");
 
+  const finishedAt = monotonicEpoch();
   return {
     'desktop-to-login': loginReadyAt - processStartedAt,
     'login-to-shell': shellReadyAt - loginReadyAt,
-    'session-recovery': monotonicEpoch() - recoveryStartedAt
+    'session-recovery': finishedAt - recoveryStartedAt,
+    /** Se lee con la terminal ya operando, antes de cerrarla. */
+    usage: readUsage()
   };
 };

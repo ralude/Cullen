@@ -14,7 +14,7 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { hostname, totalmem, cpus, platform, release } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -35,7 +35,11 @@ import { buildApp } from '../src/app.ts';
 import { ADMIN_PERMISSIONS, createSecurityRuntime, type SecurityRuntime } from '../src/runtime.ts';
 import { LanCycleBenchmark } from './lan-cycle.ts';
 import {
-  measureStartup, prepareStartupArtifact, removeStartupArtifact
+  countTraffic, median, medianBytes, microsToMs, recordResources, summarizeProcessResources,
+  type ProcessResources, type ScenarioResources
+} from './resources.ts';
+import {
+  measureStartup, prepareStartupArtifact, removeStartupArtifact, type StartupProcessUsage
 } from './startup.ts';
 
 type Observation = {
@@ -164,92 +168,6 @@ const summarize = (scenario: string, observations: readonly number[]): Summary =
     maxMs: Number(sorted.at(-1)!.toFixed(3)),
     iqrMs: Number(iqr.toFixed(3)),
     relativeIqr: Number((median === 0 ? 0 : iqr / median).toFixed(4))
-  };
-};
-
-/**
- * Recursos de una serie. El consumo medido se acumula sobre el MISMO intervalo
- * que la latencia —dentro de `timed`—, así que la semilla, el warm-up y la
- * verificación quedan fuera. El costo del instrumento no se estima: se publica
- * también el consumo del proceso entero y la diferencia es ese costo.
- *
- * `process.cpuUsage()` se actualiza en Windows con la granularidad del reloj de
- * planificación —unos 15,6 ms—, de modo que una repetición corta puede
- * registrar cero. Sólo la suma de la serie tiene significado; una observación
- * individual de CPU no lo tiene.
- */
-type ScenarioResources = {
-  readonly cpu: {
-    readonly measuredUserMs: number;
-    readonly measuredSystemMs: number;
-    readonly processUserMs: number;
-    readonly processSystemMs: number;
-  };
-  readonly memory: {
-    readonly baselineRssBytes: number;
-    readonly peakRssBytes: number;
-    readonly peakHeapUsedBytes: number;
-  };
-  readonly database?: {
-    readonly seededBytes: number;
-    readonly finalBytes: number;
-    readonly walBytes: number;
-  };
-};
-
-const microsToMs = (micros: number): number => Number((micros / 1_000).toFixed(3));
-
-/** Un archivo que aún no existe ocupa cero; SHM y WAL aparecen recién al escribir. */
-const fileBytes = (path: string): number => {
-  try {
-    return statSync(path).size;
-  } catch {
-    return 0;
-  }
-};
-
-/** Tamaño operativo de la base: el archivo y su WAL todavía sin consolidar. */
-const databaseBytes = (path: string): number => fileBytes(path) + fileBytes(path + '-wal');
-
-/**
- * Acumulador de recursos de un escenario en proceso. La línea base se toma con
- * el dataset ya sembrado: es lo que el nodo ocupa antes de que la serie empiece.
- */
-const recordResources = (databasePath?: string) => {
-  const seededBytes = databasePath === undefined ? 0 : databaseBytes(databasePath);
-  const baselineRssBytes = process.memoryUsage().rss;
-  let measuredUser = 0;
-  let measuredSystem = 0;
-  let peakRssBytes = baselineRssBytes;
-  let peakHeapUsedBytes = 0;
-  return {
-    /** Una repetición medida, con el consumo de su propio intervalo. */
-    add: (cpu: NodeJS.CpuUsage, memory: NodeJS.MemoryUsage): void => {
-      measuredUser += cpu.user;
-      measuredSystem += cpu.system;
-      peakRssBytes = Math.max(peakRssBytes, memory.rss);
-      peakHeapUsedBytes = Math.max(peakHeapUsedBytes, memory.heapUsed);
-    },
-    /** Se cierra antes de cerrar la base: después, el WAL ya no está. */
-    close: (): ScenarioResources => {
-      const process_ = process.cpuUsage();
-      return {
-        cpu: {
-          measuredUserMs: microsToMs(measuredUser),
-          measuredSystemMs: microsToMs(measuredSystem),
-          processUserMs: microsToMs(process_.user),
-          processSystemMs: microsToMs(process_.system)
-        },
-        memory: { baselineRssBytes, peakRssBytes, peakHeapUsedBytes },
-        ...(databasePath === undefined ? {} : {
-          database: {
-            seededBytes,
-            finalBytes: databaseBytes(databasePath),
-            walBytes: fileBytes(databasePath + '-wal')
-          }
-        })
-      };
-    }
   };
 };
 
@@ -770,15 +688,79 @@ const DESKTOP_METRICS = [
   'desktop-to-login', 'login-to-shell', 'session-recovery'
 ] as const;
 type DesktopMetric = typeof DESKTOP_METRICS[number];
-type DesktopMeasurement = Readonly<Record<DesktopMetric, number>>;
+/** Consumo que la terminal reporta de sí misma al terminar su jornada. */
+type DesktopUsage = {
+  readonly mainCpuUserMicros: number;
+  readonly mainCpuSystemMicros: number;
+  readonly workingSetBytes: number;
+  readonly processCount: number;
+};
+type DesktopMeasurement = Readonly<Record<DesktopMetric, number>> & {
+  readonly usage: DesktopUsage;
+};
+
+/**
+ * Recursos de la terminal. El CPU acumulado es el del proceso principal:
+ * Chromium sólo expone un porcentaje instantáneo por proceso, que no es
+ * consumo acumulado y no se publica como si lo fuera. La memoria sí suma
+ * todos los procesos de Electron.
+ */
+type DesktopResources = {
+  readonly electron: {
+    readonly sample: number;
+    readonly medianMainCpuUserMs: number;
+    readonly medianMainCpuSystemMs: number;
+    readonly medianWorkingSetBytes: number;
+    readonly peakWorkingSetBytes: number;
+    readonly processCount: number;
+  };
+  /** Tráfico entre Chromium y Fastify por loopback: renderer y API juntos. */
+  readonly traffic: {
+    readonly medianBytesRead: number;
+    readonly medianBytesWritten: number;
+  };
+};
 
 const LAN_METRICS = ['lan-delivery', 'lan-application'] as const;
 type LanMetric = typeof LAN_METRICS[number];
+
+/**
+ * Recursos del ciclo LAN. Los dos tramos corren dentro del arnés, así que su
+ * CPU y su memoria se acumulan como en cualquier escenario en proceso; lo
+ * propio de este escenario es el tráfico y las dos bases, una por nodo.
+ */
+type LanResources = {
+  readonly cpu: ScenarioResources['cpu'];
+  readonly memory: ScenarioResources['memory'];
+  readonly traffic: {
+    readonly medianDeliveryBytesRead: number;
+    readonly medianDeliveryBytesWritten: number;
+  };
+  readonly database: {
+    readonly coordinatorBytes: number;
+    readonly terminalBytes: number;
+  };
+};
 
 const STARTUP_METRICS = [
   'node-first-install', 'node-existing-start', 'node-hot-health'
 ] as const;
 type StartupMetric = typeof STARTUP_METRICS[number];
+
+/**
+ * Recursos del escenario de arranque. Los dos arranques son procesos aparte
+ * —cada uno se mide a sí mismo— y la base es la misma antes y después del
+ * segundo; `node-hot-health` ocurre dentro del segundo proceso y no tiene un
+ * consumo propio separable a esta granularidad.
+ */
+type StartupResources = {
+  readonly 'node-first-install': ProcessResources;
+  readonly 'node-existing-start': ProcessResources;
+  readonly database: {
+    readonly firstInstallBytes: number;
+    readonly existingBytes: number;
+  };
+};
 
 const monotonicEpoch = (): number => performance.timeOrigin + performance.now();
 
@@ -819,6 +801,14 @@ const validateDesktopMeasurement = (value: unknown): DesktopMeasurement => {
   for (const metric of DESKTOP_METRICS) {
     const duration = (value as Record<string, unknown>)[metric];
     if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) {
+      throw new Error('PERF_DESKTOP_RESULT_INVALID');
+    }
+  }
+  const usage = (value as { readonly usage?: Record<string, unknown> }).usage;
+  if (typeof usage !== 'object' || usage === null) throw new Error('PERF_DESKTOP_RESULT_INVALID');
+  for (const field of ['mainCpuUserMicros', 'mainCpuSystemMicros', 'workingSetBytes', 'processCount']) {
+    const reading = usage[field];
+    if (typeof reading !== 'number' || !Number.isFinite(reading) || reading <= 0) {
       throw new Error('PERF_DESKTOP_RESULT_INVALID');
     }
   }
@@ -961,7 +951,9 @@ const main = async (): Promise<void> => {
   /** Evidencia de lo que cada escenario dejó asentado, por escenario. */
   const checks: Record<string, Record<string, number>> = {};
   /** Recursos consumidos por cada escenario seleccionado, medidos aparte del tiempo. */
-  const resources: Record<string, ScenarioResources> = {};
+  const resources: Record<
+    string, ScenarioResources | StartupResources | LanResources | DesktopResources
+  > = {};
   const selected = (id: string): boolean => only.length === 0 || only.includes(id);
 
   let startupArtifactSha256: string | undefined;
@@ -971,10 +963,19 @@ const main = async (): Promise<void> => {
     );
     const artifact = await prepareStartupArtifact();
     startupArtifactSha256 = artifact.sha256;
+    const firstInstallUsages: StartupProcessUsage[] = [];
+    const existingUsages: StartupProcessUsage[] = [];
+    const databaseSizes: { firstInstallBytes: number[]; existingBytes: number[] } = {
+      firstInstallBytes: [], existingBytes: []
+    };
     try {
       for (let run = 0; run < warmup + sample; run += 1) {
         const result = await measureStartup(directory, artifact.path, run);
         if (run < warmup) continue;
+        firstInstallUsages.push(result.firstInstallUsage);
+        existingUsages.push(result.existingDatabaseUsage);
+        databaseSizes.firstInstallBytes.push(result.firstInstallDatabaseBytes);
+        databaseSizes.existingBytes.push(result.existingDatabaseBytes);
         const values: Readonly<Record<StartupMetric, number>> = {
           'node-first-install': result.firstInstallMs,
           'node-existing-start': result.existingDatabaseMs,
@@ -992,6 +993,15 @@ const main = async (): Promise<void> => {
       firstInstallProcesses: warmup + sample,
       existingDatabaseProcesses: warmup + sample,
       hotHealthChecks: warmup + sample
+    };
+    /** La base es la misma en toda repetición; su tamaño es el de una instalación. */
+    resources['node-startup'] = {
+      'node-first-install': summarizeProcessResources(firstInstallUsages),
+      'node-existing-start': summarizeProcessResources(existingUsages),
+      database: {
+        firstInstallBytes: medianBytes(databaseSizes.firstInstallBytes),
+        existingBytes: medianBytes(databaseSizes.existingBytes)
+      }
     };
     for (const metric of STARTUP_METRICS) summaries.push(summarize(metric, measured.get(metric)!));
   }
@@ -1014,10 +1024,20 @@ const main = async (): Promise<void> => {
       place = await station(databasePath);
       if (previousRendererPath === undefined) delete process.env.RENDERER_DIST_PATH;
       else process.env.RENDERER_DIST_PATH = previousRendererPath;
+      /** Renderer y API comparten origen: el contador ve la terminal entera. */
+      const traffic = countTraffic(place.app.server);
       const origin = await place.app.listen({ host: '127.0.0.1', port: 0 });
+      const usages: DesktopUsage[] = [];
+      const bytesRead: number[] = [];
+      const bytesWritten: number[] = [];
       for (let run = 0; run < warmup + sample; run += 1) {
+        const before = traffic();
         const result = await runDesktop(artifacts, origin, directory, run);
+        const after = traffic();
         if (run < warmup) continue;
+        usages.push(result.usage);
+        bytesRead.push(after.bytesRead - before.bytesRead);
+        bytesWritten.push(after.bytesWritten - before.bytesWritten);
         for (const metric of DESKTOP_METRICS) {
           measured.get(metric)!.push(result[metric]);
           observations.push({ scenario: metric, run: run - warmup, ms: result[metric] });
@@ -1027,6 +1047,20 @@ const main = async (): Promise<void> => {
         loginForms: warmup + sample,
         authorizedShells: warmup + sample,
         recoveredSessions: warmup + sample
+      };
+      resources['login-and-shell'] = {
+        electron: {
+          sample: usages.length,
+          medianMainCpuUserMs: microsToMs(median(usages.map((entry) => entry.mainCpuUserMicros))),
+          medianMainCpuSystemMs: microsToMs(median(usages.map((entry) => entry.mainCpuSystemMicros))),
+          medianWorkingSetBytes: medianBytes(usages.map((entry) => entry.workingSetBytes)),
+          peakWorkingSetBytes: Math.max(...usages.map((entry) => entry.workingSetBytes)),
+          processCount: medianBytes(usages.map((entry) => entry.processCount))
+        },
+        traffic: {
+          medianBytesRead: medianBytes(bytesRead),
+          medianBytesWritten: medianBytes(bytesWritten)
+        }
       };
     } finally {
       if (previousRendererPath === undefined) delete process.env.RENDERER_DIST_PATH;
@@ -1050,6 +1084,11 @@ const main = async (): Promise<void> => {
       appliedEvents: 0,
       authoritativeMovements: 0
     };
+    const usage = recordResources();
+    const deliveryBytesRead: number[] = [];
+    const deliveryBytesWritten: number[] = [];
+    const coordinatorBytes: number[] = [];
+    const terminalBytes: number[] = [];
     for (let run = 0; run < warmup + sample; run += 1) {
       const result = await benchmark.run(run);
       lanChecks.interruptedDeliveries += result.interruptedDeliveries;
@@ -1057,16 +1096,46 @@ const main = async (): Promise<void> => {
       lanChecks.appliedEvents += result.appliedEvents;
       lanChecks.authoritativeMovements += result.authoritativeMovements;
       if (run < warmup) continue;
+      const memory = process.memoryUsage();
+      /** Los dos tramos de una repetición suman: ambos son parte de lo medido. */
+      usage.add(result.deliveryCpu, memory);
+      usage.add(result.applicationCpu, memory);
+      deliveryBytesRead.push(result.deliveryTraffic.bytesRead);
+      deliveryBytesWritten.push(result.deliveryTraffic.bytesWritten);
+      coordinatorBytes.push(result.coordinatorDatabaseBytes);
+      terminalBytes.push(result.terminalDatabaseBytes);
       const values: Readonly<Record<LanMetric, number>> = {
         'lan-delivery': result.deliveryMs,
         'lan-application': result.applicationMs
       };
+      const cpu: Readonly<Record<LanMetric, NodeJS.CpuUsage>> = {
+        'lan-delivery': result.deliveryCpu,
+        'lan-application': result.applicationCpu
+      };
       for (const metric of LAN_METRICS) {
         measured.get(metric)!.push(values[metric]);
-        observations.push({ scenario: metric, run: run - warmup, ms: values[metric] });
+        observations.push({
+          scenario: metric, run: run - warmup, ms: values[metric],
+          cpuUserMs: microsToMs(cpu[metric].user), cpuSystemMs: microsToMs(cpu[metric].system),
+          rssBytes: memory.rss
+        });
       }
     }
     checks['lan-cycle'] = lanChecks;
+    const consumed = usage.close();
+    resources['lan-cycle'] = {
+      cpu: consumed.cpu,
+      memory: consumed.memory,
+      traffic: {
+        medianDeliveryBytesRead: medianBytes(deliveryBytesRead),
+        medianDeliveryBytesWritten: medianBytes(deliveryBytesWritten)
+      },
+      /** Bases efímeras: cada repetición estrena las suyas y las borra al salir. */
+      database: {
+        coordinatorBytes: medianBytes(coordinatorBytes),
+        terminalBytes: medianBytes(terminalBytes)
+      }
+    };
     for (const metric of LAN_METRICS) summaries.push(summarize(metric, measured.get(metric)!));
   }
 
@@ -1167,17 +1236,67 @@ const main = async (): Promise<void> => {
   const measuredResources = Object.entries(resources);
   if (measuredResources.length > 0) {
     const mib = (bytes: number): string => (bytes / 1024 / 1024).toFixed(1) + ' MiB';
+    /**
+     * Un escenario en proceso suma la CPU de su serie y deja ver el costo del
+     * instrumento; uno fuera de proceso reporta la mediana de cada proceso
+     * entero, donde no hay instrumento que descontar.
+     */
     process.stdout.write('\nescenario             CPU serie   instrumento   RSS pico   base\n');
-    for (const [scenario, usage] of measuredResources) {
-      const measuredCpu = usage.cpu.measuredUserMs + usage.cpu.measuredSystemMs;
-      const instrumentCpu = usage.cpu.processUserMs + usage.cpu.processSystemMs - measuredCpu;
+    const line = (
+      scenario: string, cpu: string, instrument: string, rss: number, database: number | undefined
+    ): void => {
       process.stdout.write(
-        scenario.padEnd(20) +
-        (measuredCpu.toFixed(0) + ' ms').padStart(10) +
-        (instrumentCpu.toFixed(0) + ' ms').padStart(14) +
-        mib(usage.memory.peakRssBytes).padStart(11) +
-        (usage.database ? mib(usage.database.finalBytes) : '—').padStart(11) + '\n'
+        scenario.padEnd(20) + cpu.padStart(10) + instrument.padStart(14) +
+        mib(rss).padStart(11) + (database === undefined ? '—' : mib(database)).padStart(11) + '\n'
       );
+    };
+    for (const [scenario, usage] of measuredResources) {
+      if ('electron' in usage) {
+        const { electron } = usage;
+        line(
+          scenario, (electron.medianMainCpuUserMs + electron.medianMainCpuSystemMs).toFixed(0) + ' ms',
+          '—', electron.peakWorkingSetBytes, undefined
+        );
+        process.stdout.write(
+          '  ' + electron.processCount + ' procesos Electron · loopback: ' +
+          usage.traffic.medianBytesRead + ' B recibidos, ' +
+          usage.traffic.medianBytesWritten + ' B enviados (mediana)\n'
+        );
+        continue;
+      }
+      if ('traffic' in usage) {
+        const measuredCpu = usage.cpu.measuredUserMs + usage.cpu.measuredSystemMs;
+        const instrumentCpu = usage.cpu.processUserMs + usage.cpu.processSystemMs - measuredCpu;
+        line(
+          scenario, measuredCpu.toFixed(0) + ' ms', instrumentCpu.toFixed(0) + ' ms',
+          usage.memory.peakRssBytes,
+          usage.database.coordinatorBytes + usage.database.terminalBytes
+        );
+        process.stdout.write(
+          '  entrega: ' + usage.traffic.medianDeliveryBytesRead + ' B recibidos, ' +
+          usage.traffic.medianDeliveryBytesWritten + ' B enviados (mediana, cifrado incluido)\n'
+        );
+        continue;
+      }
+      if ('cpu' in usage) {
+        const measuredCpu = usage.cpu.measuredUserMs + usage.cpu.measuredSystemMs;
+        const instrumentCpu = usage.cpu.processUserMs + usage.cpu.processSystemMs - measuredCpu;
+        line(
+          scenario, measuredCpu.toFixed(0) + ' ms', instrumentCpu.toFixed(0) + ' ms',
+          usage.memory.peakRssBytes, usage.database?.finalBytes
+        );
+        continue;
+      }
+      for (const metric of ['node-first-install', 'node-existing-start'] as const) {
+        const child = usage[metric];
+        line(
+          metric, (child.medianCpuUserMs + child.medianCpuSystemMs).toFixed(0) + ' ms', '—',
+          child.peakRssBytes,
+          metric === 'node-first-install'
+            ? usage.database.firstInstallBytes
+            : usage.database.existingBytes
+        );
+      }
     }
   }
   process.stdout.write('\nCrudos en ' + directory + '\n');

@@ -168,6 +168,20 @@ describe('comando público de medición de 12.01', () => {
       .toHaveLength(3);
     expect(readdirSync(result.directory!)).toEqual(['observations.json', 'summary.json']);
     expect(result.stdout).not.toContain('HTTP request completed');
+
+    /**
+     * Cada repetición es un proceso entero: su CPU y su RSS son los del hijo,
+     * no los del arnés que lo lanzó, y el segundo arranque lee una base que la
+     * primera instalación ya migró.
+     */
+    const resources = report.resources['node-startup'];
+    expect(resources['node-first-install'].medianCpuUserMs).toBeGreaterThan(0);
+    expect(resources['node-first-install'].peakRssBytes).toBeGreaterThan(0);
+    expect(resources['node-existing-start'].medianCpuUserMs).toBeGreaterThan(0);
+    expect(resources['node-existing-start'].peakRssBytes).toBeGreaterThan(0);
+    expect(resources.database.firstInstallBytes).toBeGreaterThan(0);
+    expect(resources.database.existingBytes)
+      .toBeGreaterThanOrEqual(resources.database.firstInstallBytes);
   }, 60_000);
 
   it.runIf(process.platform === 'win32')(
@@ -195,6 +209,19 @@ describe('comando público de medición de 12.01', () => {
         expect(summary).toMatchObject({ sample: 1, medianMs: expect.any(Number) });
         expect(summary).not.toHaveProperty('p90Ms');
       }
+      /**
+       * La memoria suma todos los procesos de Electron; el CPU acumulado sólo
+       * existe para el principal, y el tráfico es el de Chromium contra
+       * Fastify por loopback, renderer y API juntos.
+       */
+      const resources = report.resources['login-and-shell'];
+      expect(resources.electron.medianMainCpuUserMs).toBeGreaterThan(0);
+      expect(resources.electron.processCount).toBeGreaterThan(1);
+      expect(resources.electron.peakWorkingSetBytes)
+        .toBeGreaterThanOrEqual(resources.electron.medianWorkingSetBytes);
+      expect(resources.traffic.medianBytesRead).toBeGreaterThan(0);
+      expect(resources.traffic.medianBytesWritten).toBeGreaterThan(0);
+
       const raw = readFileSync(resolve(result.directory!, 'observations.json'), 'utf8');
       expect(JSON.parse(raw).observations).toHaveLength(3);
       for (const forbidden of ['"123456"', 'PERF01', 'set-cookie', 'operatorCode', 'pin']) {
@@ -228,6 +255,18 @@ describe('comando público de medición de 12.01', () => {
       expect(summary).toMatchObject({ sample: 1, medianMs: expect.any(Number) });
       expect(summary).not.toHaveProperty('p90Ms');
     }
+    /**
+     * El tráfico se mide en el socket del coordinador, así que cuenta los
+     * bytes cifrados que viajaron por la LAN, no el tamaño del JSON. Cada nodo
+     * conserva su propia base.
+     */
+    const resources = report.resources['lan-cycle'];
+    expect(resources.traffic.medianDeliveryBytesRead).toBeGreaterThan(0);
+    expect(resources.traffic.medianDeliveryBytesWritten).toBeGreaterThan(0);
+    expect(resources.database.coordinatorBytes).toBeGreaterThan(0);
+    expect(resources.database.terminalBytes).toBeGreaterThan(0);
+    expect(resources.memory.peakRssBytes).toBeGreaterThan(0);
+
     const raw = readFileSync(resolve(result.directory!, 'observations.json'), 'utf8');
     expect(JSON.parse(raw).observations).toHaveLength(2);
     expect(result.stdout).not.toContain('Sync event reception completed');

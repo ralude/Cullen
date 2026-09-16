@@ -34,4 +34,16 @@ process.on('message', (message: unknown) => {
 });
 
 await app.ready();
-process.send?.({ type: 'ready', at: performance.timeOrigin + performance.now() });
+/**
+ * El consumo se lee en el propio hijo: su CPU acumulada y su RSS al quedar
+ * listo son exactamente el costo del arranque que se está midiendo, sin el
+ * arnés que lo lanzó.
+ */
+const usage = process.cpuUsage();
+process.send?.({
+  type: 'ready',
+  at: performance.timeOrigin + performance.now(),
+  cpuUserMicros: usage.user,
+  cpuSystemMicros: usage.system,
+  rssBytes: process.memoryUsage().rss
+});

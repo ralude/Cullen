@@ -91,7 +91,20 @@ void app.whenReady().then(async () => {
       || !nodeUrl().startsWith('http://127.0.0.1:')) {
       throw new Error('PERF_DESKTOP_CONFIGURATION_INVALID');
     }
-    const result = await measureLoginAndShell(window, processStartedAt, { code, secret });
+    /**
+     * `getAppMetrics` cubre todos los procesos de Electron —principal, GPU,
+     * utilidades y renderer—; `workingSetSize` viene en KiB.
+     */
+    const result = await measureLoginAndShell(window, processStartedAt, { code, secret }, () => {
+      const metrics = app.getAppMetrics();
+      const cpu = process.cpuUsage();
+      return {
+        mainCpuUserMicros: cpu.user,
+        mainCpuSystemMicros: cpu.system,
+        workingSetBytes: metrics.reduce((total, metric) => total + metric.memory.workingSetSize * 1024, 0),
+        processCount: metrics.length
+      };
+    });
     process.stdout.write('CULLEN_PERF_RESULT ' + JSON.stringify(result) + '\n');
     app.quit();
     return;

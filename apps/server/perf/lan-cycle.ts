@@ -32,6 +32,7 @@ import {
   SYNC_DESTINATION_HEADER
 } from '../src/sync/sync-app.ts';
 import { issueNodeCertificate } from '../src/sync/testing/certificates.ts';
+import { countTraffic, databaseBytes, type Traffic } from './resources.ts';
 
 const COORDINATOR_NODE = 'perf-coordinator';
 const TERMINAL_NODE = 'perf-terminal';
@@ -43,6 +44,7 @@ type Coordinator = {
   readonly port: number;
   readonly processor: application.ProcessSyncInbox;
   readonly workStore: DrizzleSyncInboxWorkStore;
+  readonly traffic: () => Traffic;
 };
 
 type Terminal = {
@@ -58,6 +60,12 @@ export type LanCycleMeasurement = {
   readonly durableReceipts: number;
   readonly appliedEvents: number;
   readonly authoritativeMovements: number;
+  readonly deliveryCpu: NodeJS.CpuUsage;
+  readonly applicationCpu: NodeJS.CpuUsage;
+  /** Tráfico del tramo de entrega, medido en el socket del coordinador. */
+  readonly deliveryTraffic: Traffic;
+  readonly coordinatorDatabaseBytes: number;
+  readonly terminalDatabaseBytes: number;
 };
 
 const requireCondition = (condition: boolean, code: string): void => {
@@ -67,10 +75,16 @@ const requireCondition = (condition: boolean, code: string): void => {
 const count = (handle: DatabaseHandle, sql: string, ...parameters: readonly string[]): number =>
   Number(handle.sqlite.prepare(sql).pluck().get(...parameters) ?? 0);
 
-const timed = async (action: () => Promise<void>): Promise<number> => {
+/** Latencia y CPU del mismo tramo: quien mide no vuelve a cronometrar aparte. */
+const timed = async (action: () => Promise<void>): Promise<{
+  readonly ms: number;
+  readonly cpu: NodeJS.CpuUsage;
+}> => {
+  const cpu = process.cpuUsage();
   const started = performance.now();
   await action();
-  return performance.now() - started;
+  const ms = performance.now() - started;
+  return { ms, cpu: process.cpuUsage(cpu) };
 };
 
 /**
@@ -165,6 +179,8 @@ export class LanCycleBenchmark {
           ca: [this.terminalCertificate.certificatePem]
         }
       }, { logDestination: { write: (): void => undefined } });
+      /** Lo que realmente viaja por la LAN, contado en el socket del receptor. */
+      const traffic = countTraffic(app.server);
       await app.listen({ host: '127.0.0.1', port: 0 });
       const address = app.server.address();
       const port = typeof address === 'object' && address !== null ? address.port : 0;
@@ -174,6 +190,7 @@ export class LanCycleBenchmark {
         app,
         port,
         workStore,
+        traffic,
         processor: new application.ProcessSyncInbox(
           workStore,
           new Map<string, application.SyncConsumer>([[
@@ -276,9 +293,11 @@ export class LanCycleBenchmark {
 
       moment = new Date(moment.getTime() + 300_000);
       coordinator = await startCoordinator(false);
-      const deliveryMs = await timed(async () => {
+      const beforeDelivery = coordinator.traffic();
+      const delivery = await timed(async () => {
         requireCondition(await relay(coordinator!.port).runBatch() === 1, 'DELIVERY_NOT_CLAIMED');
       });
+      const afterDelivery = coordinator.traffic();
       const durableReceipts = count(
         coordinator.handle,
         'select count(*) from sync_inbox_event where event_id = ?',
@@ -294,7 +313,7 @@ export class LanCycleBenchmark {
         'ACK_WAS_TREATED_AS_APPLICATION'
       );
 
-      const applicationMs = await timed(async () => {
+      const applied = await timed(async () => {
         requireCondition(await coordinator!.processor.runBatch() === 1, 'APPLICATION_NOT_CLAIMED');
       });
       const appliedEvents = await coordinator.workStore.applicationProgress(event.eventId) === 'APPLIED'
@@ -309,12 +328,21 @@ export class LanCycleBenchmark {
       requireCondition(authoritativeMovements === 1, 'AUTHORITATIVE_EFFECT_MISSING');
 
       return {
-        deliveryMs,
-        applicationMs,
+        deliveryMs: delivery.ms,
+        applicationMs: applied.ms,
         interruptedDeliveries: 1,
         durableReceipts,
         appliedEvents,
-        authoritativeMovements
+        authoritativeMovements,
+        deliveryCpu: delivery.cpu,
+        applicationCpu: applied.cpu,
+        deliveryTraffic: {
+          bytesRead: afterDelivery.bytesRead - beforeDelivery.bytesRead,
+          bytesWritten: afterDelivery.bytesWritten - beforeDelivery.bytesWritten
+        },
+        /** Se leen con las conexiones vivas: después, el WAL ya se consolidó. */
+        coordinatorDatabaseBytes: databaseBytes(join(runDirectory, 'coordinator.sqlite')),
+        terminalDatabaseBytes: databaseBytes(join(runDirectory, 'terminal.sqlite'))
       };
     } finally {
       await coordinator?.app.close();
