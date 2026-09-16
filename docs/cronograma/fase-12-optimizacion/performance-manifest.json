@@ -50,6 +50,8 @@
       "sale-journey": 4,
       "note": "Márgenes históricos del primer piloto, no presupuestos. El protocolo 2 cambia aislamiento, fechas y validaciones: exige repetir el piloto antes de reutilizar un margen. Los presupuestos los fija 12.01.06 con una expectativa de uso documentada."
     },
+    "resources": "Cada serie publica además de la latencia su consumo, en resources. Un escenario que corre dentro del arnés acumula CPU sobre el MISMO intervalo cronometrado —la semilla, el warm-up y la verificación quedan fuera— y publica también el consumo del proceso entero: la diferencia es el costo del instrumento, que no se estima. Un escenario que corre en procesos aparte se mide a sí mismo dentro del hijo y publica la mediana entre repeticiones, porque cada repetición es un proceso entero. La memoria se observa al cerrar cada repetición: se publican línea base, pico observado y heap; no es un muestreo continuo y no se presenta como tal. El tamaño de la base se lee con su WAL todavía sin consolidar, antes de cerrar la conexión. El tráfico se cuenta en el socket TCP, antes de TLS, así que incluye handshake y cabeceras y no es el tamaño del cuerpo. process.cpuUsage se actualiza en Windows con la granularidad del planificador —unos 15,6 ms—: una repetición corta puede registrar cero y sólo la suma de la serie tiene significado.",
+    "resourcesNotInstrumented": "Cantidad de consultas y tiempo dentro de SQLite NO se instrumentan. Contarlas exige interceptar la preparación de sentencias, y hacerlo dentro del intervalo cronometrado contaminaría la latencia que la serie publica. Queda declarado como brecha del protocolo 2, no como métrica disponible.",
     "logging": "El destino del registro técnico es un sumidero en memoria: la medición paga componer cada línea —que el nodo también paga— y no escribirla al disco.",
     "transport": "Los escenarios de nodo entran por app.inject: miden enrutado, validación, aplicación y SQLite, no el socket. login-and-shell usa Chromium contra Fastify por HTTP loopback y comparte origen con /app/. lan-cycle usa HTTPS loopback con autenticación mutua real entre dos nodos; lan-delivery incluye socket y custodia, mientras lan-application empieza después del ACK. No se comparan estas clases como si midieran el mismo tramo.",
     "validation": "Perfiles, escenarios, enteros y profundidades inválidos abortan antes de crear una serie. Las lecturas comprueban cantidades esperadas; ventas exige un grupo USD con las 300 ventas de preparación. login-and-shell exige formulario, shell autorizado y shell recuperado; stderr de Chromium se drena sin publicarlo. lan-cycle exige que el corte conserve PENDING, que la reconexión deje una custodia durable antes de aplicar y que el consumidor confirme un único movimiento autoritativo. Las validaciones de respuesta incluidas dentro de cada tramo pertenecen al comportamiento observado. Un escenario que asienta puede además verificarse al cerrar la serie, fuera de toda medición: si no dejó los asientos que dice ejercitar, aborta; si los dejó, su recuento se publica en environment.checks.",
@@ -58,8 +60,8 @@
   "artifacts": {
     "rawDirectory": ".perf/",
     "rawDirectoryIgnored": true,
-    "rawFiles": "<run-id>/observations.json — toda observación individual, con su escenario y su número de repetición.",
-    "summaryFiles": "<run-id>/summary.json — estadísticos por escenario, entorno, commit y environment.checks, el recuento de asientos verificado al cerrar cada serie.",
+    "rawFiles": "<run-id>/observations.json — toda observación individual, con su escenario, su número de repetición y, donde el intervalo lo permite, la CPU y el RSS de esa misma repetición.",
+    "summaryFiles": "<run-id>/summary.json — estadísticos por escenario, entorno, commit, environment.checks —el recuento de asientos verificado al cerrar cada serie— y resources, el consumo de CPU, memoria, disco y tráfico de la serie.",
     "versioned": "Este manifiesto y los informes resumidos de piloto, crecimiento y verificación del arnés. Las trazas crudas no entran a Git. Los perfiles Chromium de login-and-shell y las bases SQLite de lan-cycle tampoco se conservan: contienen estado de sesión u operación y se eliminan tras cada repetición."
   },
   "commands": {
@@ -78,6 +80,7 @@
       "instrumented": true,
       "measures": "node-first-install mide creación de un proceso Node, carga del bundle, migraciones, runtime y Fastify listo sobre una base nueva; node-existing-start mide otro proceso sobre esa base ya migrada; node-hot-health mide GET /health dentro del segundo proceso ya listo.",
       "guard": "El conductor se empaqueta antes de medir con esbuild, ESM, target node24 y better-sqlite3 externo, como ADR-0030 D2; su SHA-256 queda en environment.startupArtifactSha256. Cada repetición usa una base propia. Los dos arranques ocurren en procesos hijos sin tsx ni otro loader y el padre confirma su cierre antes de continuar. La petición caliente empieza después de ready y no incluye el arranque.",
+      "resources": "Cada proceso hijo lee su propia CPU acumulada y su RSS al quedar listo: el consumo publicado es el del arranque medido, sin el arnés que lo lanzó. El tamaño de la base se lee entre los dos procesos —lo que dejó migrar— y al terminar el segundo. node-hot-health ocurre dentro del segundo proceso y no tiene consumo propio separable a esta granularidad.",
       "excludes": "El conductor compone el runtime y Fastify directamente; no mide el ciclo completo de src/index.ts, lectura de configuración, escucha de red, WinSW, MSI ni lanzamiento del runtime Node embebido. Electron se mide por separado en desktop-to-login; sumar medianas de procesos separados es una estimación, no una observación extremo a extremo de primera instalación hasta formulario. No incluye autoactualización."
     },
     {
@@ -113,7 +116,8 @@
       "instrumented": true,
       "measures": "Sobre el build actual y Chromium real: proceso Electron hasta el formulario (desktop-to-login), envío de credenciales sintéticas hasta el shell autorizado (login-to-shell) y recarga hasta recuperar la misma sesión (session-recovery). Fastify sirve renderer y API por el mismo origen HTTP loopback.",
       "guard": "Cada repetición usa un perfil Chromium nuevo, exige formulario, shell autorizado y shell recuperado, y elimina el perfil con su cookie. Los hashes de main e index.html quedan en environment.desktopArtifactHashes; PIN, cookie, stderr y texto del DOM no se publican.",
-      "excludes": "El nodo se prepara antes de lanzar Electron. Primera instalación y nuevo proceso con base existente pertenecen al escenario 1; CPU, RSS, bytes y tamaño SQLite se agregan en el corte de métricas."
+      "resources": "La terminal se mide a sí misma: suma la memoria de sus cuatro procesos con getAppMetrics y publica el CPU acumulado del proceso principal, el único que Chromium expone acumulado. El porcentaje instantáneo por proceso NO se publica como consumo. El tráfico se cuenta en el socket loopback de Fastify, que sirve renderer y API por el mismo origen.",
+      "excludes": "El nodo se prepara antes de lanzar Electron. Primera instalación y nuevo proceso con base existente pertenecen al escenario 1. No se publica CPU acumulado del renderer ni de la GPU, y la base del escenario es la del nodo que lo atiende, no un artefacto propio de la terminal."
     },
     {
       "id": "stock-history-and-reports",
@@ -128,7 +132,8 @@
       "instrumented": true,
       "measures": "Después de comprobar un envío fallido durante el corte: lan-delivery mide claim del outbox, HTTPS/mTLS, custodia durable y confirmación PUBLISHED; lan-application mide por separado claim del inbox, movimiento autoritativo y progreso APPLIED.",
       "guard": "Cada repetición crea una terminal y un coordinador con SQLite independiente, material TLS efímero y un PurchaseReceiptCompleted.v1 único. El alta, las migraciones, el fallo de red y el reinicio quedan fuera de los cronómetros. Antes de aplicar se exige progreso PENDING; al final, una recepción y un movimiento por eventId. environment.checks publica solo recuentos técnicos.",
-      "excludes": "No mide descubrimiento, red externa, bootstrap masivo, agotamiento de diez intentos ni intervención manual. CPU, RSS, bytes y tamaños SQLite se agregan en el corte de métricas."
+      "resources": "El tráfico se cuenta en el socket del coordinador durante el tramo de entrega: son los bytes cifrados que viajan por la LAN, handshake incluido, no el tamaño del evento. Cada nodo publica el tamaño de su propia base. CPU y memoria se acumulan como en cualquier escenario en proceso, sumando los dos tramos de cada repetición.",
+      "excludes": "No mide descubrimiento, red externa, bootstrap masivo, agotamiento de diez intentos ni intervención manual. El tráfico publicado es el del tramo de entrega; la aplicación no cruza la red."
     }
   ],
   "dataset": {
