@@ -121,6 +121,37 @@ describe('comando público de medición de 12.01', () => {
     })]);
   }, 60_000);
 
+  it('registra CPU, memoria y tamaño de base sobre el mismo intervalo que la latencia', async () => {
+    const result = await run(['--scenario', 'cash-shift-open', '--warmup', '1', '--sample', '2']);
+    expect(result.succeeded, result.stderr).toBe(true);
+    const report = JSON.parse(readFileSync(resolve(result.directory!, 'summary.json'), 'utf8'));
+    const resources = report.resources['cash-shift-open'];
+    /**
+     * El costo del instrumento queda fuera de lo medido: la semilla, el
+     * warm-up y la verificación consumen CPU del proceso que el escenario no
+     * reclama. La diferencia entre ambos consumos es ese costo.
+     */
+    expect(resources.cpu.measuredUserMs + resources.cpu.measuredSystemMs)
+      .toBeLessThan(resources.cpu.processUserMs + resources.cpu.processSystemMs);
+    expect(resources.cpu.measuredUserMs).toBeGreaterThanOrEqual(0);
+    expect(resources.memory.baselineRssBytes).toBeGreaterThan(0);
+    expect(resources.memory.peakRssBytes).toBeGreaterThanOrEqual(resources.memory.baselineRssBytes);
+    expect(resources.memory.peakHeapUsedBytes).toBeGreaterThan(0);
+    /** La base se lee antes de cerrarla y crece con lo que la serie asentó. */
+    expect(resources.database.seededBytes).toBeGreaterThan(0);
+    expect(resources.database.finalBytes).toBeGreaterThanOrEqual(resources.database.seededBytes);
+    expect(resources.database.walBytes).toBeGreaterThanOrEqual(0);
+
+    const raw = JSON.parse(readFileSync(resolve(result.directory!, 'observations.json'), 'utf8'));
+    expect(raw.resources).toEqual(report.resources);
+    expect(raw.observations).toHaveLength(2);
+    for (const observation of raw.observations) {
+      expect(observation.cpuUserMs).toBeGreaterThanOrEqual(0);
+      expect(observation.cpuSystemMs).toBeGreaterThanOrEqual(0);
+      expect(observation.rssBytes).toBeGreaterThan(0);
+    }
+  }, 60_000);
+
   it('separa primera instalación, nuevo proceso sobre la base y ejecución caliente', async () => {
     const result = await run([
       '--scenario', 'node-startup', '--warmup', '0', '--sample', '1'

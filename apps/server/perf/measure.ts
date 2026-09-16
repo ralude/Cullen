@@ -14,7 +14,7 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { hostname, totalmem, cpus, platform, release } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -38,7 +38,15 @@ import {
   measureStartup, prepareStartupArtifact, removeStartupArtifact
 } from './startup.ts';
 
-type Observation = { readonly scenario: string; readonly run: number; readonly ms: number };
+type Observation = {
+  readonly scenario: string;
+  readonly run: number;
+  readonly ms: number;
+  /** Recursos del mismo intervalo, cuando el escenario los observa. */
+  readonly cpuUserMs?: number;
+  readonly cpuSystemMs?: number;
+  readonly rssBytes?: number;
+};
 
 type Summary = {
   readonly scenario: string;
@@ -156,6 +164,92 @@ const summarize = (scenario: string, observations: readonly number[]): Summary =
     maxMs: Number(sorted.at(-1)!.toFixed(3)),
     iqrMs: Number(iqr.toFixed(3)),
     relativeIqr: Number((median === 0 ? 0 : iqr / median).toFixed(4))
+  };
+};
+
+/**
+ * Recursos de una serie. El consumo medido se acumula sobre el MISMO intervalo
+ * que la latencia —dentro de `timed`—, así que la semilla, el warm-up y la
+ * verificación quedan fuera. El costo del instrumento no se estima: se publica
+ * también el consumo del proceso entero y la diferencia es ese costo.
+ *
+ * `process.cpuUsage()` se actualiza en Windows con la granularidad del reloj de
+ * planificación —unos 15,6 ms—, de modo que una repetición corta puede
+ * registrar cero. Sólo la suma de la serie tiene significado; una observación
+ * individual de CPU no lo tiene.
+ */
+type ScenarioResources = {
+  readonly cpu: {
+    readonly measuredUserMs: number;
+    readonly measuredSystemMs: number;
+    readonly processUserMs: number;
+    readonly processSystemMs: number;
+  };
+  readonly memory: {
+    readonly baselineRssBytes: number;
+    readonly peakRssBytes: number;
+    readonly peakHeapUsedBytes: number;
+  };
+  readonly database?: {
+    readonly seededBytes: number;
+    readonly finalBytes: number;
+    readonly walBytes: number;
+  };
+};
+
+const microsToMs = (micros: number): number => Number((micros / 1_000).toFixed(3));
+
+/** Un archivo que aún no existe ocupa cero; SHM y WAL aparecen recién al escribir. */
+const fileBytes = (path: string): number => {
+  try {
+    return statSync(path).size;
+  } catch {
+    return 0;
+  }
+};
+
+/** Tamaño operativo de la base: el archivo y su WAL todavía sin consolidar. */
+const databaseBytes = (path: string): number => fileBytes(path) + fileBytes(path + '-wal');
+
+/**
+ * Acumulador de recursos de un escenario en proceso. La línea base se toma con
+ * el dataset ya sembrado: es lo que el nodo ocupa antes de que la serie empiece.
+ */
+const recordResources = (databasePath?: string) => {
+  const seededBytes = databasePath === undefined ? 0 : databaseBytes(databasePath);
+  const baselineRssBytes = process.memoryUsage().rss;
+  let measuredUser = 0;
+  let measuredSystem = 0;
+  let peakRssBytes = baselineRssBytes;
+  let peakHeapUsedBytes = 0;
+  return {
+    /** Una repetición medida, con el consumo de su propio intervalo. */
+    add: (cpu: NodeJS.CpuUsage, memory: NodeJS.MemoryUsage): void => {
+      measuredUser += cpu.user;
+      measuredSystem += cpu.system;
+      peakRssBytes = Math.max(peakRssBytes, memory.rss);
+      peakHeapUsedBytes = Math.max(peakHeapUsedBytes, memory.heapUsed);
+    },
+    /** Se cierra antes de cerrar la base: después, el WAL ya no está. */
+    close: (): ScenarioResources => {
+      const process_ = process.cpuUsage();
+      return {
+        cpu: {
+          measuredUserMs: microsToMs(measuredUser),
+          measuredSystemMs: microsToMs(measuredSystem),
+          processUserMs: microsToMs(process_.user),
+          processSystemMs: microsToMs(process_.system)
+        },
+        memory: { baselineRssBytes, peakRssBytes, peakHeapUsedBytes },
+        ...(databasePath === undefined ? {} : {
+          database: {
+            seededBytes,
+            finalBytes: databaseBytes(databasePath),
+            walBytes: fileBytes(databasePath + '-wal')
+          }
+        })
+      };
+    }
   };
 };
 
@@ -438,10 +532,20 @@ type Scenario = {
   readonly verify?: (station: Station, runs: number) => Promise<Record<string, number>>;
 };
 
+/**
+ * CPU del último intervalo cronometrado. Vive fuera de `timed` porque los
+ * escenarios devuelven una latencia y no un par: quien mide la lee enseguida,
+ * antes de que otra repetición la reemplace.
+ */
+let lastIntervalCpu: NodeJS.CpuUsage = { user: 0, system: 0 };
+
 const timed = async (action: () => Promise<void>): Promise<number> => {
+  const cpu = process.cpuUsage();
   const started = performance.now();
   await action();
-  return performance.now() - started;
+  const elapsed = performance.now() - started;
+  lastIntervalCpu = process.cpuUsage(cpu);
+  return elapsed;
 };
 
 const expect200 = (status: number, what: string): void => {
@@ -856,6 +960,8 @@ const main = async (): Promise<void> => {
   const summaries: Summary[] = [];
   /** Evidencia de lo que cada escenario dejó asentado, por escenario. */
   const checks: Record<string, Record<string, number>> = {};
+  /** Recursos consumidos por cada escenario seleccionado, medidos aparte del tiempo. */
+  const resources: Record<string, ScenarioResources> = {};
   const selected = (id: string): boolean => only.length === 0 || only.includes(id);
 
   let startupArtifactSha256: string | undefined;
@@ -973,13 +1079,23 @@ const main = async (): Promise<void> => {
       const measured: number[] = [];
       try {
         place = await station(path);
+        const usage = recordResources(path);
         for (let run = 0; run < warmup + sample; run += 1) {
           const ms = await scenario.run(place, run);
           if (run < warmup) continue;
+          const cpu = lastIntervalCpu;
+          const memory = process.memoryUsage();
+          usage.add(cpu, memory);
           measured.push(ms);
-          observations.push({ scenario: scenario.id, run: run - warmup, ms });
+          observations.push({
+            scenario: scenario.id, run: run - warmup, ms,
+            cpuUserMs: microsToMs(cpu.user), cpuSystemMs: microsToMs(cpu.system),
+            rssBytes: memory.rss
+          });
         }
         if (scenario.verify) checks[scenario.id] = await scenario.verify(place, warmup + sample);
+        /** Antes del cierre: después, el WAL ya se consolidó y no se puede leer. */
+        resources[scenario.id] = usage.close();
       } finally {
         await place?.close();
         rmSync(path, { force: true });
@@ -1025,8 +1141,14 @@ const main = async (): Promise<void> => {
     throw new Error('PERF_REVISION_CHANGED: el código cambió durante la serie.');
   }
   source.dirty ||= finalRevision.dirty;
-  writeFileSync(join(directory, 'observations.json'), JSON.stringify({ environment, observations }, null, 2));
-  writeFileSync(join(directory, 'summary.json'), JSON.stringify({ environment, summaries }, null, 2));
+  writeFileSync(
+    join(directory, 'observations.json'),
+    JSON.stringify({ environment, observations, resources }, null, 2)
+  );
+  writeFileSync(
+    join(directory, 'summary.json'),
+    JSON.stringify({ environment, summaries, resources }, null, 2)
+  );
 
   process.stdout.write('\nSerie ' + runId + ' sobre ' + environment.commit +
     ' · SIMULACION · perfil ' + environment.profile + ' · warm-up ' + warmup + ' · muestra ' + sample +
@@ -1041,6 +1163,22 @@ const main = async (): Promise<void> => {
       String(summary.maxMs).padStart(9) +
       (' ' + (summary.relativeIqr * 100).toFixed(1) + ' %').padStart(11) + '\n'
     );
+  }
+  const measuredResources = Object.entries(resources);
+  if (measuredResources.length > 0) {
+    const mib = (bytes: number): string => (bytes / 1024 / 1024).toFixed(1) + ' MiB';
+    process.stdout.write('\nescenario             CPU serie   instrumento   RSS pico   base\n');
+    for (const [scenario, usage] of measuredResources) {
+      const measuredCpu = usage.cpu.measuredUserMs + usage.cpu.measuredSystemMs;
+      const instrumentCpu = usage.cpu.processUserMs + usage.cpu.processSystemMs - measuredCpu;
+      process.stdout.write(
+        scenario.padEnd(20) +
+        (measuredCpu.toFixed(0) + ' ms').padStart(10) +
+        (instrumentCpu.toFixed(0) + ' ms').padStart(14) +
+        mib(usage.memory.peakRssBytes).padStart(11) +
+        (usage.database ? mib(usage.database.finalBytes) : '—').padStart(11) + '\n'
+      );
+    }
   }
   process.stdout.write('\nCrudos en ' + directory + '\n');
 };
