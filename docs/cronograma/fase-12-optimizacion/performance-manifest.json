@@ -4,7 +4,7 @@
   "phase": "12.01",
   "createdOn": "2026-09-11",
   "initialPilotCommit": "163548c",
-  "status": "BASELINE_CAPTURADA",
+  "status": "BASELINE_Y_PRESUPUESTOS",
   "note": "Formato y protocolo de medición de la Fase 12. El estado, la aceptación y los commits viven únicamente en 12.01-profiler-baseline.md; aquí sólo el cómo se mide y qué se midió.",
   "environment": {
     "id": "estacion-de-desarrollo-2026-09",
@@ -254,5 +254,13 @@
       "stock-rows-10k@crecimiento": 12.11,
       "stock-rows-1k@crecimiento": 1.16
     }
+  },
+  "budgets": {
+    "decidedOn": "2026-09-16",
+    "kind": "Sólo de regresión.",
+    "rule": "El presupuesto de cada escenario es su margen de ruido: ningún cambio conservado puede empeorar su mediana más que eso, medido A/B en la misma campaña. Ver protocol.noiseMargins.margins.",
+    "noAcceptanceLimits": "NO se fijan límites de aceptación. La expectativa de uso acordada —comparar commits sobre la estación de desarrollo— no los sustenta: declarar que un escenario debe costar menos de X exigiría una operación objetivo que se decidió no tener. Inventar ese número violaría CA-12.01-04.",
+    "interventionCriterion": "Una intervención se justifica por riesgo de crecimiento demostrado o por costo desproporcionado demostrado, no por cruzar un umbral. Ejemplos medidos: la rehidratación de inventario crece de forma cuadrática con la profundidad de la historia, y catalog-list cuesta sesenta veces la búsqueda por barcode sobre el mismo catálogo.",
+    "whenAnOperationExists": "Con una operación objetivo definida —catálogo, cajas simultáneas, volumen e historia, hardware— se fijarán límites de aceptación con su propia serie; no se reinterpretarán éstos."
   }
 }
