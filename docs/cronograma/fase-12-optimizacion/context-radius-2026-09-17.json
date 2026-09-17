@@ -1,0 +1,444 @@
+{
+  "revision": "b786844",
+  "date": "2026-09-17",
+  "supersedes": {
+    "revision": "a73dd33",
+    "date": "2026-09-08",
+    "file": "./context-radius-baseline.json",
+    "note": "El corte del 2026-09-08 se conserva íntegro: este archivo no lo reemplaza, lo fecha."
+  },
+  "method": "Refresco de 12.05.01 contra el HEAD vigente. Se reverificó ruta por ruta la shortlist estática del corte anterior —las 99 rutas siguen existiendo y ninguna cambió de lugar— y se volvieron a contar los hubs. Sigue siendo inspección estática: no son sesiones de navegación observadas y no mide tokens. Las sesiones reales siguen pendientes y su razón está en 12.05.",
+  "findings": "Las listas por escenario son estables: ningún escenario ganó ni perdió archivos entre las dos revisiones, aunque 33 de las 99 rutas cambiaron de contenido. Siete de los nueve hubs crecieron, entre 6,0 % y 21,6 %; los otros dos —reporting-repositories y schema— quedaron igual. Ninguno se redujo: el radio de contexto no mejora solo con el tiempo, que es el supuesto que 12.05 pone a prueba.",
+  "hubs": [
+    {
+      "path": "packages/drivers/db/src/repositories.ts",
+      "lines": 899,
+      "linesAtA73dd33": 832,
+      "growthPercent": 8.1
+    },
+    {
+      "path": "apps/server/src/runtime.ts",
+      "lines": 752,
+      "linesAtA73dd33": 652,
+      "growthPercent": 15.3
+    },
+    {
+      "path": "apps/server/src/app.ts",
+      "lines": 445,
+      "linesAtA73dd33": 366,
+      "growthPercent": 21.6
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/api-client.ts",
+      "lines": 708,
+      "linesAtA73dd33": 592,
+      "growthPercent": 19.6
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/App.tsx",
+      "lines": 647,
+      "linesAtA73dd33": 558,
+      "growthPercent": 15.9
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/screens/inventory.tsx",
+      "lines": 404,
+      "linesAtA73dd33": 381,
+      "growthPercent": 6
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/screens/reports.tsx",
+      "lines": 506,
+      "linesAtA73dd33": 436,
+      "growthPercent": 16.1
+    },
+    {
+      "path": "packages/drivers/db/src/reporting-repositories.ts",
+      "lines": 429,
+      "linesAtA73dd33": 429,
+      "growthPercent": 0
+    },
+    {
+      "path": "packages/drivers/db/src/schema.ts",
+      "lines": 667,
+      "linesAtA73dd33": 667,
+      "growthPercent": 0
+    }
+  ],
+  "repositoriesComposition": {
+    "path": "packages/drivers/db/src/repositories.ts",
+    "lines": 899,
+    "headerAndImports": 77,
+    "note": "Evidencia directa del corte 12.05.03: el archivo que hay que abrir para cambiar el mapeo de un contexto contiene otros cuatro. Cambiar inventario obliga a abrir 899 líneas de las que 120 son de inventario.",
+    "classes": [
+      {
+        "name": "DrizzleCategoryRepository",
+        "context": "catalogo",
+        "start": 78,
+        "end": 107,
+        "lines": 30
+      },
+      {
+        "name": "DrizzleUnitOfMeasureRepository",
+        "context": "catalogo",
+        "start": 108,
+        "end": 138,
+        "lines": 31
+      },
+      {
+        "name": "DrizzlePaymentMethodRepository",
+        "context": "moneda",
+        "start": 139,
+        "end": 168,
+        "lines": 30
+      },
+      {
+        "name": "DrizzleCashRegisterRepository",
+        "context": "caja",
+        "start": 169,
+        "end": 197,
+        "lines": 29
+      },
+      {
+        "name": "DrizzleExchangeRateRepository",
+        "context": "moneda",
+        "start": 198,
+        "end": 250,
+        "lines": 53
+      },
+      {
+        "name": "DrizzleProductRepository",
+        "context": "catalogo",
+        "start": 251,
+        "end": 427,
+        "lines": 177
+      },
+      {
+        "name": "DrizzleSaleRepository",
+        "context": "ventas",
+        "start": 428,
+        "end": 647,
+        "lines": 220
+      },
+      {
+        "name": "DrizzleShiftRepository",
+        "context": "caja",
+        "start": 648,
+        "end": 779,
+        "lines": 132
+      },
+      {
+        "name": "DrizzleStockItemRepository",
+        "context": "inventario",
+        "start": 780,
+        "end": 899,
+        "lines": 120
+      }
+    ],
+    "byContext": {
+      "catalogo": {
+        "lines": 238,
+        "percentOfFile": 26.5
+      },
+      "ventas": {
+        "lines": 220,
+        "percentOfFile": 24.5
+      },
+      "caja": {
+        "lines": 161,
+        "percentOfFile": 17.9
+      },
+      "inventario": {
+        "lines": 120,
+        "percentOfFile": 13.3
+      },
+      "moneda": {
+        "lines": 83,
+        "percentOfFile": 9.2
+      }
+    }
+  },
+  "tasks": [
+    {
+      "id": "supplier",
+      "scenario": "Añadir un dato descriptivo opcional a Supplier, persistirlo y mostrarlo; sin cambiar identidad fiscal ni permisos.",
+      "contexts": [
+        "purchasing"
+      ],
+      "inspect": [
+        "packages/core/src/domain/purchasing/supplier.ts",
+        "packages/core/src/application/purchasing/supplier-use-cases.ts",
+        "packages/core/src/application/purchasing/dtos.ts",
+        "packages/core/src/application/ports/supplier-repository.ts",
+        "packages/drivers/db/src/supplier-repository.ts",
+        "packages/drivers/db/src/schema.ts",
+        "packages/drivers/db/src/migrations.ts",
+        "packages/shared/src/http/v1/supplier.contracts.ts",
+        "apps/server/src/routes/suppliers.ts",
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts",
+        "apps/desktop/src/renderer/src/screens/suppliers.tsx"
+      ],
+      "tests": [
+        "packages/core/src/domain/purchasing/supplier.test.ts",
+        "packages/core/src/application/purchasing/supplier-use-cases.test.ts",
+        "packages/drivers/db/src/supplier-repository.test.ts",
+        "packages/drivers/db/src/migrations.test.ts",
+        "apps/server/src/routes/suppliers.contract.test.ts"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/schema.ts",
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts"
+      ],
+      "modifyEstimate": [
+        7,
+        10
+      ],
+      "compositionEstimate": 0,
+      "verifiedAtHead": true,
+      "changedSinceBaseline": [
+        "packages/drivers/db/src/migrations.ts",
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts",
+        "apps/desktop/src/renderer/src/screens/suppliers.tsx",
+        "packages/core/src/application/purchasing/supplier-use-cases.test.ts",
+        "packages/drivers/db/src/migrations.test.ts"
+      ]
+    },
+    {
+      "id": "stock-item",
+      "scenario": "Ajustar una validación existente de StockItem al registrar un ajuste; conservar contrato, escala, costo y ownership.",
+      "contexts": [
+        "inventory"
+      ],
+      "inspect": [
+        "packages/core/src/domain/inventory/stock-item.ts",
+        "packages/core/src/domain/inventory/stock-movement.ts",
+        "packages/core/src/application/inventory/register-stock-adjustment.ts",
+        "packages/core/src/application/ports/stock-item-repository.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "packages/drivers/db/src/unit-of-work.ts",
+        "apps/server/src/runtime.ts",
+        "apps/server/src/routes/inventory.ts"
+      ],
+      "tests": [
+        "packages/core/src/domain/inventory/stock-item.test.ts",
+        "packages/core/src/application/inventory/inventory.test.ts",
+        "packages/drivers/db/src/repositories.test.ts",
+        "apps/server/src/routes/inventory.contract.test.ts"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts"
+      ],
+      "modifyEstimate": [
+        2,
+        4
+      ],
+      "compositionEstimate": 0,
+      "verifiedAtHead": true,
+      "changedSinceBaseline": [
+        "packages/core/src/domain/inventory/stock-item.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "packages/drivers/db/src/unit-of-work.ts",
+        "apps/server/src/runtime.ts",
+        "packages/core/src/domain/inventory/stock-item.test.ts",
+        "packages/core/src/application/inventory/inventory.test.ts"
+      ]
+    },
+    {
+      "id": "complete-sale",
+      "scenario": "Modificar la coordinación de CompleteSale preservando cobro atómico local y el rechazo auditable de stock.",
+      "contexts": [
+        "sales",
+        "cash",
+        "inventory"
+      ],
+      "inspect": [
+        "packages/core/src/application/sales/complete-sale.ts",
+        "packages/core/src/domain/sales/sale.ts",
+        "packages/core/src/application/sales/dtos.ts",
+        "packages/core/src/application/sales/mappers.ts",
+        "packages/core/src/application/ports/sale-repository.ts",
+        "packages/core/src/application/cash/apply-sale-completed-to-shift.ts",
+        "packages/core/src/application/inventory/apply-sale-completed-to-inventory.ts",
+        "packages/core/src/application/events/persist-business-events.ts",
+        "packages/core/src/application/idempotency/execute-idempotent-command.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "packages/drivers/db/src/unit-of-work.ts",
+        "apps/server/src/runtime.ts",
+        "apps/server/src/routes/sales.ts"
+      ],
+      "tests": [
+        "packages/core/src/application/sales/complete-sale.test.ts",
+        "packages/core/src/application/cash/apply-sale-completed-to-shift.test.ts",
+        "packages/drivers/db/src/sale-cash-effect.integration.test.ts",
+        "apps/server/src/routes/sales.contract.test.ts",
+        "apps/desktop/src/e2e/sale-flow.e2e.test.tsx"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts"
+      ],
+      "modifyEstimate": [
+        3,
+        5
+      ],
+      "compositionEstimate": 1,
+      "verifiedAtHead": true,
+      "changedSinceBaseline": [
+        "packages/core/src/application/sales/complete-sale.ts",
+        "packages/core/src/application/cash/apply-sale-completed-to-shift.ts",
+        "packages/core/src/application/inventory/apply-sale-completed-to-inventory.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "packages/drivers/db/src/unit-of-work.ts",
+        "apps/server/src/runtime.ts",
+        "packages/drivers/db/src/sale-cash-effect.integration.test.ts",
+        "apps/desktop/src/e2e/sale-flow.e2e.test.tsx"
+      ]
+    },
+    {
+      "id": "shift",
+      "scenario": "Modificar la precondición de cierre de Shift por ventas abiertas; revisar apertura para preservar el ciclo completo.",
+      "contexts": [
+        "cash",
+        "sales",
+        "currency"
+      ],
+      "inspect": [
+        "packages/core/src/domain/cash/shift.ts",
+        "packages/core/src/application/cash/open-shift.ts",
+        "packages/core/src/application/cash/close-shift.ts",
+        "packages/core/src/application/cash/payment-method-validation.ts",
+        "packages/core/src/application/cash/shift-idempotency.ts",
+        "packages/core/src/application/ports/shift-repository.ts",
+        "packages/core/src/application/ports/open-sales-probe.ts",
+        "packages/drivers/db/src/open-sales-probe.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts",
+        "apps/server/src/routes/cash.ts",
+        "apps/desktop/src/renderer/src/screens/cash.tsx"
+      ],
+      "tests": [
+        "packages/core/src/domain/cash/shift.test.ts",
+        "packages/core/src/application/cash/open-shift.test.ts",
+        "packages/core/src/application/cash/close-shift.test.ts",
+        "packages/drivers/db/src/cash-flow.integration.test.ts",
+        "apps/server/src/routes/cash.contract.test.ts"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts"
+      ],
+      "modifyEstimate": [
+        2,
+        4
+      ],
+      "compositionEstimate": 0,
+      "verifiedAtHead": true,
+      "changedSinceBaseline": [
+        "packages/core/src/application/cash/open-shift.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/screens/cash.tsx"
+      ]
+    },
+    {
+      "id": "report",
+      "scenario": "Añadir un campo derivable de datos existentes al reporte de inventario y su CSV, sin migración.",
+      "contexts": [
+        "reporting",
+        "inventory"
+      ],
+      "inspect": [
+        "packages/core/src/application/reporting/get-inventory-report.ts",
+        "packages/core/src/application/reporting/dtos.ts",
+        "packages/core/src/application/ports/reporting-repositories.ts",
+        "packages/core/src/application/reporting/row-limit.ts",
+        "packages/drivers/db/src/reporting-repositories.ts",
+        "packages/drivers/db/src/schema.ts",
+        "packages/shared/src/http/v1/reports.contracts.ts",
+        "apps/server/src/routes/reports.ts",
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts",
+        "apps/desktop/src/renderer/src/screens/reports.tsx",
+        "apps/desktop/src/renderer/src/screens/inventory.tsx"
+      ],
+      "tests": [
+        "packages/core/src/application/reporting/reporting.test.ts",
+        "packages/drivers/db/src/reporting-repositories.test.ts",
+        "apps/server/src/routes/reports.contract.test.ts",
+        "apps/desktop/src/renderer/src/reports-screen.test.tsx"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/reporting-repositories.ts",
+        "packages/drivers/db/src/schema.ts",
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts"
+      ],
+      "modifyEstimate": [
+        5,
+        8
+      ],
+      "compositionEstimate": 0,
+      "verifiedAtHead": true,
+      "changedSinceBaseline": [
+        "apps/server/src/app.ts",
+        "apps/server/src/runtime.ts",
+        "apps/desktop/src/renderer/src/api-client.ts",
+        "apps/desktop/src/renderer/src/screens/reports.tsx",
+        "apps/desktop/src/renderer/src/screens/inventory.tsx",
+        "apps/desktop/src/renderer/src/reports-screen.test.tsx"
+      ]
+    },
+    {
+      "id": "sync-reference",
+      "scenario": "Extender una referencia de catálogo existente del productor al consumidor; conservar versión, deduplicación y ownership.",
+      "contexts": [
+        "catalog",
+        "sync"
+      ],
+      "inspect": [
+        "packages/core/src/application/events/sync-contracts.ts",
+        "packages/core/src/application/catalog/reference-publications.ts",
+        "packages/core/src/application/sync/publish-catalog-bootstrap.ts",
+        "packages/core/src/application/sync/catalog-reference-consumer.ts",
+        "packages/core/src/application/sync/process-sync-inbox.ts",
+        "packages/core/src/application/ports/catalog-reference-source.ts",
+        "packages/core/src/application/ports/catalog-reference-projection.ts",
+        "packages/drivers/db/src/catalog-reference-source.ts",
+        "packages/drivers/db/src/catalog-reference-projection.ts",
+        "packages/drivers/db/src/repositories.ts",
+        "packages/drivers/db/src/sync-inbox-work-store.ts",
+        "apps/server/src/runtime.ts"
+      ],
+      "tests": [
+        "packages/core/src/application/events/sync-contracts.test.ts",
+        "packages/core/src/application/sync/catalog-reference-consumer.test.ts",
+        "packages/drivers/db/src/catalog-bootstrap.integration.test.ts",
+        "packages/drivers/db/src/catalog-reference-projection.integration.test.ts",
+        "apps/server/src/sync/reference-delivery.e2e.test.ts"
+      ],
+      "hubs": [
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts"
+      ],
+      "modifyEstimate": [
+        4,
+        7
+      ],
+      "compositionEstimate": 0,
+      "verifiedAtHead": true,
+      "changedSinceBaseline": [
+        "packages/drivers/db/src/repositories.ts",
+        "apps/server/src/runtime.ts"
+      ]
+    }
+  ]
+}
