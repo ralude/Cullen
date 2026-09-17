@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import type { DesktopApi } from './api-client.js';
 import { ApiProblemError } from './api-transport.js';
 import {
-  AppView, PRODUCT_NAME, isRouteReachable, loadInitialState, resolveRoute, shortcutHash,
-  visibleNavigationGroups,
+  AppView, PRODUCT_NAME, loadInitialState,
   type AppViewState, type NodeConnection
 } from './App.js';
+import {
+  isRouteReachable, resolveRoute, shortcutHash, visibleNavigationGroups
+} from './navigation.js';
 
 /** El shell exige la superficie de sesión; ninguna prueba de render la ejerce. */
 const apiStub = {
