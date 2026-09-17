@@ -110,6 +110,30 @@ de sincronización— y ajustar una espera de prueba sin entender la causa puede
 real de reintento. Queda registrado para que nadie lo lea como un fallo introducido por las
 mediciones ni como una prueba estable.
 
+## D-005 · La prueba de frontera del renderer agota su tiempo dentro de la suite completa
+
+**Observado:** 2026-09-17, durante la verificación de cierre de 12.03.
+
+`tests/eslint-boundaries.test.ts` → «renderer import boundary › rejects @supermarket/core» falló
+con `Test timed out in 5000ms` en tres de cuatro corridas de `pnpm test`, incluida una con la
+estación completamente libre. Es siempre el **primer** caso del archivo; los otros diez pasan.
+Corrido aislado, el archivo entero pasa en 2,9 s y ese caso tarda 1,6 s.
+
+**Reproducción:** con la suite completa, donde 202 archivos corren en paralelo. Aisladamente no
+reproduce.
+
+**Hipótesis, sin confirmar:** el primer caso paga el arranque en frío de ESLint —construir la
+configuración del repositorio y cargar el parser de TypeScript— dentro del tiempo de espera por
+omisión de 5 s, que el resto de los casos ya no paga porque reutilizan ese trabajo. Con los
+trabajadores de vitest compitiendo, ese arranque se pasa del límite.
+
+**Por qué no se corrigió aquí:** es ajeno al alcance de 12.03, que no toca fronteras ni
+configuración de lint, y la suite de la revisión anterior —`17e1238`, sin ninguno de estos
+cambios— también falla en esta estación, allí con dos pruebas del arnés. El fallo no lo
+introdujeron los cortes. La corrección probable es declarar un tiempo de espera propio para ese
+archivo, como ya hacen las pruebas lentas del arnés, pero eso es una decisión de quien atienda la
+fragilidad de la suite y no un efecto lateral de una optimización.
+
 ## Cómo se relacionan
 
 D-001 tapa a D-002. Corregir solo D-001 convertiría un camino bloqueado en uno que acepta

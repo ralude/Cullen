@@ -3,11 +3,11 @@
 - **Estado:** En ejecución. 12.01 cerrada el 2026-09-16 con línea base, márgenes, presupuestos de
   regresión y priorización de hotspots; queda pendiente que un tercero reproduzca la serie
   (CA-12.01-01). 12.02 cerrada el 2026-09-16 sin cambios productivos: la medición no encontró
-  sobrecarga en el camino renderer–nodo. 12.03 en ejecución desde el 2026-09-16: construyó el instrumento
-  de conteo y plan, cerró su [caracterización](./12.03-caracterizacion.md) y recorrió cuatro
-  cortes —catálogo, kardex, reconstrucción del inventario con ADR-0032 y guardado, este último
-  sin cambio productivo—; le falta la serie limpia sobre estación aislada que publica sus AFTER.
-  Después, 12.05.
+  sobrecarga en el camino renderer–nodo. 12.03 cerrada el 2026-09-17 con cuatro cortes
+  —catálogo, kardex y reconstrucción del inventario con ADR-0032, más guardado sin cambio
+  productivo— y su
+  [campaña A/B](./12.03-evidencia-y-cierre.md) sobre estación aislada, que confirma los tres
+  primeros por dos órdenes de magnitud con los controles quietos. Sigue 12.05, la última.
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Excepción:** 12.04 permanece suspendida con Fase 8 y no bloquea el cierre en modo simulado.
 - **Índice:** [Cronograma maestro](../README.md).
