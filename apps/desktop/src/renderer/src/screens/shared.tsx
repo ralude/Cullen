@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { CapabilitiesResponse } from '@supermarket/shared';
-import {
-  ApiProblemError, formatScaledDecimal, parseMinorUnits, type OperationApi
-} from '../api-client.js';
+import { formatScaledDecimal, parseMinorUnits } from '../amount-input.js';
+import type { OperationApi } from '../api-client.js';
+import { ApiProblemError } from '../api-transport.js';
 
 /**
  * Permisos efectivos de la sesión. El renderer solo decide qué ofrece: el

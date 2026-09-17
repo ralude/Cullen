@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CashRegisterResponse, SaleResponse, ShiftResponse } from '@supermarket/shared';
-import { ApiProblemError, type OperationApi } from './api-client.js';
+import type { OperationApi } from './api-client.js';
+import { ApiProblemError } from './api-transport.js';
 import { activeShiftLabel, SalesScreen } from './operation-screens.js';
 import { click, mount, settle } from './testing/dom.js';
 

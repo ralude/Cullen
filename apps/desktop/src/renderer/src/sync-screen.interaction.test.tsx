@@ -5,7 +5,8 @@ import type {
   SyncDestinationStatusResponse,
   SyncNodeResponse
 } from '@supermarket/shared';
-import { ApiProblemError, type OperationApi } from './api-client.js';
+import type { OperationApi } from './api-client.js';
+import { ApiProblemError } from './api-transport.js';
 import { SyncScreen } from './operation-screens.js';
 import { click, deferred, mount, select, settle, submit, type as typeText } from './testing/dom.js';
 

@@ -9,9 +9,9 @@ import {
   type MarginReportResponse, type SaleHistoryVersionResponse,
   type ProductResponse, type SalesReportResponse, type ShiftResponse
 } from '@supermarket/shared';
-import {
-  createIdempotencyKey, formatScaledDecimal, type OperationApi, type ReportQuery
-} from '../api-client.js';
+import { formatScaledDecimal } from '../amount-input.js';
+import type { OperationApi } from '../api-client.js';
+import { createIdempotencyKey, type ReportQuery } from '../api-transport.js';
 import { productLabel, useProductCatalog } from './product-picker.js';
 import {
   ActionButton, EmptyState, Feedback, ReasonField, ScreenNote, SectionError, money, section,

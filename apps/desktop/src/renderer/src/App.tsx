@@ -24,7 +24,8 @@ import {
   type CapabilitiesResponse,
   type SessionResponse
 } from '@supermarket/shared';
-import { ApiProblemError, createDesktopApi, type DesktopApi, type OperationApi } from './api-client.js';
+import { createDesktopApi, type DesktopApi, type OperationApi } from './api-client.js';
+import { ApiProblemError } from './api-transport.js';
 import { CredentialEnrollmentPanel, MandatoryPinChange } from './screens/credential.js';
 import {
   canAdministerIdentity, canManageConfig, canManageSuppliers, canReviewSync,

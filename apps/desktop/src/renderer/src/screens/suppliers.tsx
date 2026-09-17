@@ -11,7 +11,7 @@ import {
   type SupplierStatusResponse,
   type UpdateSupplierRequest
 } from '@supermarket/shared';
-import { createIdempotencyKey } from '../api-client.js';
+import { createIdempotencyKey } from '../api-transport.js';
 import {
   ActionButton, EmptyState, Feedback, Modal, ReasonField, ScreenNote, type ScreenProps
 } from './shared.js';

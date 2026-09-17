@@ -22,7 +22,7 @@ import {
   type CashRegisterResponse,
   type OperationalMasterDataResponse
 } from '@supermarket/shared';
-import { createIdempotencyKey } from '../api-client.js';
+import { createIdempotencyKey } from '../api-transport.js';
 import {
   ActionButton, EmptyState, Feedback, ReasonField, ScreenNote, percentToBasisPoints,
   type ScreenProps

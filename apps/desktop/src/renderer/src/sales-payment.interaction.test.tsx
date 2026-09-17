@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   CashRegisterResponse, PaymentMethodResponse, SaleResponse, ShiftResponse
 } from '@supermarket/shared';
-import { type OperationApi } from './api-client.js';
+import type { OperationApi } from './api-client.js';
 import { SalesScreen } from './operation-screens.js';
 import { click, mount, settle, type } from './testing/dom.js';
 

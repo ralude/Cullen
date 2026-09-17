@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiProblemError } from './api-client.js';
+import { ApiProblemError } from './api-transport.js';
 import { Feedback, correlationOf, problemMessage } from './screens/shared.js';
 import { click, mount } from './testing/dom.js';
 

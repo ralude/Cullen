@@ -1,10 +1,6 @@
 import {
-  addSaleItemContract,
-  applySaleDiscountContract,
   capabilitiesContract,
   closeShiftContract,
-  completeSaleContract,
-  returnSaleContract,
   currentSessionContract,
   findProductByBarcodeContract,
   getAuditReportContract,
@@ -16,24 +12,18 @@ import {
   getMarginReportContract,
   getSalesReportContract,
   getShiftContract,
-  getSaleHistoryContract,
-  issueSaleInvoiceContract,
   startPurchaseReceiptContract,
   completePurchaseReceiptContract,
   reversePurchaseReceiptContract,
   getKardexContract,
   getOpenShiftContract,
-  getSaleContract,
   getSuggestedExchangeRateContract,
   openShiftContract,
   printSimulatedXReportContract,
   printSimulatedZReportContract,
   receivePurchaseContract,
   registerCashMovementContract,
-  registerSalePaymentsContract,
   registerStockAdjustmentContract,
-  removeSaleItemContract,
-  setSaleRecipientContract,
   listCashRegistersContract,
   getSyncStatusContract,
   getOperationalDiagnosticsContract,
@@ -85,24 +75,19 @@ import {
   changeOwnPinContract,
   completeCredentialEnrollmentContract,
   logoutContract,
-  startSaleContract,
   createProductContract,
   updateExchangeRateContract,
   updatePriceContract,
   getPriceHistoryContract,
-  voidSaleContract,
   type CapabilitiesResponse,
   type CloseShiftRequest,
   type ExchangeRateResponse,
   type ExchangeRateSuggestionResponse,
   type OpenShiftRequest,
   type RegisterCashMovementRequest,
-  type RegisterSalePaymentsRequest,
-  type SetSaleRecipientRequest,
   type RegisterStockAdjustmentRequest,
   type ReceivePurchaseRequest,
   type CreateProductRequest,
-  type SaleResponse,
   type ShiftResponse,
   type KardexDto,
   type AuditReportResponse,
@@ -111,25 +96,16 @@ import {
   type InventoryReportResponse,
   type MarginReportResponse,
   type SalesReportResponse,
-  type SaleHistoryVersionResponse,
   type PurchaseReceiptResponse,
   type StartPurchaseReceiptRequest,
   type CompletePurchaseReceiptRequest,
   type ReversePurchaseReceiptRequest,
   type ProductResponse,
   type PriceHistoryResponse,
-  type StartSaleRequest,
-  type AddSaleItemRequest,
-  type ApplySaleDiscountRequest,
   type UpdateExchangeRateRequest,
-  type VoidSaleRequest,
-  type ReturnSaleRequest,
-  type SaleReturnResponse,
-  type SimulatedFiscalDocumentResponse,
   type SimulatedFiscalReportRequest,
   type SimulatedFiscalReportResponse,
   type LoginRequest,
-  type ProblemDetails,
   type SessionResponse,
   type SupplierResponse,
   type SupplierStatusResponse,
@@ -188,103 +164,16 @@ import {
   type CompleteCredentialEnrollmentRequest
 } from '@supermarket/shared';
 
-export class ApiProblemError extends Error {
-  constructor(readonly problem: ProblemDetails) {
-    super(problem.title);
-    this.name = 'ApiProblemError';
-  }
-}
-
-const requestJson = async <T>(
-  fetcher: typeof fetch,
-  path: string,
-  init: RequestInit
-): Promise<T> => {
-  const response = await fetcher(path, {
-    ...init,
-    credentials: 'include',
-    headers: {
-      accept: 'application/json',
-      ...(init.body === undefined ? {} : { 'content-type': 'application/json' }),
-      ...(init.headers ?? {})
-    }
-  });
-  if (response.status === 204) return undefined as T;
-
-  const body = await response.json() as T | ProblemDetails;
-  if (!response.ok) throw new ApiProblemError(body as ProblemDetails);
-  return body as T;
-};
-
-const withIdempotency = (key: string): HeadersInit => ({ 'idempotency-key': key });
-
-export const createIdempotencyKey = (): string => {
-  const cryptoApi = globalThis.crypto as Crypto | undefined;
-  return cryptoApi?.randomUUID?.() ?? `ui-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-};
-
-export const parseMinorUnits = (value: string, scale: number): number => {
-  const normalized = value.trim().replace(',', '.');
-  if (!/^\d+(?:\.\d+)?$/.test(normalized)) throw new Error('MONEY_INPUT_INVALID');
-  const [whole, fraction = ''] = normalized.split('.');
-  if (fraction.length > scale) throw new Error('MONEY_INPUT_SCALE');
-  const padded = fraction.padEnd(scale, '0');
-  const result = Number(`${whole}${padded}`);
-  if (!Number.isSafeInteger(result)) throw new Error('MONEY_INPUT_INVALID');
-  return result;
-};
-
-export type ReportQuery = {
-  readonly from?: string; readonly to?: string; readonly limit?: number;
-  readonly cashRegisterId?: string; readonly actorId?: string;
-  readonly action?: string; readonly entityType?: string;
-  readonly currencyCode?: string;
-};
-
-export type ExchangeRateHistoryQuery = {
-  readonly baseCurrency: string; readonly quoteCurrency: string; readonly limit?: number;
-};
-
-export type ExchangeRatePairQuery = { readonly baseCurrency: string; readonly quoteCurrency: string };
-
-const search = (query: Readonly<Record<string, string | number | undefined>>): string => {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== '') params.set(key, String(value));
-  }
-  const serialized = params.toString();
-  return serialized ? '?' + serialized : '';
-};
-
-/**
- * Convierte un texto decimal a un entero escalado sin `float`, infiriendo la
- * escala de los dígitos escritos. No admite más de 8 decimales: el dominio de
- * `ExchangeRate` rechaza una escala mayor.
- */
-export const parseScaledDecimal = (value: string): { readonly value: number; readonly scale: number } => {
-  const normalized = value.trim().replace(',', '.');
-  const match = /^(\d+)(?:\.(\d{1,8}))?$/.exec(normalized);
-  if (!match) throw new Error('RATE_INPUT_INVALID');
-  const fraction = match[2] ?? '';
-  const parsed = Number(`${match[1]}${fraction}`);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new Error('RATE_INPUT_INVALID');
-  return { value: parsed, scale: fraction.length };
-};
-
-/** Formatea un entero escalado como texto decimal sin perder precisión. */
-export const formatScaledDecimal = (value: number, scale: number): string =>
-  (() => {
-    if (!Number.isSafeInteger(value) || !Number.isInteger(scale) || scale < 0) {
-      throw new Error('SCALED_DECIMAL_INVALID');
-    }
-    const sign = value < 0 ? '-' : '';
-    const digits = Math.abs(value).toString().padStart(scale + 1, '0');
-    if (scale === 0) return sign + digits;
-    return `${sign}${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
-  })();
-
-const path = (template: string, ...parts: string[]): string =>
-  parts.reduce((value, part) => value.replace(/:[A-Za-z]+/, encodeURIComponent(part)), template);
+import {
+  path,
+  requestJson,
+  search,
+  withIdempotency,
+  type ExchangeRateHistoryQuery,
+  type ExchangeRatePairQuery,
+  type ReportQuery
+} from './api-transport.js';
+import { salesOperations } from './api-sales.js';
 
 export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
   currentSession: (): Promise<SessionResponse> => requestJson(
@@ -301,52 +190,7 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
   capabilities: (): Promise<CapabilitiesResponse> => requestJson(
     fetcher, capabilitiesContract.path, { method: capabilitiesContract.method }
   ),
-  getSale: (saleId: string): Promise<SaleResponse> => requestJson(
-    fetcher, path(getSaleContract.path, saleId), { method: getSaleContract.method }
-  ),
-  startSale: (input: StartSaleRequest, idempotencyKey: string): Promise<SaleResponse> => requestJson(
-    fetcher, startSaleContract.path,
-    { method: startSaleContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
-  ),
-  addSaleItem: (saleId: string, input: AddSaleItemRequest, idempotencyKey: string): Promise<SaleResponse> => requestJson(
-    fetcher, path(addSaleItemContract.path, saleId),
-    { method: addSaleItemContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
-  ),
-  removeSaleItem: (saleId: string, itemId: string, idempotencyKey: string): Promise<SaleResponse> => requestJson(
-    fetcher, path(removeSaleItemContract.path, saleId, itemId),
-    { method: removeSaleItemContract.method, headers: withIdempotency(idempotencyKey) }
-  ),
-  applySaleDiscount: (saleId: string, input: ApplySaleDiscountRequest, idempotencyKey: string): Promise<SaleResponse> => requestJson(
-    fetcher, path(applySaleDiscountContract.path, saleId),
-    { method: applySaleDiscountContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
-  ),
-  registerSalePayments: (saleId: string, input: RegisterSalePaymentsRequest, idempotencyKey: string): Promise<SaleResponse> => requestJson(
-    fetcher, path(registerSalePaymentsContract.path, saleId),
-    { method: registerSalePaymentsContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
-  ),
-  completeSale: (saleId: string, idempotencyKey: string): Promise<SaleResponse> => requestJson(
-    fetcher, path(completeSaleContract.path, saleId),
-    { method: completeSaleContract.method, headers: withIdempotency(idempotencyKey) }
-  ),
-  issueSaleInvoice: (saleId: string, reason: string, idempotencyKey: string): Promise<SimulatedFiscalDocumentResponse> => requestJson(
-    fetcher, path(issueSaleInvoiceContract.path, saleId),
-    {
-      method: issueSaleInvoiceContract.method, headers: withIdempotency(idempotencyKey),
-      body: JSON.stringify({ reason })
-    }
-  ),
-  returnSale: (saleId: string, input: ReturnSaleRequest, idempotencyKey: string): Promise<SaleReturnResponse> => requestJson(
-    fetcher, path(returnSaleContract.path, saleId),
-    { method: returnSaleContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
-  ),
-  setSaleRecipient: (saleId: string, input: SetSaleRecipientRequest, idempotencyKey: string): Promise<SaleResponse> => requestJson(
-    fetcher, path(setSaleRecipientContract.path, saleId),
-    { method: setSaleRecipientContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
-  ),
-  voidSale: (saleId: string, input: VoidSaleRequest, idempotencyKey: string): Promise<SaleResponse> => requestJson(
-    fetcher, path(voidSaleContract.path, saleId),
-    { method: voidSaleContract.method, headers: withIdempotency(idempotencyKey), body: JSON.stringify(input) }
-  ),
+  ...salesOperations(fetcher),
   getOpenShift: (cashRegisterId: string): Promise<ShiftResponse> => requestJson(
     fetcher, path(getOpenShiftContract.path, cashRegisterId), { method: getOpenShiftContract.method }
   ),
@@ -529,12 +373,6 @@ export const createDesktopApi = (fetcher: typeof fetch = globalThis.fetch) => ({
   ),
   getShift: (shiftId: string): Promise<ShiftResponse> => requestJson(
     fetcher, path(getShiftContract.path, shiftId), { method: getShiftContract.method }
-  ),
-  getSaleHistory: (
-    saleId: string, query: { readonly limit?: number } = {}
-  ): Promise<readonly SaleHistoryVersionResponse[]> => requestJson(
-    fetcher, path(getSaleHistoryContract.path, saleId) + search(query),
-    { method: getSaleHistoryContract.method }
   ),
   startPurchaseReceipt: (input: StartPurchaseReceiptRequest, idempotencyKey: string): Promise<PurchaseReceiptResponse> => requestJson(
     fetcher, startPurchaseReceiptContract.path,

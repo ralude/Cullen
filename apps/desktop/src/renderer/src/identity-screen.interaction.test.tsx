@@ -6,7 +6,8 @@ import type {
   SessionResponse
 } from '@supermarket/shared';
 import { App } from './App.js';
-import { ApiProblemError, type DesktopApi, type OperationApi } from './api-client.js';
+import type { DesktopApi, OperationApi } from './api-client.js';
+import { ApiProblemError } from './api-transport.js';
 import { IdentityScreen } from './operation-screens.js';
 import { click, mount, settle, submit, type } from './testing/dom.js';
 

@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { ExchangeRateResponse, ExchangeRateSuggestionResponse } from '@supermarket/shared';
-import { ApiProblemError, formatScaledDecimal, type OperationApi } from './api-client.js';
+import { formatScaledDecimal } from './amount-input.js';
+import type { OperationApi } from './api-client.js';
+import { ApiProblemError } from './api-transport.js';
 import {
   ageLabel,
   confirmManualRate,

@@ -11,7 +11,8 @@ import {
   type KardexDto,
   type SupplierResponse
 } from '@supermarket/shared';
-import { createIdempotencyKey, formatScaledDecimal } from '../api-client.js';
+import { formatScaledDecimal } from '../amount-input.js';
+import { createIdempotencyKey } from '../api-transport.js';
 import { ProductPicker, productLabel, useProductCatalog } from './product-picker.js';
 import {
   ActionButton, EmptyState, Feedback, ReasonField, ScreenNote, type ScreenProps

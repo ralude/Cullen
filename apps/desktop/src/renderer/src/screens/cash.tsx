@@ -4,7 +4,8 @@ import {
   registerCashMovementContract, type CashRegisterResponse,
   type PaymentMethodResponse, type RegisterCashMovementRequest, type ShiftResponse
 } from '@supermarket/shared';
-import { ApiProblemError, createIdempotencyKey, parseMinorUnits } from '../api-client.js';
+import { parseMinorUnits } from '../amount-input.js';
+import { ApiProblemError, createIdempotencyKey } from '../api-transport.js';
 import {
   ACTIVE_CASH_REGISTER_KEY, ActionButton, EmptyState, Feedback, ReasonField, ScreenNote,
   money, readStorage, writeStorage, type ScreenProps

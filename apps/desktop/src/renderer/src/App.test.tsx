@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { ApiProblemError, type DesktopApi } from './api-client.js';
+import type { DesktopApi } from './api-client.js';
+import { ApiProblemError } from './api-transport.js';
 import {
   AppView, PRODUCT_NAME, isRouteReachable, loadInitialState, resolveRoute, shortcutHash,
   visibleNavigationGroups,

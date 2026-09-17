@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SessionResponse } from '@supermarket/shared';
 import { App } from './App.js';
-import { ApiProblemError, type DesktopApi } from './api-client.js';
+import type { DesktopApi } from './api-client.js';
+import { ApiProblemError } from './api-transport.js';
 import { click, mount, settle, submit, type } from './testing/dom.js';
 
 /**

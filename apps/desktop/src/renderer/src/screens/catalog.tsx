@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { CategoryResponse, ProductResponse, UnitOfMeasureResponse } from '@supermarket/shared';
 import { createProductContract, isPermissionGranted, updatePriceContract } from '@supermarket/shared';
-import { createIdempotencyKey, formatScaledDecimal, parseMinorUnits } from '../api-client.js';
+import { formatScaledDecimal, parseMinorUnits } from '../amount-input.js';
+import { createIdempotencyKey } from '../api-transport.js';
 import {
   ActionButton, EmptyState, Feedback, Modal, ScreenNote, money, percentToBasisPoints,
   type ScreenProps

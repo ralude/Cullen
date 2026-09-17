@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiProblemError, createDesktopApi, parseMinorUnits } from './api-client.js';
+import { parseMinorUnits } from './amount-input.js';
+import { createDesktopApi } from './api-client.js';
+import { ApiProblemError } from './api-transport.js';
 
 describe('desktop HTTP client', () => {
   it('recovers the current session with cookies and shared JSON contracts', async () => {

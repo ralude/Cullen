@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { ExchangeRateResponse, ExchangeRateSuggestionResponse } from '@supermarket/shared';
 import { isPermissionGranted, updateExchangeRateContract } from '@supermarket/shared';
-import { ApiProblemError, createIdempotencyKey, formatScaledDecimal, parseScaledDecimal, type OperationApi } from '../api-client.js';
+import { formatScaledDecimal, parseScaledDecimal } from '../amount-input.js';
+import type { OperationApi } from '../api-client.js';
+import { ApiProblemError, createIdempotencyKey } from '../api-transport.js';
 import {
   ActionButton, EmptyState, Feedback, ScreenNote, SectionError, problemMessage, section,
   type ReportSection, type ScreenProps

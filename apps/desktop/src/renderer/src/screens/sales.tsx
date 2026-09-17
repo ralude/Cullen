@@ -7,7 +7,8 @@ import {
   TaxRate, voidSaleContract,
   type SaleReturnResponse, type SimulatedFiscalDocumentResponse
 } from '@supermarket/shared';
-import { ApiProblemError, createIdempotencyKey, formatScaledDecimal, parseMinorUnits } from '../api-client.js';
+import { formatScaledDecimal, parseMinorUnits } from '../amount-input.js';
+import { ApiProblemError, createIdempotencyKey } from '../api-transport.js';
 import {
   ACTIVE_CASH_REGISTER_KEY, ACTIVE_SALE_KEY, ActionButton, EmptyState, Feedback, Modal, ScreenNote,
   clearStorage, money, readStorage, writeStorage, type ScreenProps
