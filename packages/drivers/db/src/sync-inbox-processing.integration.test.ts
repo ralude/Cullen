@@ -6,7 +6,7 @@ import { applyMigrations } from './migrations.js';
 import { SqliteCommercialProjection } from './commercial-projection.js';
 import { DrizzleAuditWriter } from './audit-writer.js';
 import { DrizzleBusinessEventStore } from './business-event-store.js';
-import { DrizzleStockItemRepository } from './repositories.js';
+import { DrizzleStockItemRepository } from './stock-item-repository.js';
 import { DrizzleAggregateAuthorityRegistry } from './sync-authority-registry.js';
 import { DrizzleSyncInboxWorkStore } from './sync-inbox-work-store.js';
 import { DrizzleSyncReceptionStore } from './sync-reception-store.js';

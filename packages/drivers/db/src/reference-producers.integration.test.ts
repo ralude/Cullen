@@ -9,7 +9,7 @@ import {
 import { openDatabase, type DatabaseHandle } from './connection.js';
 import { applyMigrations } from './migrations.js';
 import { DrizzleOutboxStore } from './outbox-store.js';
-import { DrizzleStockItemRepository } from './repositories.js';
+import { DrizzleStockItemRepository } from './stock-item-repository.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 /**

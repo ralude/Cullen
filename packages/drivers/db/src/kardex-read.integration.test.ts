@@ -21,9 +21,11 @@ import { openDatabase, type DatabaseHandle } from './connection.js';
 import { applyMigrations } from './migrations.js';
 import { DrizzleKardexReadRepository } from './kardex-read-repository.js';
 import {
-  DrizzleCategoryRepository, DrizzleProductRepository, DrizzleStockItemRepository,
+  DrizzleCategoryRepository,
+  DrizzleProductRepository,
   DrizzleUnitOfMeasureRepository
-} from './repositories.js';
+} from './catalog-repositories.js';
+import { DrizzleStockItemRepository } from './stock-item-repository.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const AT = new Date('2026-09-17T12:00:00.000Z');

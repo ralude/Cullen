@@ -10,7 +10,7 @@ import { InfrastructureError } from '@supermarket/shared';
 import { DrizzleBusinessEventStore } from './business-event-store.js';
 import { openDatabase } from './connection.js';
 import { applyMigrations } from './migrations.js';
-import { DrizzleSaleRepository } from './repositories.js';
+import { DrizzleSaleRepository } from './sale-repository.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const context = {

@@ -31,6 +31,19 @@ export const mapDatabaseError = (error: unknown): AppError => {
   );
 };
 
+/**
+ * Una lectura fuera de transacción que traduce su fallo con el mismo mapa que
+ * una escritura. No es una capa: es la contraparte de `mapDatabaseError` para el
+ * camino de consulta, y vive aquí para que cada repositorio no la repita.
+ */
+export const read = async <T>(operation: () => T): Promise<T> => {
+  try {
+    return operation();
+  } catch (error) {
+    throw mapDatabaseError(error);
+  }
+};
+
 export const requireTransaction = (sqlite: Database.Database): void => {
   if (!sqlite.inTransaction) {
     throw new InfrastructureError(

@@ -11,11 +11,8 @@ import { DrizzleBusinessEventStore } from './business-event-store.js';
 import { openDatabase } from './connection.js';
 import { applyMigrations } from './migrations.js';
 import { DrizzleOutboxStore } from './outbox-store.js';
-import {
-  DrizzleCashRegisterRepository,
-  DrizzlePaymentMethodRepository,
-  DrizzleShiftRepository
-} from './repositories.js';
+import { DrizzleCashRegisterRepository, DrizzleShiftRepository } from './cash-repositories.js';
+import { DrizzlePaymentMethodRepository } from './currency-repositories.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const context = {

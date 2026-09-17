@@ -4,7 +4,8 @@ import type { SyncEnvelopeV1 } from '@supermarket/shared';
 import { SqliteCatalogReferenceProjection } from './catalog-reference-projection.js';
 import { openDatabase, type DatabaseHandle } from './connection.js';
 import { applyMigrations } from './migrations.js';
-import { DrizzleExchangeRateRepository, DrizzleProductRepository } from './repositories.js';
+import { DrizzleProductRepository } from './catalog-repositories.js';
+import { DrizzleExchangeRateRepository } from './currency-repositories.js';
 import {
   SqliteDiscountPolicyProvider,
   SqliteFinancialTransactionTaxPolicyProvider

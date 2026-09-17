@@ -15,11 +15,13 @@ import { applyMigrations } from './migrations.js';
 import { DrizzleOutboxStore } from './outbox-store.js';
 import {
   DrizzleCategoryRepository,
-  DrizzleExchangeRateRepository,
-  DrizzlePaymentMethodRepository,
   DrizzleProductRepository,
   DrizzleUnitOfMeasureRepository
-} from './repositories.js';
+} from './catalog-repositories.js';
+import {
+  DrizzleExchangeRateRepository,
+  DrizzlePaymentMethodRepository
+} from './currency-repositories.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 import { SqliteOperationalPolicyWriter } from './operational-policy-writer.js';
 

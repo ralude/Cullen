@@ -5,10 +5,12 @@ import { applyMigrations, migrations } from './migrations.js';
 import { SqliteOperationalMasterDataStore } from './operational-master-data-store.js';
 import {
   DrizzleCategoryRepository,
-  DrizzleExchangeRateRepository,
-  DrizzlePaymentMethodRepository,
   DrizzleUnitOfMeasureRepository
-} from './repositories.js';
+} from './catalog-repositories.js';
+import {
+  DrizzleExchangeRateRepository,
+  DrizzlePaymentMethodRepository
+} from './currency-repositories.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const category = (name: string): Category =>

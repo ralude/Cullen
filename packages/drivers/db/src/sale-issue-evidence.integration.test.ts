@@ -5,7 +5,7 @@ import { openDatabase, type DatabaseHandle } from './connection.js';
 import { applyMigrations } from './migrations.js';
 import { DrizzleAuditWriter } from './audit-writer.js';
 import { DrizzleBusinessEventStore } from './business-event-store.js';
-import { DrizzleStockItemRepository } from './repositories.js';
+import { DrizzleStockItemRepository } from './stock-item-repository.js';
 import { SqliteSaleIssueEvidenceReader } from './sale-issue-evidence.js';
 import { DrizzleAggregateAuthorityRegistry } from './sync-authority-registry.js';
 import { DrizzleSyncInboxWorkStore } from './sync-inbox-work-store.js';

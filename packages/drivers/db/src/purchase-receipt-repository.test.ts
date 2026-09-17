@@ -5,7 +5,7 @@ import { openDatabase } from './connection.js';
 import { applyMigrations } from './migrations.js';
 import { DrizzlePurchaseReceiptRepository } from './purchase-receipt-repository.js';
 import { DrizzleSupplierRepository } from './supplier-repository.js';
-import { DrizzleStockItemRepository } from './repositories.js';
+import { DrizzleStockItemRepository } from './stock-item-repository.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const supplier = (): Supplier => Supplier.create({

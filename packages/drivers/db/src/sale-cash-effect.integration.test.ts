@@ -20,17 +20,18 @@ import { SqliteOpenSalesProbe } from './open-sales-probe.js';
 import { SqliteOperationalDiagnosticsReader } from './operational-diagnostics.js';
 import { DrizzleOutboxStore } from './outbox-store.js';
 import { DrizzleProductSnapshotProvider } from './product-snapshot-provider.js';
+import { DrizzleCashRegisterRepository, DrizzleShiftRepository } from './cash-repositories.js';
 import {
-  DrizzleCashRegisterRepository,
   DrizzleCategoryRepository,
-  DrizzleExchangeRateRepository,
-  DrizzlePaymentMethodRepository,
   DrizzleProductRepository,
-  DrizzleSaleRepository,
-  DrizzleShiftRepository,
-  DrizzleStockItemRepository,
   DrizzleUnitOfMeasureRepository
-} from './repositories.js';
+} from './catalog-repositories.js';
+import {
+  DrizzleExchangeRateRepository,
+  DrizzlePaymentMethodRepository
+} from './currency-repositories.js';
+import { DrizzleSaleRepository } from './sale-repository.js';
+import { DrizzleStockItemRepository } from './stock-item-repository.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 /**

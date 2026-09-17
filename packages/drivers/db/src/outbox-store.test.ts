@@ -17,7 +17,7 @@ import {
   DrizzleCategoryRepository,
   DrizzleProductRepository,
   DrizzleUnitOfMeasureRepository
-} from './repositories.js';
+} from './catalog-repositories.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const COORDINATOR = 'node-coordinator';

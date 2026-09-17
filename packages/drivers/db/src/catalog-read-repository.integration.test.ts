@@ -8,8 +8,10 @@ import { DrizzleCatalogReadRepository } from './catalog-read-repository.js';
 import { openDatabase, type DatabaseHandle } from './connection.js';
 import { applyMigrations } from './migrations.js';
 import {
-  DrizzleCategoryRepository, DrizzleProductRepository, DrizzleUnitOfMeasureRepository
-} from './repositories.js';
+  DrizzleCategoryRepository,
+  DrizzleProductRepository,
+  DrizzleUnitOfMeasureRepository
+} from './catalog-repositories.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const at = new Date('2026-09-16T12:00:00.000Z');

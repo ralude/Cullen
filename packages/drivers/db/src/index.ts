@@ -57,16 +57,20 @@ export { SqliteAuthenticationStore, SqliteAuthorizationService } from './authent
 export { SqliteIdentityAdministrationStore } from './identity-administration-store.js';
 export { SqliteOperationalDiagnosticsReader } from './operational-diagnostics.js';
 export {
-  DrizzleCashRegisterRepository,
   DrizzleCategoryRepository,
-  DrizzleExchangeRateRepository,
-  DrizzlePaymentMethodRepository,
   DrizzleProductRepository,
-  DrizzleSaleRepository,
-  DrizzleShiftRepository,
-  DrizzleStockItemRepository,
   DrizzleUnitOfMeasureRepository
-} from './repositories.js';
+} from './catalog-repositories.js';
+export {
+  DrizzleExchangeRateRepository,
+  DrizzlePaymentMethodRepository
+} from './currency-repositories.js';
+export {
+  DrizzleCashRegisterRepository,
+  DrizzleShiftRepository
+} from './cash-repositories.js';
+export { DrizzleSaleRepository } from './sale-repository.js';
+export { DrizzleStockItemRepository } from './stock-item-repository.js';
 export { SqliteSaleCostSnapshotProvider } from './sale-cost-snapshot-provider.js';
 export { SqliteCoordinatedOperationStore } from './coordinated-operation-store.js';
 export { SqliteCommercialProjection } from './commercial-projection.js';

@@ -1,7 +1,7 @@
 import type { ProductSnapshotProvider } from '@supermarket/core';
 import type { ProductSnapshot } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
-import { DrizzleProductRepository } from './repositories.js';
+import { DrizzleProductRepository } from './catalog-repositories.js';
 
 export class DrizzleProductSnapshotProvider implements ProductSnapshotProvider {
   private readonly products: DrizzleProductRepository;

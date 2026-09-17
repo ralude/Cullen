@@ -9,7 +9,7 @@ import {
 import { Money, Percentage, Quantity, TaxRate } from '@supermarket/shared';
 import { openDatabase } from './connection.js';
 import { applyMigrations } from './migrations.js';
-import { DrizzleSaleRepository } from './repositories.js';
+import { DrizzleSaleRepository } from './sale-repository.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const instant = (minute: number): Date => new Date(`2026-08-29T10:${String(minute).padStart(2, '0')}:00Z`);

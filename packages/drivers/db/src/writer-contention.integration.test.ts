@@ -20,7 +20,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Category } from '@supermarket/core';
 import { openDatabase, type DatabaseHandle } from './connection.js';
 import { applyMigrations } from './migrations.js';
-import { DrizzleCategoryRepository } from './repositories.js';
+import { DrizzleCategoryRepository } from './catalog-repositories.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 
 const directories: string[] = [];

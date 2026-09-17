@@ -12,7 +12,7 @@ import {
   type VersionedMaster
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
-import { DrizzleProductRepository } from './repositories.js';
+import { DrizzleProductRepository } from './catalog-repositories.js';
 import type { PaymentMethodKind } from '@supermarket/core';
 import { mapDatabaseError, requireTransaction } from './unit-of-work.js';
 

@@ -16,9 +16,9 @@ import { applyMigrations } from './migrations.js';
 import {
   DrizzleCategoryRepository,
   DrizzleProductRepository,
-  DrizzleStockItemRepository,
   DrizzleUnitOfMeasureRepository
-} from './repositories.js';
+} from './catalog-repositories.js';
+import { DrizzleStockItemRepository } from './stock-item-repository.js';
 import { SqliteSaleCostSnapshotProvider } from './sale-cost-snapshot-provider.js';
 import { SqliteUnitOfWork } from './unit-of-work.js';
 

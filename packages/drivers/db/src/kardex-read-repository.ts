@@ -4,15 +4,7 @@ import type {
 } from '@supermarket/core';
 import type { DatabaseHandle } from './connection.js';
 import { stockBatches, stockItems, stockMovements } from './schema.js';
-import { mapDatabaseError } from './unit-of-work.js';
-
-const read = async <T>(operation: () => T): Promise<T> => {
-  try {
-    return operation();
-  } catch (error) {
-    throw mapDatabaseError(error);
-  }
-};
+import { read } from './unit-of-work.js';
 
 /**
  * Kardex por consulta, no por agregado.
