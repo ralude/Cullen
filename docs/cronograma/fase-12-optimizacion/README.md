@@ -7,8 +7,10 @@
   —catálogo, kardex y reconstrucción del inventario con ADR-0032, más guardado sin cambio
   productivo— y su
   [campaña A/B](./12.03-evidencia-y-cierre.md) sobre estación aislada, que confirma los tres
-  primeros por dos órdenes de magnitud con los controles quietos. Sigue 12.05, la última, en ejecución desde el
-  2026-09-17 con su baseline refrescada.
+  primeros por dos órdenes de magnitud con los controles quietos. Sigue 12.05, la última, con cinco cortes entregados y
+  su [benchmark de radio de contexto](./12.05-evidencia-y-cierre.md) publicado: los seis escenarios
+  abren entre 13,7 % y 32,8 % menos superficie sin ganar un solo salto. Le faltan las sesiones
+  reales de navegación y el acotado de tipos por pantalla.
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Excepción:** 12.04 permanece suspendida con Fase 8 y no bloquea el cierre en modo simulado.
 - **Índice:** [Cronograma maestro](../README.md).
