@@ -30,6 +30,15 @@ abajo; lo que sigue abierto conserva su casilla y su motivo.
   disponible y un instalable sin firma no prueba su origen.
 - [ ] **Validar el MSI en una estación de tienda real**, con el
   [runbook de instalación](../operacion/instalacion-estacion.md).
+- [ ] **Medir en esa misma estación de tienda.** Toda la evidencia de rendimiento de la Fase 12
+  se tomó sobre un equipo de desarrollo —Ryzen 5 5500, doce hilos, NVMe— que el
+  [manifiesto](./fase-12-optimizacion/performance-manifest.json) declara apto para comparar
+  commits entre sí y explícitamente no para certificar capacidad. Una caja de supermercado tiene
+  otro procesador, otro disco y otra carga. Esta medición es una serie propia, con su línea base,
+  sus márgenes y sus límites de aceptación, **nunca una reinterpretación de los números de
+  desarrollo**; su primer trabajo es reevaluar las decisiones que 12.03 dejó condicionadas a la
+  estación en su
+  [caracterización](./fase-12-optimizacion/12.03-caracterizacion.md#qué-de-esto-vale-en-una-caja-de-tienda).
 - [x] Emitir el material TLS de LAN. `generate-lan-material` produce una autoridad interna y el
   material por nodo, verificable y aceptado por el arranque una vez sellado; la emisión inicial y
   el alta de terminales tienen [runbook](../operacion/emision-material-lan.md).
