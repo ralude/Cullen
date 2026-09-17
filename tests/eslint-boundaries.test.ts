@@ -39,3 +39,46 @@ describe('identity layer boundary', () => {
     ]));
   });
 });
+
+/**
+ * Fronteras que 12.05 introdujo al repartir los hubs. Cada corte dejó un dueño
+ * concreto —el contrato y los helpers HTTP aparte del registrador, un archivo
+ * por feature del cliente, la navegación aparte del shell— y estas pruebas
+ * comprueban las dos mitades: que la violación representativa falla y que el
+ * uso legítimo pasa. Una regla que sólo prohíbe no demuestra que deja trabajar.
+ */
+describe('composition boundaries', () => {
+  /** Una sola instancia: construir la configuración del repositorio no es barato. */
+  const eslint = new ESLint();
+  const lint = async (filePath: string, dependency: string): Promise<readonly string[]> => {
+    const [result] = await eslint.lintText(`import '${dependency}';`, { filePath });
+    return (result?.messages ?? [])
+      .filter((message) => message.ruleId === 'no-restricted-imports')
+      .map((message) => message.message);
+  };
+
+  it.each([
+    ['apps/server/src/routes/probe.ts', '../app.ts'],
+    ['apps/server/src/routes/probe.ts', '../app.js'],
+    ['apps/server/src/routes/probe.ts', '../runtime.ts'],
+    ['apps/server/src/http-context.ts', './runtime.ts'],
+    ['apps/server/src/server-dependencies.ts', './runtime.ts'],
+    ['apps/server/src/reports-composition.ts', './runtime.ts'],
+    ['apps/desktop/src/renderer/src/api-sales.ts', './api-client.js'],
+    ['apps/desktop/src/renderer/src/api-cash.ts', '@supermarket/driver-db'],
+    ['apps/desktop/src/renderer/src/navigation.ts', './App.js']
+  ])('rejects %s importing %s', async (filePath, dependency) => {
+    expect(await lint(filePath, dependency)).not.toEqual([]);
+  }, 30_000);
+
+  it.each([
+    ['apps/server/src/routes/probe.ts', '../http-context.ts'],
+    ['apps/server/src/routes/probe.ts', '../server-dependencies.ts'],
+    ['apps/server/src/reports-composition.ts', './server-dependencies.ts'],
+    ['apps/desktop/src/renderer/src/api-sales.ts', './api-transport.js'],
+    ['apps/desktop/src/renderer/src/api-sales.ts', '@supermarket/shared'],
+    ['apps/desktop/src/renderer/src/navigation.ts', './operation-screens.js']
+  ])('accepts %s importing %s', async (filePath, dependency) => {
+    expect(await lint(filePath, dependency)).toEqual([]);
+  }, 30_000);
+});
