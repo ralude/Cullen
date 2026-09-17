@@ -3,10 +3,11 @@
 - **Estado:** En ejecución. 12.01 cerrada el 2026-09-16 con línea base, márgenes, presupuestos de
   regresión y priorización de hotspots; queda pendiente que un tercero reproduzca la serie
   (CA-12.01-01). 12.02 cerrada el 2026-09-16 sin cambios productivos: la medición no encontró
-  sobrecarga en el camino renderer–nodo. 12.03 en ejecución desde el 2026-09-16: construyó el
-  instrumento de conteo de sentencias y cerró su primer corte —la lectura de catálogo dejó de
-  consultar producto por producto—; le faltan el riesgo prioritario de inventario y el resto de
-  sus escenarios. Después, 12.05.
+  sobrecarga en el camino renderer–nodo. 12.03 en ejecución desde el 2026-09-16 y detenida en su gate de
+  modelo desde el 2026-09-17: construyó el instrumento de conteo y plan, cerró el corte de
+  catálogo y cerró su [caracterización](./12.03-caracterizacion.md), que demuestra que el riesgo
+  prioritario —rehidratar inventario con historia profunda— no es un problema de SQLite y exige
+  decisión normativa antes de tocar código. Después, 12.05.
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Excepción:** 12.04 permanece suspendida con Fase 8 y no bloquea el cierre en modo simulado.
 - **Índice:** [Cronograma maestro](../README.md).
