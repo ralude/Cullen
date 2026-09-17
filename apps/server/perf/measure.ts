@@ -723,6 +723,46 @@ const historyScenarios: readonly Scenario[] = HISTORY_DEPTHS.flatMap((depth) => 
     },
     {
       /**
+       * Guardar un movimiento nuevo sobre una historia ya profunda: la otra
+       * mitad de lo que paga vender un producto con historia. Rehidratar y
+       * registrar quedan fuera del cronómetro; lo medido es el `save`.
+       */
+      id: 'stock-save-' + label,
+      run: async (place, run) => {
+        const handle = place.runtime.handle;
+        const repository = new DrizzleStockItemRepository(handle);
+        const item = await repository.findByProductId(historyProductId(depth));
+        if (item === null) throw new Error('Falta la historia de ' + label);
+        const suffix = label + '-' + run;
+        item.registerMovement({
+          id: 'movement-save-' + suffix, type: 'PURCHASE_RECEIPT',
+          quantity: Quantity.fromScaled(1, 0),
+          actorId: 'perf', reason: 'Guardado de medición',
+          referenceId: 'reference-save-' + suffix,
+          occurredAt: new Date(AT.getTime() + (depth + run + 1) * 1_000),
+          eventId: 'event-movement-save-' + suffix,
+          unitCost: Money.fromMinorUnits(800, 'USD')
+        });
+        return timed(async () => {
+          await new SqliteUnitOfWork(handle.sqlite).execute(async () => {
+            await repository.save(item);
+          });
+        });
+      },
+      /** Cada repetición dejó su movimiento: la historia creció con la serie. */
+      verify: async (place, runs) => {
+        const saved = count(
+          place, 'select count(*) from stock_movements where stock_item_id = ?',
+          'stock-history-' + label
+        );
+        if (saved !== depth + runs) {
+          throw new Error('PERF_DATASET_MISMATCH: el guardado no asentó sus movimientos.');
+        }
+        return { movements: saved };
+      }
+    },
+    {
+      /**
        * Traer las filas crudas del movimiento, sin agregado. Separa el costo
        * de la consulta del de reejecutar la historia al rehidratar.
        */

@@ -176,8 +176,9 @@
       "id": "stock-history-and-reports",
       "covers": "Escenario 5",
       "instrumented": true,
-      "measures": "Rehidratar el StockItem, traer sus filas crudas y leer su kardex con historias de 100, 1.000 y 10.000 movimientos; más report-inventory y report-sales con sus filtros y límites de filas vigentes.",
-      "guard": "Catálogo e inventario comprueban la cantidad exacta de productos del perfil, con límite 500 en inventario. report-sales sólo se admite en crecimiento, donde comprueba el resumen de las 300 ventas sembradas; habitual aún no tiene una historia comercial acordada. El período de ventas abarca 24 horas antes y después del inicio del proceso, conservado en environment.reportPeriod. El corte de inventario incluye la última fecha de historia y las ventas de preparación."
+      "measures": "Rehidratar el StockItem, guardar un movimiento nuevo sobre su historia, traer sus filas crudas y leer su kardex con historias de 100, 1.000 y 10.000 movimientos; más report-inventory y report-sales con sus filtros y límites de filas vigentes.",
+      "guard": "Catálogo e inventario comprueban la cantidad exacta de productos del perfil, con límite 500 en inventario. report-sales sólo se admite en crecimiento, donde comprueba el resumen de las 300 ventas sembradas; habitual aún no tiene una historia comercial acordada. El período de ventas abarca 24 horas antes y después del inicio del proceso, conservado en environment.reportPeriod. El corte de inventario incluye la última fecha de historia y las ventas de preparación.",
+      "saveScenario": "stock-save-* lo agregó 12.03 el 2026-09-17 para medir la otra mitad de lo que paga vender un producto con historia: el guardado. Rehidratar y registrar el movimiento quedan fuera del cronómetro; lo medido es el save dentro de su transacción. Cada repetición deja un movimiento, así que la historia crece con la serie y la verificación cuenta profundidad más repeticiones."
     },
     {
       "id": "lan-cycle",
