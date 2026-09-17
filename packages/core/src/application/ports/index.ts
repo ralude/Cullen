@@ -6,6 +6,11 @@ export type { ExchangeRateProvider } from './exchange-rate-provider.js';
 export type { CategoryRepository } from './category-repository.js';
 export type { ProductRepository } from './product-repository.js';
 export type { CatalogReadRepository } from './catalog-read-repository.js';
+export type {
+  KardexQuery,
+  KardexReadRepository,
+  KardexReadResult
+} from './kardex-read-repository.js';
 export type { UnitOfMeasureRepository } from './unit-of-measure-repository.js';
 export { permissionAlternatives } from './authorization-service.js';
 export type { AuthorizationService, RequiredPermission } from './authorization-service.js';

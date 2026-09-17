@@ -43,6 +43,7 @@ export { SqliteOperationalPolicyWriter } from './operational-policy-writer.js';
 export { SqliteOperationalMasterDataStore } from './operational-master-data-store.js';
 export { DrizzleFiscalDocumentRepository } from './fiscal-document-repository.js';
 export { DrizzleCatalogReadRepository } from './catalog-read-repository.js';
+export { DrizzleKardexReadRepository } from './kardex-read-repository.js';
 export {
   DrizzleAuditReportRepository,
   DrizzleCashClosureReportRepository,

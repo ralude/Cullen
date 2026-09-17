@@ -40,6 +40,7 @@ import {
   DrizzlePaymentMethodRepository,
   DrizzleProductRepository,
   DrizzleCatalogReadRepository,
+  DrizzleKardexReadRepository,
   DrizzleAuditReportRepository,
   DrizzleCashClosureReportRepository,
   DrizzleFiscalOperationsReportRepository,
@@ -191,6 +192,7 @@ export const createSecurityRuntime = (
   const idempotencyStore = new DrizzleIdempotencyStore(handle);
   const productRepository = new DrizzleProductRepository(handle);
   const catalogReadRepository = new DrizzleCatalogReadRepository(handle);
+  const kardexReadRepository = new DrizzleKardexReadRepository(handle);
   const categoryRepository = new DrizzleCategoryRepository(handle);
   const unitRepository = new DrizzleUnitOfMeasureRepository(handle);
   const exchangeRateRepository = new DrizzleExchangeRateRepository(handle);
@@ -554,7 +556,7 @@ export const createSecurityRuntime = (
           stockItemRepository, authorization, ids, ids, ids, clock,
           unitOfWork, eventStore, auditWriter, idempotencyStore, outboxStore
         ),
-        getKardex: new application.GetKardex(stockItemRepository, authorization)
+        getKardex: new application.GetKardex(kardexReadRepository, authorization)
       },
       stockCounts: {
         open: new application.OpenStockCount(

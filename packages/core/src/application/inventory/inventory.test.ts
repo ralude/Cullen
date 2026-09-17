@@ -10,6 +10,9 @@ import type {
   AuditWriter,
   BusinessEventStore,
   IdGenerator,
+  KardexQuery,
+  KardexReadRepository,
+  KardexReadResult,
   ProductRepository,
   StockItemRepository,
   SupplierRepository,
@@ -95,6 +98,29 @@ const eventStore = (ledger: string[]): BusinessEventStore => ({
 const auditWriter = (audit: AuditEntry[]): AuditWriter => ({
   append: async (entries) => { audit.push(...entries); }
 });
+
+/**
+ * El kardex se responde por consulta desde 12.03. La falsa devuelve siempre
+ * la misma página y registra qué se le pidió: lo que el caso de uso conserva
+ * es autorización, límite, normalización y los dos errores de lote.
+ */
+class FakeKardexReadRepository implements KardexReadRepository {
+  asked: KardexQuery | null = null;
+  tracksBatches = true;
+  async findKardex(query: KardexQuery): Promise<KardexReadResult> {
+    this.asked = query;
+    return {
+      id: 'stock-001', productId: 'product-001', unitCode: 'UNIT', quantityScale: 0,
+      tracksBatches: this.tracksBatches, balanceScaled: 2,
+      batches: [{ id: 'batch-first', lotNumber: 'FIRST', expiresAt: null }],
+      movements: [{
+        id: 'receipt-first', type: 'PURCHASE_RECEIPT', direction: 'IN', quantityScaled: 2,
+        quantityScale: 0, batchId: 'batch-first', actorId: 'user-001', reason: 'Purchase',
+        referenceId: 'receipt-002', occurredAt: new Date('2026-08-02T10:00:00.000Z')
+      }]
+    };
+  }
+}
 
 const stockedBatches = (): StockItem => {
   const item = StockItem.create({
@@ -359,14 +385,23 @@ describe('inventory application', () => {
     }]);
   });
 
-  it('queries kardex by batch, date and reason while deriving its current balance', async () => {
-    const repository = new FakeStockItemRepository(stockedBatches());
+  it('hands the kardex query to the read repository normalized', async () => {
+    const repository = new FakeKardexReadRepository();
     const result = await new GetKardex(repository, { authorize: async () => true }).execute({
-      productId: 'product-001', batchId: 'batch-first',
+      productId: 'product-001', batchId: ' batch-first ',
       from: new Date('2026-08-02T00:00:00.000Z'),
-      to: new Date('2026-08-03T00:00:00.000Z'), reason: 'purchase'
+      to: new Date('2026-08-03T00:00:00.000Z'), reason: ' Purchase '
     }, context);
 
+    /**
+     * Filtrar y paginar es trabajo de la consulta desde 12.03; aquí se fija
+     * qué recibe: límite por omisión, lote sin espacios y motivo comparable.
+     */
+    expect(repository.asked).toEqual({
+      productId: 'product-001', limit: 100, batchId: 'batch-first',
+      from: new Date('2026-08-02T00:00:00.000Z'),
+      to: new Date('2026-08-03T00:00:00.000Z'), reason: 'purchase'
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.id).toBe('stock-001');
@@ -376,35 +411,38 @@ describe('inventory application', () => {
     }]);
   });
 
+  it('keeps the batch codes the aggregate used to raise', async () => {
+    const authorize = { authorize: async () => true };
+    await expect(new GetKardex(new FakeKardexReadRepository(), authorize)
+      .execute({ productId: 'product-001', batchId: 'batch-missing' }, context))
+      .rejects.toMatchObject({ code: 'STOCK_BATCH_NOT_FOUND' });
+
+    const untracked = new FakeKardexReadRepository();
+    untracked.tracksBatches = false;
+    await expect(new GetKardex(untracked, authorize)
+      .execute({ productId: 'product-001', batchId: 'batch-first' }, context))
+      .rejects.toMatchObject({ code: 'STOCK_BATCH_NOT_TRACKED' });
+  });
+
   it('denies reading the kardex without the kardex read permission', async () => {
-    const repository = new FakeStockItemRepository(stockedBatches());
-    let repositoryTouched = false;
-    const guardedRepository = {
-      ...repository,
-      findByProductId: async (productId: string) => {
-        repositoryTouched = true;
-        return repository.findByProductId(productId);
-      }
-    } as typeof repository;
-    const result = await new GetKardex(guardedRepository, { authorize: async () => false })
+    const repository = new FakeKardexReadRepository();
+    const result = await new GetKardex(repository, { authorize: async () => false })
       .execute({ productId: 'product-001' }, context);
 
     expect(result).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
-    expect(repositoryTouched).toBe(false);
+    expect(repository.asked).toBeNull();
   });
 
-  it('limits the kardex and returns the newest matching movements first', async () => {
-    const repository = new FakeStockItemRepository(stockedBatches());
+  it('rejects a limit the read repository should never receive', async () => {
+    const repository = new FakeKardexReadRepository();
     const result = await new GetKardex(repository, { authorize: async () => true })
       .execute({ productId: 'product-001', limit: 1 }, context);
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.movements).toHaveLength(1);
-    expect(result.value.movements[0]?.occurredAt.getTime()).toBe(
-      Math.max(...(repository.stored?.movements ?? []).map((movement) => movement.occurredAt.getTime()))
-    );
+    expect(repository.asked?.limit).toBe(1);
+
     expect(await new GetKardex(repository, { authorize: async () => true })
       .execute({ productId: 'product-001', limit: 501 }, context))
       .toMatchObject({ ok: false, error: { code: 'KARDEX_LIMIT_INVALID' } });
+    expect(repository.asked?.limit).toBe(1);
   });
 });
