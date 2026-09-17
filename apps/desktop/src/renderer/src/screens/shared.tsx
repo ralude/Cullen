@@ -8,8 +8,14 @@ import { ApiProblemError } from '../api-transport.js';
  * Permisos efectivos de la sesión. El renderer solo decide qué ofrece: el
  * servidor vuelve a autorizar cada acción dentro de su caso de uso.
  */
-export type ScreenProps = {
-  readonly api: OperationApi;
+/**
+ * Una pantalla declara qué parte del cliente usa. El valor por omisión es la
+ * superficie completa —lo que recibe el enrutador—, y cada pantalla la acota a
+ * su grupo desde 12.05.04: agregar una operación a una feature no cambia el
+ * tipo que ve una pantalla ajena.
+ */
+export type ScreenProps<TApi = OperationApi> = {
+  readonly api: TApi;
   readonly capabilities: CapabilitiesResponse;
   readonly permissionCodes: readonly string[];
 };

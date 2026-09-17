@@ -28,7 +28,10 @@ export const productLabel = (
  * ahora obligaban a conocer un UUID: elegir un producto por su nombre y
  * mostrar nombres donde el nodo solo devuelve identificadores.
  */
-export const useProductCatalog = (api: OperationApi): readonly ProductResponse[] => {
+/** Sólo el listado: el selector no necesita el resto del cliente. */
+export const useProductCatalog = (
+  api: Pick<OperationApi, 'listProducts'>
+): readonly ProductResponse[] => {
   const [products, setProducts] = useState<readonly ProductResponse[]>([]);
   useEffect(() => {
     void api.listProducts().then(setProducts).catch(() => undefined);

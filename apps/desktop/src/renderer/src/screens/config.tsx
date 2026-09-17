@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { OperationApi } from '../api-client.js';
 import {
   changeBranchStatusContract,
   changeDeviceStatusContract,
@@ -49,7 +50,25 @@ export const DEVICE_TYPE_LABELS: Record<DeviceTypeResponse, string> = {
 const BRANCH_STATUS_LABELS: Record<BranchStatusResponse, string> = { ACTIVE: 'Activa', INACTIVE: 'Inactiva' };
 const DEVICE_STATUS_LABELS: Record<DeviceStatusResponse, string> = { ACTIVE: 'Activo', INACTIVE: 'Inactivo' };
 
-export const ConfigScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type ConfigScreenApi = Pick<OperationApi,
+  'activateDiscountPolicy' |
+  'activateTaxPolicy' |
+  'changeBranchStatus' |
+  'changeDeviceStatus' |
+  'createBranch' |
+  'createCashRegister' |
+  'declareDevice' |
+  'listBranches' |
+  'listCashRegisters' |
+  'listDevices' |
+  'listOperationalMasterData' |
+  'saveCategory' |
+  'savePaymentMethod' |
+  'saveUnit'
+>;
+
+export const ConfigScreen = ({ api, permissionCodes }: ScreenProps<ConfigScreenApi>): React.JSX.Element => {
   const [branches, setBranches] = useState<readonly BranchResponse[]>([]);
   const [devices, setDevices] = useState<readonly DeviceResponse[]>([]);
   const [masterData, setMasterData] = useState<OperationalMasterDataResponse>({ categories: [], units: [], paymentMethods: [] });

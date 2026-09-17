@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { OperationApi } from '../api-client.js';
 import {
   changeSupplierStatusContract,
   correctSupplierTaxIdentityContract,
@@ -113,7 +114,16 @@ const emptyCreateForm = {
   country: 'VE', value: '', reason: ''
 };
 
-export const SuppliersScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type SuppliersScreenApi = Pick<OperationApi,
+  'changeSupplierStatus' |
+  'correctSupplierTaxIdentity' |
+  'createSupplier' |
+  'listSuppliers' |
+  'updateSupplier'
+>;
+
+export const SuppliersScreen = ({ api, permissionCodes }: ScreenProps<SuppliersScreenApi>): React.JSX.Element => {
   const [suppliers, setSuppliers] = useState<readonly SupplierResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState<'' | SupplierStatusResponse>('');
   const [selected, setSelected] = useState<SupplierResponse | null>(null);

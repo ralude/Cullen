@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { OperationApi } from '../api-client.js';
 import {
   closeShiftContract, isPermissionGranted, openShiftContract,
   registerCashMovementContract, type CashRegisterResponse,
@@ -11,7 +12,17 @@ import {
   money, readStorage, writeStorage, type ScreenProps
 } from './shared.js';
 
-export const CashScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type CashScreenApi = Pick<OperationApi,
+  'closeShift' |
+  'getOpenShift' |
+  'listCashRegisters' |
+  'listPaymentMethods' |
+  'openShift' |
+  'registerCashMovement'
+>;
+
+export const CashScreen = ({ api, permissionCodes }: ScreenProps<CashScreenApi>): React.JSX.Element => {
   const [cashRegisterId, setCashRegisterId] = useState('');
   const [cashMethodCode, setCashMethodCode] = useState('');
   const [shift, setShift] = useState<ShiftResponse | null>(null);

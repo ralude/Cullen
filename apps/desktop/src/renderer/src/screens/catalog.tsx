@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { OperationApi } from '../api-client.js';
 import type { CategoryResponse, ProductResponse, UnitOfMeasureResponse } from '@supermarket/shared';
 import { createProductContract, isPermissionGranted, updatePriceContract } from '@supermarket/shared';
 import { formatScaledDecimal, parseMinorUnits } from '../amount-input.js';
@@ -11,7 +12,18 @@ import {
 /** Escala de moneda asumida para el precio, igual que el resto de la aplicación (Caja incluida). */
 const PRICE_SCALE = 2;
 
-export const CatalogScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type CatalogScreenApi = Pick<OperationApi,
+  'createProduct' |
+  'findProductByBarcode' |
+  'getPriceHistory' |
+  'listCategories' |
+  'listProducts' |
+  'listUnitsOfMeasure' |
+  'updatePrice'
+>;
+
+export const CatalogScreen = ({ api, permissionCodes }: ScreenProps<CatalogScreenApi>): React.JSX.Element => {
   const [barcode, setBarcode] = useState(''); const [product, setProduct] = useState<ProductResponse | null>(null); const [products, setProducts] = useState<readonly ProductResponse[]>([]); const [history, setHistory] = useState<readonly { id: string; priceMinorUnits: number; currencyCode: string; recordedAt: string; recordedBy: string; reason: string }[]>([]); const [price, setPrice] = useState(''); const [reason, setReason] = useState(''); const [error, setError] = useState<unknown>(null); const [notice, setNotice] = useState<string | null>(null); const [loading, setLoading] = useState(false); const [showCreate, setShowCreate] = useState(false); const [name, setName] = useState(''); const [description, setDescription] = useState(''); const [categoryId, setCategoryId] = useState(''); const [unitCode, setUnitCode] = useState(''); const [newBarcode, setNewBarcode] = useState(''); const [newPrice, setNewPrice] = useState(''); const [newCurrency, setNewCurrency] = useState('USD'); const [taxRate, setTaxRate] = useState('0');
   const [categories, setCategories] = useState<readonly CategoryResponse[]>([]);
   const [units, setUnits] = useState<readonly UnitOfMeasureResponse[]>([]);

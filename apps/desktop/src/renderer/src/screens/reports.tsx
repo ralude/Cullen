@@ -308,9 +308,24 @@ export const shiftOptionLabel = (closure: CashClosureReportResponse): string => 
     + ' · ' + closure.shiftId.slice(0, 8);
 };
 
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type ReportsScreenApi = Pick<OperationApi,
+  'getAuditReport' |
+  'getCashClosureReport' |
+  'getFiscalOperationsReport' |
+  'getInventoryReport' |
+  'getMarginReport' |
+  'getSaleHistory' |
+  'getSalesReport' |
+  'getShift' |
+  'listProducts' |
+  'printXReport' |
+  'printZReport'
+>;
+
 export const ReportsScreen = ({
   api, capabilities, permissionCodes
-}: ScreenProps): React.JSX.Element => {
+}: ScreenProps<ReportsScreenApi>): React.JSX.Element => {
   const today = localDay();
   const [filters, setFilters] = useState<ReportFilters>({
     from: today, to: today, limit: '100', cashRegisterId: ''

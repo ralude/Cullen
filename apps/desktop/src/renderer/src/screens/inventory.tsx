@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { OperationApi } from '../api-client.js';
 import {
   completePurchaseReceiptContract,
   getInventoryReportContract,
@@ -23,7 +24,19 @@ import { filterSuppliers, PurchaseReceiptPanel } from './purchase-receipt.js';
 /** El filtro vive con el panel que lo usa; la pantalla lo reexporta. */
 export { filterSuppliers };
 
-export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type InventoryScreenApi = Pick<OperationApi,
+  'completePurchaseReceipt' |
+  'getInventoryReport' |
+  'getKardex' |
+  'listProducts' |
+  'listSuppliers' |
+  'receivePurchase' |
+  'registerStockAdjustment' |
+  'startPurchaseReceipt'
+>;
+
+export const InventoryScreen = ({ api, permissionCodes }: ScreenProps<InventoryScreenApi>): React.JSX.Element => {
   const [productId, setProductId] = useState('');
   const [consultedProductId, setConsultedProductId] = useState('');
   const [kardex, setKardex] = useState<KardexDto | null>(null);

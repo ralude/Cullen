@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { OperationApi } from '../api-client.js';
 import type {
   CashRegisterResponse, PaymentMethodResponse, ProductResponse, SaleResponse, ShiftResponse
 } from '@supermarket/shared';
@@ -130,7 +131,27 @@ export const activeShiftLabel = (
   return (registerName ?? 'Caja') + ' · turno abierto ' + time;
 };
 
-export const SalesScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type SalesScreenApi = Pick<OperationApi,
+  'addSaleItem' |
+  'applySaleDiscount' |
+  'completeSale' |
+  'findProductByBarcode' |
+  'getOpenShift' |
+  'getSale' |
+  'issueSaleInvoice' |
+  'listCashRegisters' |
+  'listPaymentMethods' |
+  'listProducts' |
+  'registerSalePayments' |
+  'removeSaleItem' |
+  'returnSale' |
+  'setSaleRecipient' |
+  'startSale' |
+  'voidSale'
+>;
+
+export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi>): React.JSX.Element => {
   const [sale, setSale] = useState<SaleResponse | null>(null);
   const [shift, setShift] = useState<ShiftResponse | null>(null);
   const [cashRegister, setCashRegister] = useState<CashRegisterResponse | null>(null);

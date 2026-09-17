@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { OperationApi } from '../api-client.js';
 import {
   approveStockCountContract,
   isPermissionGranted,
@@ -39,7 +40,18 @@ export const STOCK_COUNT_STATUS_LABELS: Record<StockCountStatusResponse, string>
 
 const scaled = formatScaledDecimal;
 
-export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type StockCountsScreenApi = Pick<OperationApi,
+  'approveStockCount' |
+  'closeStockCount' |
+  'listProducts' |
+  'listStockCounts' |
+  'openStockCount' |
+  'recordStockCountLine' |
+  'rejectStockCount'
+>;
+
+export const StockCountsScreen = ({ api, permissionCodes }: ScreenProps<StockCountsScreenApi>): React.JSX.Element => {
   const [counts, setCounts] = useState<readonly StockCountResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState<'' | StockCountStatusResponse>('');
   const [selected, setSelected] = useState<StockCountResponse | null>(null);

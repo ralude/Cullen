@@ -99,7 +99,15 @@ const suggestionErrorLabel = (error: unknown): string => {
   return problemMessage(error);
 };
 
-export const CurrencyScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type CurrencyScreenApi = Pick<OperationApi,
+  'getCurrentExchangeRate' |
+  'getExchangeRateHistory' |
+  'getSuggestedExchangeRate' |
+  'updateExchangeRate'
+>;
+
+export const CurrencyScreen = ({ api, permissionCodes }: ScreenProps<CurrencyScreenApi>): React.JSX.Element => {
   const [baseCurrency, setBaseCurrency] = useState('USD'); const [quoteCurrency, setQuoteCurrency] = useState('VES'); const [historyLimit, setHistoryLimit] = useState('50'); const [reads, setReads] = useState<CurrencyPairReads | null>(null); const [suggestion, setSuggestion] = useState<ReportSection<ExchangeRateSuggestionResponse> | null>(null); const [manual, setManual] = useState<ManualRateForm>(EMPTY_MANUAL_FORM); const [error, setError] = useState<unknown>(null); const [notice, setNotice] = useState<string | null>(null); const [loading, setLoading] = useState(false);
   const dismissFeedback = (): void => { setError(null); setNotice(null); };
   const pair = (): CurrencyPairQuery => ({ baseCurrency: baseCurrency.trim().toUpperCase(), quoteCurrency: quoteCurrency.trim().toUpperCase() });

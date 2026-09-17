@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { OperationApi } from '../api-client.js';
 import {
   authorizeCredentialEnrollmentContract,
   createOperatorContract,
@@ -80,7 +81,21 @@ const EMPTY_DIRECTORY: IdentityDirectoryResponse = {
 const emptyOperatorForm = { operatorCode: '', displayName: '', reason: '' };
 const emptyRoleForm = { code: '', name: '', reason: '' };
 
-export const IdentityScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type IdentityScreenApi = Pick<OperationApi,
+  'assignOperatorRoles' |
+  'authorizeCredentialEnrollment' |
+  'changeOperatorStatus' |
+  'changeRoleStatus' |
+  'createOperator' |
+  'createRole' |
+  'expireOperatorCredential' |
+  'getIdentityDirectory' |
+  'updateOperator' |
+  'updateRolePermissions'
+>;
+
+export const IdentityScreen = ({ api, permissionCodes }: ScreenProps<IdentityScreenApi>): React.JSX.Element => {
   const [directory, setDirectory] = useState<IdentityDirectoryResponse>(EMPTY_DIRECTORY);
   const [selectedOperator, setSelectedOperator] = useState<IdentityOperatorResponse | null>(null);
   const [selectedRole, setSelectedRole] = useState<IdentityRoleResponse | null>(null);

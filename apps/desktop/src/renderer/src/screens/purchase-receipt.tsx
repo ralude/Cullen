@@ -32,7 +32,7 @@ export const filterSuppliers = (
 };
 
 type PurchaseReceiptPanelProps = {
-  readonly api: OperationApi;
+  readonly api: Pick<OperationApi, 'receivePurchase' | 'startPurchaseReceipt' | 'completePurchaseReceipt'>;
   readonly productId: string;
   readonly productLabel: string;
   readonly unitCode: string | null;

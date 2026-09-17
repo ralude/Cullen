@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { OperationApi } from '../api-client.js';
 import {
   getSyncStatusContract,
   isPermissionGranted,
@@ -151,7 +152,15 @@ export const referenceRows = (
   note: 'Informativa: no reserva existencias ni bloquea una venta offline.'
 }];
 
-export const SyncScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
+/** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
+type SyncScreenApi = Pick<OperationApi,
+  'getOperationalDiagnostics' |
+  'getSyncStatus' |
+  'listCoordinatedOperations' |
+  'listSyncNodes'
+>;
+
+export const SyncScreen = ({ api, permissionCodes }: ScreenProps<SyncScreenApi>): React.JSX.Element => {
   const [nodes, setNodes] = useState<readonly SyncNodeResponse[]>([]);
   const [destination, setDestination] = useState('');
   const [status, setStatus] = useState<SyncDestinationStatusResponse | null>(null);
