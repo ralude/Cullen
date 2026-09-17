@@ -19,7 +19,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
 | 11 | ~~[Seguridad](./fase-11-seguridad/README.md)~~ | Entregada el 2026-09-08; la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió sus trece hallazgos. El gate de tienda conserva sus requisitos propios, sin bloquear el release open source |
-| 12 | [Optimización](./fase-12-optimizacion/README.md) | En ejecución: 12.01 y 12.02 cerradas el 2026-09-16 —línea base y márgenes la primera, sin cambios productivos la segunda—; sigue 12.03 → 12.05; 12.04 suspendida con Fase 8 |
+| 12 | [Optimización](./fase-12-optimizacion/README.md) | En ejecución: 12.01 y 12.02 cerradas el 2026-09-16 —línea base y márgenes la primera, sin cambios productivos la segunda—; 12.03 en curso desde el 2026-09-16 con el instrumento de conteo de sentencias y su primer corte de catálogo; después 12.05; 12.04 suspendida con Fase 8 |
 | 12B | [Manual de usuario no técnico](./fase-12b-manual-usuario/README.md) | Planificada el 2026-09-09 después de `v0.1.0`; fase documental, no bloquea ni depende de Fase 12 |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
@@ -45,7 +45,8 @@ README, además de contribución, seguridad y notas de versión.
 [V0.1.04](./release-v0.1-portafolio/4-publicacion.md) etiquetó `v0.1.0` y lo verificó clonando
 desde el tag.
 
-**Hito actual:** [Fase 12](./fase-12-optimizacion/README.md), habilitada por ese release.
+**Hito actual:** [Fase 12](./fase-12-optimizacion/README.md), habilitada por ese release, en su
+[sub-fase 12.03](./fase-12-optimizacion/12.03-sqlite.md).
 
 Durante la ventana de publicación se corrigió la base del IGTF en pagos mixtos, que era
 recursiva y dejaba el cobro con dos métodos sin ningún importe deducible
