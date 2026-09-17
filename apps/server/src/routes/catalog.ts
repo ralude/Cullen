@@ -12,12 +12,8 @@ import {
   type UpdatePriceRequest,
   type UpdateProductRequest
 } from '@supermarket/shared';
-import {
-  createExecutionContext,
-  requirePrincipal,
-  sendProblem,
-  type ServerDependencies
-} from '../app.ts';
+import { createExecutionContext, requirePrincipal, sendProblem } from '../http-context.ts';
+import type { ServerDependencies } from '../server-dependencies.ts';
 
 const sendResult = (
   result: Awaited<ReturnType<ServerDependencies['catalog']['createProduct']['execute']>>,

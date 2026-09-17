@@ -41,12 +41,6 @@ import {
   DrizzleProductRepository,
   DrizzleCatalogReadRepository,
   DrizzleKardexReadRepository,
-  DrizzleAuditReportRepository,
-  DrizzleCashClosureReportRepository,
-  DrizzleFiscalOperationsReportRepository,
-  DrizzleInventoryReportRepository,
-  DrizzleMarginReportRepository,
-  DrizzleSalesReportRepository,
   DrizzleProductSnapshotProvider,
   DrizzleSaleRepository,
   DrizzleShiftRepository,
@@ -86,7 +80,8 @@ import {
   UuidV7Generator,
   type NodeIdentity
 } from '@supermarket/driver-security';
-import type { ServerDependencies } from './app.ts';
+import type { ServerDependencies } from './server-dependencies.ts';
+import { composeReports } from './reports-composition.ts';
 import { ObservedCoordinatorLink } from './sync/coordinator-link.ts';
 
 export const ADMIN_PERMISSIONS = Object.freeze([
@@ -679,26 +674,7 @@ export const createSecurityRuntime = (
           clock, unitOfWork, eventStore, outboxStore, auditWriter
         )
       },
-      reports: {
-        getCashClosureReport: new application.GetCashClosureReport(
-          new DrizzleCashClosureReportRepository(handle), authorization
-        ),
-        getAuditReport: new application.GetAuditReport(
-          new DrizzleAuditReportRepository(handle), authorization
-        ),
-        getFiscalOperationsReport: new application.GetFiscalOperationsReport(
-          new DrizzleFiscalOperationsReportRepository(handle), authorization
-        ),
-        getMarginReport: new application.GetMarginReport(
-          new DrizzleMarginReportRepository(handle), authorization
-        ),
-        getSalesReport: new application.GetSalesReport(
-          new DrizzleSalesReportRepository(handle), authorization
-        ),
-        getInventoryReport: new application.GetInventoryReport(
-          new DrizzleInventoryReportRepository(handle), authorization
-        )
-      },
+      reports: composeReports(handle, authorization),
       sync: {
         registerNode: new application.RegisterSyncNode(
           syncNodeRegistry, authorization, clock, unitOfWork, ids, auditWriter

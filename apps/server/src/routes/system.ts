@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifySchema } from 'fastify';
 import { capabilitiesContract, type CapabilitiesResponse } from '@supermarket/shared';
-import { requirePrincipal, type ServerDependencies } from '../app.ts';
+import { requirePrincipal } from '../http-context.ts';
+import type { ServerDependencies } from '../server-dependencies.ts';
 
 export const registerSystemRoutes = (app: FastifyInstance, dependencies: ServerDependencies): void => {
   app.get(capabilitiesContract.path, {

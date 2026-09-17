@@ -22,12 +22,8 @@ import {
   type UpdateRolePermissionsRequest
 } from '@supermarket/shared';
 import type { AppError, Result } from '@supermarket/shared';
-import {
-  createExecutionContext,
-  requirePrincipal,
-  sendProblem,
-  type ServerDependencies
-} from '../app.ts';
+import { createExecutionContext, requirePrincipal, sendProblem } from '../http-context.ts';
+import type { ServerDependencies } from '../server-dependencies.ts';
 
 /**
  * Rutas de administración de identidad. Autentican, validan y adaptan; la

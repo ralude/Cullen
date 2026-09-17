@@ -6,12 +6,8 @@ import {
   type ReceivePurchaseRequest,
   type RegisterStockAdjustmentRequest
 } from '@supermarket/shared';
-import {
-  createExecutionContext,
-  requirePrincipal,
-  sendProblem,
-  type ServerDependencies
-} from '../app.ts';
+import { createExecutionContext, requirePrincipal, sendProblem } from '../http-context.ts';
+import type { ServerDependencies } from '../server-dependencies.ts';
 
 const stockResponse = <T extends { movements: readonly { occurredAt: Date }[]; batches?: readonly { expiresAt: Date | null }[] }>(value: T) => ({
   ...value,
