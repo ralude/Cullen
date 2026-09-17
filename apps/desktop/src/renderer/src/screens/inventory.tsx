@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   completePurchaseReceiptContract,
   getInventoryReportContract,
@@ -18,19 +18,10 @@ import {
   ActionButton, EmptyState, Feedback, ReasonField, ScreenNote, type ScreenProps
 } from './shared.js';
 
-export const filterSuppliers = (
-  suppliers: readonly SupplierResponse[],
-  query: string
-): readonly SupplierResponse[] => {
-  const normalized = query.trim().toLocaleUpperCase('es-VE');
-  if (!normalized) return suppliers;
-  return suppliers.filter((supplier) => [
-    supplier.code,
-    supplier.legalName,
-    supplier.tradeName ?? '',
-    supplier.taxIdentity.normalizedValue
-  ].some((value) => value.toLocaleUpperCase('es-VE').includes(normalized)));
-};
+import { filterSuppliers, PurchaseReceiptPanel } from './purchase-receipt.js';
+
+/** El filtro vive con el panel que lo usa; la pantalla lo reexporta. */
+export { filterSuppliers };
 
 export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JSX.Element => {
   const [productId, setProductId] = useState('');
@@ -50,30 +41,14 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
    * quedado al lado. Una recepción completada es inmutable y lleva efectos de
    * costo: su motivo queda en la auditoría tal como se envió.
    */
-  const [receiptReason, setReceiptReason] = useState('');
-  const [documentReason, setDocumentReason] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [referenceId, setReferenceId] = useState('');
   const [suppliers, setSuppliers] = useState<readonly SupplierResponse[]>([]);
-  const [supplierQuery, setSupplierQuery] = useState('');
-  const [supplierId, setSupplierId] = useState('');
-  const [receiptId, setReceiptId] = useState('');
-  const [receiveQuantity, setReceiveQuantity] = useState('');
-  const [lotNumber, setLotNumber] = useState('');
-  const [lotExpiresAt, setLotExpiresAt] = useState('');
-  const [documentType, setDocumentType] = useState<'INVOICE' | 'DELIVERY_NOTE'>('INVOICE');
-  const [documentNumber, setDocumentNumber] = useState('');
-  const [unitCostMinorUnits, setUnitCostMinorUnits] = useState('');
-  const [purchaseCurrency, setPurchaseCurrency] = useState('USD');
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState<readonly InventoryReportResponse[] | null>(null);
   const products = useProductCatalog(api);
-  const visibleSuppliers = useMemo(
-    () => filterSuppliers(suppliers, supplierQuery),
-    [suppliers, supplierQuery]
-  );
   const canReceive = isPermissionGranted(receivePurchaseContract.permission, permissionCodes);
   const canReceiveDocumented = isPermissionGranted(startPurchaseReceiptContract.permission, permissionCodes)
     && isPermissionGranted(completePurchaseReceiptContract.permission, permissionCodes);
@@ -90,6 +65,22 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
   }, [api, permissionCodes]);
 
   const dismissFeedback = (): void => { setError(null); setNotice(null); };
+
+  /**
+   * Lo que toda recepción comparte con la pantalla: marcar ocupado, limpiar el
+   * error anterior, refrescar el kardex del artículo consultado y publicar su
+   * aviso en el mismo feedback que usan la consulta y los ajustes.
+   */
+  const submitReceipt = async (run: () => Promise<void>, notice: string): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await run();
+      setKardex(await api.getKardex(consultedProductId));
+      setNotice(notice);
+    } catch (nextError) { setError(nextError); }
+    finally { setLoading(false); }
+  };
 
   /**
    * Un producto sin kardex todavía puede recibirse: el nodo crea el artículo
@@ -139,69 +130,6 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
         reason: adjustmentReason.trim(), referenceId: referenceId.trim()
       }, createIdempotencyKey()));
       setNotice('Movimiento de inventario registrado.');
-    } catch (nextError) { setError(nextError); }
-    finally { setLoading(false); }
-  };
-
-  /**
-   * La recepción solo declara negocio. El artículo de inventario, su unidad,
-   * su escala y si maneja lotes los resuelve el nodo desde el catálogo.
-   */
-  const receive = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    if (!consultedProductId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await api.receivePurchase({
-        productId: consultedProductId, quantity: receiveQuantity.trim(), supplierId,
-        receiptId: receiptId.trim(), reason: receiptReason.trim(),
-        ...(lotNumber.trim() ? {
-          lot: {
-            lotNumber: lotNumber.trim(),
-            ...(lotExpiresAt ? { expiresAt: new Date(lotExpiresAt).toISOString() } : {})
-          }
-        } : {})
-      }, createIdempotencyKey());
-      setKardex(await api.getKardex(consultedProductId));
-      setNotice('Recepción registrada.');
-    } catch (nextError) { setError(nextError); }
-    finally { setLoading(false); }
-  };
-
-  /**
-   * Recepción documentada (9B.04): crea el borrador con su documento de origen
-   * y su costo, y lo completa en un segundo comando explícito. El promedio
-   * ponderado y la valoración los calcula el caso de uso, no esta pantalla.
-   */
-  const receiveWithDocument = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    if (!consultedProductId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const draft = await api.startPurchaseReceipt({
-        supplierId,
-        sourceDocument: { type: documentType, number: documentNumber.trim() },
-        effectiveAt: new Date().toISOString(),
-        reason: documentReason.trim(),
-        lines: [{
-          productId: consultedProductId, quantity: receiveQuantity.trim(),
-          purchaseUnitCostMinorUnits: Number(unitCostMinorUnits),
-          purchaseCurrency: purchaseCurrency.trim().toUpperCase(),
-          ...(lotNumber.trim() ? {
-            lot: {
-              lotNumber: lotNumber.trim(),
-              ...(lotExpiresAt ? { expiresAt: new Date(lotExpiresAt).toISOString() } : {})
-            }
-          } : {})
-        }]
-      }, createIdempotencyKey());
-      await api.completePurchaseReceipt(
-        draft.id, { reason: documentReason.trim() }, createIdempotencyKey()
-      );
-      setKardex(await api.getKardex(consultedProductId));
-      setNotice('Recepción documentada completada con su costo.');
     } catch (nextError) { setError(nextError); }
     finally { setLoading(false); }
   };
@@ -296,81 +224,17 @@ export const InventoryScreen = ({ api, permissionCodes }: ScreenProps): React.JS
             </section>
           )}
           {(canReceive || canReceiveDocumented || (kardex && canAdjust)) && <section className="panel">
-            {canReceive && <>
-            <h3>Registrar compra</h3>
-            <form className="stack-form" onSubmit={receive}>
-              <p className="muted">
-                Recepción de <strong>{productLabel(products, consultedProductId)}</strong>
-                {kardex ? ` (${kardex.unitCode})` : ''}. La unidad, la escala y el artículo los
-                resuelve el nodo desde el catálogo.
-              </p>
-              <label>Buscar proveedor
-                <input value={supplierQuery} onChange={(event) => setSupplierQuery(event.target.value)}
-                  placeholder="Código, nombre o RIF" />
-              </label>
-              <label>Proveedor
-                <select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required>
-                  <option value="">Selecciona un proveedor activo</option>
-                  {visibleSuppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.code} — {supplier.tradeName ?? supplier.legalName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>Recibo<input value={receiptId} onChange={(event) => setReceiptId(event.target.value)} required /></label>
-              <label>Cantidad<input inputMode="decimal" pattern="\d+([.,]\d+)?" placeholder="0,000" value={receiveQuantity} onChange={(event) => setReceiveQuantity(event.target.value)} required /></label>
-              <label>Lote (opcional)<input value={lotNumber} onChange={(event) => setLotNumber(event.target.value)} /></label>
-              <label>Vencimiento<input type="date" value={lotExpiresAt} onChange={(event) => setLotExpiresAt(event.target.value)} /></label>
-              <ReasonField
-                value={receiptReason}
-                onChange={setReceiptReason}
-                suggestions={['Compra a proveedor', 'Reposición de existencia', 'Canje por producto dañado']}
-              />
-              <ActionButton className="primary-button" type="submit" busy={loading}
-                disabled={loading}>
-                {loading ? 'Registrando…' : 'Registrar recepción'}
-              </ActionButton>
-            </form>
-            </>}
-            {canReceiveDocumented && <>
-            <h3>Compra con documento y costo</h3>
-            <form className="stack-form" onSubmit={receiveWithDocument}>
-              <p className="muted">
-                Usa el proveedor, la cantidad, el lote y el motivo capturados arriba. El costo
-                unitario viaja en unidades menores enteras y el nodo calcula la valoración y el
-                promedio ponderado.
-              </p>
-              <label>Documento de origen
-                <select value={documentType}
-                  onChange={(event) => setDocumentType(event.target.value as typeof documentType)}>
-                  <option value="INVOICE">Factura</option>
-                  <option value="DELIVERY_NOTE">Guía de despacho</option>
-                </select>
-              </label>
-              <label>Número del documento
-                <input value={documentNumber} onChange={(event) => setDocumentNumber(event.target.value)} />
-              </label>
-              <label>Costo unitario (unidades menores)
-                <input type="number" min="0" value={unitCostMinorUnits}
-                  onChange={(event) => setUnitCostMinorUnits(event.target.value)} />
-              </label>
-              <label>Moneda de compra
-                <input value={purchaseCurrency} maxLength={3}
-                  onChange={(event) => setPurchaseCurrency(event.target.value)} />
-              </label>
-              <ReasonField
-                value={documentReason}
-                onChange={setDocumentReason}
-                suggestions={['Compra con factura', 'Compra con guía de despacho', 'Reposición documentada']}
-              />
-              <ActionButton className="primary-button" type="submit" busy={loading}
-                disabled={loading || !documentNumber.trim() || !unitCostMinorUnits.trim()
-                  || !documentReason.trim()}>
-                {loading ? 'Registrando…' : 'Completar recepción documentada'}
-              </ActionButton>
-            </form>
-            </>}
+            <PurchaseReceiptPanel
+              api={api}
+              productId={consultedProductId}
+              productLabel={productLabel(products, consultedProductId)}
+              unitCode={kardex?.unitCode ?? null}
+              suppliers={suppliers}
+              canReceive={canReceive}
+              canReceiveDocumented={canReceiveDocumented}
+              busy={loading}
+              onSubmit={submitReceipt}
+            />
             {kardex && canAdjust && (
             <>
             <h3>Ajustar existencia</h3>
