@@ -9,8 +9,8 @@
   [campaña A/B](./12.03-evidencia-y-cierre.md) sobre estación aislada, que confirma los tres
   primeros por dos órdenes de magnitud con los controles quietos. Sigue 12.05, la última, con cinco cortes entregados y
   su [benchmark de radio de contexto](./12.05-evidencia-y-cierre.md) publicado: los seis escenarios
-  abren entre 13,7 % y 32,8 % menos superficie sin ganar un solo salto. Le faltan las sesiones
-  reales de navegación y el acotado de tipos por pantalla.
+  abren entre 13,7 % y 32,8 % menos superficie sin ganar un solo salto. Le falta un solo punto: las sesiones reales de
+  navegación, que no las puede correr quien hizo los cortes.
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Excepción:** 12.04 permanece suspendida con Fase 8 y no bloquea el cierre en modo simulado.
 - **Índice:** [Cronograma maestro](../README.md).
@@ -86,15 +86,35 @@ capacidad de piloto o producción.
 
 ## Gate de salida en modo fiscal simulado
 
+Revisado el 2026-09-17 sobre `ded0fba`. **Tres puntos cumplidos, tres abiertos**, y los tres
+abiertos están abiertos por razones distintas.
+
 - [ ] 12.01, 12.02, 12.03 y 12.05 están cerradas con evidencia reproducible.
-- [ ] Cada cambio conservado cumple su presupuesto y no introduce regresiones funcionales,
+  12.02 y 12.03 sí. **12.01 espera que un tercero reproduzca su serie** (CA-12.01-01) y **12.05,
+  las sesiones reales de navegación**: ninguno lo puede cerrar quien hizo el trabajo, por
+  definición en el primer caso y por honestidad de la medición en el segundo.
+- [x] Cada cambio conservado cumple su presupuesto y no introduce regresiones funcionales,
   arquitectónicas, de seguridad ni de recuperación.
-- [ ] Los hotspots que no se modificaron tienen decisión explícita y no quedan como promesa
+  Los tres cortes de 12.03 superan su margen por dos órdenes de magnitud con los controles
+  quietos ([campaña A/B](./12.03-evidencia-y-cierre.md)); los seis de 12.05 no cambian
+  comportamiento y sus fronteras quedaron protegidas con fixtures negativos y positivos.
+- [x] Los hotspots que no se modificaron tienen decisión explícita y no quedan como promesa
   implícita.
+  Identidad por petición, reportes, recorrido de `product_barcodes`, borrado de hijos de la venta
+  y el guardado sobre historia profunda, cada uno con su razón medida; los diez grupos del runtime
+  que no se extrajeron, con su tabla de acoplamiento; y los reportes de la UI, sin corte por
+  decisión.
 - [ ] Lint, typecheck, suite completa, builds y pruebas focalizadas aplicables están verdes.
-- [ ] Cronograma, alcance y evidencia identifican los commits medidos y distinguen el cierre
+  `pnpm typecheck` y `pnpm build:artifacts` en verde. La suite marca **1.357 de 1.358**: el único
+  fallo es [D-006](../defectos-conocidos.md), la prueba del gate de aislamiento del arnés, que
+  falla precisamente cuando la estación está libre. `pnpm lint` falla con 128 errores que salen
+  **todos** de `.agents/skills/security-audit/`, archivos sin seguimiento y ajenos al proyecto;
+  sobre el árbol versionado el lint está limpio. Ninguno de los dos es una regresión de esta fase,
+  y ninguno se marca verde mientras el comando no lo esté.
+- [x] Cronograma, alcance y evidencia identifican los commits medidos y distinguen el cierre
   simulado de 12.04 suspendida.
 - [ ] El cronograma habilita Fase 13 únicamente después de verificar este gate.
+  No se habilita: quedan los tres puntos de arriba.
 
 Al reanudar Fase 8, 12.04 adquiere su propio cierre por perfil fiscal y no reinterpreta las
 mediciones simuladas como evidencia de hardware.
