@@ -29,8 +29,10 @@ Lee [`docs/architecture/06-casos-de-uso.md`](../../docs/architecture/06-casos-de
 
 ## Flujo habitual
 
-- Declara dependencias en `ServerDependencies`; `src/runtime.ts` construye adaptadores/casos de uso
-  y `src/app.ts` registra rutas. Evita singletons ocultos y composición dentro de handlers.
+- Declara dependencias en `ServerDependencies`, que vive en `src/server-dependencies.ts`;
+  `src/runtime.ts` construye adaptadores y casos de uso, y `src/app.ts` registra rutas. Una ruta
+  usa el contrato y los helpers de `src/http-context.ts`, nunca el registrador ni el runtime.
+  Evita singletons ocultos y composición dentro de handlers.
 - HTTP devuelve contratos de `@supermarket/shared`; traduce `AppError` a respuestas seguras sin
   stack. La identidad/autorización viene de aplicación y del contexto autenticado.
 - Mantén un único proceso propietario de cada SQLite y cierre ordenado de servidor, workers,

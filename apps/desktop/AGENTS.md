@@ -9,7 +9,9 @@ estado y envía comandos a la API local; no implementa negocio ni persistencia.
 
 - `main` y `preload` pueden usar Electron/Node para capacidades nativas estrictamente necesarias.
 - El renderer usa React y los contratos serializables/exportados por `@supermarket/shared`.
-- `src/renderer/src/api-client.ts` es la frontera HTTP del renderer con Fastify local.
+- La frontera HTTP del renderer con Fastify local son `src/renderer/src/api-transport.ts` —la
+  petición, su sesión, su error y sus rutas— y un archivo por feature, `api-<feature>.ts`, con
+  sus operaciones. `api-client.ts` sólo las reúne.
 
 ## Dependencias prohibidas
 
@@ -32,8 +34,8 @@ su especificación y criterio de aceptación, no copies reglas desde el backend.
 
 ## Flujo habitual
 
-- Añade o cambia primero el contrato compartido/backend; adapta `src/renderer/src/api-client.ts` y
-  después la UI.
+- Añade o cambia primero el contrato compartido/backend; adapta el `api-<feature>.ts` que le
+  corresponda y después la UI. Una pantalla declara con `ScreenProps<...>` qué operaciones usa.
 - Mantén `contextIsolation: true`, `nodeIntegration: false` y `sandbox: true` salvo ADR explícito.
 - Traduce códigos de error estables a mensajes en español y representa estados pendientes,
   desconocidos o vencidos sin presentarlos como éxito.
