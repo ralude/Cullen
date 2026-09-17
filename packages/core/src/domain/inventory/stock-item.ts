@@ -24,6 +24,17 @@ export class StockItem {
   private readonly currentMovements: StockMovement[] = [];
   private readonly events: StockMovementRegisteredEvent[] = [];
   private currentValuationCurrency: string | null;
+  /**
+   * Lo que cada movimiento necesita saber de todos los anteriores, mantenido
+   * al agregarlo en vez de recalculado recorriéndolos ([ADR-0032]).
+   * Reconstruir una historia deja de costar el cuadrado de su tamaño; las
+   * comprobaciones y sus códigos de error son los mismos.
+   */
+  private readonly movementsById = new Map<string, StockMovement>();
+  private readonly movementEventIds = new Set<string>();
+  private readonly costCurrencies = new Set<string>();
+  private balanceScaled = 0;
+  private readonly batchBalancesScaled = new Map<string, number>();
 
   private constructor(
     readonly id: string,
@@ -173,7 +184,7 @@ export class StockItem {
   }
 
   private appendMovement(props: StockMovementProps, inferOperationalCost: boolean): StockMovement {
-    const existing = this.currentMovements.find((movement) => movement.id === props.id.trim());
+    const existing = this.movementsById.get(props.id.trim());
     if (existing?.type === 'SALE_ISSUE' && props.type === 'SALE_ISSUE') {
       if (existing.matches(props)) return existing;
       throw new DomainError('STOCK_SALE_ISSUE_CONFLICT', 'Sale stock issue conflicts with another movement.');
@@ -181,7 +192,7 @@ export class StockItem {
     if (existing) {
       throw new DomainError('STOCK_MOVEMENT_DUPLICATE', 'Stock movement already exists.');
     }
-    if (this.currentMovements.some((movement) => movement.eventId === props.eventId.trim())) {
+    if (this.movementEventIds.has(props.eventId.trim())) {
       throw new DomainError(
         'STOCK_MOVEMENT_EVENT_DUPLICATE',
         'Stock movement event already exists.'
@@ -190,9 +201,7 @@ export class StockItem {
     let valuationCurrency = this.currentValuationCurrency;
     const providedCost = props.unitCost ?? null;
     if (providedCost !== null) {
-      const historicCurrencies = new Set(
-        this.currentMovements.flatMap(({ unitCost }) => unitCost === null ? [] : [unitCost.currency])
-      );
+      const historicCurrencies = this.costCurrencies;
       if (valuationCurrency === null && historicCurrencies.size > 1) {
         throw new DomainError(
           'STOCK_COST_CURRENCY_UNDETERMINED',
@@ -229,6 +238,7 @@ export class StockItem {
     }
     this.currentValuationCurrency = valuationCurrency;
     this.currentMovements.push(movement);
+    this.index(movement);
     this.events.push({
       type: 'StockMovementRegistered',
       eventId: movement.eventId,
@@ -299,15 +309,32 @@ export class StockItem {
     }
   }
 
-  private calculateBalance(batchId?: string): Quantity {
-    let balance = Quantity.zero(this.quantityScale);
-    for (const movement of this.currentMovements) {
-      if (batchId !== undefined && movement.batchId !== batchId) continue;
-      balance = movement.direction === 'IN'
-        ? balance.add(movement.quantity)
-        : balance.subtract(movement.quantity);
+  /**
+   * Registra el movimiento en lo que las comprobaciones consultan. El saldo
+   * acumula la misma suma que recorrer la historia: una entrada suma su
+   * cantidad y una salida la resta, sobre la escala del artículo, que ya se
+   * verificó igual a la del movimiento.
+   */
+  private index(movement: StockMovement): void {
+    this.movementsById.set(movement.id, movement);
+    this.movementEventIds.add(movement.eventId);
+    if (movement.unitCost !== null) this.costCurrencies.add(movement.unitCost.currency);
+    const signed = movement.direction === 'IN'
+      ? movement.quantity.scaledValue
+      : -movement.quantity.scaledValue;
+    this.balanceScaled += signed;
+    if (movement.batchId !== null) {
+      this.batchBalancesScaled.set(
+        movement.batchId, (this.batchBalancesScaled.get(movement.batchId) ?? 0) + signed
+      );
     }
-    return balance;
+  }
+
+  private calculateBalance(batchId?: string): Quantity {
+    return Quantity.fromScaled(
+      batchId === undefined ? this.balanceScaled : this.batchBalancesScaled.get(batchId) ?? 0,
+      this.quantityScale
+    );
   }
 
   private static requireText(value: string, code: string, message: string): string {

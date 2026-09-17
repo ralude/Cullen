@@ -34,6 +34,53 @@ function movement(
 }
 
 describe('StockItem', () => {
+  it('restores an item that behaves like the one that produced its history', () => {
+    const lived = stockItem(true);
+    lived.registerBatch({ id: 'batch-a', lotNumber: 'LOTE-A' });
+    lived.registerBatch({ id: 'batch-b', lotNumber: 'LOTE-B' });
+    lived.registerMovement(movement('PURCHASE_RECEIPT', 10, {
+      batchId: 'batch-a', unitCost: Money.fromMinorUnits(800, 'USD')
+    }));
+    lived.registerMovement(movement('PURCHASE_RECEIPT', 4, {
+      id: 'movement-second', eventId: 'event-second',
+      batchId: 'batch-b', unitCost: Money.fromMinorUnits(900, 'USD')
+    }));
+    lived.registerMovement(movement('SALE_ISSUE', 3, { batchId: 'batch-a' }));
+
+    /**
+     * ADR-0032: la reconstrucción mantiene mientras acumula lo que antes
+     * recalculaba recorriendo la historia. Lo que esta prueba sujeta es que
+     * ese estado derivado diga exactamente lo mismo que decía el recorrido, y
+     * que siga rechazando lo que rechazaba.
+     */
+    const restored = StockItem.restore({
+      id: lived.id, productId: lived.productId, unitCode: lived.unitCode,
+      quantityScale: lived.quantityScale, tracksBatches: lived.tracksBatches,
+      valuationCurrency: lived.valuationCurrency,
+      batches: [...lived.batches],
+      movements: [...lived.movements]
+    });
+
+    expect(restored.balance.scaledValue).toBe(lived.balance.scaledValue);
+    expect(restored.balanceForBatch('batch-a').scaledValue)
+      .toBe(lived.balanceForBatch('batch-a').scaledValue);
+    expect(restored.balanceForBatch('batch-b').scaledValue)
+      .toBe(lived.balanceForBatch('batch-b').scaledValue);
+    expect(restored.inventoryValue?.minorUnits).toBe(lived.inventoryValue?.minorUnits);
+    expect(restored.averageUnitCost?.minorUnits).toBe(lived.averageUnitCost?.minorUnits);
+    expect(restored.movements.map(({ id }) => id)).toEqual(lived.movements.map(({ id }) => id));
+    expect(restored.domainEvents).toEqual([]);
+
+    expect(() => restored.registerMovement(movement('PURCHASE_RECEIPT', 10, {
+      batchId: 'batch-a', unitCost: Money.fromMinorUnits(800, 'USD')
+    }))).toThrow(expect.objectContaining({ code: 'STOCK_MOVEMENT_DUPLICATE' }));
+    expect(() => restored.registerMovement(movement('ADJUSTMENT_IN', 1, {
+      id: 'movement-other', eventId: 'event-second', batchId: 'batch-a'
+    }))).toThrow(expect.objectContaining({ code: 'STOCK_MOVEMENT_EVENT_DUPLICATE' }));
+    expect(() => restored.registerMovement(movement('SALE_ISSUE', 99, {
+      id: 'movement-excess', eventId: 'event-excess', batchId: 'batch-b'
+    }))).toThrow(expect.objectContaining({ code: 'STOCK_INSUFFICIENT' }));
+  });
   it('derives a moving weighted unit cost from valued movements', () => {
     const item = StockItem.create({
       id: 'stock-costed', productId: 'product-costed', unitCode: 'UND',
