@@ -20,6 +20,8 @@ export type SqliteProfile = {
     readonly sql: string;
     readonly count: number;
     readonly ms: number;
+    /** `EXPLAIN QUERY PLAN` de la sentencia, un paso por línea. */
+    readonly plan: readonly string[];
   }[];
 };
 
@@ -32,6 +34,15 @@ const shorten = (sql: string): string => {
 };
 
 type Runner = (...parameters: readonly unknown[]) => unknown;
+
+/**
+ * El plan se pide sobre la sentencia con sus marcadores sustituidos por
+ * `null`. SQLite elige el plan al preparar y no según el valor ligado, así
+ * que el plan es el mismo; sustituir evita tener que ligar valores para
+ * explicar, que es justo lo que este instrumento no debe tocar.
+ */
+const withoutParameters = (sql: string): string =>
+  sql.replace(/[@:$][A-Za-z_][A-Za-z0-9_]*|\?[0-9]*/g, 'null');
 
 type Preparable = {
   prepare: (sql: string) => Record<string, unknown>;
@@ -47,14 +58,30 @@ export const profileSqlite = (handle: { readonly sqlite: unknown }): {
 } => {
   const database = handle.sqlite as Preparable;
   const original = database.prepare.bind(database);
-  const counts = new Map<string, { count: number; ms: number }>();
+  const counts = new Map<string, { count: number; ms: number; source: string }>();
 
   const record = (sql: string, elapsed: number): void => {
     const key = shorten(sql);
-    const bucket = counts.get(key) ?? { count: 0, ms: 0 };
+    const bucket = counts.get(key) ?? { count: 0, ms: 0, source: sql };
     bucket.count += 1;
     bucket.ms += elapsed;
     counts.set(key, bucket);
+  };
+
+  /**
+   * Se prepara con el `prepare` original: explicar es trabajo del informe, y
+   * contarlo inflaría el número que el informe publica. Corre después de la
+   * ventana medida, así que su costo tampoco entra en la latencia.
+   */
+  const explain = (sql: string): readonly string[] => {
+    try {
+      const statement = original('explain query plan ' + withoutParameters(sql));
+      const rows = (statement.all as Runner).call(statement);
+      return (rows as readonly { readonly detail: string }[]).map(({ detail }) => detail);
+    } catch (error) {
+      /** Una sentencia que no admite plan se declara, no se omite en silencio. */
+      return ['SIN PLAN: ' + (error instanceof Error ? error.message : String(error))];
+    }
   };
 
   database.prepare = (sql: string): Record<string, unknown> => {
@@ -85,7 +112,8 @@ export const profileSqlite = (handle: { readonly sqlite: unknown }): {
         .map(([sql, bucket]) => ({
           sql,
           count: bucket.count,
-          ms: Number(bucket.ms.toFixed(3))
+          ms: Number(bucket.ms.toFixed(3)),
+          plan: explain(bucket.source)
         }))
         .sort((left, right) => right.ms - left.ms);
       return {

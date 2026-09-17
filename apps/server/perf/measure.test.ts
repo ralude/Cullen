@@ -226,6 +226,33 @@ describe('comando público de medición de 12.01', () => {
     }
   }, 120_000);
 
+  it('conserva el plan de cada consulta que el escenario ejecutó', async () => {
+    const profiled = await run([
+      '--scenario', 'catalog-barcode', '--warmup', '0', '--sample', '1', '--sqlite-profile'
+    ]);
+    expect(profiled.succeeded, profiled.stderr).toBe(true);
+    const report = JSON.parse(readFileSync(resolve(profiled.directory!, 'summary.json'), 'utf8'));
+    const { byStatement } = report.resources['catalog-barcode'].sqlite;
+
+    /**
+     * 12.03.02 pide el plan junto al conteo: sin él, una consulta cara no se
+     * distingue de una consulta frecuente, y decidir sobre un índice exige
+     * saber si hay recorrido de tabla o búsqueda por índice.
+     */
+    for (const entry of byStatement) {
+      expect(entry.plan, entry.sql).toEqual(expect.any(Array));
+      expect(entry.plan.length, entry.sql).toBeGreaterThan(0);
+      for (const step of entry.plan) {
+        expect(step).toEqual(expect.any(String));
+        /** El plan nombra tablas e índices; los valores siguen sin registrarse. */
+        expect(step).not.toMatch(/PERF01|75900000/);
+      }
+    }
+    const scans = byStatement.flatMap(({ plan }: { plan: string[] }) => plan)
+      .filter((step: string) => step.includes('SCAN') || step.includes('SEARCH'));
+    expect(scans.length).toBeGreaterThan(0);
+  }, 120_000);
+
   it('registra CPU, memoria y tamaño de base sobre el mismo intervalo que la latencia', async () => {
     const result = await run(['--scenario', 'cash-shift-open', '--warmup', '1', '--sample', '2']);
     expect(result.succeeded, result.stderr).toBe(true);
