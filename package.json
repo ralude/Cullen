@@ -11,6 +11,7 @@
     "test:watch": "pnpm --filter @supermarket/shared test:watch",
     "lint": "eslint .",
     "seed:products": "pnpm --filter @supermarket/server seed:products",
+    "manual:pdf": "pnpm --filter @supermarket/desktop exec electron ../../scripts/build-manual-pdf.mjs",
     "pipeline": "pnpm lint && pnpm typecheck && pnpm test",
     "build:artifacts": "pnpm --filter @supermarket/server build && pnpm --filter @supermarket/desktop build"
   },

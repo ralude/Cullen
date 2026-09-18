@@ -2,8 +2,14 @@
 
 - **Estado:** Planificada el 2026-09-09; **habilitada el 2026-09-18** al cerrar la
   [Fase 12](../fase-12-optimizacion/README.md) y **en ejecución** desde ese mismo día.
-  [12B.01](./12b.01-inventario-de-interfaz.md) y [12B.02](./12b.02-lenguaje-y-plantilla.md)
-  están entregadas; los capítulos y las capturas siguen pendientes.
+  [12B.01](./12b.01-inventario-de-interfaz.md) y [12B.02](./12b.02-lenguaje-y-plantilla.md) están
+  entregadas, y el **texto** de 12B.04 a 12B.09 también: el
+  [manual](../../operacion/manual-usuario/README.md) tiene sus seis capítulos, su glosario y su
+  anexo. **Ninguna de esas seis cierra todavía**, porque les faltan las capturas de 12B.03.
+- **Orden alterado, declarado:** 12B.04–12B.09 se escribieron **antes** que 12B.03, invirtiendo la
+  secuencia. Se hizo porque 12B.03 está bloqueada por una dependencia externa y el texto no depende
+  de ella: cada capítulo deja marcado dónde va su captura, con el texto alternativo ya redactado.
+  Una captura puede obligar a corregir el texto que la describe; esa corrección es parte de 12B.03.
 - **Dependencia externa declarada:** [12B.03](./12b.03-capturas.md) necesita una sesión iniciada,
   y el PIN solo se aprovisiona desde una terminal interactiva; [12B.10](./12b.10-absorcion-y-verificacion.md)
   necesita un lector que no programe. Ninguna de las dos la puede cubrir quien escribe el manual.
@@ -46,6 +52,21 @@ Se resolvieron antes de planificar, como exige el orden de trabajo del proyecto.
 | D1 | El manual lleva **una captura por pantalla**: doce rutas más ingreso, cambio de PIN y enrolamiento. | Solo texto costaba menos mantenimiento pero exige al lector no técnico reconstruir la pantalla mentalmente, que es justo lo que el manual debe evitar. Se acepta el costo de re-capturar cuando la UI cambie, y 12B.03 fija cómo. |
 | D2 | El manual **absorbe** `operacion-diaria.md`: su recorrido pasa a ser el capítulo de jornada y la guía actual queda como redirección. | Conservar ambos crea dos descripciones de la misma venta que se contradicen en el primer cambio de UI. La redirección conserva los enlaces existentes. |
 | D3 | 12B se ejecuta **después de publicar `v0.1.0`**. | Incluirla en V0.1.03 retrasaría el release y ampliaría una etapa dirigida a otro lector. Ejecutarla en paralelo obligaría a re-verificar el manual contra una UI todavía móvil. |
+
+## Decisión añadida el 2026-09-18
+
+| # | Decisión | Alternativa descartada y por qué |
+| --- | --- | --- |
+| D4 | El **entregable es un PDF**; el Markdown queda como **fuente**. `pnpm manual:pdf` regenera `docs/operacion/manual-usuario/manual-de-uso-cullen.pdf` desde los mismos archivos. | Entregar solo Markdown fallaba en el primer lector: quien atiende una caja no abre un repositorio ni lee un `.md`. Escribir el manual directamente en un formato binario habría costado la revisión en pull request, el diff por párrafo y la comprobación de enlaces. Con fuente en Markdown y entregable generado se conservan las dos cosas. |
+
+**Cómo se genera.** El script `scripts/build-manual-pdf.mjs` convierte el Markdown e imprime con
+el Electron que el proyecto ya instala para la terminal: **no agrega ninguna dependencia** ni
+descarga un navegador aparte. El PDF se regenera en el mismo hito que cambia el manual, igual que
+[12B.03](./12b.03-capturas.md) exige para las capturas.
+
+**Lo que esto implica para 12B.03.** Cuando existan las capturas, basta volver a correr
+`pnpm manual:pdf`: los marcadores de imagen pendiente se sustituyen por la imagen y el PDF se
+rehace completo.
 
 ## Secuencia obligatoria
 

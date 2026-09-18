@@ -111,6 +111,39 @@ de sincronización— y ajustar una espera de prueba sin entender la causa puede
 real de reintento. Queda registrado para que nadie lo lea como un fallo introducido por las
 mediciones ni como una prueba estable.
 
+## D-005 · Seis situaciones frecuentes muestran un mensaje genérico al operador
+
+- **Estado:** abierto desde el 2026-09-18.
+- **Fase dueña:** producto —el mapa de mensajes del renderer—. 12B lo encontró y lo documenta; no
+  lo corrige, porque es una fase documental.
+
+**Observado:** 2026-09-18, al escribir el capítulo de fallos del manual de usuario (12B.09).
+
+El mapa de mensajes del renderer (`apps/desktop/src/renderer/src/screens/shared.tsx`) no tiene
+entrada para seis códigos que el nodo sí devuelve, así que el operador lee
+«La operación no pudo completarse.» y no puede distinguir entre ellos:
+
+| Situación que vive el operador | Código sin frase |
+|---|---|
+| Falta la política de cobro y la venta no se puede completar | `POLICY_NOT_CONFIGURED` |
+| La estación no tiene su caja declarada | `CASH_REGISTER_NOT_FOUND` |
+| El descuento de línea supera el tope configurado | `SALE_DISCOUNT_EXCEEDS_LIMIT` |
+| La venta ya fue devuelta | `SALE_ALREADY_RETURNED` |
+| Reintento con una clave de idempotencia distinta | `IDEMPOTENCY_KEY_CONFLICT` |
+| Escritura sobre un agregado de otro nodo | `AGGREGATE_OWNER_MISMATCH` |
+
+**Por qué importa:** las tres primeras son las más frecuentes en una instalación nueva. Un cajero
+que no puede cobrar no tiene forma de saber si falta configuración, si su descuento se pasó del
+tope o si hay otra cosa; solo le queda el código de seguimiento.
+
+**Reproducción:** completar una venta en una base sin política de IGTF configurada; o aplicar un
+descuento por encima del tope.
+
+**Por qué no se corrigió aquí:** 12B es documental y no toca código de producto. La corrección son
+seis entradas en el mapa de mensajes, con su prueba. El manual declara el vacío en vez de
+disimularlo, en
+[«Lo que el manual no puede resolver»](../operacion/manual-usuario/06-cuando-algo-falla.md#lo-que-el-manual-no-puede-resolver).
+
 ## Cómo se relacionan
 
 D-001 tapa a D-002. Corregir solo D-001 convertiría un camino bloqueado en uno que acepta

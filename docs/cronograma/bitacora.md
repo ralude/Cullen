@@ -136,3 +136,29 @@ que estaban vigentes ese día, no las de hoy.
   veintitrés términos con cinco palabras prohibidas. Ambos son inspección del árbol, no uso
   observado: 12B.03 sigue bloqueada porque el PIN solo se aprovisiona desde una terminal
   interactiva, y 12B.10 exige un lector que no programe.
+- El 2026-09-18, con 12B.01 y 12B.02 entregadas, se escribió el texto completo de 12B.04 a 12B.09:
+  el [manual de usuario](../operacion/manual-usuario/README.md) queda con sus seis capítulos, su
+  glosario de veintitrés términos, su anexo técnico y los cinco recorridos por perfil. **La
+  secuencia se invirtió a propósito**: 12B.03 —las capturas— está bloqueada porque el PIN solo se
+  aprovisiona desde una terminal interactiva, y el texto no depende de ella; cada capítulo marca
+  dónde va su captura con el texto alternativo ya redactado. Ninguna de esas seis sub-fases cierra
+  hasta que existan las imágenes. El recorrido destapó dos hallazgos: dos etiquetas de Sync que no
+  admiten traducción honesta y se omitieron en vez de inventarles significado, y
+  [D-005](./defectos-conocidos.md), seis situaciones frecuentes —entre ellas la política sin
+  configurar y el descuento sobre el tope— que el operador ve como «La operación no pudo
+  completarse.» porque el renderer no tiene frase para esos códigos.
+- El 2026-09-18 se fijó que el entregable del manual es un **PDF** y el Markdown su fuente (D4 en
+  el [README de 12B](./fase-12b-manual-usuario/README.md)): un `.md` dentro de un repositorio no
+  lo lee la persona para la que se escribió el manual. `pnpm manual:pdf` lo regenera con
+  `scripts/build-manual-pdf.mjs`, que convierte el Markdown e imprime con el Electron que el
+  proyecto ya instala —sin agregar dependencias ni descargar un navegador—. La revisión página por
+  página corrigió dos defectos: los enlaces internos con acento no resolvían, y cada pantalla
+  forzaba un salto de página que dejaba la presentación de cada capítulo sola en una página casi
+  vacía.
+- El 2026-09-18 12B.03 entregó su entorno y tomó **dos de quince capturas**: ingreso y activación
+  de credencial, las únicas que no exigen sesión. Se fijó capturar el **renderer compilado con el
+  preload real** en una ventana Electron de 1200×800 —el tamaño de la terminal— y no desde un
+  navegador, que habría impreso `Nodo local · unknown` en vez de `win32` y no sería la ventana del
+  producto. El guion [`scripts/capturar-manual.mjs`](../../scripts/capturar-manual.mjs) espera a
+  que una persona ingrese y recorre las doce rutas solo. Las trece restantes siguen bloqueadas por
+  el PIN, y queda abierto decidir qué estado muestra cada pantalla: una Venta vacía no enseña nada.
