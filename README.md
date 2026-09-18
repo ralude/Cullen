@@ -13,6 +13,11 @@ Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexag
 
 </div>
 
+> El nombre es por Michael J. Cullen, fundador de King Kullen en 1930 — el primer supermercado
+> moderno de EE. UU. Le propuso la idea a su empleador, Kroger, y se la rechazaron; la construyó
+> por su cuenta de todas formas. Yo propuse este sistema para un supermercado real y también fue
+> rechazado, así que lo sigo construyendo solo, como MVP de referencia.
+
 ---
 
 > **TL;DR (English)** — Offline-first POS and inventory platform for supermarkets. TypeScript
