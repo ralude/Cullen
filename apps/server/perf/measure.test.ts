@@ -7,6 +7,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { stationIsBusy } from './resources.ts';
 
 const execute = promisify(execFile);
+
+/**
+ * Los tres escenarios que conducen la terminal real lanzan el binario de Electron.
+ * `pnpm install` ya no lo trae —Electron 44 dejó de declarar `postinstall`— y
+ * `apps/desktop` lo instala antes de `dev` y `start`, deliberadamente fuera de
+ * `build`, para no cargar al pipeline una descarga de 100 MB. En un runner ese
+ * binario no existe y la serie aborta con `PERF_DESKTOP_START_FAILED`, que es lo
+ * que dejó el pipeline en rojo desde que estos escenarios entraron. Se omiten ahí
+ * y se corren en la estación de referencia, que además es la única que puede
+ * medir: el manifiesto exige medir aislado y un runner compartido nunca lo está.
+ */
+const drivesTheTerminal = process.platform === 'win32' && !process.env.CI;
 const serverDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const artifactsRoot = resolve(serverDirectory, '../../.perf');
 const artifacts: string[] = [];
@@ -309,7 +321,7 @@ describe('comando público de medición de 12.01', () => {
       .toBeGreaterThanOrEqual(resources.database.firstInstallBytes);
   }, 60_000);
 
-  it.runIf(process.platform === 'win32')(
+  it.runIf(drivesTheTerminal)(
     'mide el renderer real desde Electron hasta el shell y recupera la sesión',
     async () => {
       const result = await run([
@@ -356,7 +368,7 @@ describe('comando público de medición de 12.01', () => {
     120_000
   );
 
-  it.runIf(process.platform === 'win32')(
+  it.runIf(drivesTheTerminal)(
     'publica cuántas peticiones dispara la terminal, en qué orden y con qué tamaño',
     async () => {
       const result = await run([
@@ -394,7 +406,7 @@ describe('comando público de medición de 12.01', () => {
     180_000
   );
 
-  it.runIf(process.platform === 'win32')(
+  it.runIf(drivesTheTerminal)(
     'conduce ventas encadenadas por la interfaz y cuenta lo que cada una pide',
     async () => {
       const result = await run([
