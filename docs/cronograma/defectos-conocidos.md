@@ -4,7 +4,8 @@ Registro de defectos encontrados y **no** corregidos, con su reproducción y la 
 defecto sale de aquí cuando existe la corrección con su prueba, no cuando se explica.
 
 Los defectos ya corregidos no se listan: viven en el historial y en la decisión normativa que los
-resolvió.
+resolvió. Los números tampoco se reutilizan: un hueco en la serie significa un defecto corregido,
+y cualquier referencia anterior conserva lo que decía.
 
 ## D-001 · La pantalla de venta no envía la tasa de cambio de un pago en otra moneda
 
@@ -110,61 +111,8 @@ de sincronización— y ajustar una espera de prueba sin entender la causa puede
 real de reintento. Queda registrado para que nadie lo lea como un fallo introducido por las
 mediciones ni como una prueba estable.
 
-## D-005 · La prueba de frontera del renderer agota su tiempo dentro de la suite completa
-
-**Observado:** 2026-09-17, durante la verificación de cierre de 12.03.
-
-`tests/eslint-boundaries.test.ts` → «renderer import boundary › rejects @supermarket/core» falló
-con `Test timed out in 5000ms` en tres de cuatro corridas de `pnpm test`, incluida una con la
-estación completamente libre. Es siempre el **primer** caso del archivo; los otros diez pasan.
-Corrido aislado, el archivo entero pasa en 2,9 s y ese caso tarda 1,6 s.
-
-**Reproducción:** con la suite completa, donde 202 archivos corren en paralelo. Aisladamente no
-reproduce.
-
-**Hipótesis, sin confirmar:** el primer caso paga el arranque en frío de ESLint —construir la
-configuración del repositorio y cargar el parser de TypeScript— dentro del tiempo de espera por
-omisión de 5 s, que el resto de los casos ya no paga porque reutilizan ese trabajo. Con los
-trabajadores de vitest compitiendo, ese arranque se pasa del límite.
-
-**Por qué no se corrigió aquí:** es ajeno al alcance de 12.03, que no toca fronteras ni
-configuración de lint, y la suite de la revisión anterior —`17e1238`, sin ninguno de estos
-cambios— también falla en esta estación, allí con dos pruebas del arnés. El fallo no lo
-introdujeron los cortes. La corrección probable es declarar un tiempo de espera propio para ese
-archivo, como ya hacen las pruebas lentas del arnés, pero eso es una decisión de quien atienda la
-fragilidad de la suite y no un efecto lateral de una optimización.
-
-## D-007 · Una prueba del almacén de claves agota su tiempo dentro de la suite completa
-
-**Observado:** 2026-09-17, verificando los checks del gate de salida de Fase 12.
-
-`packages/drivers/security/src/secret-vault.test.ts` → «envuelve la clave con el sistema y no la
-escribe en claro» falló con `Test timed out in 5000ms`. Corrido aislado, el archivo entero pasa en
-4,0 s y ese caso tarda 2,1 s. Es el único caso del archivo que envuelve la clave con DPAPI, y por
-eso el único que paga una llamada al sistema.
-
-**Reproducción:** con la suite completa, donde 203 archivos corren en paralelo. Aisladamente no
-reproduce.
-
-**Causa, sin confirmar del todo:** el caso gasta 2,1 s de los 5 s por omisión en una estación
-libre; con los trabajadores de vitest compitiendo por CPU, ese margen no alcanza. No hay indicio
-de que el almacén en sí falle: cuando la prueba completa, verifica lo que dice verificar.
-
-**Por qué no se corrigió aquí:** es la misma decisión pendiente de D-005 y no una cuestión del
-almacén de claves. Corregir uno sin el otro deja la suite igual de frágil.
-
-El número D-006 no se reutiliza: identificaba la prueba del gate de aislamiento del arnés,
-corregida el 2026-09-17 extrayendo la decisión del gate a `stationIsBusy` y probándola con casos
-deterministas en vez de reproduciendo una serie que ninguna estación puede forzar.
-
 ## Cómo se relacionan
 
 D-001 tapa a D-002. Corregir solo D-001 convertiría un camino bloqueado en uno que acepta
 importes incorrectos, que es peor. La secuencia correcta es: decidir la escala de moneda (ADR),
 propagarla, y recién entonces habilitar el pago en otra moneda con su tasa visible.
-
-D-005 y D-007 son el mismo mecanismo en dos archivos distintos: un caso que en una estación libre
-consume la mitad o más del tiempo de espera por omisión, y que dentro de la suite completa no
-alcanza a terminar. Ninguno de los dos indica un fallo del código que prueban, y los dos se
-corrigen con la misma decisión —declarar tiempo de espera donde el costo es conocido— que ya
-aplican las pruebas lentas del arnés.

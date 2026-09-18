@@ -86,9 +86,9 @@ capacidad de piloto o producción.
 
 ## Gate de salida en modo fiscal simulado
 
-Revisado el 2026-09-17 sobre `ded0fba`, con los checks repetidos ese mismo día después de
-corregir el gate de aislamiento del arnés. **Tres puntos cumplidos, tres abiertos**, y los tres
-abiertos están abiertos por razones distintas.
+Revisado el 2026-09-17 sobre `ded0fba`, con los checks repetidos ese mismo día después de corregir
+las tres pruebas que los ensuciaban. **Cuatro puntos cumplidos, dos abiertos**, y los dos abiertos
+dependen de lo mismo: nadie distinto de quien hizo el trabajo ha medido todavía.
 
 - [ ] 12.01, 12.02, 12.03 y 12.05 están cerradas con evidencia reproducible.
   12.02 y 12.03 sí. **12.01 espera que un tercero reproduzca su serie** (CA-12.01-01) y **12.05,
@@ -105,20 +105,23 @@ abiertos están abiertos por razones distintas.
   y el guardado sobre historia profunda, cada uno con su razón medida; los diez grupos del runtime
   que no se extrajeron, con su tabla de acoplamiento; y los reportes de la UI, sin corte por
   decisión.
-- [ ] Lint, typecheck, suite completa, builds y pruebas focalizadas aplicables están verdes.
-  Revisado el 2026-09-17. `pnpm lint` y `pnpm typecheck` en verde; `pnpm build:artifacts` en verde
-  en la verificación anterior. La suite marca **1.360 de 1.362** y los dos fallos son tiempos de
-  espera agotados dentro de la corrida paralela: [D-005](../defectos-conocidos.md) en la primera
-  prueba de fronteras y [D-007](../defectos-conocidos.md) en el almacén de claves. Aislados, los
-  dos archivos pasan en menos de cuatro segundos. El fallo del gate de aislamiento del arnés que
-  antes ocupaba este punto quedó corregido: la decisión vive en `stationIsBusy` y se prueba con
-  casos deterministas. El lint dejó de recorrer las skills instaladas desde fuera, que nunca
-  fueron código de este repositorio. Ninguno de los dos fallos restantes es una regresión de esta
-  fase, y el punto no se marca verde mientras el comando no lo esté.
+- [x] Lint, typecheck, suite completa, builds y pruebas focalizadas aplicables están verdes.
+  Verificado el 2026-09-17: `pnpm lint`, `pnpm typecheck`, `pnpm build:artifacts` y **tres
+  corridas consecutivas de `pnpm test`, las tres con 1.362 de 1.362 en 203 archivos**. Se exigen
+  tres porque los fallos que este punto arrastraba eran intermitentes: una sola corrida verde es
+  lo que ya ocurría entre fallo y fallo. Los tres se corrigieron en esta verificación y ninguno
+  estaba en el código de negocio: el gate de aislamiento del arnés no podía forzarse desde una
+  serie —su decisión vive ahora en `stationIsBusy` y se prueba con casos deterministas—, y las
+  dos pruebas que agotaban los 5 s por omisión dentro de la corrida paralela —la primera de
+  fronteras, que paga el arranque en frío de ESLint, y la del almacén de claves, que llama a
+  DPAPI— declaran ahora su propia espera, como ya lo hacían las pruebas lentas del arnés. El lint
+  dejó además de recorrer las skills instaladas desde fuera, que nunca fueron código de este
+  repositorio.
 - [x] Cronograma, alcance y evidencia identifican los commits medidos y distinguen el cierre
   simulado de 12.04 suspendida.
 - [ ] El cronograma habilita Fase 13 únicamente después de verificar este gate.
-  No se habilita: quedan los tres puntos de arriba.
+  No se habilita: queda el primer punto, y con él la reproducción por un tercero de la serie de
+  12.01 y las sesiones reales de navegación de 12.05.
 
 Al reanudar Fase 8, 12.04 adquiere su propio cierre por perfil fiscal y no reinterpreta las
 mediciones simuladas como evidencia de hardware.
