@@ -1,19 +1,19 @@
 # Fase 12: Optimización
 
-- **Estado:** En ejecución. 12.01 cerrada el 2026-09-16 con línea base, márgenes, presupuestos de
-  regresión y priorización de hotspots; queda pendiente que un tercero reproduzca la serie
-  (CA-12.01-01). 12.02 cerrada el 2026-09-16 sin cambios productivos: la medición no encontró
-  sobrecarga en el camino renderer–nodo. 12.03 cerrada el 2026-09-17 con cuatro cortes
-  —catálogo, kardex y reconstrucción del inventario con ADR-0032, más guardado sin cambio
-  productivo— y su
-  [campaña A/B](./12.03-evidencia-y-cierre.md) sobre estación aislada, que confirma los tres
-  primeros por dos órdenes de magnitud con los controles quietos. Sigue 12.05, la última, con cinco cortes entregados y
-  su [benchmark de radio de contexto](./12.05-evidencia-y-cierre.md) publicado: los seis escenarios
-  abren entre 13,7 % y 32,8 % menos superficie sin ganar un solo salto. Le falta un solo punto: las sesiones reales de
-  navegación, que no las puede correr quien hizo los cortes.
+- **Estado:** En ejecución, en su última sub-fase. Dos puntos del
+  [gate de salida](#gate-de-salida-en-modo-fiscal-simulado) siguen abiertos y ninguno lo puede
+  cerrar quien hizo el trabajo.
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Excepción:** 12.04 permanece suspendida con Fase 8 y no bloquea el cierre en modo simulado.
 - **Índice:** [Cronograma maestro](../README.md).
+
+| Sub-fase | Estado | Resultado |
+|---|---|---|
+| [12.01](./12.01-profiler-baseline.md) | Cerrada el 2026-09-16, con CA-12.01-01 abierto | Línea base, márgenes, presupuestos de regresión y priorización de hotspots. Falta que un tercero reproduzca la serie |
+| [12.02](./12.02-ipc.md) | Cerrada el 2026-09-16 | Sin cambios productivos: la medición no encontró sobrecarga en el camino renderer–nodo |
+| [12.03](./12.03-sqlite.md) | Cerrada el 2026-09-17 | Cuatro cortes —catálogo, kardex y reconstrucción del inventario con ADR-0032, más guardado sin cambio productivo— confirmados por su [campaña A/B](./12.03-evidencia-y-cierre.md) por dos órdenes de magnitud |
+| [12.04](./12.04-serial.md) | Suspendida con Fase 8 | No bloquea el cierre en modo simulado |
+| [12.05](./12.05-mantenibilidad-estructural.md) | Entregada salvo un punto | Cinco cortes y su [benchmark](./12.05-evidencia-y-cierre.md): los seis escenarios abren entre 13,7 % y 32,8 % menos superficie sin ganar un solo salto. Faltan las sesiones reales de navegación, que no las puede correr quien hizo los cortes |
 
 ## Propósito
 
