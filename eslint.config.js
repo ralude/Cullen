@@ -55,7 +55,13 @@ export default tseslint.config(
       '**/dist/**',
       '**/out/**',
       '**/coverage/**',
-      'pnpm-lock.yaml'
+      'pnpm-lock.yaml',
+      /**
+       * Skills instaladas desde fuera del proyecto: skills-lock.json fija su
+       * origen y su hash, este repositorio no escribe ese codigo y sus reglas
+       * no lo gobiernan.
+       */
+      '.agents/skills/**'
     ]
   },
   js.configs.recommended,
