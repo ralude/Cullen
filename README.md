@@ -471,7 +471,11 @@ docs/
   producto/         alcance por nivel de entrega
 packaging/          definición del MSI (WiX) y del servicio de Windows (WinSW)
 tests/              pruebas de fronteras arquitectónicas sobre la configuración de ESLint
+.agents/skills/     instrucciones para agentes; material de terceros, fuera del producto
 ```
+
+Lo que el repositorio redistribuye sin haberlo escrito lleva su propio aviso en
+[`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md).
 
 ## Documentación
 
@@ -486,6 +490,7 @@ tests/              pruebas de fronteras arquitectónicas sobre la configuració
 | [`AGENTS.md`](./AGENTS.md)                                                   | Reglas operativas del proyecto — fuente única para colaboradores humanos y agentes de IA   |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                       | Cómo preparar el entorno, qué checks exige un cambio y cómo se escriben commits y PRs      |
 | [`SECURITY.md`](./SECURITY.md)                                               | Canal privado para reportar una vulnerabilidad y los límites de seguridad ya declarados    |
+| [`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md)                         | Material de terceros que el repositorio redistribuye, con la licencia de cada uno          |
 
 ---
 
