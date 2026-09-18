@@ -1,19 +1,21 @@
 # Fase 12: Optimización
 
-- **Estado:** En ejecución, en su última sub-fase. Dos puntos del
-  [gate de salida](#gate-de-salida-en-modo-fiscal-simulado) siguen abiertos y ninguno lo puede
-  cerrar quien hizo el trabajo.
+- **Estado:** **Cerrada el 2026-09-18**, con una excepción declarada: los dos puntos del
+  [gate de salida](#gate-de-salida-en-modo-fiscal-simulado) que exigen un verificador distinto de
+  quien hizo el trabajo quedan
+  [suspendidos por falta de verificador independiente](#suspensión-de-la-verificación-independiente--2026-09-18),
+  no abiertos. Habilita [Fase 12B](../fase-12b-manual-usuario/README.md). **No habilita Fase 13.**
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Excepción:** 12.04 permanece suspendida con Fase 8 y no bloquea el cierre en modo simulado.
 - **Índice:** [Cronograma maestro](../README.md).
 
 | Sub-fase | Estado | Resultado |
 |---|---|---|
-| [12.01](./12.01-profiler-baseline.md) | Cerrada el 2026-09-16, con CA-12.01-01 abierto | Línea base, márgenes, presupuestos de regresión y priorización de hotspots. Falta que un tercero reproduzca la serie |
+| [12.01](./12.01-profiler-baseline.md) | Cerrada el 2026-09-16, con CA-12.01-01 suspendido | Línea base, márgenes, presupuestos de regresión y priorización de hotspots. La reproducción por un tercero queda suspendida, no pendiente |
 | [12.02](./12.02-ipc.md) | Cerrada el 2026-09-16 | Sin cambios productivos: la medición no encontró sobrecarga en el camino renderer–nodo |
 | [12.03](./12.03-sqlite.md) | Cerrada el 2026-09-17 | Cuatro cortes —catálogo, kardex y reconstrucción del inventario con ADR-0032, más guardado sin cambio productivo— confirmados por su [campaña A/B](./12.03-evidencia-y-cierre.md) por dos órdenes de magnitud |
 | [12.04](./12.04-serial.md) | Suspendida con Fase 8 | No bloquea el cierre en modo simulado |
-| [12.05](./12.05-mantenibilidad-estructural.md) | Entregada salvo un punto | Cinco cortes y su [benchmark](./12.05-evidencia-y-cierre.md): los seis escenarios abren entre 13,7 % y 32,8 % menos superficie sin ganar un solo salto. Faltan las sesiones reales de navegación, que no las puede correr quien hizo los cortes |
+| [12.05](./12.05-mantenibilidad-estructural.md) | Cerrada el 2026-09-18, con 12.05.01 suspendido | Cinco cortes y su [benchmark](./12.05-evidencia-y-cierre.md): los seis escenarios abren entre 13,7 % y 32,8 % menos superficie sin ganar un solo salto. Las sesiones reales de navegación quedan suspendidas con su [guion preparado](./guion-sesiones-navegacion-12.05.01.md) |
 
 ## Propósito
 
@@ -87,13 +89,15 @@ capacidad de piloto o producción.
 ## Gate de salida en modo fiscal simulado
 
 Revisado el 2026-09-17 sobre `ded0fba`, con los checks repetidos ese mismo día después de corregir
-las tres pruebas que los ensuciaban. **Cuatro puntos cumplidos, dos abiertos**, y los dos abiertos
-dependen de lo mismo: nadie distinto de quien hizo el trabajo ha medido todavía.
+las tres pruebas que los ensuciaban. **Cuatro puntos cumplidos y dos suspendidos** desde el
+2026-09-18 por la [decisión de abajo](#suspensión-de-la-verificación-independiente--2026-09-18):
+los dos dependen de lo mismo, y no es trabajo pendiente sino un verificador que no existe.
 
-- [ ] 12.01, 12.02, 12.03 y 12.05 están cerradas con evidencia reproducible.
-  12.02 y 12.03 sí. **12.01 espera que un tercero reproduzca su serie** (CA-12.01-01) y **12.05,
-  las sesiones reales de navegación**: ninguno lo puede cerrar quien hizo el trabajo, por
-  definición en el primer caso y por honestidad de la medición en el segundo.
+- [ ] ⏸️ **Suspendido el 2026-09-18.** 12.01, 12.02, 12.03 y 12.05 están cerradas con evidencia
+  reproducible. 12.02 y 12.03 sí, sin reserva. **12.01 conserva CA-12.01-01 suspendido** —la reproducción de su
+  serie por un tercero— y **12.05, las sesiones reales de navegación de 12.05.01**. Ninguno lo
+  puede cerrar quien hizo el trabajo: por definición en el primero, por honestidad de la medición
+  en el segundo. Ambos quedan suspendidos, no cumplidos ni marcados como deuda vencida.
 - [x] Cada cambio conservado cumple su presupuesto y no introduce regresiones funcionales,
   arquitectónicas, de seguridad ni de recuperación.
   Los tres cortes de 12.03 superan su margen por dos órdenes de magnitud con los controles
@@ -119,12 +123,50 @@ dependen de lo mismo: nadie distinto de quien hizo el trabajo ha medido todavía
   repositorio.
 - [x] Cronograma, alcance y evidencia identifican los commits medidos y distinguen el cierre
   simulado de 12.04 suspendida.
-- [ ] El cronograma habilita Fase 13 únicamente después de verificar este gate.
-  No se habilita: queda el primer punto, y con él la reproducción por un tercero de la serie de
-  12.01 y las sesiones reales de navegación de 12.05.
+- [ ] ⏸️ El cronograma habilita Fase 13 únicamente después de verificar este gate.
+  **Fase 13 sigue sin habilitarse.** La suspensión cierra la Fase 12 y habilita la Fase 12B, que
+  es documental; no adelanta el post-MVP. Fase 13 espera a que la suspensión se levante.
 
 Al reanudar Fase 8, 12.04 adquiere su propio cierre por perfil fiscal y no reinterpreta las
 mediciones simuladas como evidencia de hardware.
+
+## Suspensión de la verificación independiente — 2026-09-18
+
+**Decisión:** los dos puntos que exigen un verificador distinto de quien hizo el trabajo pasan de
+*abiertos* a *suspendidos*. La Fase 12 cierra con esa excepción declarada.
+
+**Por qué.** Un punto abierto describe trabajo que falta hacer. Estos dos no son eso: el trabajo
+está hecho, medido y publicado. Lo que falta es **alguien más que lo verifique**, y no hay
+personal disponible para hacerlo. Mantenerlos como deuda propia de la fase declaraba una tarea
+pendiente que nadie de este proyecto puede ejecutar sin invalidarla. Es la misma figura que ya
+gobierna a [12.04](./12.04-serial.md), suspendida con Fase 8 por una dependencia que tampoco
+está en manos de quien escribe el código.
+
+**Qué se suspende, exactamente:**
+
+| Punto | Qué exige | Vía disponible hoy |
+|---|---|---|
+| [CA-12.01-01](./12.01-profiler-baseline.md) | Que un tercero reproduzca la serie de medición desde un checkout limpio, en la estación de referencia, dentro del margen registrado | Ninguna: exige la estación y un operador que no capturó la serie |
+| [12.05.01](./12.05-mantenibilidad-estructural.md) | Sesiones reales de navegación de los seis escenarios, en BEFORE y AFTER | Su [guion](./guion-sesiones-navegacion-12.05.01.md) está preparado y admite contextos de agente nuevos; falta ejecutarlo |
+
+La segunda no está bloqueada técnicamente: se suspende porque hoy nadie la corre, no porque no
+se pueda. Esa distinción se conserva escrita para que levantarla no exija redescubrirla.
+
+**Qué NO cambia esta decisión:**
+
+- Ninguna cifra publicada. La reducción de superficie de 12.05 sigue siendo **inspección
+  estática**, y la línea base de 12.01 sigue siendo una serie **capturada por su autor**. La
+  suspensión cambia el estado del criterio, no la calidad de la evidencia.
+- No se afirma ahorro de tokens ni de tiempo. Eso seguía dependiendo de las sesiones y sigue
+  dependiendo de ellas.
+- No se habilita Fase 13 ni ninguna fase post-MVP.
+- El [gate de piloto en tienda](../gate-piloto-release.md) conserva intactos sus propios
+  requisitos, incluida la medición en una estación de tienda real.
+
+**Condición para levantarla.** Basta con que exista el verificador: un tercero para CA-12.01-01,
+o la ejecución del guion por contextos nuevos para 12.05.01. Al levantarse, cada punto se resuelve
+por su evidencia —cumplido o no— y el resultado se publica aunque contradiga el cierre. Un
+resultado que desmienta la mejora corrige el cierre; no se descarta.
 
 ## Fuera de alcance
 

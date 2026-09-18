@@ -116,3 +116,13 @@ que estaban vigentes ese día, no las de hoy.
 - La Fase 1 se completó con Electron, React, Fastify, SQLite, Drizzle y ESLint instalados y verificados mediante smoke tests.
 - El [hito transversal de cierre arquitectonico](./hito-cierre-arquitectonico.md) se completo el 2026-08-14 y habilito la continuacion desde 2.03.
 
+- El 2026-09-18 la Fase 12 cerró con una excepción declarada: los dos puntos de su gate que exigen
+  un verificador distinto de quien hizo el trabajo —la reproducción de la serie de 12.01 por un
+  tercero y las sesiones reales de navegación de 12.05.01— pasaron de abiertos a **suspendidos por
+  falta de verificador independiente**, la misma figura que ya gobierna a 12.04 con Fase 8. La
+  decisión está en el [README de la fase](./fase-12-optimizacion/README.md#suspensión-de-la-verificación-independiente--2026-09-18)
+  y no cambia ninguna cifra publicada: la reducción de superficie de 12.05 sigue siendo inspección
+  estática y la línea base de 12.01, una serie capturada por su autor. El cierre habilita la Fase
+  12B, que es documental, y **no habilita la Fase 13**. Ese mismo día quedó preparado, sin
+  ejecutar, el [guion de sesiones de navegación](./fase-12-optimizacion/guion-sesiones-navegacion-12.05.01.md),
+  que admite contextos de agente nuevos y deja la suspensión levantable sin redescubrir el método.

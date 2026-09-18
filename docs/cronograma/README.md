@@ -19,8 +19,8 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 9B | Perfiles operativos | ~~Completada para el MVP técnico 2026-09-05~~; 9B.08 transferida a Fase 13 y 9B.09 trasladada a Fase 11 |
 | 10 | Sincronizacion | ~~Completada~~ |
 | 11 | ~~[Seguridad](./fase-11-seguridad/README.md)~~ | Entregada el 2026-09-08; la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió sus trece hallazgos. El gate de tienda conserva sus requisitos propios, sin bloquear el release open source |
-| 12 | [Optimización](./fase-12-optimizacion/README.md) | En ejecución. 12.01, 12.02 y 12.03 cerradas; 12.05 entregó sus cortes y su benchmark y espera su último punto. Dos puntos del gate siguen abiertos (ver abajo). 12.04 suspendida con Fase 8 |
-| 12B | [Manual de usuario no técnico](./fase-12b-manual-usuario/README.md) | Planificada el 2026-09-09 después de `v0.1.0`; fase documental, no bloquea ni depende de Fase 12 |
+| 12 | ~~[Optimización](./fase-12-optimizacion/README.md)~~ | Cerrada el 2026-09-18 con excepción declarada: 12.01, 12.02, 12.03 y 12.05 entregadas, y los dos puntos del gate que exigen un verificador independiente quedan suspendidos (ver abajo). 12.04 sigue suspendida con Fase 8 |
+| 12B | [Manual de usuario no técnico](./fase-12b-manual-usuario/README.md) | **Habilitada el 2026-09-18**, sin iniciar. Planificada el 2026-09-09 después de `v0.1.0`; fase documental, no bloquea ni depende de Fase 12 |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
 | 15 | [Sincronización SQLite–PostgreSQL](./fase-15-sincronizacion-cloud/README.md) | Planificada; post-MVP, sin iniciar |
@@ -45,22 +45,28 @@ README, además de contribución, seguridad y notas de versión.
 [V0.1.04](./release-v0.1-portafolio/4-publicacion.md) etiquetó `v0.1.0` y lo verificó clonando
 desde el tag.
 
-**Hito actual:** [Fase 12](./fase-12-optimizacion/README.md), habilitada por ese release, en su
-[sub-fase 12.05](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md), la última: 12.03
-cerró el 2026-09-17 y 12.05 entregó sus cinco cortes y su benchmark.
+**Hito actual:** [Fase 12B](./fase-12b-manual-usuario/README.md), habilitada el 2026-09-18 al
+cerrar la Fase 12 y todavía sin iniciar. La [Fase 12](./fase-12-optimizacion/README.md) entregó
+12.01, 12.02, 12.03 y 12.05; 12.03 cerró el 2026-09-17 y 12.05 publicó sus cinco cortes y su
+benchmark.
 
-**Lo que falta para cerrar la Fase 12** —y con ella habilitar la Fase 13— son dos puntos, y
-ninguno lo puede cerrar quien hizo el trabajo:
+**Lo que la Fase 12 dejó suspendido** son dos puntos del gate, por
+[decisión del 2026-09-18](./fase-12-optimizacion/README.md#suspensión-de-la-verificación-independiente--2026-09-18).
+No son trabajo pendiente: el trabajo está hecho y publicado. Lo que falta es un verificador
+distinto de quien lo hizo, y hoy no hay personal para eso:
 
-| Punto | Dónde está declarado | Por qué sigue abierto |
+| Punto | Dónde está declarado | Qué falta |
 |---|---|---|
-| Un tercero reproduce la serie de 12.01 desde un checkout limpio | [CA-12.01-01](./fase-12-optimizacion/12.01-profiler-baseline.md) | Por definición: nadie distinto de quien la capturó la ha reproducido |
-| Sesiones reales de navegación de los seis escenarios de 12.05 | [12.05.01](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) | Quien acaba de trabajar dentro de esos archivos mide memoria, no navegación en frío |
+| Un tercero reproduce la serie de 12.01 desde un checkout limpio | [CA-12.01-01](./fase-12-optimizacion/12.01-profiler-baseline.md) | La estación de referencia y un operador que no capturó la serie |
+| Sesiones reales de navegación de los seis escenarios de 12.05 | [12.05.01](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md) | Ejecutar su [guion](./fase-12-optimizacion/guion-sesiones-navegacion-12.05.01.md) con contextos nuevos; quien trabajó dentro de esos archivos mide memoria, no navegación en frío |
 
-El resto del [gate de salida](./fase-12-optimizacion/README.md#gate-de-salida-en-modo-fiscal-simulado)
-está cumplido: presupuestos, hotspots no tocados con decisión escrita, checks verdes el 2026-09-17
-y la distinción entre el cierre simulado y 12.04 suspendida. 12.04 queda exceptuada mientras
-conserve la suspensión de Fase 8.
+Esa suspensión **no habilita la Fase 13**, que sigue esperando a que se levante, y no cambia
+ninguna cifra publicada: la reducción de superficie de 12.05 sigue siendo inspección estática y la
+línea base de 12.01 sigue siendo una serie capturada por su autor. El resto del
+[gate de salida](./fase-12-optimizacion/README.md#gate-de-salida-en-modo-fiscal-simulado) está
+cumplido: presupuestos, hotspots no tocados con decisión escrita, checks verdes el 2026-09-17 y la
+distinción entre el cierre simulado y 12.04 suspendida. 12.04 queda exceptuada mientras conserve
+la suspensión de Fase 8.
 
 ## Historia y decisiones
 

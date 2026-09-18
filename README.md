@@ -383,12 +383,16 @@ sus sub-fases, sus criterios de aceptación y sus deudas abiertas por escrito.
 Distribuye código fuente y una demo reproducible; no adjunta el MSI sin firma y no habilita un
 piloto ni un despliegue comercial. El recorrido completo se ejecutó desde un clon limpio del
 commit etiquetado, y volvió a verificarse clonando desde el tag. El cierre técnico del MVP
-continúa con Fase 12, que está en su última sub-fase: 12.01, 12.02 y 12.03 cerradas —la tercera
-con una campaña A/B que mejora catálogo, kardex y rehidratación de inventario por dos órdenes de
-magnitud— y 12.05 con sus cinco cortes entregados y su benchmark publicado. Su
-[gate de salida](./docs/cronograma/fase-12-optimizacion/README.md) tiene cuatro puntos cumplidos y
-dos abiertos, ambos por la misma razón: falta que alguien distinto de quien hizo el trabajo
-reproduzca la serie de 12.01 y registre las sesiones reales de navegación de 12.05.
+continuó con **Fase 12, cerrada el 2026-09-18**: 12.01, 12.02 y 12.03 —la tercera con una campaña
+A/B que mejora catálogo, kardex y rehidratación de inventario por dos órdenes de magnitud— y 12.05
+con sus cinco cortes y su benchmark de radio de contexto, que baja entre 13,7 % y 32,8 % la
+superficie abierta sin agregar un solo salto. Su
+[gate de salida](./docs/cronograma/fase-12-optimizacion/README.md) cerró con cuatro puntos
+cumplidos y **dos suspendidos**, ambos por la misma razón: exigen que alguien distinto de quien
+hizo el trabajo reproduzca la serie de 12.01 y registre las sesiones reales de navegación de
+12.05, y hoy no hay quien lo verifique. Están suspendidos, no cumplidos: las cifras publicadas
+siguen siendo inspección estática y una serie capturada por su autor. El cierre habilita la Fase
+12B, documental, y **no habilita la Fase 13**.
 
 | Fases  | Alcance                                                                                                                                                                  | Estado                              |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
@@ -398,8 +402,8 @@ reproduzca la serie de 12.01 y registre las sesiones reales de navegación de 12
 | 10     | Sincronización LAN: outbox durable, protocolo de eventos entre nodos, receptor autenticado, operación offline y reconexión                                               | ✅ Completada                       |
 | 11     | Seguridad: administración de identidad, autorización auditable, transporte, cifrado en reposo y hardening de logs                                                        | ✅ Completada y auditada            |
 | v0.1.0 | Release de portafolio como código fuente y demo reproducible en modo fiscal simulado                                                                                      | ✅ Publicado el 2026-09-10          |
-| 12     | Optimización medida de comunicación HTTP local, SQLite y mantenibilidad estructural                                                                                        | 🚧 En ejecución (12.05, la última)  |
-| 12B    | Manual de usuario no técnico: las doce pantallas de la navegación, con capturas y recorridos por perfil                                                                    | ⏳ Planificada después de `v0.1.0`  |
+| 12     | Optimización medida de comunicación HTTP local, SQLite y mantenibilidad estructural                                                                                        | ✅ Cerrada el 2026-09-18, con dos puntos del gate suspendidos por falta de verificador independiente |
+| 12B    | Manual de usuario no técnico: las doce pantallas de la navegación, con capturas y recorridos por perfil                                                                    | 🚧 Habilitada el 2026-09-18, sin iniciar |
 
 En paralelo, desde el 2026-09-09 corre el
 [paquete pre-piloto](./docs/cronograma/pre-piloto/README.md), que **no es una fase**: entrega la

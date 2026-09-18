@@ -183,6 +183,29 @@ auditoría, sin declarar cumplimiento fiscal. La Fase 9 cerró sus sub-fases y
 la Fase 8 permanece suspendida: su validación de hardware y cumplimiento solo es requisito del
 piloto o la producción. La Fase 10 cerró sus cuatro sub-fases el 2026-09-07.
 
+La Fase 12 cerró el 2026-09-18 sobre cuatro sub-fases entregadas. 12.01 fijó entorno, perfiles de
+datos, ruido, presupuestos de regresión y priorización de hotspots. 12.02 cerró **sin cambios
+productivos**: la medición no encontró sobrecarga en el camino renderer–nodo, y el resultado
+válido fue la evidencia, no el código modificado. 12.03 entregó cuatro cortes —catálogo, kardex y
+reconstrucción de inventario con [ADR-0032](../architecture/adr/0032-reconstruccion-lineal-de-stockitem.md),
+más un guardado que se descartó por no superar su margen— confirmados por una campaña A/B que
+mejora por dos órdenes de magnitud. 12.05 entregó cinco cortes de mantenibilidad y publicó su
+benchmark de radio de contexto: los seis escenarios abren entre 13,7 % y 32,8 % menos superficie
+**sin ganar un solo salto ni un solo archivo**, con sus tres casos peores declarados. La
+verificación del gate del 2026-09-17 exigió tres corridas consecutivas de la suite —1.362 de 1.362
+en 203 archivos— porque los fallos que arrastraba eran intermitentes y una sola corrida verde era
+lo que ya ocurría entre fallo y fallo; ninguno de los tres estaba en el código de negocio.
+
+El cierre lleva una excepción declarada y conviene leerla como parte del resultado: los dos puntos
+del gate que exigen un verificador distinto de quien hizo el trabajo quedaron **suspendidos por
+falta de verificador independiente**, no cumplidos. Son la reproducción de la serie de 12.01 por
+un tercero y las sesiones reales de navegación de 12.05.01. La
+[decisión del 2026-09-18](./fase-12-optimizacion/README.md#suspensión-de-la-verificación-independiente--2026-09-18)
+los reclasifica con la misma figura que ya gobernaba a 12.04 con Fase 8, sin tocar ninguna cifra
+publicada: la reducción de superficie siguió siendo inspección estática y la línea base, una serie
+capturada por su autor. Por eso el cierre habilita la Fase 12B, que es documental, y **no habilita
+la Fase 13**, que espera a que la suspensión se levante.
+
 ## Notas movidas desde el índice
 
 Entradas que el cronograma maestro alojaba en «Documentos transversales» y que dejaron de
