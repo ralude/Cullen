@@ -7,8 +7,8 @@
 Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexagonal
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-1236%20passing-2ea44f)](#calidad-verificable)
-[![ADRs](https://img.shields.io/badge/ADRs-31-blue)](./docs/architecture/adr)
+[![Tests](https://img.shields.io/badge/tests-1362%20passing-2ea44f)](#calidad-verificable)
+[![ADRs](https://img.shields.io/badge/ADRs-32-blue)](./docs/architecture/adr)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](./LICENSE)
 
 </div>
@@ -17,7 +17,7 @@ Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexag
 
 > **TL;DR (English)** — Offline-first POS and inventory platform for supermarkets. TypeScript
 > monorepo built with tactical DDD and hexagonal architecture: pure domain, use-case layer with
-> ports, swappable adapters. 1,282 tests across 198 files, 31 ADRs and 44 forward-only
+> ports, swappable adapters. 1,362 tests across 203 files, 32 ADRs and 44 forward-only
 > migrations, with architecture boundaries enforced by ESLint. Handles integer money arithmetic,
 > multi-currency, crash-recoverable fiscal state, idempotent commands, optimistic concurrency and
 > per-node aggregate ownership. LAN synchronization runs over mutually authenticated HTTPS with
@@ -191,25 +191,28 @@ como evidencia de la etapa.
 
 |                                                 |                           |
 | ----------------------------------------------- | ------------------------: |
-| Pruebas (Vitest, todas en verde)                | **1.282** en 198 archivos |
-| Código de producción / código de prueba         |      53.3k / 34.4k líneas |
+| Pruebas (Vitest, todas en verde)                | **1.362** en 203 archivos |
+| Código de producción / código de prueba         |      55,4k / 36,8k líneas |
 | Clases de aplicación exportadas                 |                       129 |
 | Contratos HTTP v1 publicados                    |                       107 |
 | Permisos granulares                             |                        53 |
 | Migraciones forward-only (con checksum SHA-256) |                        44 |
-| Registros de decisión arquitectónica (ADR)      |                        31 |
+| Registros de decisión arquitectónica (ADR)      |                        32 |
 | Escenarios de fallo documentados                |                        11 |
 | Triggers de invariante en SQLite                |                       125 |
 
 ```bash
-pnpm pipeline    # lint + typecheck + 1.282 pruebas
+pnpm pipeline    # lint + typecheck + 1.362 pruebas
 ```
 
 Ese mismo pipeline corre en
 [GitHub Actions sobre `windows-latest`](./.github/workflows/pipeline.yml) en cada pull request y
-cada cambio de `main`: instalación congelada, lint, typecheck, las 1.282 pruebas de los 198
-archivos y la compilación de artefactos. La cifra es un check remoto, no solo una corrida en la
-máquina del autor.
+cada cambio de `main`: instalación congelada, lint, typecheck, las pruebas de los 203 archivos y
+la compilación de artefactos. La cifra es un check remoto, no solo una corrida en la máquina del
+autor. Con una excepción declarada: los tres escenarios del arnés de medición que conducen la
+terminal real lanzan el binario de Electron y exigen una estación aislada, así que el runner los
+reporta omitidos —1.359 pasan, 3 se omiten— y corren completos en la estación. Está explicado en
+[lo que el pipeline remoto no cubre](./docs/cronograma/ci-cd.md).
 
 TypeScript va en modo estricto con `exactOptionalPropertyTypes`, y las migraciones se prueban
 sobre SQLite temporal, incluyendo el _backfill_ de datos históricos.
@@ -380,7 +383,12 @@ sus sub-fases, sus criterios de aceptación y sus deudas abiertas por escrito.
 Distribuye código fuente y una demo reproducible; no adjunta el MSI sin firma y no habilita un
 piloto ni un despliegue comercial. El recorrido completo se ejecutó desde un clon limpio del
 commit etiquetado, y volvió a verificarse clonando desde el tag. El cierre técnico del MVP
-continúa con Fase 12.
+continúa con Fase 12, que está en su última sub-fase: 12.01, 12.02 y 12.03 cerradas —la tercera
+con una campaña A/B que mejora catálogo, kardex y rehidratación de inventario por dos órdenes de
+magnitud— y 12.05 con sus cinco cortes entregados y su benchmark publicado. Su
+[gate de salida](./docs/cronograma/fase-12-optimizacion/README.md) tiene cuatro puntos cumplidos y
+dos abiertos, ambos por la misma razón: falta que alguien distinto de quien hizo el trabajo
+reproduzca la serie de 12.01 y registre las sesiones reales de navegación de 12.05.
 
 | Fases  | Alcance                                                                                                                                                                  | Estado                              |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
@@ -390,7 +398,7 @@ continúa con Fase 12.
 | 10     | Sincronización LAN: outbox durable, protocolo de eventos entre nodos, receptor autenticado, operación offline y reconexión                                               | ✅ Completada                       |
 | 11     | Seguridad: administración de identidad, autorización auditable, transporte, cifrado en reposo y hardening de logs                                                        | ✅ Completada y auditada            |
 | v0.1.0 | Release de portafolio como código fuente y demo reproducible en modo fiscal simulado                                                                                      | ✅ Publicado el 2026-09-10          |
-| 12     | Optimización medida de comunicación HTTP local, SQLite y mantenibilidad estructural                                                                                        | 🚧 Habilitada por el release        |
+| 12     | Optimización medida de comunicación HTTP local, SQLite y mantenibilidad estructural                                                                                        | 🚧 En ejecución (12.05, la última)  |
 | 12B    | Manual de usuario no técnico: las doce pantallas de la navegación, con capturas y recorridos por perfil                                                                    | ⏳ Planificada después de `v0.1.0`  |
 
 En paralelo, desde el 2026-09-09 corre el
@@ -464,7 +472,7 @@ packages/
     hardware/       reservado para scanner y báscula — aún sin implementación
     logging/        redacción de logs técnicos por nombre de campo y contexto técnico
 docs/
-  architecture/     arquitectura por responsabilidad + 31 ADRs
+  architecture/     arquitectura por responsabilidad + 32 ADRs
   cronograma/       fases, sub-fases, planes y decisiones
   failure-scenarios/semántica de fallo de operaciones críticas
   operacion/        runbooks: instalación, jornada diaria, respaldo, material LAN y rotación
@@ -482,7 +490,7 @@ Lo que el repositorio redistribuye sin haberlo escrito lleva su propio aviso en
 | Documento                                                                    | Contenido                                                                                  |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | [`docs/architecture/README.md`](./docs/architecture/README.md)               | Arquitectura por responsabilidad: capas, módulos, agregados, eventos, errores              |
-| [`docs/architecture/adr/`](./docs/architecture/adr)                          | 31 decisiones arquitectónicas con contexto, alternativas y consecuencias                   |
+| [`docs/architecture/adr/`](./docs/architecture/adr)                          | 32 decisiones arquitectónicas con contexto, alternativas y consecuencias                   |
 | [`docs/cronograma/README.md`](./docs/cronograma/README.md)                   | Estado por fase y registro de replanificaciones                                            |
 | [`docs/failure-scenarios/`](./docs/failure-scenarios/README.md)              | Qué garantiza el sistema cuando algo falla a mitad de una operación                        |
 | [`docs/operacion/`](./docs/operacion/operacion-diaria.md)                    | Runbooks de operación: jornada diaria, instalación de estación, respaldo, material LAN y rotación |
