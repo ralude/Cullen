@@ -68,8 +68,10 @@ Este archivo declara **en qué estado está** cada fase. Lo demás vive al lado:
 
 - [Historial de cierre por fase](./historial.md) — el relato de cada fase completada, con las
   cifras vigentes el día que cerró. Se movió acá el 2026-09-18 sin editar un párrafo.
-- [Adaptaciones aprobadas al plan](./adaptaciones-aprobadas.md) — qué módulo entró en qué fase,
-  qué se dividió y qué se difirió, en el orden en que se aprobó.
+- [Adaptaciones aprobadas al plan](./adaptaciones-aprobadas.md) — qué módulo entra en qué fase,
+  qué se divide y qué se difiere. Se lee antes de asignar trabajo a una fase.
+- [Bitácora de avance](./bitacora.md) — registro fechado de lo que se cerró, se corrigió o se
+  auditó. No gobierna nada: es memoria de cómo se llegó hasta acá.
 - [Defectos conocidos](./defectos-conocidos.md) — lo que se encontró y no se corrigió.
 
 El detalle de una fase vive en su propio README, y el de una sub-fase en su ficha. Este índice no

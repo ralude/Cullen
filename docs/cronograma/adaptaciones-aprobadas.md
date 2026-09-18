@@ -1,16 +1,18 @@
 # Adaptaciones aprobadas al plan
 
-Decisiones que cambiaron el plan original sin cambiar su alcance: qué módulo entra en qué fase,
-qué se divide, qué se difiere y por qué. Conservadas íntegras desde el
-[cronograma maestro](./README.md), que dejó de alojarlas el 2026-09-18.
+Decisiones que **cambiaron el plan y siguen gobernando**: qué módulo entra en qué fase, qué se
+divide, qué se difiere, qué gate existe y por qué. Se leen antes de asignar trabajo a una fase.
 
-**No se editó ninguna entrada al moverlas** y conservan el orden en que fueron aprobadas, que es
-cronológico y por eso mezcla fases. Las entradas más antiguas están sin acentos, como se
-escribieron.
+Lo que sólo registra que algo se hizo o se cerró está en la [bitácora](./bitacora.md). La
+separación se hizo el 2026-09-18; hasta entonces ambas cosas convivían en este archivo y en el
+[cronograma maestro](./README.md).
+
+Las entradas **no se editaron** y conservan el orden en que fueron aprobadas, que es cronológico
+y por eso mezcla fases. Reordenarlas por fase rompería las referencias que unas hacen a otras.
+Las más antiguas están sin acentos, como se escribieron.
 
 Una adaptación no sustituye a un ADR: cuando la decisión es normativa o cara de revertir, la
 entrada enlaza el ADR que la gobierna.
-
 
 - `currency` se incluye en la Fase 2 porque las ventas requieren moneda, tasas y pagos mixtos.
 - `identity` se divide: el modelo `User`/`Role`/`Permission` se crea en la Fase 2; autenticacion, JWT y cifrado quedan en la Fase 11.
@@ -30,15 +32,6 @@ entrada enlaza el ADR que la gobierna.
   controles privados de las suites semánticas exclusivas de simulador y aisló
   X/Z detrás de consentimiento simulado explícito. No instala ni usa SerialPort.
 - La Fase 8 comienza por 8.00 para cerrar las deudas de recuperacion de la Fase 7 y habilitar un primer perfil con evidencia primaria. El transporte serial y la recuperacion neutral se estabilizan con ese perfil; luego un gate, adaptador y HIL independientes califican el segundo, reutilizando SerialPort solo si su via oficial es compatible. La fase solo termina con dos combinaciones exactas soportadas, inicialmente candidatas PNP y The Factory HKA/ACLAS. ADR-0010 limita la genericidad al contrato semantico y, cuando aplica, al transporte serial; cada protocolo o SDK, modelo y firmware requiere evidencia y calificacion propias.
-- El corte interno de 8.00 del 2026-08-31 separa retry de terminalidad,
-  persiste evidencia fiscal en cuatro ejes y añade las migraciones 0010–0012
-  con recuperación determinista e integridad fail-closed. Esto no cierra el
-  gate: siguen pendientes fabricante, protocolo, registro, spike nativo y equipo.
-- El segundo corte interno de 8.00 del 2026-08-31 actualiza Electron a 44.1.0,
-  fija SerialPort 13.0.0 solo como candidato del spike y selecciona un proceso
-  hijo supervisado como owner físico del binding. El gate sigue pendiente:
-  faltan evidencia del fabricante, registro, decisiones del gap, laboratorio y
-  pruebas nativas/HIL; ninguna integración fiscal real queda declarada.
 - El 2026-09-01 se aprobó la
   [suspensión de Fase 8 y el avance a Fase 9](./replanificacion-fase-08-a-09.md)
   porque no están disponibles el hardware fiscal oficial, el protocolo/manual
@@ -53,15 +46,6 @@ entrada enlaza el ADR que la gobierna.
   consumidor dueño: catálogo 9.04, reportes 9.06 y tasas 9.07. La
   sincronización pendiente conserva su implementación en Fase 10; no se
   publican respuestas ficticias para adelantarla.
-- El 2026-09-03 se completó 9.01 con recuperación de sesión, acceso por PIN,
-  cliente HTTP basado en contratos compartidos, navegación hash y estados de
-  carga/error. Ponytail se aplicó solo al shell visual; no se agregó router,
-  design system ni IPC de negocio.
-- El 2026-09-03 se cerró 9.06 con ADR-0013: permisos propios de lectura para
-  caja, auditoría y fiscalidad, límite de filas obligatorio recortado en
-  aplicación, exportación CSV local sin permiso ni auditoría adicionales y
-  captura manual de la jornada de X/Z. La auditoría no proyecta los resúmenes
-  antes/después y la sincronización sigue como estado estático de Fase 10.
 - El 2026-09-04 se aprobó la
   [inserción de la Fase 9B antes de la Fase 10](./replanificacion-fase-09b.md).
   La interfaz de Fase 9 está organizada por módulo técnico y no por trabajo real:
@@ -80,37 +64,6 @@ entrada enlaza el ADR que la gobierna.
   que ya no bloquea el MVP: las reglas faltantes se cubren con defaults explícitos o se difieren.
   La Fase 8 sigue suspendida: la nota de crédito se rotula `SIMULACIÓN`. La Fase 12 conserva su
   alcance de optimización medida.
-- El 2026-09-04 se completó la fundación de la Fase 9B (9B.00-9B.02). 9B.00
-  agregó `permissionCodes` a la sesión (ADR-0015) y derivó de ahí la navegación
-  y doce botones de comando del renderer. 9B.01 dividió `operation-screens.tsx`
-  (561 líneas) en módulos por pantalla, sin cambio de comportamiento salvo
-  reemplazar `window.confirm` de la anulación por confirmación en pantalla; el
-  indicador de conexión de la barra superior se limitó a derivarse del ciclo de
-  vida de sesión ya existente, no de un nuevo `/health` (no versionado, no
-  proxiado en Vite) ni de sondeo periódico. 9B.02 publicó cuatro lecturas de
-  datos maestros (categorías, unidades, métodos de pago, cajas) de extremo a
-  extremo y las usó para reemplazar selectores de texto libre en catálogo, caja
-  y venta; la venta deriva la escala de cantidad del producto escaneado y ya no
-  puede producir `SALE_ITEM_QUANTITY_SCALE_MISMATCH`. Al implementar se encontró
-  que `KardexDto` no exponía el `id` del stock item: se agregó, y con eso
-  inventario dejó de pedirlo a mano y de enviar `unitCode`/`quantityScale`
-  codificados en la recepción, cerrando una fuente silenciosa de
-  `STOCK_ITEM_CONFIGURATION_MISMATCH`. Quedan reportadas, sin resolver: la
-  recepción de un producto nunca antes recibido (el `stockItemId` de un
-  agregado nuevo no es derivable sin decidir generación de id desde el
-  renderer) y la cobertura de interacción DOM, que sigue sin entorno de
-  pruebas (`jsdom`) en el monorepo.
-- El 2026-09-04, el segundo corte de 9B.03 cerró esa recepción pendiente y
-  agregó la pantalla administrativa de proveedores. `ReceivePurchase` dejó de
-  aceptar `stockItemId`, `unitCode`, `quantityScale` y `tracksBatches`: la
-  aplicación genera el artículo de la primera recepción, toma unidad y escala
-  del producto del catálogo, rechaza un producto desconocido con
-  `PRODUCT_NOT_FOUND` y escala la cantidad decimal del operador con la unidad
-  derivada. La ruta `#/suppliers` se oculta sin permisos de proveedor porque su
-  lectura solo existe para el selector de recepción. Queda reportado que
-  `tracksBatches` de un artículo nuevo se fija según la primera recepción traiga
-  lote o no: el catálogo no modela ese atributo y decidirlo pertenece a la
-  configuración de datos maestros de 9B.10.
 - El 2026-09-04 el negocio aprobó las reglas fiscales, documentales y de ciclo
   de vida que faltaban, ADR-0019 las incorporó y 9B.03 quedó completada. El
   maestro implementa RIF venezolano de una letra soportada más nueve dígitos
@@ -145,10 +98,6 @@ entrada enlaza el ADR que la gobierna.
   como bloqueos de negocio; [ADR-0021](../architecture/adr/0021-mvp-referencia-no-certificado.md)
   los convirtió en defaults de referencia reemplazables para el MVP no certificado. Este
   registro conserva el análisis original, pero el gate vigente es el de la Fase 8 y el piloto.
-- El 2026-09-04 se completó la planificación de todas las sub-fases activas de 9B. Los planes
-  9B.04-9B.06 y 9B.13-9B.18 fijan línea base comprobada, decisiones de frontera, orden
-  outside-in, criterios verificables y fuera de alcance. 9B.08 mantiene su plan de
-  diferimiento y 9B.09 no recibe plan porque su alcance fue trasladado íntegramente a 11.02.
 - El 2026-09-05 una auditoría técnica abrió un
   [plan correctivo bloqueante](./fase-09b-perfiles/plan-correcciones-auditoria-9b.md). Reprodujo
   el fallo contractual que impedía ejecutar la devolución y reabrió 9B.04, 9B.06, 9B.07 y
@@ -172,21 +121,6 @@ entrada enlaza el ADR que la gobierna.
   reportado y sin corregir que en un empaquetado real (`loadFile`) `fetch('/api/…')`
   resolvería a `file:///api/…`, porque el origen del nodo en producción es
   alcance de empaquetado. Fase 10 sigue sin iniciar.
-- El 2026-09-04 se cerró 9.07 con ADR-0014, y con ello la Fase 9 completa:
-  vigencia por `validFrom` más reciente sin cerrar ventanas solapadas, límite
-  de histórico acotado (1-500, 100 por defecto), lecturas de moneda con solo
-  sesión verificada y timeout configurable sin reintento automático. La fuente
-  externa de sugerencia (proveedor, credenciales, pares por tienda) queda
-  diferida como decisión de negocio; el mecanismo es agnóstico de proveedor y
-  falla cerrado con `EXCHANGE_RATE_PROVIDER_NOT_CONFIGURED` sin bloquear la
-  tasa vigente, el histórico ni la carga manual. El avance a Fase 10 no inicia
-  su implementación; solo refleja que Fase 9 no tiene tareas abiertas.
-- El 2026-09-07 se ratificó el gate de salida de Fase 9 con un E2E real del
-  camino crítico de venta: `App` montada → `fetch` → listener Fastify → SQLite.
-  El escenario automatiza ingreso, resolución del turno, escaneo, cobro y
-  finalización, y verifica la venta `COMPLETED` en la base. Las coberturas con
-  API o transporte simulados quedan clasificadas como interacción o contrato,
-  no como evidencia E2E autónoma.
 - El 2026-09-07 se planificaron las sub-fases pendientes de la Fase 11 en el
   [plan de secuencia y decisiones](./fase-11-seguridad/plan-secuencia-y-decisiones.md) y los
   planes de 11.02, 11.03, 11.04 y 11.05. La secuencia no sigue la numeración: el corte de
@@ -212,48 +146,12 @@ entrada enlaza el ADR que la gobierna.
   `CompleteSale` pendiente de aclaración normativa; y línea base de inventario ajustada a la
   composición ya existente. 11.05 distingue rechazo local, aplicación remota pendiente y
   discrepancia. Las correcciones documentales no inician ni completan implementación.
-- El 2026-09-08 se cerró la Fase 11. Se entregaron 11.01–11.05: autorización e identidad
-  auditable con contención multiproceso del último administrador, confinamiento del transporte
-  de operadores y política única de cookie, protección en reposo conforme a ADR-0029 —ACL
-  verificada, cifrado AES-256-GCM de respaldos y secretos, custodia por el almacén del sistema
-  operativo—, retención y rotación de clave con conservación de claves retiradas referenciadas,
-  separación de logs técnicos y auditoría append-only, y diagnóstico correlacionado con
-  allowlist y pantalla desktop. `pnpm pipeline` cerró verde con 1.182 pruebas en 186 archivos.
-  Quedan declaradas fuera de alcance y abiertas en el gate de piloto: el arranque empaquetado
-  de Electron, el backup operativo periódico independiente de actualizaciones y la sustitución
-  coordinada de certificados TLS dependiente de la PKI. La deuda contable de residuo/redondeo
-  de 9B.04 y la ausencia de garantía de stock global durante desconexión permanecen explícitas.
-  Este cierre no habilita el piloto ni inicia la Fase 12.
-- El 2026-09-09 una auditoría de cierre revirtió esa certificación: quedó registrada en
-  [auditoria-cierre-2026-09-09.md](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) con trece
-  hallazgos validados. Los cuatro P1 —revocación de concesiones que dejaba de aplicarse tras el
-  primer enrolamiento, rotación de claves capaz de destruir material sin evidencia, diagnóstico
-  bloqueado unos 500 segundos con el coordinador caído y almacén de claves sobrescrito sin
-  publicación atómica— se corrigieron ese día, cada uno con la prueba que lo reproduce. Los seis
-  P2 —aislamiento del diagnóstico entrante, directorio de operadores concedidos, cookie de sesión
-  ilegible, PIN retenido tras un fallo, respaldo intermedio en claro y rutas de material en el
-  texto libre de los logs— y los tres P3 —una denegación auditada que no correspondía a ninguna
-  decisión, una acción de enrolamiento sin jerarquía visual y dos formularios competidores— se
-  cerraron con la misma exigencia de prueba. La evidencia vigente consta en el registro. El cierre
-  de la auditoría habilita planificar `v0.1.0`, no una tienda: el gate de piloto conserva el
-  instalable firmado, hardware y validación real.
 - El 2026-09-09 se detalló la ejecución de Fase 12. El orden obligatorio queda
   12.01 baseline y presupuestos → 12.02 comunicación HTTP local → 12.03 SQLite e historia de
   inventario → 12.05 mantenibilidad y benchmark final. Cada cambio exige BEFORE/AFTER y puede
   descartarse si no supera el ruido. 12.04 conserva un gate separado por perfil fiscal y sigue
   suspendida con Fase 8; no se sustituye con `FiscalPrinterFake`.
-- La auditoría focal del 2026-09-04 quedó documentada en el [registro de puntos
-  clave de la Fase 11](./fase-11-seguridad/auditoria-puntos-clave-2026-09-04.md).
-  Confirma la base arquitectónica, pero deja como deudas trazables la composición
-  venta → caja → inventario, el redondeo de costo de 9B.04, la consolidación de
-  `typecheck`, el arranque empaquetado, el uso de migraciones con respaldo, el
-  transporte LAN, la administración de identidad, la política offline y la
-  medición de crecimiento del inventario. Cada punto conserva su fase propietaria
-  y no adelanta trabajo de Fase 10, 11 o 12.
 - La planificacion regulatoria de Fase 8 reconoce que SNAT/2026/00084 derogo la SNAT/2024/000121 el 2026-08-12. La autorizacion por modelo y el registro del desarrollador ante el fabricante de SNAT/2018/0141 se verifican nuevamente antes del piloto.
-- La Fase 1 se completó con Electron, React, Fastify, SQLite, Drizzle y ESLint instalados y verificados mediante smoke tests.
 - ADR-0008 establece terminales POS autonomas con Fastify y SQLite local; el nodo coordinador sincroniza eventos y datos de referencia.
 - ADR-0009 establece tablas relacionales como fuente de verdad, ledger append-only para historia y outbox para entrega; no se usa event sourcing completo en el MVP.
 - Antes de la Fase 9 se ejecuta el gate de seguridad de transporte autorizado el 2026-08-14; no adelanta cifrado ni hardening final de la Fase 11.
-- El [hito transversal de cierre arquitectonico](./hito-cierre-arquitectonico.md) se completo el 2026-08-14 y habilito la continuacion desde 2.03.
-
