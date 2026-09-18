@@ -134,33 +134,37 @@ introdujeron los cortes. La corrección probable es declarar un tiempo de espera
 archivo, como ya hacen las pruebas lentas del arnés, pero eso es una decisión de quien atienda la
 fragilidad de la suite y no un efecto lateral de una optimización.
 
-## D-006 · La prueba del gate de aislamiento falla cuando la estación está libre
+## D-007 · Una prueba del almacén de claves agota su tiempo dentro de la suite completa
 
-**Observado:** 2026-09-17, verificando el corte de persistencia de 12.05.03 con la máquina ya
-desocupada para la campaña A/B de 12.03.
+**Observado:** 2026-09-17, verificando los checks del gate de salida de Fase 12.
 
-`apps/server/perf/measure.test.ts` → «aborta una serie que la estación no puede medir aislada»
-falló con `expected true to be false`. La prueba corre el arnés con `--max-load 0` y espera
-`PERF_STATION_BUSY`; el arnés aborta cuando la ocupación **supera** el límite, así que con la
-estación al 0 % la comparación `0 > 0` es falsa, la serie corre y la prueba no encuentra el
-fallo que esperaba.
+`packages/drivers/security/src/secret-vault.test.ts` → «envuelve la clave con el sistema y no la
+escribe en claro» falló con `Test timed out in 5000ms`. Corrido aislado, el archivo entero pasa en
+4,0 s y ese caso tarda 2,1 s. Es el único caso del archivo que envuelve la clave con DPAPI, y por
+eso el único que paga una llamada al sistema.
 
-**Reproducción:** con la estación realmente desocupada. Con cualquier carga de fondo —que es la
-condición habitual de una máquina de trabajo— la prueba pasa. También falló el mismo día en la
-revisión `17e1238`, sin ninguno de los cambios de 12.03 ni de 12.05.
+**Reproducción:** con la suite completa, donde 203 archivos corren en paralelo. Aisladamente no
+reproduce.
 
-**Causa, verificada:** la prueba supone que la estación nunca marca exactamente 0 %, y `--max-load`
-no admite un valor que exprese «aborta siempre», porque su mínimo es 0. El gate en sí funciona:
-es su prueba la que no puede forzarlo de forma determinista.
+**Causa, sin confirmar del todo:** el caso gasta 2,1 s de los 5 s por omisión en una estación
+libre; con los trabajadores de vitest compitiendo por CPU, ese margen no alcanza. No hay indicio
+de que el almacén en sí falle: cuando la prueba completa, verifica lo que dice verificar.
 
-**Por qué no se corrigió aquí:** el arnés pertenece a 12.01 y el corte que la destapó es de
-persistencia. La corrección no es subir un número: exige decidir cómo se fuerza el gate en una
-prueba —un umbral que signifique «siempre», una carga inyectada o una comprobación del cálculo
-en vez de la corrida entera—, y eso es trabajo de quien atienda el arnés. Queda registrado para
-que nadie lea este fallo como una regresión del código de negocio.
+**Por qué no se corrigió aquí:** es la misma decisión pendiente de D-005 y no una cuestión del
+almacén de claves. Corregir uno sin el otro deja la suite igual de frágil.
+
+El número D-006 no se reutiliza: identificaba la prueba del gate de aislamiento del arnés,
+corregida el 2026-09-17 extrayendo la decisión del gate a `stationIsBusy` y probándola con casos
+deterministas en vez de reproduciendo una serie que ninguna estación puede forzar.
 
 ## Cómo se relacionan
 
 D-001 tapa a D-002. Corregir solo D-001 convertiría un camino bloqueado en uno que acepta
 importes incorrectos, que es peor. La secuencia correcta es: decidir la escala de moneda (ADR),
 propagarla, y recién entonces habilitar el pago en otra moneda con su tasa visible.
+
+D-005 y D-007 son el mismo mecanismo en dos archivos distintos: un caso que en una estación libre
+consume la mitad o más del tiempo de espera por omisión, y que dentro de la suite completa no
+alcanza a terminar. Ninguno de los dos indica un fallo del código que prueban, y los dos se
+corrigen con la misma decisión —declarar tiempo de espera donde el costo es conocido— que ya
+aplican las pruebas lentas del arnés.

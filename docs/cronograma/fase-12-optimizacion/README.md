@@ -86,7 +86,8 @@ capacidad de piloto o producción.
 
 ## Gate de salida en modo fiscal simulado
 
-Revisado el 2026-09-17 sobre `ded0fba`. **Tres puntos cumplidos, tres abiertos**, y los tres
+Revisado el 2026-09-17 sobre `ded0fba`, con los checks repetidos ese mismo día después de
+corregir el gate de aislamiento del arnés. **Tres puntos cumplidos, tres abiertos**, y los tres
 abiertos están abiertos por razones distintas.
 
 - [ ] 12.01, 12.02, 12.03 y 12.05 están cerradas con evidencia reproducible.
@@ -105,12 +106,15 @@ abiertos están abiertos por razones distintas.
   que no se extrajeron, con su tabla de acoplamiento; y los reportes de la UI, sin corte por
   decisión.
 - [ ] Lint, typecheck, suite completa, builds y pruebas focalizadas aplicables están verdes.
-  `pnpm typecheck` y `pnpm build:artifacts` en verde. La suite marca **1.357 de 1.358**: el único
-  fallo es [D-006](../defectos-conocidos.md), la prueba del gate de aislamiento del arnés, que
-  falla precisamente cuando la estación está libre. `pnpm lint` falla con 128 errores que salen
-  **todos** de `.agents/skills/security-audit/`, archivos sin seguimiento y ajenos al proyecto;
-  sobre el árbol versionado el lint está limpio. Ninguno de los dos es una regresión de esta fase,
-  y ninguno se marca verde mientras el comando no lo esté.
+  Revisado el 2026-09-17. `pnpm lint` y `pnpm typecheck` en verde; `pnpm build:artifacts` en verde
+  en la verificación anterior. La suite marca **1.360 de 1.362** y los dos fallos son tiempos de
+  espera agotados dentro de la corrida paralela: [D-005](../defectos-conocidos.md) en la primera
+  prueba de fronteras y [D-007](../defectos-conocidos.md) en el almacén de claves. Aislados, los
+  dos archivos pasan en menos de cuatro segundos. El fallo del gate de aislamiento del arnés que
+  antes ocupaba este punto quedó corregido: la decisión vive en `stationIsBusy` y se prueba con
+  casos deterministas. El lint dejó de recorrer las skills instaladas desde fuera, que nunca
+  fueron código de este repositorio. Ninguno de los dos fallos restantes es una regresión de esta
+  fase, y el punto no se marca verde mientras el comando no lo esté.
 - [x] Cronograma, alcance y evidencia identifican los commits medidos y distinguen el cierre
   simulado de 12.04 suspendida.
 - [ ] El cronograma habilita Fase 13 únicamente después de verificar este gate.
