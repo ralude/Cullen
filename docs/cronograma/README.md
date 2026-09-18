@@ -46,7 +46,12 @@ README, además de contribución, seguridad y notas de versión.
 desde el tag.
 
 **Hito actual:** [Fase 12](./fase-12-optimizacion/README.md), habilitada por ese release, en su
-[sub-fase 12.03](./fase-12-optimizacion/12.03-sqlite.md).
+[sub-fase 12.05](./fase-12-optimizacion/12.05-mantenibilidad-estructural.md), la última: 12.03
+cerró el 2026-09-17 y 12.05 entregó sus cinco cortes y su benchmark. Su
+[gate de salida](./fase-12-optimizacion/README.md#gate-de-salida-en-modo-fiscal-simulado) lleva
+cuatro puntos cumplidos de seis —los checks quedaron verdes el 2026-09-17, con tres corridas
+consecutivas de la suite completa—, y los dos abiertos esperan a alguien distinto de quien hizo el
+trabajo: el tercero que reproduzca la serie de 12.01 y las sesiones reales de navegación de 12.05.
 
 Durante la ventana de publicación se corrigió la base del IGTF en pagos mixtos, que era
 recursiva y dejaba el cobro con dos métodos sin ningún importe deducible
