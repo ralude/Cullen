@@ -37,6 +37,7 @@ import { LanCycleBenchmark } from './lan-cycle.ts';
 import {
   countExchanges, countTraffic, measureSystemLoad, median, medianBytes, microsToMs,
   recordResources,
+  stationIsBusy,
   waitForIdleStation,
   summarizeProcessResources,
   type ExchangeReport, type ProcessResources, type ScenarioResources
@@ -1145,7 +1146,7 @@ const main = async (): Promise<void> => {
    * entero el 2026-09-16.
    */
   const beforeBusyPercent = await waitForIdleStation(options.maxLoadPercent);
-  if (beforeBusyPercent > options.maxLoadPercent) {
+  if (stationIsBusy(beforeBusyPercent, options.maxLoadPercent)) {
     throw new Error(
       'PERF_STATION_BUSY: la estación sigue al ' + beforeBusyPercent + ' % tras esperar, y el ' +
       'límite es ' + options.maxLoadPercent + ' %. Cierra lo que compita por CPU antes de medir.'

@@ -4,6 +4,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
+import { stationIsBusy } from './resources.ts';
 
 const execute = promisify(execFile);
 const serverDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -178,14 +179,6 @@ describe('comando público de medición de 12.01', () => {
     expect(report.environment.systemLoad.beforeBusyPercent).toBeLessThanOrEqual(100);
   }, 60_000);
 
-  it('aborta una serie que la estación no puede medir aislada', async () => {
-    const result = await run([
-      '--scenario', 'catalog-barcode', '--warmup', '0', '--sample', '1', '--max-load', '0'
-    ]);
-    expect(result.succeeded).toBe(false);
-    expect(result.stdout).not.toContain('Crudos en');
-    expect(result.stderr).toContain('PERF_STATION_BUSY');
-  }, 60_000);
 
   it('conserva un warm-up explícito cuando la comparación lo exige', async () => {
     const result = await run(['--scenario', 'catalog-barcode', '--warmup', '3', '--sample', '2']);
@@ -488,4 +481,24 @@ describe('comando público de medición de 12.01', () => {
       expect(raw).not.toContain(forbidden);
     }
   }, 120_000);
+});
+
+/**
+ * La decisión del gate se prueba aparte de la corrida. Forzarla desde el comando
+ * exigía un límite por debajo de cualquier ocupación posible y no existe: con la
+ * estación libre la lectura es 0 % y el mínimo de `--max-load` también, así que la
+ * serie corría y el caso fallaba precisamente cuando la máquina estaba en
+ * condiciones de medir. Aquí la decisión sí es determinista; que el comando aborte
+ * con ella sigue siendo verificable a mano sobre una estación cargada.
+ */
+describe('guarda de aislamiento de la estación', () => {
+  it.each([
+    [0, 0, false],
+    [15, 15, false],
+    [15.1, 15, true],
+    [100, 0, true],
+    [0, 100, false]
+  ])('con %s %% de ocupación y un límite de %s %% decide ocupada = %s', (busy, limit, busyStation) => {
+    expect(stationIsBusy(busy, limit)).toBe(busyStation);
+  });
 });

@@ -177,6 +177,16 @@ export const measureSystemLoad = async (sampleMs = 300): Promise<number> => {
 };
 
 /**
+ * Decide si una lectura de ocupación impide medir. Una estación exactamente en
+ * el límite todavía mide: el presupuesto es un máximo tolerado y no un umbral
+ * que excluya su propio valor. Vive aparte porque gobierna tanto la espera como
+ * el aborto, y porque una corrida completa no puede forzar la decisión de forma
+ * determinista: una estación libre marca 0 % y ningún límite queda por debajo.
+ */
+export const stationIsBusy = (busyPercent: number, limitPercent: number): boolean =>
+  busyPercent > limitPercent;
+
+/**
  * Espera a que la estación se libere antes de decidir que está ocupada. Una
  * lectura sola confunde un pico transitorio con una máquina cargada: al cerrar
  * una tanda, los procesos hijos y Electron siguen liberándose unos segundos, y
@@ -187,7 +197,7 @@ export const waitForIdleStation = async (
   limitPercent: number, attempts = 6, pauseMs = 2_000
 ): Promise<number> => {
   let busy = await measureBusyPercent();
-  for (let attempt = 1; busy > limitPercent && attempt < attempts; attempt += 1) {
+  for (let attempt = 1; stationIsBusy(busy, limitPercent) && attempt < attempts; attempt += 1) {
     await new Promise((resolve) => { setTimeout(resolve, pauseMs); });
     busy = await measureBusyPercent();
   }
