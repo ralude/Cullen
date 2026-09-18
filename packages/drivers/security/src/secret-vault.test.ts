@@ -78,6 +78,12 @@ describe('almacén de claves del nodo', () => {
     expect((await vault.list()).map((key) => key.keyId)).toEqual([rotated.keyId]);
   });
 
+  /**
+   * Único caso del archivo que envuelve la clave con el sistema, así que es el
+   * único que paga una llamada a DPAPI: 2,1 s con la estación libre, de los 5 s
+   * por omisión. Dentro de la suite completa ese margen no alcanzaba, de ahí su
+   * propia espera.
+   */
   it.runIf(windows)('envuelve la clave con el sistema y no la escribe en claro', async () => {
     const directory = temporary();
     const vault = openSecretVault(directory, {});
@@ -93,7 +99,7 @@ describe('almacén de claves del nodo', () => {
     /** El material se recupera igual en una lectura posterior del mismo nodo. */
     const reopened = await openSecretVault(directory, {}).keyById(key.keyId);
     expect(Buffer.from(reopened!.material).equals(Buffer.from(key.material))).toBe(true);
-  });
+  }, 20_000);
 
   it.runIf(windows)('no acepta un almacén escrito bajo otra custodia', async () => {
     const directory = temporary();

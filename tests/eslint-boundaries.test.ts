@@ -2,6 +2,13 @@ import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
 describe('renderer import boundary', () => {
+  /**
+   * El primero de estos casos paga el arranque en frío de ESLint —construir la
+   * configuración del repositorio y cargar el parser de TypeScript—, que los demás
+   * ya no pagan. Aislado tarda 1,3 s, pero dentro de la suite completa, con los
+   * trabajadores compitiendo por CPU, no entraba en los 5 s por omisión: de ahí su
+   * propia espera, como ya la declaran las pruebas lentas del arnés.
+   */
   it.each([
     '@supermarket/core',
     '@supermarket/driver-db',
@@ -16,7 +23,7 @@ describe('renderer import boundary', () => {
     expect(result?.messages).toEqual(expect.arrayContaining([
       expect.objectContaining({ ruleId: 'no-restricted-imports', severity: 2 })
     ]));
-  });
+  }, 20_000);
 });
 
 /**
