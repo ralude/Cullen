@@ -1,6 +1,12 @@
 # Fase 12B: Manual de usuario no técnico
 
-- **Estado:** Planificada el 2026-09-09; ejecución pendiente.
+- **Estado:** Planificada el 2026-09-09; **habilitada el 2026-09-18** al cerrar la
+  [Fase 12](../fase-12-optimizacion/README.md) y **en ejecución** desde ese mismo día.
+  [12B.01](./12b.01-inventario-de-interfaz.md) y [12B.02](./12b.02-lenguaje-y-plantilla.md)
+  están entregadas; los capítulos y las capturas siguen pendientes.
+- **Dependencia externa declarada:** [12B.03](./12b.03-capturas.md) necesita una sesión iniciada,
+  y el PIN solo se aprovisiona desde una terminal interactiva; [12B.10](./12b.10-absorcion-y-verificacion.md)
+  necesita un lector que no programe. Ninguna de las dos la puede cubrir quien escribe el manual.
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Tipo:** fase documental. No entrega código ni cambia comportamiento observable.
 - **Destino del entregable:** `docs/operacion/manual-usuario/`.

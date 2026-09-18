@@ -1,0 +1,651 @@
+{
+  "revision": "bcc6f8f",
+  "date": "2026-09-18",
+  "subPhase": "12B.01",
+  "method": "Inspección del árbol del renderer: navegación (navigation.ts), marco de ventana y pantallas fuera de la navegación (App.tsx), composición por ruta (operation-screens.tsx) y cada módulo de screens/. Registra el texto que el usuario lee, no el nombre del componente. No es una sesión de uso observada: nadie ejecutó la aplicación para producirlo, así que una discrepancia entre este manifiesto y la pantalla real es un defecto del manifiesto y se corrige aquí.",
+  "scope": "Doce rutas de navegación, tres pantallas fuera de ella, el marco de la ventana, cuatro estados de aplicación y los componentes compartidos que el usuario percibe como parte de la pantalla.",
+  "frame": {
+    "brand": { "name": "Cullen", "subtitle": "Punto de venta" },
+    "sidebar": {
+      "groups": ["General", "Caja", "Inventario", "Administración", "Supervisión y gerencia"],
+      "note": "El grupo General no imprime su título. Un grupo sin rutas alcanzables no se dibuja.",
+      "collapse": {
+        "control": "Botón de tres líneas en la barra superior",
+        "labels": ["Ocultar navegación", "Mostrar navegación"],
+        "persists": "Sí, por puesto de trabajo, no por sesión"
+      },
+      "shortcutHint": "Cada entrada muestra su atajo como Alt+<tecla>"
+    },
+    "topbar": {
+      "title": "Título de la pantalla activa",
+      "hint": "Descripción de la pantalla activa",
+      "connection": {
+        "online": "Servidor conectado",
+        "offline": "Sin conexión con el nodo",
+        "note": "Distingue una respuesta del nodo —aunque sea un error de negocio— de una falla de transporte."
+      },
+      "fiscalLabel": "Fiscal · SIMULACIÓN",
+      "account": { "label": "Operador", "value": "Nombre visible de la sesión", "action": "Salir" }
+    }
+  },
+  "applicationStates": [
+    {
+      "id": "loading",
+      "title": "Conectando con el nodo",
+      "body": "Estamos verificando la sesión local.",
+      "when": "Al abrir la terminal y al reintentar"
+    },
+    {
+      "id": "transport-error",
+      "title": "No pudimos conectar con el nodo",
+      "body": "Comprueba que el servidor local esté iniciado e inténtalo nuevamente.",
+      "action": "Reintentar"
+    },
+    {
+      "id": "unauthorized-route",
+      "title": "No tienes autorización para esta pantalla",
+      "body": "Tu perfil no incluye los permisos necesarios. Cambia de pantalla o solicita acceso al administrador.",
+      "when": "La ruta se alcanza por hash sin tener permiso"
+    },
+    {
+      "id": "render-error",
+      "title": "No pudimos dibujar esta pantalla",
+      "body": "La operación en el nodo no se vio afectada. Vuelve a intentarlo o cambia de pantalla.",
+      "action": "Reintentar",
+      "when": "Falla el render de la pantalla activa; el resto de la ventana sobrevive"
+    }
+  ],
+  "screensOutsideNavigation": [
+    {
+      "id": "sign-in",
+      "title": "Ingresar a Cullen",
+      "eyebrow": "Nodo local · <plataforma>",
+      "intro": "Usa tu código de operador y PIN. La sesión permanece protegida en una cookie local.",
+      "fiscalLabel": "Fiscal · SIMULACIÓN",
+      "sections": [
+        {
+          "name": "Identificación",
+          "fields": ["Código de operador", "PIN"],
+          "actions": ["Ingresar"]
+        }
+      ],
+      "alternative": {
+        "text": "¿Tienes un código de enrolamiento?",
+        "action": "Usar código de enrolamiento"
+      },
+      "states": ["normal", "error de credencial (mensaje sobre el formulario)"]
+    },
+    {
+      "id": "mandatory-pin-change",
+      "title": "Cambia tu PIN para continuar",
+      "eyebrow": "Sesión restringida",
+      "intro": "Hola <nombre>: tu credencial fue caducada por la administración. Hasta que definas un PIN nuevo esta estación no habilita ninguna otra operación.",
+      "sections": [
+        {
+          "name": "Nuevo PIN",
+          "fields": ["PIN actual", "PIN nuevo", "Repite el PIN nuevo"],
+          "actions": ["Guardar PIN", "Salir"]
+        }
+      ],
+      "states": [
+        "normal",
+        "guardando (Guardando…)",
+        "error",
+        "los tres campos se vacían después de cada intento"
+      ]
+    },
+    {
+      "id": "credential-enrollment",
+      "title": "Activar credencial",
+      "eyebrow": "Primer acceso",
+      "intro": "Escribe el código de un solo uso que te entregó quien autorizó tu enrolamiento y elige tu PIN. Solo tú lo conoces.",
+      "sections": [
+        {
+          "name": "Activar credencial",
+          "fields": ["Código de enrolamiento", "PIN nuevo", "Repite el PIN"],
+          "actions": ["Activar credencial", "Volver al ingreso"]
+        }
+      ],
+      "states": [
+        "normal",
+        "activando (Activando…)",
+        "error",
+        "éxito: Credencial activada para <código>. Ya puedes ingresar con tu PIN."
+      ],
+      "reachedFrom": "sign-in"
+    }
+  ],
+  "routes": [
+    {
+      "id": "home",
+      "hash": "#/",
+      "label": "Inicio",
+      "title": "Inicio",
+      "shortcut": "Alt+1",
+      "group": "General",
+      "description": "Resumen de la estación y accesos directos a la operación diaria.",
+      "reachableBy": "cualquier sesión válida",
+      "sections": [
+        {
+          "name": "Accesos directos",
+          "content": "Una tarjeta por pantalla alcanzable, con su nombre y su descripción"
+        },
+        {
+          "name": "Estado de la estación",
+          "content": "Modo fiscal (Simulado) y Reportes X/Z (Simulados habilitados / Deshabilitados)"
+        }
+      ],
+      "states": ["normal"]
+    },
+    {
+      "id": "sales",
+      "hash": "#/sales",
+      "label": "Venta",
+      "title": "Punto de venta",
+      "shortcut": "Alt+2",
+      "group": "Caja",
+      "description": "Escanea productos, cobra y completa la venta del turno abierto.",
+      "reachableBy": "quien tenga alguna capacidad de trabajo de caja",
+      "sections": [
+        {
+          "name": "Abrir carrito",
+          "eyebrow": "Nueva venta",
+          "note": "El turno lo abre y lo cierra la pantalla de Caja; aquí solo se usa el que esté abierto."
+        },
+        {
+          "name": "01 · Ticket / Venta actual",
+          "fields": ["Escanea o escribe y presiona Enter"],
+          "actions": ["Buscar producto", "Anular venta", "Descuento de línea"]
+        },
+        {
+          "name": "02 · Catálogo / Productos",
+          "fields": ["Buscar por nombre o barcode"]
+        },
+        {
+          "name": "Cobro de la venta",
+          "content": "Barra inferior: Moneda de venta, Método de pago, Importe, Total a cobrar, +IGTF, Pagado"
+        },
+        {
+          "name": "Emitir factura",
+          "eyebrow": "Documento fiscal",
+          "actions": ["Receptor fiscal", "Quitar receptor"]
+        },
+        { "name": "Devolver venta completa", "eyebrow": "Acción sensible" }
+      ],
+      "states": [
+        "sin turno abierto: «Esta estación no tiene un turno abierto.» con enlace «Abre la caja … y vuelve a esta pantalla.»",
+        "consultando el turno: «Consultando el turno de la caja…»",
+        "ticket vacío: «El ticket está vacío. Escanea un código o elige un producto del catálogo.»",
+        "catálogo caído: «El catálogo no respondió. Puedes seguir usando el lector.» con Reintentar",
+        "búsqueda sin resultados: «No hay productos activos que coincidan con la búsqueda.»",
+        "sin pagos: «Sin pagos agregados todavía»",
+        "completar bloqueado: el botón explica por qué (falta cobrar, el pago supera el total, o no hay líneas)",
+        "venta completada / anulada",
+        "rótulo: «SIMULACIÓN · la captura no certifica una factura fiscal»"
+      ]
+    },
+    {
+      "id": "cash",
+      "hash": "#/cash",
+      "label": "Caja",
+      "title": "Operación de caja",
+      "shortcut": "Alt+3",
+      "group": "Caja",
+      "description": "Apertura de turno, movimientos de efectivo y cierre con arqueo.",
+      "reachableBy": "quien tenga alguna capacidad de trabajo de caja",
+      "note": "Apertura, movimientos y cierre se envían al turno dueño de la caja. Las diferencias quedan visibles para autorización.",
+      "sections": [
+        {
+          "name": "Abrir caja",
+          "fields": ["Caja asignada", "Fondo inicial"],
+          "actions": ["Abrir turno", "Consultar turno"]
+        },
+        {
+          "name": "Turno abierto / Turno cerrado",
+          "content": "Identificador corto, cantidad de movimientos, Esperado, Declarado, Diferencia"
+        },
+        {
+          "name": "Registrar movimiento",
+          "fields": ["Tipo (Ingreso / Retiro)", "Método de efectivo", "Importe", "Motivo"]
+        },
+        {
+          "name": "Declarar efectivo para cerrar",
+          "fields": ["Saldo declarado", "Motivo"],
+          "actions": ["Cerrar turno"]
+        }
+      ],
+      "states": [
+        "sin turno: «No hay un turno local para consultar.»",
+        "turno abierto",
+        "turno cerrado",
+        "sin caja configurada: la caja se escribe a mano («Configuración de estación»)"
+      ]
+    },
+    {
+      "id": "catalog",
+      "hash": "#/catalog",
+      "label": "Catálogo",
+      "title": "Catálogo",
+      "shortcut": "Alt+4",
+      "group": "Caja",
+      "description": "Consulta productos por barcode y administra precios auditados.",
+      "reachableBy": "quien trabaje en caja, o quien pueda crear productos o cambiar precios",
+      "note": "Busca productos por barcode y muestra el snapshot que devuelve el nodo. Los cambios de precio quedan auditados.",
+      "sections": [
+        {
+          "name": "Búsqueda",
+          "fields": ["Nombre o barcode"],
+          "actions": ["Abrir ficha por barcode", "Buscar en el catálogo", "Nuevo producto"]
+        },
+        {
+          "name": "Listado",
+          "columns": ["Producto", "Barcode", "Precio"],
+          "actions": ["Ver ficha"]
+        },
+        {
+          "name": "Ficha del producto",
+          "content": "Identificador, Unidad, Barcode, Estado, Versión e Historial de precio",
+          "actions": ["Actualizar precio"]
+        },
+        {
+          "name": "Nuevo producto (ventana)",
+          "fields": [
+            "Nombre",
+            "Descripción",
+            "Categoría",
+            "Unidad",
+            "Barcode",
+            "Precio",
+            "Moneda",
+            "IVA (%)",
+            "Motivo"
+          ]
+        }
+      ],
+      "states": [
+        "vacío: «Busca un barcode o carga el listado para consultar el catálogo.»",
+        "sin historial: «Sin registros.»",
+        "error"
+      ]
+    },
+    {
+      "id": "inventory",
+      "hash": "#/inventory",
+      "label": "Inventario",
+      "title": "Inventario",
+      "shortcut": "Alt+5",
+      "group": "Inventario",
+      "description": "Kardex, recepciones de compra y ajustes autorizados de existencia.",
+      "reachableBy": "quien consulte kardex, reciba compras, ajuste existencia, administre proveedores o trabaje en conteos",
+      "sections": [
+        {
+          "name": "Artículos y vencimientos de este nodo",
+          "content": "Existencia por artículo, con lote y vencimiento"
+        },
+        {
+          "name": "Kardex",
+          "content": "Saldo actual y movimientos del producto elegido, con Desde/Hasta y Máximo 100 filas"
+        },
+        { "name": "Lotes y vencimientos" },
+        {
+          "name": "Ajustar existencia",
+          "fields": [
+            "Producto",
+            "Dirección (Ajuste entrada / Ajuste salida / Merma)",
+            "Cantidad",
+            "Motivo",
+            "Referencia"
+          ]
+        },
+        {
+          "name": "Registrar compra",
+          "content": "Panel de recepción: proveedor activo, documento (Factura / Guía de despacho / Recibo), Cantidad, Costo, Lote (opcional) y Vencimiento"
+        }
+      ],
+      "states": [
+        "sin existencia: «Sin existencia registrada.»",
+        "sin proveedor activo: «Selecciona un proveedor activo»",
+        "error"
+      ]
+    },
+    {
+      "id": "suppliers",
+      "hash": "#/suppliers",
+      "label": "Proveedores",
+      "title": "Proveedores",
+      "shortcut": "Alt+6",
+      "group": "Inventario",
+      "description": "Maestro de proveedores con identidad fiscal, estados y auditoría.",
+      "reachableBy": "quien administre proveedores",
+      "sections": [
+        {
+          "name": "Filtro por estado",
+          "options": ["Todos", "Activos", "Inactivos", "Bloqueados"]
+        },
+        { "name": "Listado", "actions": ["Ver ficha", "Nuevo proveedor"] },
+        {
+          "name": "Ficha",
+          "content": "Código, Razón social, Identidad fiscal (normalizada), Datos comerciales, Estado y Versión"
+        },
+        { "name": "Corrección privilegiada" }
+      ],
+      "states": [
+        "vacío: «No hay proveedores registrados para este filtro.»",
+        "error"
+      ]
+    },
+    {
+      "id": "counts",
+      "hash": "#/counts",
+      "label": "Conteos",
+      "title": "Conteos físicos",
+      "shortcut": "Alt+7",
+      "group": "Inventario",
+      "description": "Conteo de existencia, diferencias congeladas y aprobación con ajuste.",
+      "reachableBy": "quien cuente o quien apruebe conteos",
+      "sections": [
+        {
+          "name": "Filtro por estado",
+          "options": [
+            "Todos",
+            "Abiertos",
+            "Cerrados, pendientes de aprobación",
+            "Aprobados",
+            "Rechazados"
+          ]
+        },
+        { "name": "Detalle del conteo", "actions": ["Ver detalle"] },
+        {
+          "name": "Registrar línea",
+          "fields": ["Producto/artículo", "Lote", "Contado"]
+        },
+        { "name": "Cerrar conteo" },
+        {
+          "name": "Diferencias congeladas al cerrar",
+          "columns": ["Esperado", "Contado", "Diferencia"]
+        },
+        { "name": "Decisión del supervisor" }
+      ],
+      "states": [
+        "vacío: «No hay conteos registrados para este filtro.»",
+        "abierto",
+        "cerrado pendiente de aprobación",
+        "aprobado",
+        "rechazado"
+      ]
+    },
+    {
+      "id": "reports",
+      "hash": "#/reports",
+      "label": "Reportes",
+      "title": "Reportes y cierres",
+      "shortcut": "Alt+8",
+      "group": "Supervisión y gerencia",
+      "description": "Cierres de caja, auditoría y estados fiscales del período.",
+      "reachableBy": "quien tenga alguna lectura de reportes",
+      "sections": [
+        {
+          "name": "Período consultado",
+          "fields": ["Desde", "Hasta", "Caja (opcional)", "Filas (máximo 500)"]
+        },
+        {
+          "name": "Cierres de caja y diferencias",
+          "export": "cierres-de-caja.csv"
+        },
+        {
+          "name": "Auditoría de operaciones sensibles",
+          "export": "auditoria.csv",
+          "note": "La auditoría no expone el contenido antes/después del agregado."
+        },
+        { "name": "Operaciones fiscales y estados recuperables" },
+        { "name": "Ventas completadas por moneda", "export": "ventas.csv" },
+        { "name": "Ingreso, costo y margen por producto", "export": "margen.csv" },
+        {
+          "name": "Existencia por artículo y lote",
+          "export": "inventario.csv",
+          "note": "La existencia es la de este nodo a la fecha de corte."
+        },
+        {
+          "name": "Consultar el arqueo de un turno",
+          "actions": ["Consultar arqueo"]
+        },
+        {
+          "name": "Revisar la historia de una venta",
+          "actions": ["Revisar historia"]
+        },
+        {
+          "name": "Acciones fiscales simuladas / Reportes X y Z",
+          "actions": ["Solicitar X simulado", "Solicitar Z simulado"],
+          "consent": "Confirmo que ejecutaré una simulación y que su resultado no es un cierre fiscal legal."
+        },
+        { "name": "Estado de sincronización del nodo" }
+      ],
+      "states": [
+        "sin turnos / ventas / auditoría / operaciones fiscales / artículos en el período: cada sección imprime su propio vacío",
+        "«La venta no tiene versiones consultables.»",
+        "rótulo: «SIMULACIÓN · no es documento fiscal legal»",
+        "cada sección falla por separado sin tumbar la pantalla"
+      ]
+    },
+    {
+      "id": "config",
+      "hash": "#/config",
+      "label": "Config.",
+      "title": "Configuración operativa",
+      "shortcut": "Alt+0",
+      "group": "Administración",
+      "description": "Administra maestros, políticas, sucursales y dispositivos.",
+      "reachableBy": "quien administre la configuración",
+      "sections": [
+        { "name": "Categorías", "actions": ["Guardar categoría"] },
+        {
+          "name": "Unidades",
+          "fields": ["Código", "Nombre", "Decimales"],
+          "actions": ["Guardar unidad"]
+        },
+        { "name": "Cajas de esta terminal" },
+        {
+          "name": "Métodos de pago",
+          "options": ["Efectivo", "Tarjeta", "Transferencia", "Pago móvil", "Otro"],
+          "actions": ["Guardar método"]
+        },
+        {
+          "name": "Descuento máximo",
+          "hint": "Tope por línea, en por ciento. Admite decimales: 12,5"
+        },
+        {
+          "name": "IGTF · SIMULACIÓN",
+          "hint": "Se cobra dentro del importe entregado con un método gravado.",
+          "fields": [
+            "Porcentaje",
+            "Métodos (separados por coma)",
+            "Monedas (separadas por coma)"
+          ],
+          "actions": ["Publicar versión"],
+          "consent": "Confirmo el alcance y la nueva vigencia"
+        },
+        { "name": "Sucursales" },
+        {
+          "name": "Dispositivos declarados",
+          "note": "Impresora fiscal · SIMULACIÓN — declararla no habilita emisión real."
+        }
+      ],
+      "states": [
+        "«No hay sucursales registradas.»",
+        "«No hay dispositivos declarados.»",
+        "«Sin asignar»",
+        "error por sección"
+      ]
+    },
+    {
+      "id": "identity",
+      "hash": "#/identity",
+      "label": "Identidad",
+      "title": "Operadores y roles",
+      "shortcut": "Alt+i",
+      "group": "Administración",
+      "description": "Alta de operadores, roles, permisos y enrolamiento de credenciales.",
+      "reachableBy": "quien administre identidad",
+      "sections": [
+        { "name": "La administración pertenece al coordinador" },
+        { "name": "Enrolamiento de credencial" },
+        {
+          "name": "Operadores",
+          "content": "Código, Nombre, Estado, Acceso local y Roles iniciales",
+          "actions": ["Ver", "Nuevo operador"]
+        },
+        {
+          "name": "Roles",
+          "content": "Permisos por rol",
+          "actions": ["Ver", "Nuevo rol"]
+        }
+      ],
+      "states": [
+        "«Este nodo todavía no conoce operadores.»",
+        "«No hay roles definidos en este nodo.»",
+        "error"
+      ]
+    },
+    {
+      "id": "sync",
+      "hash": "#/sync",
+      "label": "Sync",
+      "title": "Sincronización entre nodos",
+      "shortcut": "Alt+s",
+      "group": "Supervisión y gerencia",
+      "description": "Estado del enlace, antigüedad de las referencias y operaciones pendientes.",
+      "reachableBy": "quien revise sincronización",
+      "sections": [
+        {
+          "name": "Nodo consultado",
+          "fields": ["Destino (node-coordinator)"]
+        },
+        {
+          "name": "Sincronización con el destino",
+          "content": "Conectividad, En cola de salida, Última entrega confirmada, Entregas pausadas / bloqueadas"
+        },
+        { "name": "Ventas completadas que requieren atención" },
+        {
+          "name": "Entregas hacia el destino",
+          "columns": ["Estado", "Intentos", "Próximo intento"]
+        },
+        {
+          "name": "Recorrido de una operación",
+          "fields": ["Identificador del fallo"]
+        },
+        {
+          "name": "Antigüedad de las referencias recibidas",
+          "content": "Referencias utilizables, Lectura tomada, Vigencia"
+        },
+        {
+          "name": "Operaciones distribuidas",
+          "content": "Pendientes de entrega, de aplicación y de conciliación"
+        }
+      ],
+      "states": [
+        "sin consulta: «Consulta un destino para ver su estado.» y sus tres variantes por sección",
+        "«Sin entregas materializadas para este destino.»",
+        "«Sin operaciones pendientes de conciliación.»",
+        "«Sin ventas con efectos pendientes conocidos.»",
+        "sin permiso de recepción: «Esta sesión no tiene permiso para revisar la recepción.»"
+      ]
+    },
+    {
+      "id": "rates",
+      "hash": "#/rates",
+      "label": "Tasas",
+      "title": "Tasas de cambio",
+      "shortcut": "Alt+9",
+      "group": "Administración",
+      "description": "Tasa vigente, histórico local y confirmación de sugerencias externas.",
+      "reachableBy": "quien pueda actualizar la tasa de cambio",
+      "sections": [
+        { "name": "Selecciona el par", "fields": ["Base", "Cotizada"] },
+        {
+          "name": "Tasa vigente",
+          "content": "Valor, Fuente, Vigente desde / hasta, Antigüedad local, Registrado por"
+        },
+        { "name": "Histórico local del par", "fields": ["Filas del histórico"] },
+        {
+          "name": "Sugerencia externa, todavía no aplicada",
+          "content": "Valor sugerido, Vigencia sugerida, Observado",
+          "actions": ["Usar en el formulario", "Descartar"],
+          "label": "PROPUESTA · no es la tasa vigente"
+        },
+        {
+          "name": "Confirmar una tasa",
+          "fields": [
+            "Valor decimal",
+            "Vigente desde",
+            "Vigente hasta (opcional)",
+            "Motivo"
+          ]
+        }
+      ],
+      "states": [
+        "«Consulta el par para ver la tasa vigente.»",
+        "«Sin registros históricos para este par todavía.»",
+        "«Sin sugerencia solicitada todavía.»",
+        "error"
+      ]
+    }
+  ],
+  "sharedComponents": [
+    {
+      "id": "product-picker",
+      "userSees": "Buscador de productos con el texto «Nombre o barcode»",
+      "usedIn": ["inventory", "counts"]
+    },
+    {
+      "id": "feedback",
+      "userSees": "Aviso de la última acción, pegado al inicio del área de trabajo: error (!) o confirmación (✓), con «Descartar» y, en los fallos, un desplegable «Código de seguimiento» que explica: «Dáselo a quien administre la estación para encontrar esta operación.»",
+      "usedIn": "todas las pantallas de operación"
+    },
+    {
+      "id": "reason-field",
+      "userSees": "Campo «Motivo», obligatorio en las acciones auditadas",
+      "usedIn": [
+        "cash",
+        "catalog",
+        "config",
+        "identity",
+        "inventory",
+        "sales",
+        "suppliers",
+        "rates"
+      ]
+    },
+    {
+      "id": "action-button",
+      "userSees": "Botón que queda ocupado mientras la acción viaja al nodo (Guardando…, Creando…, Buscando…)",
+      "usedIn": "todas"
+    },
+    {
+      "id": "empty-state",
+      "userSees": "Bloque de vacío con su frase propia por pantalla",
+      "usedIn": "todas"
+    },
+    {
+      "id": "modal",
+      "userSees": "Ventana sobre la pantalla, con título, descripción y botón «Cerrar»",
+      "usedIn": ["catalog", "sales", "suppliers"]
+    },
+    {
+      "id": "money-format",
+      "userSees": "Importes en formato es-VE con el símbolo de la moneda y la escala configurada; un código que el sistema no reconoce se muestra como número seguido del código",
+      "usedIn": "todas las pantallas con importes"
+    }
+  ],
+  "counts": {
+    "navigationRoutes": 12,
+    "navigationGroups": 5,
+    "screensOutsideNavigation": 3,
+    "applicationStates": 4,
+    "sharedComponents": 7
+  },
+  "notes": [
+    "Ocultar una ruta no sustituye la autorización: el nodo vuelve a exigirla en cada intento, y una ruta alcanzada por hash sin permiso muestra el aviso de autorización.",
+    "El rótulo «Fiscal · SIMULACIÓN» aparece en el ingreso y en la barra superior de toda sesión, y cada documento y reporte lleva además el suyo.",
+    "Una pantalla que no está en esta lista no existe en el árbol de esta revisión. Si el manual describe una, el manual está mal."
+  ]
+}

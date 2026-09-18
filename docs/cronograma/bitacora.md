@@ -126,3 +126,13 @@ que estaban vigentes ese día, no las de hoy.
   12B, que es documental, y **no habilita la Fase 13**. Ese mismo día quedó preparado, sin
   ejecutar, el [guion de sesiones de navegación](./fase-12-optimizacion/guion-sesiones-navegacion-12.05.01.md),
   que admite contextos de agente nuevos y deja la suspensión levantable sin redescubrir el método.
+- El 2026-09-18 la Fase 12B entró en ejecución con sus dos cortes de base entregados el mismo día.
+  12B.01 publicó el [inventario de interfaz](./fase-12b-manual-usuario/inventario-de-interfaz.json)
+  sobre `bcc6f8f` —doce rutas, cinco grupos, tres pantallas fuera de la navegación, cuatro estados
+  de aplicación y siete componentes compartidos—, verificado contra `navigation.ts` ruta por ruta.
+  12B.02 fijó [lenguaje, plantilla y glosario](./fase-12b-manual-usuario/lenguaje-y-plantilla.md):
+  la plantilla de seis secciones, el registro imperativo, la regla de nombrar un permiso por su
+  capacidad y no por su código, la advertencia fiscal estándar con su ubicación y un glosario de
+  veintitrés términos con cinco palabras prohibidas. Ambos son inspección del árbol, no uso
+  observado: 12B.03 sigue bloqueada porque el PIN solo se aprovisiona desde una terminal
+  interactiva, y 12B.10 exige un lector que no programe.
