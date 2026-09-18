@@ -44,8 +44,9 @@ bloqueen `v0.1.0`.
   `generate-lan-material.test.ts` con OpenSSL 3.5.7 en el `PATH`) y `pnpm build:artifacts`.
 - `git diff --check` limpio y verificación de enlaces locales sobre los archivos Markdown
   versionados: ninguno roto dentro de `docs/`, `README.md` ni `packaging/`. El único enlace
-  irresoluble pertenece a `.agents/skills/caveman/README.md`, material de terceros ajeno al
-  alcance del release.
+  irresoluble pertenecía a `.agents/skills/caveman/README.md`, material de terceros ajeno al
+  alcance del release; ese directorio se retiró del repositorio el 2026-09-17 por no usarse, así
+  que hoy no queda ninguno.
 
 ## Nota sobre la ejecución previa
 

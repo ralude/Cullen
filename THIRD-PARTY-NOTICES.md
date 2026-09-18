@@ -39,11 +39,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-## `.agents/skills/caveman/`
-
-**Brecha declarada, no resuelta.** Esta skill entró al repositorio sin archivo de licencia, sin
-aviso de copyright y sin origen declarado: su README enlaza a un `README.md` de repositorio que aquí
-no existe, y `skills-lock.json` no la registra. No se puede completar su aviso sin saber de dónde
-salió. Quien lo sepa, que lo complete o retire el directorio; mientras tanto queda anotada como lo
-que es y no como material propio.
