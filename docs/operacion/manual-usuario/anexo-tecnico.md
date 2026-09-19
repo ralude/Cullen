@@ -30,6 +30,13 @@ Correspondencia entre el mensaje en pantalla y el código que queda en los regis
 | La caja ya tiene un turno abierto. | `SHIFT_ALREADY_OPEN` |
 | El turno no puede modificarse en este estado. | `SHIFT_INVALID_STATE` |
 | La caja conserva ventas sin cerrar: cóbralas o anúlalas antes del arqueo. | `SHIFT_HAS_OPEN_SALES` |
+| Cerrar un turno descuadrado sin la autorización para hacerlo | `FORBIDDEN` |
+
+**Sobre esa última:** el cierre exige `cash.shift.close.difference` cuando lo declarado no
+coincide con lo esperado en algún método, **y también cuando algún saldo esperado es negativo**.
+El operador solo lee *No tienes autorización para esta operación* y no tiene cómo saber que el
+motivo es la diferencia. Un saldo esperado negativo exige además un motivo explícito
+(`SHIFT_NEGATIVE_EXPECTED_REASON_REQUIRED`).
 
 ### Inventario
 
@@ -140,9 +147,44 @@ Está registrado como hallazgo de 12B en
 El manual no lo disimula: el [capítulo 6](./06-cuando-algo-falla.md#lo-que-el-manual-no-puede-resolver)
 se lo dice al operador.
 
+### Lo que el operador no ve: la venta que no pudo salir del inventario
+
+Completar una venta asienta el cobro y descuenta la existencia **en la misma transacción**. Si esa
+salida se rechaza por negocio —el producto no tiene artículo de inventario, o el saldo no
+alcanza—, **la venta se conserva completada** y el rechazo queda auditado como
+`SALE_STOCK_ISSUE_REJECTED`, con el código del error en `after.errorCode`. La pantalla no dice
+nada: el cajero cobró y siguió.
+
+Una falla de infraestructura sí propaga y revierte la transacción completa, según
+[FS-004](../../failure-scenarios/FS-004-sqlite-busy-concurrency-conflict.md). El caso de la última
+unidad vendida a la vez en dos cajas está en
+[FS-005](../../failure-scenarios/FS-005-venta-concurrente-ultima-unidad.md).
+
+**Cómo encontrarlos:** en **Reportes → Auditoría**, por su acción. El
+[capítulo 2](./02-caja.md#qué-ocurre-al-completar) le dice al cajero que avise a depósito.
+
 ---
 
-## 2 · El código de seguimiento
+## 2 · Los tipos de movimiento del kardex
+
+La tabla de movimientos de **Inventario** imprime estos valores **sin traducir**, y el operador
+los ve tal cual. El [capítulo 3](./03-inventario.md#ver-el-movimiento-de-un-producto) los traduce
+en el cuerpo porque no hay otra forma de que se entiendan.
+
+| `type` | `direction` | Qué lo produce |
+|---|---|---|
+| `PURCHASE_RECEIPT` | `IN` | Recepción de compra, con o sin documento de origen |
+| `SALE_ISSUE` | `OUT` | Venta completada en este nodo |
+| `WASTE` | `OUT` | Merma registrada con motivo y referencia |
+| `ADJUSTMENT_IN` | `IN` | Ajuste de entrada, aprobación de conteo con sobrante o reposición por devolución |
+| `ADJUSTMENT_OUT` | `OUT` | Ajuste de salida o aprobación de conteo con faltante |
+
+**Está registrado como hallazgo de interfaz:** la pantalla muestra identificadores internos a un
+operador. Corregirlo pertenece a la fase dueña de la pantalla de inventario, no a 12B.
+
+---
+
+## 3 · El código de seguimiento
 
 Cada respuesta de error del nodo lleva un identificador de correlación. En pantalla vive dentro
 del aviso, en el desplegable **Código de seguimiento**.
@@ -152,7 +194,7 @@ canal donde también viajen capturas con datos de clientes**: basta el código.
 
 ---
 
-## 3 · Permisos y qué habilita cada uno
+## 4 · Permisos y qué habilita cada uno
 
 Los permisos son datos del sistema, no una lista fija del programa: la pantalla **Identidad →
 Roles** muestra los que existen en ese nodo. Estos son los que la interfaz consulta hoy.
@@ -162,6 +204,7 @@ Roles** muestra los que existen en ese nodo. Estos son los que la interfaz consu
 | Código | Qué habilita |
 |---|---|
 | `cash.shift.open` · `cash.shift.close` | Abrir y cerrar el turno de una caja |
+| `cash.shift.close.difference` | Cerrar un turno cuyo arqueo no cuadra, o con un esperado negativo |
 | `cash.shift.read` | Consultar el turno |
 | `cash.movement.income` · `cash.movement.withdrawal` | Registrar ingresos y retiros de efectivo |
 | `sale.apply_discount` | Aplicar un descuento de línea |
@@ -199,7 +242,7 @@ exigir el permiso en cada intento.
 
 ---
 
-## 4 · Qué configurar para que una tarea sea posible
+## 5 · Qué configurar para que una tarea sea posible
 
 Cuando un operador no puede hacer algo, suele faltar una de estas:
 
@@ -210,16 +253,16 @@ Cuando un operador no puede hacer algo, suele faltar una de estas:
 | Completar la venta | **Config. → Descuento máximo** e **IGTF** |
 | Crear productos | **Config. → Categorías** y **Unidades** |
 | Cobrar en otra moneda | **Tasas**, con una tasa vigente para el par |
+| Pedir un reporte X o Z simulado | Arrancar la estación con `FISCAL_EXECUTION_TARGET=SIMULATOR` y `FISCAL_SIMULATED_REPORT_CONSENT=ALLOW_SIMULATED_X_AND_Z`; sin eso la sección no se renderiza |
 | Entrar por primera vez | **Identidad → Enrolamiento de credencial** |
 | Ver una pantalla | **Identidad → Roles**, agregando el permiso al rol |
 
 ---
 
-## 5 · Runbooks
+## 6 · Runbooks
 
 Lo que no se resuelve desde la interfaz:
 
-- [Operación diaria](../operacion-diaria.md)
 - [Instalación de una estación](../instalacion-estacion.md)
 - [Respaldo operativo](../respaldo-operativo.md)
 - [Emisión de material LAN](../emision-material-lan.md)

@@ -108,7 +108,8 @@ pnpm --filter @supermarket/desktop dev       # terminal Electron + React
 
 ### 6. Una jornada demostrable
 
-Sigue [la guía de operación diaria](../../operacion/operacion-diaria.md).
+Sigue [el manual de uso](../../operacion/manual-usuario/README.md), que absorbió la guía de
+operación diaria.
 
 - [ ] Registrar un proveedor y recibir mercancía **antes de vender**. La seed crea productos
       pero [no existencias](../../operacion/seed-de-catalogo-de-ejemplo.md): sin este paso el

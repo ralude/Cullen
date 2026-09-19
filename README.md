@@ -341,7 +341,7 @@ Qué siembra ese catálogo, por qué se puede repetir y qué **no** hace —exis
 distribución automática a las terminales— está en
 [la guía de la seed](./docs/operacion/seed-de-catalogo-de-ejemplo.md). El recorrido completo de
 una jornada —abrir caja, vender, facturar, cerrar con arqueo y leer el kardex— está en
-[la guía de operación diaria](./docs/operacion/operacion-diaria.md).
+[el manual de uso](./docs/operacion/manual-usuario/README.md), escrito para quien opera la caja.
 
 ### Instalar y sostener una estación
 
@@ -497,7 +497,8 @@ Lo que el repositorio redistribuye sin haberlo escrito lleva su propio aviso en
 | [`docs/architecture/adr/`](./docs/architecture/adr)                          | 32 decisiones arquitectónicas con contexto, alternativas y consecuencias                   |
 | [`docs/cronograma/README.md`](./docs/cronograma/README.md)                   | Estado por fase y registro de replanificaciones                                            |
 | [`docs/failure-scenarios/`](./docs/failure-scenarios/README.md)              | Qué garantiza el sistema cuando algo falla a mitad de una operación                        |
-| [`docs/operacion/`](./docs/operacion/operacion-diaria.md)                    | Runbooks de operación: jornada diaria, instalación de estación, respaldo, material LAN y rotación |
+| [`docs/operacion/manual-usuario/`](./docs/operacion/manual-usuario/README.md) | Manual de uso para quien opera la caja: seis capítulos, glosario y anexo técnico            |
+| [`docs/operacion/`](./docs/operacion/instalacion-estacion.md)                | Runbooks de administración: instalación de estación, respaldo, material LAN y rotación     |
 | [`packaging/README.md`](./packaging/README.md)                               | Empaquetado del nodo: servicio de Windows, MSI y prerrequisitos del host de construcción   |
 | [`AGENTS.md`](./AGENTS.md)                                                   | Reglas operativas del proyecto — fuente única para colaboradores humanos y agentes de IA   |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                       | Cómo preparar el entorno, qué checks exige un cambio y cómo se escriben commits y PRs      |

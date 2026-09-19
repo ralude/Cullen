@@ -6,6 +6,9 @@
   entregadas, y el **texto** de 12B.04 a 12B.09 también: el
   [manual](../../operacion/manual-usuario/README.md) tiene sus seis capítulos, su glosario y su
   anexo. **Ninguna de esas seis cierra todavía**, porque les faltan las capturas de 12B.03.
+  De [12B.10](./12b.10-absorcion-y-verificacion.md) está entregado su **bloque de absorción**:
+  `operacion-diaria.md` redirige al manual desde el 2026-09-18, y el traslado corrigió cuatro
+  afirmaciones del manual que ya no describían la aplicación.
 - **Orden alterado, declarado:** 12B.04–12B.09 se escribieron **antes** que 12B.03, invirtiendo la
   secuencia. Se hizo porque 12B.03 está bloqueada por una dependencia externa y el texto no depende
   de ella: cada capítulo deja marcado dónde va su captura, con el texto alternativo ya redactado.
@@ -167,8 +170,9 @@ dejarla escrita:
 - [ ] Ninguna captura contiene PIN, token, clave, ruta de material protegido ni datos reales.
 - [ ] Una persona que no programa completó, solo con el manual, las tareas de verificación de
       12B.10, y lo que falló quedó corregido.
-- [ ] `operacion-diaria.md` redirige al manual y no queda ninguna descripción duplicada de la
-      venta.
+- [x] ~~`operacion-diaria.md` redirige al manual y no queda ninguna descripción duplicada de la
+      venta.~~ Cumplido el 2026-09-18 con la absorción de
+      [12B.10](./12b.10-absorcion-y-verificacion.md#la-absorción-entregada--2026-09-18).
 - [ ] Los enlaces resuelven, `pnpm lint` y `git diff --check` están limpios.
 - [ ] Los hallazgos de interfaz encontrados al escribir están registrados con su pantalla y su
       fase dueña, sin corregirse dentro de 12B.
@@ -181,7 +185,7 @@ dejarla escrita:
   corrige.
 - Ayuda dentro de la aplicación, tooltips, tour guiado o video. El entregable es un documento.
 - Los runbooks de administración —instalación, respaldo, material LAN, rotación, seed—, que
-  siguen viviendo en [`docs/operacion/`](../../operacion/operacion-diaria.md) y se dirigen a
+  siguen viviendo en [`docs/operacion/`](../../operacion/instalacion-estacion.md) y se dirigen a
   quien administra la estación, no a quien la opera.
 - Traducciones, material de capacitación, marketing o soporte.
 - Manual de una impresora fiscal real, que depende de la [Fase 8](../fase-08-integracion-serial/README.md)

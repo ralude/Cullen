@@ -24,8 +24,10 @@ Grupo **Supervisión y gerencia** → **Reportes**. Atajo: **Alt+8**.
 
 > 📷 **Captura pendiente** — `14-reportes.png`.
 > *Texto alternativo previsto:* «Pantalla Reportes y cierres con el panel Período consultado
-> arriba y, debajo, las secciones de cierres de caja, auditoría, operaciones fiscales, ventas por
-> moneda, margen por producto y existencia por artículo, cada una con su botón de exportar.»
+> arriba —los botones Hoy, Ayer, Últimos 7 días y Este mes, y los campos Desde, Hasta, Caja y
+> Filas— y, debajo, las secciones de cierres de caja, auditoría, operaciones fiscales, ventas por
+> moneda, margen por producto y existencia por artículo, con su botón de exportar salvo la
+> fiscal.»
 
 ## Primero: el período
 
@@ -37,21 +39,26 @@ Grupo **Supervisión y gerencia** → **Reportes**. Atajo: **Alt+8**.
 
 Si un reporte sale vacío, lo primero que hay que revisar es el período.
 
-### Por qué las horas se ven raras
+**Los cuatro botones de arriba te ahorran escribir las fechas:** **Hoy**, **Ayer**, **Últimos 7
+días** y **Este mes**. El que esté aplicado se ve marcado. Después pulsa **Consultar reportes**.
 
-Las fechas y horas se muestran en **horario universal (UTC)**, no en la hora de la tienda. Una
-venta de las 3 de la tarde en Venezuela aparece como las 19:00.
+### El día es el de la tienda, no el de Greenwich
 
-**Para pasar de la hora del reporte a la de la tienda, resta 4 horas.**
+Las fechas que escribes son **el día del calendario de esta estación**: si pides el 18, el reporte
+va del 18 a las 00:00 al 18 a las 23:59 según el reloj de la tienda. Y las horas que la pantalla
+muestra —la apertura de un turno, el momento de una operación auditada— están escritas también en
+esa hora, no en ninguna otra.
 
-Se hace así a propósito: una tienda con estaciones en husos distintos, o un cambio de horario,
-harían que dos reportes del mismo día no coincidieran. Con una sola referencia, todos los
-registros son comparables.
+**No tienes que sumar ni restar horas.** Lo que lees es la hora a la que pasó, tal como la viviste.
+
+Por debajo, la estación guarda cada momento en una referencia universal, para que dos estaciones
+puedan compararse; pero eso es asunto suyo y no se te aparece en pantalla.
 
 ## Las secciones
 
-Cada una tiene su botón **Exportar CSV visible**, que descarga exactamente lo que estás viendo,
-para abrirlo en una hoja de cálculo.
+Casi todas tienen su botón **Exportar CSV visible**, que descarga exactamente lo que estás viendo,
+para abrirlo en una hoja de cálculo. **La excepción es operaciones fiscales**, que no se exporta:
+se consulta en pantalla.
 
 **Cada sección se consulta por separado.** Si una falla, muestra su propio error y las demás
 siguen funcionando. No hay un estado «la pantalla falló».
@@ -137,6 +144,11 @@ Para emitir cualquiera de los dos hay que marcar **Confirmo que ejecutaré una s
 resultado no es un cierre fiscal legal** y pulsar **Solicitar X simulado** o **Solicitar Z
 simulado**.
 
+**Si esta sección no aparece**, no es que te falte autorización: la estación se arrancó sin
+habilitar los reportes simulados. Lo puedes confirmar en **Inicio**, en **Estado de la estación**,
+donde dice si los **Reportes X/Z** están habilitados. Lo cambia quien administra, al arrancar la
+estación.
+
 ### Estado de sincronización del nodo
 
 Un resumen rápido de si esta estación está al día. El detalle está en la pantalla siguiente.
@@ -144,7 +156,8 @@ Un resumen rápido de si esta estación está al día. El detalle está en la pa
 ## Qué pasa si sale mal
 
 - **Una sección dice «Sin … en el período consultado»** — No hay datos en ese rango. Revisa las
-  fechas, y recuerda que están en horario universal.
+  fechas: **Hasta** tiene que incluir el día que buscas, y un turno que abrió ayer y cerró hoy
+  aparece en el día en que cerró.
 - **«La venta no tiene versiones consultables.»** — Ese identificador no corresponde a una venta
   con historia, o está mal copiado.
 - **«El reporte fiscal simulado falló; revisa su estado.»** — Mira la sección de operaciones

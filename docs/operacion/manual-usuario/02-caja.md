@@ -27,9 +27,9 @@ Grupo **Caja** → **Caja**. Atajo: **Alt+3**.
 ## Qué ves
 
 > 📷 **Captura pendiente** — `05-caja.png`.
-> *Texto alternativo previsto:* «Pantalla Operación de caja con el panel Abrir caja, que contiene
-> el selector de caja asignada y el campo Fondo inicial, y los botones Abrir turno y Consultar
-> turno.»
+> *Texto alternativo previsto:* «Pantalla Operación de caja con los selectores Caja asignada y
+> Método de efectivo, el botón Consultar turno y, debajo, el panel Abrir caja con el campo Fondo
+> inicial y el botón Abrir turno.»
 
 Arriba, una nota recuerda que todo lo que registres se envía al turno dueño de esa caja y que las
 diferencias quedan visibles para que alguien las autorice.
@@ -39,18 +39,26 @@ diferencias quedan visibles para que alguien las autorice.
 ### Abrir el turno
 
 1. Elige la **Caja asignada** de esta estación.
-2. Escribe el **Fondo inicial**: el efectivo con el que arrancas.
-3. Pulsa **Abrir turno**.
+2. Elige el **Método de efectivo** con el que declaras el fondo.
+3. Escribe el **Fondo inicial**: el efectivo con el que arrancas.
+4. Pulsa **Abrir turno**.
+
+**El segundo paso es el que más se olvida.** Mientras no elijas el método de efectivo, el botón
+**Abrir turno** sigue deshabilitado aunque ya hayas escrito el fondo.
 
 Queda a la vista el panel **Turno abierto**, con su identificador corto y la cuenta de
 movimientos. Desde ahí ya puedes ir a **Venta**.
 
 Si vuelves más tarde y quieres ver el turno en curso, pulsa **Consultar turno**.
 
-> **Si la estación no tiene ninguna caja asignada**, el campo aparece vacío y en blanco. Las cajas
-> las crea quien administra, desde **Config.**, y pertenecen a la terminal donde se declaran. No
-> inventes un nombre: pídele que la cree en *esta* estación. Está en el
-> [capítulo 4](./04-administracion.md).
+**La estación recuerda su caja**, así que al día siguiente la encuentras ya elegida. El turno
+abierto, en cambio, lo vuelve a preguntar cada vez: por eso no te encuentras un turno de ayer
+«pegado» después de haberlo cerrado.
+
+> **Si la estación no tiene ninguna caja**, la pantalla lo dice —*Este nodo todavía no tiene
+> ninguna caja registrada, así que no hay turno que abrir*— y remite a **Configuración**. Las cajas
+> las crea quien administra y pertenecen a la terminal donde se declaran. No inventes un nombre:
+> pídele que la cree en *esta* estación. Está en el [capítulo 4](./04-administracion.md).
 
 ### Registrar un ingreso o un retiro
 
@@ -77,9 +85,16 @@ diferencia legítima parece un faltante.
 La pantalla muestra tres números: **Esperado** —lo que el sistema calculó—, **Declarado** —lo que
 contaste— y **Diferencia**.
 
-**Una diferencia no impide cerrar.** Queda registrada con tu nombre y tu motivo, y tu supervisor
-la revisa desde [Reportes](./05-supervision-y-gerencia.md). Lo que sí importa es que declares lo
-que contaste de verdad: cuadrar el número a mano esconde el problema en vez de resolverlo.
+**Una diferencia no te obliga a cuadrar el número a mano.** Queda registrada con tu nombre y tu
+motivo, y tu supervisor la revisa desde [Reportes](./05-supervision-y-gerencia.md). Lo que importa
+es que declares lo que contaste de verdad: forzar el número esconde el problema en vez de
+resolverlo.
+
+> **Cerrar un turno descuadrado es una autorización aparte.** Cerrar uno que cuadra lo puede hacer
+> cualquier cajero; cerrarlo con diferencia, no. Si al pulsar **Cerrar turno** aparece *No tienes
+> autorización para esta operación* y tus números no coinciden, no es que el cierre esté mal
+> hecho: hace falta que lo cierre alguien que tenga esa autorización, o que te la habiliten. No
+> cambies el saldo declarado para esquivarlo.
 
 ## Qué pasa si sale mal
 
@@ -143,8 +158,22 @@ elige el producto de la lista.
 
 - **Cambiar la cantidad**: escribe la nueva en la columna **Cant.** de esa línea.
 - **Quitar una línea**: usa el botón de la propia línea.
-- **Aplicar un descuento**: pulsa **Descuento de línea**, elige la **Línea**, escribe el
-  porcentaje y el **Motivo**, y confirma. Queda registrado con tu nombre.
+- **Aplicar un descuento**: pulsa **Descuento de línea**, elige la **Línea**, escribe el descuento
+  en el campo **Porcentaje (puntos base)** y el **Motivo**, y confirma. Queda registrado con tu
+  nombre.
+
+> **Ese campo no se escribe como un porcentaje corriente.** Pide *puntos base*: hay que agregarle
+> dos ceros. Un **10 %** se escribe **1000**, un **5 %** se escribe **500** y un **2,5 %** se
+> escribe **250**. Si escribes **10**, no estás dando un 10 % sino un 0,10 %, y el cliente no lo
+> va a notar en el total.
+>
+> | Descuento que quieres dar | Qué escribes |
+> |---|---|
+> | 1 % | 100 |
+> | 5 % | 500 |
+> | 10 % | 1000 |
+> | 15 % | 1500 |
+> | 50 % | 5000 |
 
 > **El descuento tiene un tope** que fija la administración de la tienda. Si lo superas, la venta
 > no lo acepta. Si de verdad hace falta un descuento mayor, tiene que autorizarlo quien pueda
@@ -183,6 +212,20 @@ ese medio, impuesto incluido.
 **Cobrar en otra moneda:** elige el medio de pago de esa moneda. La conversión usa la tasa vigente
 en ese momento, y esa tasa queda guardada con la venta: si mañana cambia, esta venta no cambia.
 
+### Qué ocurre al completar
+
+En ese mismo momento, y de una sola vez, pasan dos cosas: el cobro queda asentado en tu turno y
+**lo vendido sale de la existencia** del inventario. No tienes que descontar nada a mano.
+
+> **Si la existencia no alcanza, la venta no se cae.** Puede ocurrir que el sistema tenga menos de
+> lo que acabas de vender —porque faltó registrar una entrada, o porque el mismo producto se vendió
+> en dos cajas a la vez—. Cuando pasa, **la venta se conserva y el cobro también**: el cliente ya
+> pagó y su ticket es válido. Lo que queda es el inventario descuadrado, anotado para que alguien
+> lo revise.
+>
+> **Qué te toca a ti:** nada en el momento —sigue atendiendo—, y avisar a depósito al terminar,
+> para que cuadren ese producto.
+
 ### Emitir la factura
 
 Al completar, la pantalla muestra el resumen de la venta y, debajo, **Emitir factura**.
@@ -211,7 +254,8 @@ Son cosas distintas:
 - **Anular** es para una venta **que todavía no has completado**. Pulsa **Anular venta**, escribe
   el motivo y confirma. No hubo cobro, no hubo movimiento de existencia.
 - **Devolver** es para una venta **ya completada y facturada**. Devuelve el producto a la
-  existencia y registra el reintegro del dinero en el turno donde se cobró.
+  existencia —al mismo lote del que salió y con el costo que tenía entonces, no con el de hoy— y
+  registra el reintegro del dinero en el turno donde se cobró.
 
 Para devolver:
 

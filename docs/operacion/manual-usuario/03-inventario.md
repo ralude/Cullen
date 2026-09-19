@@ -44,6 +44,19 @@ vencimientos**, y la tabla de movimientos.
 Esa tabla es el **kardex**: cada entrada y cada salida, en orden, con su fecha, su tipo, su
 cantidad y su motivo.
 
+**Las columnas Tipo y Dirección están escritas en inglés y sin traducir.** Es incómodo y está
+anotado para corregirse; mientras tanto, así se leen:
+
+| Lo que dice **Tipo** | Qué fue |
+|---|---|
+| `PURCHASE_RECEIPT` | Entró mercancía de un proveedor |
+| `SALE_ISSUE` | Salió por una venta de esta tienda |
+| `WASTE` | Salió como merma: dañado, vencido o perdido |
+| `ADJUSTMENT_IN` | Entró por un ajuste, por una devolución o por un conteo aprobado con sobrante |
+| `ADJUSTMENT_OUT` | Salió por un ajuste o por un conteo aprobado con faltante |
+
+En **Dirección**, `IN` es lo que entró y `OUT` lo que salió.
+
 **Nada de eso se puede editar ni borrar.** El saldo no es un número guardado en algún sitio: sale
 siempre de sumar los movimientos. Por eso, corregir un error se hace agregando un movimiento que
 lo compensa, nunca borrando el anterior. Es lo que permite que dentro de seis meses se pueda
@@ -53,6 +66,18 @@ Si el producto nunca tuvo existencia, verás que **todavía no tiene existencia 
 primera recepción crea su artículo de inventario con la unidad del catálogo.
 
 ### Registrar una compra
+
+> **Antes de buscarlos: los formularios no están a la vista al entrar.** La pantalla abre con el
+> listado de existencia, y nada más. **Registrar compra** y **Ajustar existencia** aparecen
+> *debajo* del kardex, y el kardex hay que consultarlo primero.
+>
+> 1. Elige el producto en el selector **Nombre o barcode**.
+> 2. Pulsa **Consultar kardex**.
+> 3. Baja: los formularios salen ahí, ya apuntando a ese producto.
+>
+> Si el producto todavía no tiene existencia, la pantalla lo dice —*todavía no tiene existencia
+> registrada*— y los formularios salen igual, bajo ese aviso. No te falta una autorización: te
+> falta elegir el producto.
 
 Hay dos formas, y no son equivalentes.
 

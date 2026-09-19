@@ -11,6 +11,21 @@ veces, perder un pago o inventar una existencia.
 Para ti eso se ve como una pantalla que te frena. Es incómodo, y es a propósito: lo que se detiene
 se puede retomar; lo que se cobra dos veces hay que devolverlo.
 
+## Volver a intentarlo no duplica nada
+
+Esto vale la pena saberlo antes que cualquier otra cosa, porque es el miedo más común: **un doble
+clic no cobra dos veces.**
+
+Cada acción que envías —abrir el turno, agregar una línea, cobrar, registrar un movimiento— viaja
+marcada como *ese* intento en particular. Si el botón parece no responder y lo pulsas otra vez, o
+si la pantalla se queda pensando y le das a **Reintentar**, la estación reconoce que es el mismo
+intento y te devuelve el mismo resultado. No se crea una segunda venta.
+
+**La excepción es la factura**, y es distinta por una razón concreta: ahí no estás reintentando el
+mismo envío, estás pidiendo un documento nuevo. Por eso tiene su propia sección
+[más abajo](#cuando-una-operación-queda-incierta) y por eso ahí la regla se invierte: no la pidas
+otra vez sin mirar.
+
 ---
 
 ## Cada aviso, qué hacer
@@ -25,8 +40,8 @@ avisar si se repite**.
 
 **Qué pasó:** no se puede vender sin un turno abierto, porque no habría dónde asentar el dinero.
 
-**Qué hacer:** ve a **Caja** (**Alt+3**), escribe el fondo inicial y pulsa **Abrir turno**. Vuelve
-a **Venta** (**Alt+2**).
+**Qué hacer:** ve a **Caja** (**Alt+3**), elige la caja y el **Método de efectivo**, escribe el
+fondo inicial y pulsa **Abrir turno**. Vuelve a **Venta** (**Alt+2**).
 
 **Si se repite:** si al abrir dice que ya hay un turno abierto y en Venta dice que no hay,
 avísale a tu supervisor: puede ser que el turno esté en otra caja.
@@ -235,7 +250,6 @@ algo a mejorar; mientras tanto, anótalo y avisa.
 
 Lo que no le corresponde resolver a un operador está en los runbooks:
 
-- [Operación diaria](../operacion-diaria.md)
 - [Instalación de una estación](../instalacion-estacion.md)
 - [Respaldo operativo](../respaldo-operativo.md)
 - [Emisión de material LAN](../emision-material-lan.md)
