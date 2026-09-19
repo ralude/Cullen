@@ -154,6 +154,15 @@ línea se agrega sola. También puedes escribir el código y pulsar **Enter**.
 **Buscando por nombre:** escribe en **Buscar por nombre o barcode**, en el panel del catálogo, y
 elige el producto de la lista.
 
+> **La cantidad tiene que respetar la unidad del producto.** Lo que se vende por unidades va
+> entero: **3**, no 3,5. Lo que se vende por peso admite decimales, tantos como su unidad permita
+> —normalmente tres, para gramos—. Si escribes más decimales de los que la unidad acepta, la
+> pantalla responde *La cantidad de decimales supera la escala configurada.* y la línea no se
+> agrega.
+>
+> No tienes que saber de memoria cuál es cuál: quien administra lo definió al crear la unidad, y
+> el aviso aparece antes de que el producto entre al ticket.
+
 ### Corregir el ticket
 
 - **Cambiar la cantidad**: escribe la nueva en la columna **Cant.** de esa línea.
@@ -292,6 +301,8 @@ sigue atendiendo: el cobro ya está asentado en tu turno. Está explicado con ca
 - **«La venta no puede modificarse en este estado.»** — Ya está completada o anulada. Pulsa
   **Iniciar otra venta**.
 - **«El método de pago no está habilitado.»** — Ese medio no está configurado en esta tienda.
+- **«La cantidad de decimales supera la escala configurada.»** — Ese producto no se vende
+  fraccionado, o admite menos decimales de los que escribiste. Redondea a lo que la unidad acepte.
 - **«La existencia no alcanza…»** — No hay suficiente producto registrado. Avisa a depósito.
 
 ---

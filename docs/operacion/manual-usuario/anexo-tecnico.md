@@ -125,6 +125,18 @@ motivo es la diferencia. Un saldo esperado negativo exige además un motivo expl
 | La fuente de la tasa es obligatoria. | `EXCHANGE_RATE_SOURCE_REQUIRED` |
 | La vigencia hasta debe ser posterior a la vigencia desde. | `EXCHANGE_RATE_INVALID_VALIDITY` |
 
+### Mensajes que no vienen del nodo
+
+La pantalla valida algunas entradas antes de enviarlas. Estos avisos no llevan código de
+seguimiento porque no hubo petición: nacen y mueren en la terminal.
+
+| Lo que se lee en pantalla | Origen |
+|---|---|
+| La cantidad de decimales supera la escala configurada. | `MONEY_INPUT_SCALE` — la cantidad escrita excede la escala de la unidad del producto, o el importe la de la moneda |
+| Escribe un valor decimal positivo con hasta 8 decimales. | `RATE_INPUT_INVALID` |
+| Abre o selecciona un turno desde Caja antes de iniciar la venta. | `SHIFT_REQUIRED` |
+| No pudimos completar la operación. Intenta nuevamente. | Cualquier otro fallo que no sea una respuesta del nodo |
+
 ### ⚠️ Cuando el operador ve un mensaje genérico
 
 **«La operación no pudo completarse.»** es lo que la interfaz muestra cuando el nodo devuelve un

@@ -174,8 +174,11 @@ dejarla escrita:
       venta.~~ Cumplido el 2026-09-18 con la absorción de
       [12B.10](./12b.10-absorcion-y-verificacion.md#la-absorción-entregada--2026-09-18).
 - [ ] Los enlaces resuelven, `pnpm lint` y `git diff --check` están limpios.
-- [ ] Los hallazgos de interfaz encontrados al escribir están registrados con su pantalla y su
-      fase dueña, sin corregirse dentro de 12B.
+- [x] ~~Los hallazgos de interfaz encontrados al escribir están registrados con su pantalla y su
+      fase dueña, sin corregirse dentro de 12B.~~ Reunidos el 2026-09-18 en el
+      [acopio de 12B.10](./12b.10-absorcion-y-verificacion.md#acopio-de-hallazgos-de-interfaz--2026-09-18):
+      seis defectos en [defectos conocidos](../defectos-conocidos.md), más dos etiquetas de Sync
+      que quedan a decisión de producto.
 - [ ] Ningún texto ni imagen presenta la simulación fiscal como certificación, ni el manual como
       habilitación de una tienda real.
 
