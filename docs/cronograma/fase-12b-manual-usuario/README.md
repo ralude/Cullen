@@ -6,9 +6,11 @@
   entregadas, y el **texto** de 12B.04 a 12B.09 también: el
   [manual](../../operacion/manual-usuario/README.md) tiene sus seis capítulos, su glosario y su
   anexo. **Ninguna de esas seis cierra todavía**, porque les faltan las capturas de 12B.03.
-  De [12B.10](./12b.10-absorcion-y-verificacion.md) está entregado su **bloque de absorción**:
-  `operacion-diaria.md` redirige al manual desde el 2026-09-18, y el traslado corrigió cuatro
-  afirmaciones del manual que ya no describían la aplicación.
+  De [12B.10](./12b.10-absorcion-y-verificacion.md) están entregados el **bloque de absorción**
+  —`operacion-diaria.md` redirige al manual desde el 2026-09-18, y el traslado corrigió cuatro
+  afirmaciones que ya no describían la aplicación—, el **acopio de hallazgos** y la **definición de
+  las cinco tareas de verificación**. Falta ejecutar la prueba con lector, que se corre
+  **después de 12B.03** para no confundir un texto que no explica con una imagen que falta.
 - **Orden alterado, declarado:** 12B.04–12B.09 se escribieron **antes** que 12B.03, invirtiendo la
   secuencia. Se hizo porque 12B.03 está bloqueada por una dependencia externa y el texto no depende
   de ella: cada capítulo deja marcado dónde va su captura, con el texto alternativo ya redactado.
