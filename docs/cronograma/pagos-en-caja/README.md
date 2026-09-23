@@ -11,6 +11,7 @@
 |---|---|---|
 | [Especificación: pagos múltiples en la pantalla de venta](./spec-pagos-multiples.md) | **Spec** | Lo que ya existe, las cuatro brechas que impiden el cobro mixto real en una tienda venezolana y los criterios de aceptación para cerrarlas |
 | [Plan: confirmación de pago móvil e integración con Cashea](./plan-pago-movil-y-cashea.md) | Plan | Seis etapas sobre la spec: referencia de pago, verificación bancaria, devolución mixta y financiamiento de terceros |
+| [Referencia: funcionalidades de POS venezolanos](../../producto/referencia-pos-venezuela.md) | Investigación | Dieciséis características consolidadas en el mercado o exigidas por norma, con el estado de Cullen y su destino propuesto; dos de ellas —vuelto y punto bancario— piden etapas nuevas en este plan |
 
 ## Por qué es un paquete y no una fase
 
