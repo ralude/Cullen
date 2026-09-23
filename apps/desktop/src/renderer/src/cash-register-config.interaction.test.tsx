@@ -85,4 +85,29 @@ describe('alta de cajas desde la aplicación', () => {
 
     expect(screen.text()).not.toContain('no tiene ninguna caja registrada');
   });
+
+  /**
+   * El fondo, los movimientos y el arqueo son dinero físico en la gaveta. Un
+   * punto de venta o un pago móvil no se cuentan ahí, así que no se ofrecen.
+   */
+  it('ofrece como método de efectivo solo los métodos de tipo efectivo', async () => {
+    const screen = await mount(
+      <CashScreen
+        api={{
+          listPaymentMethods: vi.fn(async () => [
+            { code: 'CASH_USD', name: 'Efectivo USD', kind: 'CASH', currencyCode: 'USD' },
+            { code: 'ZELLE_USD', name: 'Zelle', kind: 'BANK_TRANSFER', currencyCode: 'USD' },
+            { code: 'CASH_VES', name: 'Efectivo Bs', kind: 'CASH', currencyCode: 'VES' },
+            { code: 'CARD_VES', name: 'Punto de venta', kind: 'CARD', currencyCode: 'VES' },
+            { code: 'MOBILE_VES', name: 'Pago móvil', kind: 'MOBILE_PAYMENT', currencyCode: 'VES' }
+          ]),
+          listCashRegisters: vi.fn(async () => [])
+        } as unknown as OperationApi}
+        capabilities={capabilities} permissionCodes={['cash.shift.open']} />
+    );
+    await settle();
+
+    const options = screen.all<HTMLOptionElement>('select option').map((option) => option.textContent);
+    expect(options).toEqual(['Selecciona', 'Efectivo USD (USD)', 'Efectivo Bs (VES)']);
+  });
 });

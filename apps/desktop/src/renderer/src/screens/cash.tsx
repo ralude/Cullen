@@ -65,7 +65,10 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps<CashScreenApi>)
     if (configuredCashRegisterId) setCashRegisterId(configuredCashRegisterId);
   }, [configuredCashRegisterId]);
   useEffect(() => {
-    void api.listPaymentMethods().then(setPaymentMethods).catch(() => undefined);
+    /** Fondo, movimientos y arqueo son dinero de la gaveta: solo métodos de efectivo. */
+    void api.listPaymentMethods()
+      .then((methods) => setPaymentMethods(methods.filter((method) => method.kind === 'CASH')))
+      .catch(() => undefined);
     void api.listCashRegisters().then((registers) => {
       setCashRegisters(registers);
       setRegistersLoaded(true);
