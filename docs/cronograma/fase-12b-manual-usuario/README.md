@@ -5,9 +5,9 @@
   [12B.01](./12b.01-inventario-de-interfaz.md) y [12B.02](./12b.02-lenguaje-y-plantilla.md) están
   entregadas, y el **texto** de 12B.04 a 12B.09 también: el
   [manual](../../operacion/manual-usuario/README.md) tiene sus seis capítulos, su glosario y su
-  anexo. El 2026-09-23 se incorporaron **catorce de quince capturas**: falta el cambio de PIN
-  por D-011. Sync se retrata en modo independiente por elección del usuario. Las sub-fases
-  mantienen pendiente la validación con lector.
+  anexo. El 2026-09-23 se incorporaron **catorce de quince capturas**: falta el cambio de PIN,
+  realizable desde que se corrigió D-011 ese mismo día. Sync se retrata en modo independiente
+  por elección del usuario. Las sub-fases mantienen pendiente la validación con lector.
   De [12B.10](./12b.10-absorcion-y-verificacion.md) están entregados el **bloque de absorción**
   —`operacion-diaria.md` redirige al manual desde el 2026-09-18, y el traslado corrigió cuatro
   afirmaciones que ya no describían la aplicación—, el **acopio de hallazgos** y la **definición de
@@ -17,9 +17,9 @@
   secuencia. Se hizo porque el ingreso estaba pendiente y el texto no dependía
   de él. El 2026-09-23 se sustituyeron catorce marcadores por capturas revisadas.
   Una captura puede obligar a corregir el texto que la describe; esa corrección es parte de 12B.03.
-- **Bloqueo vigente:** [12B.03](./12b.03-capturas.md) queda limitada por D-011, que impide
-  abrir el cambio obligatorio de PIN. El aprovisionamiento interactivo y el ingreso de prueba
-  se completaron el 2026-09-23. [12B.10](./12b.10-absorcion-y-verificacion.md) aún necesita un
+- **Pendiente de 12B.03:** la captura del cambio obligatorio de PIN. D-011, que impedía abrir
+  el formulario, se corrigió el 2026-09-23 en `d077001`. El aprovisionamiento interactivo y el
+  ingreso de prueba se completaron el 2026-09-23. [12B.10](./12b.10-absorcion-y-verificacion.md) aún necesita un
   lector que no programe; el recorrido de capturas no sustituye esa prueba.
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Tipo:** fase documental. No entrega código ni cambia comportamiento observable.

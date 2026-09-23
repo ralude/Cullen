@@ -20,7 +20,7 @@ Este directorio es la fuente única de verdad para el avance por fases. Cada fas
 | 10 | Sincronizacion | ~~Completada~~ |
 | 11 | ~~[Seguridad](./fase-11-seguridad/README.md)~~ | Entregada el 2026-09-08; la [auditoría de cierre del 2026-09-09](./fase-11-seguridad/auditoria-cierre-2026-09-09.md) corrigió sus trece hallazgos. El gate de tienda conserva sus requisitos propios, sin bloquear el release open source |
 | 12 | ~~[Optimización](./fase-12-optimizacion/README.md)~~ | Cerrada el 2026-09-18 con excepción declarada: 12.01, 12.02, 12.03 y 12.05 entregadas, y los dos puntos del gate que exigen un verificador independiente quedan suspendidos (ver abajo). 12.04 sigue suspendida con Fase 8 |
-| 12B | [Manual de usuario no técnico](./fase-12b-manual-usuario/README.md) | **En ejecución** desde el 2026-09-18: 12B.01 y 12B.02 entregadas, el texto de 12B.04–12B.09 escrito y la absorción de 12B.10 hecha. 12B.03 tiene 14 de 15 capturas desde el 2026-09-23; falta cambio de PIN por D-011. Planificada el 2026-09-09 después de `v0.1.0`; fase documental, no bloquea ni depende de Fase 12 |
+| 12B | [Manual de usuario no técnico](./fase-12b-manual-usuario/README.md) | **En ejecución** desde el 2026-09-18: 12B.01 y 12B.02 entregadas, el texto de 12B.04–12B.09 escrito y la absorción de 12B.10 hecha. 12B.03 tiene 14 de 15 capturas desde el 2026-09-23; falta la captura del cambio de PIN, realizable desde que se corrigió D-011 ese mismo día. Planificada el 2026-09-09 después de `v0.1.0`; fase documental, no bloquea ni depende de Fase 12 |
 | 13 | [Almacenes por sucursal](./fase-13-almacenes/README.md) | Planificada; post-MVP, sin iniciar |
 | 14 | [Plataforma central PostgreSQL](./fase-14-plataforma-central/README.md) | Planificada; post-MVP, sin iniciar |
 | 15 | [Sincronización SQLite–PostgreSQL](./fase-15-sincronizacion-cloud/README.md) | Planificada; post-MVP, sin iniciar |
@@ -54,8 +54,8 @@ capítulos con su anexo y su PDF, y el bloque de **absorción** de
 [12B.10](./fase-12b-manual-usuario/12b.10-absorcion-y-verificacion.md): desde el 2026-09-18
 [`operacion-diaria.md`](../operacion/operacion-diaria.md) redirige al
 [manual](../operacion/manual-usuario/README.md) y ya no hay dos descripciones de la venta. Falta
-[12B.03](./fase-12b-manual-usuario/12b.03-capturas.md) —catorce de quince capturas; falta el cambio de PIN
-por D-011— y la prueba con lector real de 12B.10. La
+[12B.03](./fase-12b-manual-usuario/12b.03-capturas.md) —catorce de quince capturas; falta el cambio de PIN,
+ya realizable tras corregir D-011— y la prueba con lector real de 12B.10. La
 [Fase 12](./fase-12-optimizacion/README.md) entregó
 12.01, 12.02, 12.03 y 12.05; 12.03 cerró el 2026-09-17 y 12.05 publicó sus cinco cortes y su
 benchmark.

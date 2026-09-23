@@ -96,12 +96,6 @@ operación.
 > restringida", los campos PIN actual, PIN nuevo y Repite el PIN nuevo, y los botones Guardar PIN
 > y Salir.»
 
-> **Problema conocido en esta versión:** al ingresar con una credencial caducada puede aparecer
-> **«No pudimos conectar con el nodo»** aunque el servidor esté funcionando. En ese caso el
-> formulario de cambio no llega a abrirse. Avisa a quien administra e indica que ocurrió después
-> de caducar el PIN. No envíes tu PIN ni sigas probando combinaciones. Los pasos siguientes
-> corresponden al formulario cuando esté disponible.
-
 ### Paso a paso
 
 1. Escribe tu **PIN actual**, el que te entregaron.

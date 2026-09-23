@@ -162,3 +162,11 @@ que estaban vigentes ese día, no las de hoy.
   producto. El guion [`scripts/capturar-manual.mjs`](../../scripts/capturar-manual.mjs) espera a
   que una persona ingrese y recorre las doce rutas solo. Las trece restantes siguen bloqueadas por
   el PIN, y queda abierto decidir qué estado muestra cada pantalla: una Venta vacía no enseña nada.
+- El 2026-09-23 se corrigió **D-011** en `d077001`. Con la credencial caducada, el nodo rechaza
+  todo salvo cambiar el PIN y salir, incluidas las capacidades del sistema. El shell las pedía
+  antes de mostrar nada y tomaba el `403 AUTH_PIN_CHANGE_REQUIRED` por un nodo caído. Ahora la
+  sesión restringida tiene su propio estado y no pide capacidades; el nodo y su restricción no
+  cambiaron. Una prueba E2E nueva compone el renderer con el nodo Fastify real. Las pruebas de
+  interacción no podían detectar el defecto porque simulaban las capacidades como siempre
+  disponibles. El manual retiró su aviso y regeneró el PDF. `03-cambio-de-pin.png` sigue
+  pendiente de una sesión de captura.
