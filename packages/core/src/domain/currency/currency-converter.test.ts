@@ -55,6 +55,29 @@ describe('CurrencyConverter', () => {
     );
   });
 
+  /** ADR-0033: la diferencia de exponentes entra en la misma división. */
+  it('converts between currencies with different minor unit exponents', () => {
+    const usdToClp = ExchangeRate.create({
+      id: 'rate-usd-clp', baseCurrency: 'USD', quoteCurrency: 'CLP', rateValue: 900, rateScale: 0,
+      source: 'Prueba', validFrom: new Date('2026-08-01T00:00:00Z'), registeredBy: 'user-001'
+    });
+
+    expect(new CurrencyConverter().convert(Money.fromMinorUnits(100, 'USD'), usdToClp, at).minorUnits)
+      .toBe(900);
+    expect(new CurrencyConverter().convert(Money.fromMinorUnits(900, 'CLP'), usdToClp, at).minorUnits)
+      .toBe(100);
+  });
+
+  it('accepts a rate with the eight decimals ExchangeRate allows', () => {
+    const precise = ExchangeRate.create({
+      id: 'rate-precise', baseCurrency: 'USD', quoteCurrency: 'VES', rateValue: 47_858_000_001,
+      rateScale: 8, source: 'Prueba', validFrom: new Date('2026-08-01T00:00:00Z'), registeredBy: 'user-001'
+    });
+
+    expect(new CurrencyConverter().convert(Money.fromMinorUnits(100, 'USD'), precise, at).minorUnits)
+      .toBe(47858);
+  });
+
   it('rejects an expired rate', () => {
     const converter = new CurrencyConverter();
     const expiredRate = ExchangeRate.create({

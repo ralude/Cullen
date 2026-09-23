@@ -83,6 +83,19 @@ describe('UpdateExchangeRate', () => {
     expect(repository.rates).toHaveLength(0);
   });
 
+  it('rejects a rate in a currency outside the registry (ADR-0033)', async () => {
+    const repository = new FakeExchangeRateRepository();
+    const useCase = new UpdateExchangeRate(new FakeIdGenerator(), repository, authorization(), clock);
+
+    const result = await useCase.execute({
+      baseCurrency: 'USD', quoteCurrency: 'BRL', rateValue: 5, rateScale: 0,
+      source: 'Prueba', validFrom: new Date('2026-08-01T00:00:00Z'), reason: 'Prueba'
+    }, context);
+
+    expect(result).toMatchObject({ ok: false, error: { code: 'CURRENCY_UNSUPPORTED' } });
+    expect(repository.rates).toHaveLength(0);
+  });
+
   it('does not persist a rate when permission is denied', async () => {
     const repository = new FakeExchangeRateRepository();
     const useCase = new UpdateExchangeRate(

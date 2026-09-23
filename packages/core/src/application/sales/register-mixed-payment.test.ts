@@ -345,3 +345,70 @@ describe('Sugerencia de la pantalla frente al cálculo del nodo', () => {
       .toBe('SALE_PAYMENT_TOTAL_MISMATCH');
   });
 });
+
+/**
+ * El cobro venezolano corriente: una venta en dólares pagada en parte con
+ * efectivo en dólares y en parte con pago móvil en bolívares, a la tasa
+ * explícita que la pantalla envía (spec de pagos, CA-PM-01; ADR-0033).
+ */
+describe('RegisterMixedPayment con un pago en otra moneda', () => {
+  const rate = ExchangeRate.create({
+    id: 'rate-usd-ves', baseCurrency: 'USD', quoteCurrency: 'VES', rateValue: 47858, rateScale: 2,
+    source: 'Tasa de prueba', validFrom: new Date('2026-08-15T00:00:00.000Z'), registeredBy: 'user-001'
+  });
+  const methods: Record<string, PaymentMethod> = {
+    CASH_USD: PaymentMethod.create({ code: 'CASH_USD', name: 'Efectivo USD', kind: 'CASH', currencyCode: 'USD' }),
+    MOBILE_VES: PaymentMethod.create({ code: 'MOBILE_VES', name: 'Pago móvil', kind: 'MOBILE_PAYMENT', currencyCode: 'VES' })
+  };
+  const useCaseFor = (repository: FakeSaleRepository, at = new Date('2026-08-15T10:01:00.000Z')) =>
+    new RegisterMixedPayment(
+      repository,
+      { findByCode: async (code: string) => methods[code] ?? null, findAll: async () => Object.values(methods) },
+      { findById: async (id: string) => id === rate.id ? rate : null, findCurrentByPair: async () => rate, save: async () => 1 },
+      { getPolicy: async () => ({ id: 'igtf-001', rate: TaxRate.fromBasisPoints(300), eligiblePaymentMethodCodes: ['CASH_USD'], eligibleCurrencies: ['USD'] }) },
+      { generate: () => 'payment-' + Math.random().toString(16).slice(2) },
+      { generate: () => 'event-' + Math.random().toString(16).slice(2) },
+      { now: () => at }
+    );
+
+  it('registers a USD cash tender plus a VES pago móvil converted at the explicit rate', async () => {
+    const repository = new FakeSaleRepository();
+    /**
+     * Venta de 10,00: 4,00 en efectivo, que con IGTF al 3 % se cobran 4,12, y
+     * 6,00 en bolívares —6 × 478,58 = 2.871,48 Bs—, que no pagan IGTF.
+     */
+    const result = await useCaseFor(repository).execute({
+      saleId: 'sale-001',
+      payments: [
+        { methodCode: 'CASH_USD', amountMinorUnits: 412, currencyCode: 'USD' },
+        { methodCode: 'MOBILE_VES', amountMinorUnits: 287148, currencyCode: 'VES', exchangeRateId: 'rate-usd-ves' }
+      ]
+    }, context);
+
+    expect(result.ok).toBe(true);
+    const ves = repository.stored.payments.find((payment) => payment.method.code === 'MOBILE_VES');
+    expect(ves?.amount).toEqual(Money.fromMinorUnits(287148, 'VES'));
+    expect(ves?.amountInSaleCurrency).toEqual(Money.fromMinorUnits(600, 'USD'));
+    expect(ves?.exchangeRate?.id).toBe('rate-usd-ves');
+    expect(repository.stored.financialTransactionTax.minorUnits).toBe(12);
+    expect(repository.stored.total.minorUnits).toBe(1012);
+  });
+
+  it('keeps asking for the rate when the screen does not send one', async () => {
+    const result = await useCaseFor(new FakeSaleRepository()).execute({
+      saleId: 'sale-001',
+      payments: [{ methodCode: 'MOBILE_VES', amountMinorUnits: 478580, currencyCode: 'VES' }]
+    }, context);
+
+    expect(result).toMatchObject({ ok: false, error: { code: 'EXCHANGE_RATE_REQUIRED' } });
+  });
+
+  it('rejects a rate that no longer applies at payment time', async () => {
+    const result = await useCaseFor(new FakeSaleRepository(), new Date('2026-08-14T10:00:00.000Z')).execute({
+      saleId: 'sale-001',
+      payments: [{ methodCode: 'MOBILE_VES', amountMinorUnits: 478580, currencyCode: 'VES', exchangeRateId: 'rate-usd-ves' }]
+    }, context);
+
+    expect(result).toMatchObject({ ok: false, error: { code: 'CURRENCY_RATE_EXPIRED' } });
+  });
+});

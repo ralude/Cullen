@@ -1,8 +1,20 @@
+import { minorUnitExponentOf } from './currency-registry.js';
 import { DomainError } from './errors/app-error.js';
 import type { Percentage } from './percentage.js';
 import type { Quantity } from './quantity.js';
 
 export type CurrencyCode = string;
+
+/**
+ * Lo que una conversión necesita de una tasa: el par y su valor escalado,
+ * `rateValue / 10^rateScale` unidades mayores de la cotizada por una de la base.
+ */
+export type ScaledExchangeRate = {
+  readonly baseCurrency: CurrencyCode;
+  readonly quoteCurrency: CurrencyCode;
+  readonly rateValue: number;
+  readonly rateScale: number;
+};
 
 const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
 const BASIS_POINTS_DENOMINATOR = 10_000n;
@@ -142,6 +154,36 @@ export class Money {
       divideRoundingHalfAwayFromZero(numerator, BigInt(quantity.scaledValue)),
       this.currency
     );
+  }
+
+  /**
+   * Convierte a la otra moneda del par con un solo redondeo half-up comercial,
+   * incluida la diferencia de exponentes entre las dos monedas (ADR-0033). No
+   * verifica vigencia: eso es de quien elige la tasa.
+   */
+  convertAtRate(rate: ScaledExchangeRate): Money {
+    if (!Number.isSafeInteger(rate.rateValue) || rate.rateValue <= 0 ||
+      !Number.isInteger(rate.rateScale) || rate.rateScale < 0) {
+      throw new DomainError('CURRENCY_RATE_INVALID', 'Exchange rate must be a positive scaled integer.');
+    }
+    const toQuote = this.currency === rate.baseCurrency;
+    if (!toQuote && this.currency !== rate.quoteCurrency) {
+      throw new DomainError(
+        'CURRENCY_RATE_MISMATCH',
+        'Exchange rate does not apply to the given currency.'
+      );
+    }
+    const target = toQuote ? rate.quoteCurrency : rate.baseCurrency;
+    const sourceExponent = BigInt(minorUnitExponentOf(this.currency));
+    const targetExponent = BigInt(minorUnitExponentOf(target));
+    const amount = BigInt(this.minorUnits);
+    const value = BigInt(rate.rateValue);
+    const scale = 10n ** BigInt(rate.rateScale);
+    const [numerator, denominator] = toQuote
+      ? [amount * value * 10n ** targetExponent, scale * 10n ** sourceExponent]
+      : [amount * scale * 10n ** targetExponent, value * 10n ** sourceExponent];
+
+    return Money.fromSafeBigInt(divideRoundingHalfAwayFromZero(numerator, denominator), target);
   }
 
   subtract(other: Money): Money {

@@ -339,7 +339,7 @@ export const savePaymentMethodContract = {
     kind: { type: 'string', enum: ['CASH', 'CARD', 'MOBILE_PAYMENT', 'BANK_TRANSFER', 'OTHER'] },
     currencyCode: { type: 'string', minLength: 3, maxLength: 3 }, isActive: { type: 'boolean' }, reason
   } }, response: { ...operationalMutationResponses, 200: paymentMethodConfigSchema } },
-  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'PAYMENT_METHOD_IN_USE', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY']
+  errorCodes: ['HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN', 'PAYMENT_METHOD_IN_USE', 'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY', 'CURRENCY_UNSUPPORTED']
 } as const satisfies HttpContractV1;
 
 export const activateDiscountPolicyContract = {

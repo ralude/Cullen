@@ -18,6 +18,7 @@ import {
   UuidV7Generator,
   type NodeIdentity
 } from '@supermarket/driver-security';
+import { minorUnitExponentOf } from '@supermarket/shared';
 
 /**
  * `basic` conserva los dos métodos históricos en la moneda indicada, de los
@@ -103,6 +104,8 @@ export const bootstrapOperations = async (
   options: OperationsBootstrapOptions
 ): Promise<OperationsBootstrapResult> => {
   const currencyCode = options.currencyCode.trim().toUpperCase();
+  /** ADR-0033: el bootstrap también da de alta métodos; la moneda debe estar en el registro. */
+  minorUnitExponentOf(currencyCode);
   const cashRegister = CashRegister.create({
     id: options.cashRegisterId,
     name: options.cashRegisterName,

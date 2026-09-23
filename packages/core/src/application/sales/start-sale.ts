@@ -2,6 +2,7 @@ import {
   ApplicationError,
   DomainError,
   err,
+  minorUnitExponentOf,
   ok,
   type AppError,
   type Result
@@ -53,6 +54,8 @@ export class StartSale {
             'Shift belongs to another terminal or node.'
           ));
         }
+        /** ADR-0033: la moneda entra al sistema aquí; rehidratar no valida. */
+        minorUnitExponentOf(input.currencyCode);
         const sale = Sale.start({
           id: this.saleIdGenerator.generate(),
           shiftId: shift.id,

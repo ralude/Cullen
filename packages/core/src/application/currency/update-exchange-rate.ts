@@ -1,4 +1,4 @@
-import { ApplicationError, ok, err, type Result, type AppError, DomainError } from '@supermarket/shared';
+import { ApplicationError, ok, err, minorUnitExponentOf, type Result, type AppError, DomainError } from '@supermarket/shared';
 import { ExchangeRate } from '../../domain/currency/index.js';
 import { toExchangeRatePublication } from '../catalog/reference-publications.js';
 import type { ExecutionContext } from '../execution-context.js';
@@ -56,6 +56,9 @@ export class UpdateExchangeRate {
         ...(this.unitOfWork ? { unitOfWork: this.unitOfWork } : {}),
         ...(this.idempotencyStore ? { idempotencyStore: this.idempotencyStore } : {}),
         execute: async () => {
+      /** ADR-0033: una tasa solo sirve si las dos monedas tienen exponente conocido. */
+      minorUnitExponentOf(input.baseCurrency);
+      minorUnitExponentOf(input.quoteCurrency);
       const rate = ExchangeRate.create({
         id: this.idGenerator.generate(), ...input, registeredBy: context.actorId
       });

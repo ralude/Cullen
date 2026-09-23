@@ -90,7 +90,7 @@ export const updateExchangeRateContract = {
   },
   errorCodes: [
     'HTTP_VALIDATION_FAILED', 'UNAUTHORIZED', 'FORBIDDEN',
-    'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY'
+    'IDEMPOTENCY_KEY_CONFLICT', 'DATABASE_BUSY', 'CURRENCY_UNSUPPORTED'
   ]
 } as const satisfies HttpContractV1;
 

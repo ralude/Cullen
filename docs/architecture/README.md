@@ -75,6 +75,7 @@ Incluye:
 - [ADR-0030: Empaquetado del nodo y runtime como servicio de Windows](./adr/0030-empaquetado-y-runtime-del-nodo.md) — **aceptado**, servicio de Windows supervisado por WinSW, instalador MSI de WiX responsable de la ACL del directorio de datos, bundle del servidor con runtime Node embebido; firma de ejecutables diferida
 - [ADR-0031: Base del IGTF en pagos mixtos](./adr/0031-base-del-igtf-en-pagos-mixtos.md) — **aceptado**, el impuesto viaja dentro del importe entregado con el método gravado y se separa con `TaxRate.extractFrom`; elimina la base recursiva que dejaba el pago mixto sin ningún importe aceptable
 - [ADR-0032: Reconstrucción de `StockItem` en tiempo lineal](./adr/0032-reconstruccion-lineal-de-stockitem.md) — **aceptado**, el agregado mantiene mientras reconstruye los índices y saldos que hoy recalcula por cada movimiento; sin snapshot durable, sin migración y sin cambio de regla
+- [ADR-0033: Escala de unidad menor por moneda en un registro compartido](./adr/0033-escala-de-unidad-menor-por-moneda.md) — **aceptado**, lista cerrada de monedas con su exponente ISO 4217 en `@supermarket/shared`, una sola conversión para nodo y pantalla consciente de exponentes distintos y `CURRENCY_UNSUPPORTED` donde la moneda entra al sistema; cierra la mitad de dominio de D-002
 
 ## Alcance del producto
 

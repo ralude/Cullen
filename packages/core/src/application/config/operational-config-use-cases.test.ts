@@ -108,6 +108,16 @@ describe('operational configuration use cases', () => {
       .toMatchObject({ ok: false, error: { code: 'PAYMENT_METHOD_IN_USE' } });
   });
 
+  /** ADR-0033: una moneda fuera del registro no entra al sistema por un método de pago. */
+  it('rejects a payment method in a currency outside the registry', async () => {
+    const store = new MemoryStore();
+    const payments = new SavePaymentMethod(store, allow(CONFIG_PERMISSIONS.MANAGE_PAYMENT_METHOD), ids, clock, unitOfWork);
+
+    expect(await payments.execute({ code: 'PIX', name: 'Pix', kind: 'OTHER', currencyCode: 'BRL', isActive: true, reason: 'Alta' }, context))
+      .toMatchObject({ ok: false, error: { code: 'CURRENCY_UNSUPPORTED' } });
+    expect(store.payments.size).toBe(0);
+  });
+
   it('activates an append-only policy version with the tax permission and real reason', async () => {
     audit.length = 0;
     const calls: unknown[] = [];

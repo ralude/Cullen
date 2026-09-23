@@ -74,6 +74,43 @@ describe('DrizzleSaleRepository integration', () => {
     handle.close();
   });
 
+  /**
+   * ADR-0033: la moneda se valida donde entra al sistema, no al rehidratar. Una
+   * venta guardada antes de que su moneda saliera del registro se sigue leyendo.
+   */
+  it('rehydrates a stored sale whose currency is outside the currency registry', async () => {
+    const handle = openDatabase(':memory:');
+    applyMigrations(handle.sqlite);
+    const repository = new DrizzleSaleRepository(handle);
+    const method = PaymentMethod.create({ code: 'PIX', name: 'Pix', kind: 'OTHER', currencyCode: 'BRL' });
+    const sale = Sale.start({
+      id: 'sale-brl', shiftId: 'shift-001', currencyCode: 'BRL', terminalId: 'terminal-001',
+      originNodeId: 'node-001', startedBy: 'user-001', startedAt: instant(0), eventId: 'event-brl-1'
+    });
+    sale.addItem({
+      id: 'item-brl',
+      snapshot: ProductSnapshot.create({
+        productId: 'product-001', description: 'Rice 1kg', price: Money.fromMinorUnits(500, 'BRL'),
+        taxRate: TaxRate.fromBasisPoints(0), unitCode: 'UNIT', unitScale: 0
+      }),
+      quantity: Quantity.fromScaled(1, 0), occurredAt: instant(1), eventId: 'event-brl-2'
+    });
+    sale.registerPayments({
+      payments: [Payment.create({
+        id: 'payment-brl', method, amount: Money.fromMinorUnits(500, 'BRL'),
+        amountInSaleCurrency: Money.fromMinorUnits(500, 'BRL'), exchangeRate: null,
+        registeredBy: 'user-001', registeredAt: instant(2)
+      })],
+      financialTransactionTax: Money.zero('BRL'), occurredAt: instant(2), eventIds: ['event-brl-3']
+    });
+    await new SqliteUnitOfWork(handle.sqlite).execute(() => repository.save(sale));
+
+    const restored = await repository.findById('sale-brl');
+
+    expect(restored?.currencyCode).toBe('BRL');
+    expect(restored?.payments[0]?.method.code).toBe('PIX');
+  });
+
   it('allows draft completion and rejects overwriting a final sale', async () => {
     const handle = openDatabase(':memory:');
     applyMigrations(handle.sqlite);

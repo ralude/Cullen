@@ -209,7 +209,10 @@ export const startSaleContract = {
     },
     response: { 201: saleResponseSchema, ...commandResponses }
   },
-  errorCodes: [...commonCommandErrors, 'SHIFT_NOT_FOUND', 'SHIFT_INVALID_STATE', 'SHIFT_OWNERSHIP_MISMATCH']
+  errorCodes: [
+    ...commonCommandErrors, 'SHIFT_NOT_FOUND', 'SHIFT_INVALID_STATE', 'SHIFT_OWNERSHIP_MISMATCH',
+    'CURRENCY_UNSUPPORTED'
+  ]
 } as const satisfies HttpContractV1;
 
 export const getSaleContract = {
@@ -280,7 +283,8 @@ export const registerSalePaymentsContract = {
   },
   errorCodes: [
     ...commonCommandErrors, 'POLICY_NOT_CONFIGURED', 'PAYMENT_METHOD_NOT_FOUND',
-    'EXCHANGE_RATE_REQUIRED', 'EXCHANGE_RATE_NOT_FOUND', 'SALE_PAYMENT_TOTAL_MISMATCH'
+    'EXCHANGE_RATE_REQUIRED', 'EXCHANGE_RATE_NOT_FOUND', 'SALE_PAYMENT_TOTAL_MISMATCH',
+    'CURRENCY_RATE_EXPIRED', 'CURRENCY_UNSUPPORTED'
   ]
 } as const satisfies HttpContractV1;
 

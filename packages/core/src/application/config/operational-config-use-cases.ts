@@ -1,5 +1,5 @@
 import {
-  ApplicationError, DomainError, Percentage, TaxRate, err, ok, type AppError, type Result
+  ApplicationError, DomainError, Percentage, TaxRate, err, minorUnitExponentOf, ok, type AppError, type Result
 } from '@supermarket/shared';
 import { CashRegister } from '../../domain/cash/index.js';
 import { Category, UnitOfMeasure } from '../../domain/catalog/index.js';
@@ -176,7 +176,10 @@ export class SavePaymentMethod extends ConfigCommand {
       if (existing?.isActive && !input.isActive && await this.store.isPaymentMethodInUse(code)) {
         return err(new ApplicationError('PAYMENT_METHOD_IN_USE', 'Payment method is used by an open aggregate.'));
       }
-      const value = PaymentMethod.create({ ...input, code, currencyCode: input.currencyCode.trim().toUpperCase() });
+      const currencyCode = input.currencyCode.trim().toUpperCase();
+      /** ADR-0033: la moneda entra al sistema aquí; rehidratar no valida. */
+      minorUnitExponentOf(currencyCode);
+      const value = PaymentMethod.create({ ...input, code, currencyCode });
       const version = await this.store.savePaymentMethod(value);
       await this.publish(toPaymentMethodPublication(value, {
         eventId: this.ids.generate(), occurredAt: now, version
