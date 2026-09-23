@@ -26,7 +26,7 @@ convertirlo en regla, como exige [ADR-0021](../architecture/adr/0021-mvp-referen
 | 2 | Vuelto calculado, también en otra moneda o por pago móvil | No existe: el lote debe ser exacto | **Alta** | Pagos en caja, decisión DA-2 |
 | 3 | Integración con el punto de venta bancario | No: la tarjeta es un método manual | **Alta** | Pagos en caja, etapa nueva |
 | 4 | Verificación de pago móvil | No | **Alta** | Pagos en caja, E2–E3 |
-| 5 | Tasa BCV del día obtenida por el sistema | Sugerencia externa con confirmación humana; sin fuente concreta | **Alta** | Decisión pendiente de ADR-0014 |
+| 5 | Tasa BCV del día obtenida por el sistema | **Sí**: sugerencia BCV con `EXCHANGE_RATE_PROVIDER=bcv` y confirmación humana; falta el aviso de tasa vencida | Alta (solo el aviso) | Caja: apertura de turno |
 | 6 | IGTF por método de pago | Sí (ADR-0031); bloquea la factura (D-003) | Alta | Decisión fiscal de D-003 |
 | 7 | Compra a cuotas (Cashea, Krece, Lysto, Chollo) | No | Media | Pagos en caja, E5–E6 |
 | 8 | Códigos de balanza con peso variable | No | Media | Paquete nuevo: catálogo y venta |
@@ -106,15 +106,17 @@ normativo, el precio en divisas es referencial: lo que se cobra en bolívares es
 formato obligatorio con código QR para exhibir la tasa, y pide que los parámetros de los sistemas
 de facturación estén actualizados **antes de abrir**.
 
-**Cullen hoy:** [ADR-0014](../architecture/adr/0014-tasas-de-cambio-sugerencia-y-confirmacion.md)
-ya separa la sugerencia externa de la confirmación humana, pero sus decisiones 1 y 2 —fuente
-concreta y credenciales— siguen abiertas.
+**Cullen hoy:** **ya lo cubre.** Con `EXCHANGE_RATE_PROVIDER=bcv`, el nodo sugiere el dólar
+oficial mediante `BcvExchangeRateProvider` (`packages/drivers/exchange-rate`), solo cuando
+alguien la pide desde Tasas, y conserva el valor como entero con escala. Quien opera la revisa y
+la registra, como fija [ADR-0014](../architecture/adr/0014-tasas-de-cambio-sugerencia-y-confirmacion.md).
+El endpoint es `ve.dolarapi.com`, un servicio de terceros que **republica** la tasa del BCV: no
+es el BCV.
 
-**Propuesta:** cerrar esas decisiones con el BCV como fuente del adaptador de sugerencia
-(`packages/drivers/exchange-rate`), sin
-cambiar la regla de confirmación humana. Agregar un aviso al **abrir turno** cuando la tasa
-vigente no es del día hábil en curso. Una tasa que caducó en silencio sería la falla más cara en
-una inspección.
+**Propuesta:** falta un aviso al **abrir turno** cuando la tasa vigente no es del día hábil en
+curso. Una tasa que caducó en silencio sería la falla más cara en una inspección. Conviene
+además confirmar con operación si un intermediario es fuente aceptable o si debe consultarse la
+publicación del propio BCV.
 
 ### 6 · IGTF por método de pago
 
