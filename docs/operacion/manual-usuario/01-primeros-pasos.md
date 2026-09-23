@@ -91,10 +91,7 @@ operación.
 
 ### Qué ves
 
-> 📷 **Captura pendiente** — `03-cambio-de-pin.png`.
-> *Texto alternativo previsto:* «Pantalla "Cambia tu PIN para continuar" con la leyenda "Sesión
-> restringida", los campos PIN actual, PIN nuevo y Repite el PIN nuevo, y los botones Guardar PIN
-> y Salir.»
+![Pantalla Cambia tu PIN para continuar, con la leyenda Sesión restringida y el aviso de que la credencial de Administración Demo fue caducada por la administración. A la derecha, el formulario Nuevo PIN con PIN actual, PIN nuevo y Repite el PIN nuevo vacíos, y los botones Guardar PIN y Salir.](./capturas/03-cambio-de-pin.png)
 
 ### Paso a paso
 

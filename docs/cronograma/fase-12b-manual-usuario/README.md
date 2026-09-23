@@ -5,8 +5,9 @@
   [12B.01](./12b.01-inventario-de-interfaz.md) y [12B.02](./12b.02-lenguaje-y-plantilla.md) están
   entregadas, y el **texto** de 12B.04 a 12B.09 también: el
   [manual](../../operacion/manual-usuario/README.md) tiene sus seis capítulos, su glosario y su
-  anexo. El 2026-09-23 se incorporaron **catorce de quince capturas**: falta el cambio de PIN,
-  realizable desde que se corrigió D-011 ese mismo día. Sync se retrata en modo independiente
+  anexo. El 2026-09-23 se incorporaron **las quince capturas**: el cambio de PIN entró en una
+  segunda sesión, después de corregir D-011, junto con Caja, Venta y Configuración recapturadas
+  por los cambios de Pagos en caja. Sync se retrata en modo independiente
   por elección del usuario. Las sub-fases mantienen pendiente la validación con lector.
   De [12B.10](./12b.10-absorcion-y-verificacion.md) están entregados el **bloque de absorción**
   —`operacion-diaria.md` redirige al manual desde el 2026-09-18, y el traslado corrigió cuatro

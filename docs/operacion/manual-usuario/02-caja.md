@@ -26,7 +26,7 @@ Grupo **Caja** → **Caja**. Atajo: **Alt+3**.
 
 ## Qué ves
 
-![Operación de caja con la caja de demostración seleccionada, un turno abierto, dos movimientos y saldo esperado de USD 53,60. Debajo se ven los formularios de movimiento y declaración de efectivo para cerrar.](./capturas/05-caja.png)
+![Operación de caja con la caja asignada y la lista Método de efectivo desplegada, que ofrece Efectivo USD y Efectivo Bs. Debajo, un turno abierto con un movimiento y USD 50,00 esperados, el formulario para registrar un movimiento y el de declarar efectivo para cerrar.](./capturas/05-caja.png)
 
 Arriba, una nota recuerda que todo lo que registres se envía al turno dueño de esa caja y que las
 diferencias quedan visibles para que alguien las autorice.
@@ -131,7 +131,7 @@ Grupo **Caja** → **Venta**. Atajo: **Alt+2**.
 
 ## Qué ves
 
-![Punto de venta con arroz y harina en el ticket, una unidad de cada uno, catálogo de cinco productos y total de USD 3,20 pendiente de cobro. La barra inferior ofrece Efectivo, Tarjeta, Resto y Cobrar y completar.](./capturas/06-venta.png)
+![Punto de venta con arroz y harina en el ticket, una unidad de cada uno, catálogo de cinco productos y total de USD 3,20 pendiente de cobro. Bajo el total se lee el equivalente de Bs.S 1.280,00 a tasa 400, con la fuente ficticia del manual. La barra ofrece Efectivo USD, Zelle, Efectivo Bs, Punto de venta, Pago móvil y Transferencia, el botón Resto y Cobrar y completar.](./capturas/06-venta.png)
 
 La pantalla tiene tres zonas:
 

@@ -35,7 +35,7 @@ Grupo **Administración** → **Config.** Atajo: **Alt+0**.
 
 ## Qué ves
 
-![Configuración operativa desplazada a Caja Demo y Métodos de pago. Se ve el formulario de alta y los métodos Tarjeta y Efectivo activos en USD, junto al aviso de SIMULACIÓN.](./capturas/11-configuracion.png)
+![Configuración operativa desplazada a Caja Demo y Métodos de pago. Se ve el formulario de alta y los métodos Punto de venta en VES, Efectivo USD en USD y Efectivo Bs en VES, todos activos, junto al aviso de SIMULACIÓN.](./capturas/11-configuracion.png)
 
 ## Categorías y unidades
 
