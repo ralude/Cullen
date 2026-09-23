@@ -131,7 +131,8 @@ decisión que la habilita.
 - [ ] ADR-0035: financiamiento de terceros y liquidación externa (DC-3, DC-4), con el escenario
       **FS-013 · orden de financiador confirmada sin venta registrada**, y su inverso.
 - [ ] Decisión fiscal que cierra D-003, si el comercio activa IGTF.
-- [ ] Decisión escrita que ubica el paquete en el cronograma.
+- [x] ~~Decisión escrita que ubica el paquete en el cronograma.~~ Excepción a la regla 5 del
+      2026-09-23 en [adaptaciones aprobadas](../adaptaciones-aprobadas.md).
 
 ### E1 · Cobro multimoneda (spec B1)
 

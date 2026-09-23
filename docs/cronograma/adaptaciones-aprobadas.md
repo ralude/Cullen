@@ -155,3 +155,13 @@ entrada enlaza el ADR que la gobierna.
 - ADR-0008 establece terminales POS autonomas con Fastify y SQLite local; el nodo coordinador sincroniza eventos y datos de referencia.
 - ADR-0009 establece tablas relacionales como fuente de verdad, ledger append-only para historia y outbox para entrega; no se usa event sourcing completo en el MVP.
 - Antes de la Fase 9 se ejecuta el gate de seguridad de transporte autorizado el 2026-08-14; no adelanta cifrado ni hardening final de la Fase 11.
+- El 2026-09-23 se aprobó una **excepción a la regla 5** del cronograma para el paquete
+  [Pagos en caja](./pagos-en-caja/README.md): avanza en paralelo con la Fase 12B, que sigue en
+  ejecución. Es un paquete transversal, como el pre-piloto: no es una fase, no renumera nada y
+  no cambia el estado de 12B. Tampoco habilita la Fase 13 ni levanta la suspensión de los dos
+  puntos del gate de la Fase 12. Las condiciones son cuatro. Cada etapa con código espera su
+  decisión normativa de E0 (ADR-0033 a ADR-0035). Un cambio en una pantalla que el manual
+  retrata —Venta, Caja, Configuración o Reportes— recaptura su imagen y corrige el capítulo en
+  el mismo hito, según la regla de vigencia de 12B.03. Si ese cambio llega antes de la prueba
+  con lector de 12B.10, la prueba se hace sobre la versión nueva. E6 (Cashea integrado) sigue
+  bloqueada por la dependencia externa de la afiliación.

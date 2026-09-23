@@ -160,7 +160,8 @@ Ninguna comienza antes del gate de salida de la Fase 12.
   2026-09-10. Su requisito previo está entregado con la enmienda del 2026-09-11 a ADR-0031; el
   resto sigue pendiente y no toca el agregado `Sale`.
 
-- [Pagos en caja](./pagos-en-caja/README.md) — **propuesta** del 2026-09-23, sin programar.
+- [Pagos en caja](./pagos-en-caja/README.md) — **propuesta** del 2026-09-23; avanza en paralelo con 12B por una
+  [excepción](./adaptaciones-aprobadas.md) a la regla 5.
   [Spec](./pagos-en-caja/spec-pagos-multiples.md) de pagos múltiples sobre la captura por fichas
   ya entregada —cobro multimoneda (D-001, D-002) y devolución mixta— y
   [plan](./pagos-en-caja/plan-pago-movil-y-cashea.md) para confirmar pago móvil e integrar
