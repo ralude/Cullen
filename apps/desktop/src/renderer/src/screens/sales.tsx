@@ -14,6 +14,7 @@ import {
   ACTIVE_CASH_REGISTER_KEY, ACTIVE_SALE_KEY, ActionButton, EmptyState, Feedback, Modal, ScreenNote,
   clearStorage, money, readStorage, writeStorage, type ScreenProps
 } from './shared.js';
+import { ReferenceEquivalent, useReferenceRate } from './reference-rate.js';
 
 /**
  * Motivo por el que la venta todavía no puede completarse, o `null` cuando el
@@ -137,6 +138,7 @@ type SalesScreenApi = Pick<OperationApi,
   'applySaleDiscount' |
   'completeSale' |
   'findProductByBarcode' |
+  'getCurrentExchangeRate' |
   'getOpenShift' |
   'getSale' |
   'issueSaleInvoice' |
@@ -193,6 +195,8 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
   const [notice, setNotice] = useState<string | null>(null);
   const barcodeInput = useRef<HTMLInputElement>(null);
   const scale = Number(currencyScale) || 2;
+  /** Se relee con cada venta: una tasa registrada a mitad del turno llega a la siguiente. */
+  const referenceRate = useReferenceRate(api, sale?.id ?? null);
   const refresh = useCallback(async (saleId: string): Promise<void> => {
     try {
       const current = await api.getSale(saleId);
@@ -671,6 +675,12 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
                 ? money(checkout.taxMinorUnits, sale.currencyCode, scale)
                 : '—')}
             </span>
+            <ReferenceEquivalent
+              state={referenceRate}
+              totalMinorUnits={checkout.totalMinorUnits}
+              saleCurrencyCode={sale.currencyCode}
+              scale={scale}
+            />
           </div>
 
           <div className="checkout-capture">

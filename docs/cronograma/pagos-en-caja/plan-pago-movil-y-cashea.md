@@ -2,7 +2,8 @@
 
 - **Tipo:** plan de ejecución. No amplía el alcance que apruebe la
   [spec](./spec-pagos-multiples.md).
-- **Estado:** **propuesta**, 2026-09-23. Ninguna etapa iniciada.
+- **Estado:** **propuesta**, 2026-09-23. La etapa ET está entregada salvo su recaptura; las demás
+  no están iniciadas.
 - **Paquete:** [Pagos en caja](./README.md).
 
 ## Qué se sabe de afuera
@@ -133,6 +134,49 @@ decisión que la habilita.
 - [ ] Decisión fiscal que cierra D-003, si el comercio activa IGTF.
 - [x] ~~Decisión escrita que ubica el paquete en el cronograma.~~ Excepción a la regla 5 del
       2026-09-23 en [adaptaciones aprobadas](../adaptaciones-aprobadas.md).
+
+### ET · Tasa visible en caja
+
+Sin decisión normativa previa: solo lee la tasa vigente que el nodo ya publica, sin permiso, en
+`GET /api/v1/currency/exchange-rates/current`. No cambia contratos, dominio ni el lote de pagos.
+Sale de la [referencia de POS venezolanos](../../producto/referencia-pos-venezuela.md), puntos 5
+y 9.
+
+**Par vigilado:** USD/VES. Es el único par que publica el proveedor BCV del nodo y el que fija el
+cobro en bolívares. Hacerlo configurable queda para cuando otro par lo pida.
+
+**Ambigüedad declarada:** el proyecto no define «tasa del día hábil». Los fines de semana y los
+feriados el BCV no publica, y Cullen no tiene calendario bancario. Por eso el aviso compara el
+**día de calendario local** de `validFrom` con el de hoy y **nunca bloquea**: un sábado con la
+tasa del viernes muestra el aviso y deja operar. Si negocio define el día hábil, la comparación
+cambia y el aviso sigue sin bloquear.
+
+**Aritmética:** el equivalente en bolívares es informativo. No entra al lote ni habilita o
+bloquea el cobro. Se calcula con `Money.multiplyByQuantity` y `Quantity.fromScaled` de
+`@supermarket/shared`, las dos llamadas que hace `CurrencyConverter` en el nodo para convertir
+de la moneda base a la cotizada. Es el mismo criterio de la enmienda de ADR-0031: una primitiva
+compartida, no una segunda fórmula. Hereda D-002: supone la misma escala de unidad menor en las
+dos monedas, como hoy todo el sistema.
+
+- [x] ~~CA-ET-01: Caja muestra un aviso, sin bloquear la apertura, cuando la tasa USD/VES
+      vigente empezó a regir un día de calendario anterior al de hoy. El aviso dice el valor, la
+      fuente y la fecha, y enlaza a Tasas.~~
+- [x] ~~CA-ET-02: si no hay tasa USD/VES registrada, Caja lo dice con el mismo enlace; con la
+      tasa de hoy no hay aviso.~~
+- [x] ~~CA-ET-03: si la consulta de la tasa falla por otra causa, Caja dice que no pudo
+      comprobarla. Nunca presenta un fallo como «sin tasa» ni como tasa al día.~~
+- [x] ~~CA-ET-04: en una venta en USD, la barra de cobro muestra bajo el total su equivalente en
+      bolívares con el valor de la tasa, su fuente y desde cuándo rige. El equivalente coincide
+      con la conversión del nodo para el mismo total y la misma tasa.~~
+- [x] ~~CA-ET-05: sin tasa USD/VES, la barra lo dice en lugar del equivalente; en una venta que
+      no es en USD no muestra nada. En ningún caso cambia el lote enviado ni el estado del botón de
+      cobro.~~
+
+Las pruebas viven en `apps/desktop/src/renderer/src/reference-rate.interaction.test.tsx`
+(CA-ET-01 a 05) y `apps/desktop/src/e2e/reference-rate.parity.test.ts`, que compara el
+equivalente con `CurrencyConverter` del dominio en cinco importes, incluidos los que redondean.
+- [ ] Recapturar `06-venta.png` y actualizar su texto alternativo (condición de
+      la excepción; requiere la sesión interactiva de 12B.03).
 
 ### E1 · Cobro multimoneda (spec B1)
 

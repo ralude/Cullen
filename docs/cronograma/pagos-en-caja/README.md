@@ -2,7 +2,8 @@
 
 - **Estado:** **propuesta**, abierta el 2026-09-23. Avanza en paralelo con la Fase 12B por la
   [excepción a la regla 5](../adaptaciones-aprobadas.md) aprobada ese mismo día, con sus
-  condiciones. Ninguna etapa está iniciada; las que llevan código esperan su decisión de E0.
+  condiciones. La etapa ET (tasa visible en caja) está entregada; las que llevan código de
+  dominio esperan su decisión de E0.
 - **Índice:** [Cronograma maestro](../README.md).
 
 ## Documentos

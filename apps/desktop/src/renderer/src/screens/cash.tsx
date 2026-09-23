@@ -11,10 +11,12 @@ import {
   ACTIVE_CASH_REGISTER_KEY, ActionButton, EmptyState, Feedback, ReasonField, ScreenNote,
   money, readStorage, writeStorage, type ScreenProps
 } from './shared.js';
+import { ReferenceRateNotice, useReferenceRate } from './reference-rate.js';
 
 /** Lo que esta pantalla usa del cliente: el resto de la API no le llega. */
 type CashScreenApi = Pick<OperationApi,
   'closeShift' |
+  'getCurrentExchangeRate' |
   'getOpenShift' |
   'listCashRegisters' |
   'listPaymentMethods' |
@@ -26,6 +28,7 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps<CashScreenApi>)
   const [cashRegisterId, setCashRegisterId] = useState('');
   const [cashMethodCode, setCashMethodCode] = useState('');
   const [shift, setShift] = useState<ShiftResponse | null>(null);
+  const referenceRate = useReferenceRate(api);
   const [openingAmount, setOpeningAmount] = useState('');
   const [movementAmount, setMovementAmount] = useState('');
   const [movementType, setMovementType] = useState<RegisterCashMovementRequest['type']>('INCOME');
@@ -159,6 +162,7 @@ export const CashScreen = ({ api, permissionCodes }: ScreenProps<CashScreenApi>)
   return <div className="operation-screen">
     <ScreenNote>Apertura, movimientos y cierre se envían al turno dueño de la caja. Las diferencias quedan visibles para autorización.</ScreenNote>
     <Feedback error={error} notice={notice} onDismiss={dismissFeedback} />
+    <ReferenceRateNotice state={referenceRate} />
     {registersLoaded && cashRegisters.length === 0 && (
       <p className="inline-status is-warning" role="status">
         <span aria-hidden="true">!</span> Este nodo todavía no tiene ninguna caja registrada, así

@@ -26,11 +26,11 @@ convertirlo en regla, como exige [ADR-0021](../architecture/adr/0021-mvp-referen
 | 2 | Vuelto calculado, también en otra moneda o por pago móvil | No existe: el lote debe ser exacto | **Alta** | Pagos en caja, decisión DA-2 |
 | 3 | Integración con el punto de venta bancario | No: la tarjeta es un método manual | **Alta** | Pagos en caja, etapa nueva |
 | 4 | Verificación de pago móvil | No | **Alta** | Pagos en caja, E2–E3 |
-| 5 | Tasa BCV del día obtenida por el sistema | **Sí**: sugerencia BCV con `EXCHANGE_RATE_PROVIDER=bcv` y confirmación humana; falta el aviso de tasa vencida | Alta (solo el aviso) | Caja: apertura de turno |
+| 5 | Tasa BCV del día obtenida por el sistema | **Sí**: sugerencia BCV con `EXCHANGE_RATE_PROVIDER=bcv` y confirmación humana; aviso de tasa de un día anterior en Caja desde la etapa ET | — | Entregado |
 | 6 | IGTF por método de pago | Sí (ADR-0031); bloquea la factura (D-003) | Alta | Decisión fiscal de D-003 |
 | 7 | Compra a cuotas (Cashea, Krece, Lysto, Chollo) | No | Media | Pagos en caja, E5–E6 |
 | 8 | Códigos de balanza con peso variable | No | Media | Paquete nuevo: catálogo y venta |
-| 9 | Total a pagar en bolívares a tasa BCV visible para el cliente | No: la venta vive en una moneda | Media | Requiere verificación normativa |
+| 9 | Total a pagar en bolívares a tasa BCV visible para el cliente | En la barra de cobro desde la etapa ET, con tasa, fuente y vigencia; no en el ticket ni en las etiquetas | Media (ticket y etiquetas) | Etiquetas: requiere verificación normativa |
 | 10 | Arqueo por moneda y por denominación | Por método y moneda, sin denominación | Media | Caja |
 | 11 | Libro de ventas y reportes para declarar IVA e IGTF | No | Media | Reportes, con asesoría |
 | 12 | Facturación por imprenta digital | No; la máquina fiscal está suspendida (Fase 8) | Por decidir | ADR nuevo |
