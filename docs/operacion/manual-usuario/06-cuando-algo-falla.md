@@ -57,6 +57,21 @@ donde se crean.
 
 **A quién avisar:** a quien administra, para que la cree desde **Config.**, *en esta estación*.
 
+### La tasa del dólar no es de hoy
+
+> En **Caja**: «Tasa USD/VES del …», «No hay tasa USD/VES registrada» o «No se pudo comprobar la
+> tasa USD/VES». En **Venta**, bajo el total: «Sin tasa USD/VES».
+
+**Qué pasó:** la tasa con la que la estación calcula los bolívares empezó a regir un día anterior,
+no hay ninguna cargada, o la estación no logró consultarla.
+
+**Qué hacer:** puedes abrir el turno y vender igual; el aviso no bloquea nada. Un fin de semana o
+un feriado es normal que siga la tasa del último día hábil. Si es un día de semana y el BCV ya
+publicó la nueva, no des el equivalente en bolívares con la tasa vieja.
+
+**A quién avisar:** a quien administra, para que la registre en **Tasas**
+([capítulo 4](./04-administracion.md)).
+
 ### No se puede cobrar porque falta configurar algo
 
 > Un mensaje genérico —«La operación no pudo completarse.»— justo al completar la venta, con todo

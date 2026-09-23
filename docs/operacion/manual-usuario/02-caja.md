@@ -57,6 +57,14 @@ abierto, en cambio, lo vuelve a preguntar cada vez: por eso no te encuentras un 
 > las crea quien administra y pertenecen a la terminal donde se declaran. No inventes un nombre:
 > pídele que la cree en *esta* estación. Está en el [capítulo 4](./04-administracion.md).
 
+> **Si la tasa del dólar no es de hoy**, arriba aparece un aviso con la tasa que está rigiendo,
+> su fuente y su fecha —*Tasa USD/VES del 22/9/2026: 400,00 · …*— y un enlace a **Tasas**. Es
+> la tasa con la que se calculan los bolívares en la venta. Si el BCV ya publicó una nueva, pide a
+> quien administra que la registre antes de cobrar. **El aviso no te impide abrir el turno:** un
+> sábado, por ejemplo, sigue rigiendo la del viernes y el aviso aparece igual. Si dice *No hay
+> tasa USD/VES registrada*, falta cargarla; si dice *No se pudo comprobar la tasa*, la estación
+> no logró consultarla y conviene revisarla en **Tasas**.
+
 ### Registrar un ingreso o un retiro
 
 Úsalo cuando el efectivo de la caja cambia por algo que no es una venta: un vuelto que trajiste,
@@ -189,6 +197,12 @@ composición: **Subtotal**, **IVA** e **IGTF**.
 
 El **IGTF** solo aparece con un importe cuando pagas con un medio que lo lleva. Esos medios están
 marcados con **+IGTF** en su etiqueta. No lo calculas tú: lo hace la estación.
+
+Si la venta es en dólares, una tercera línea da el **total en bolívares**: *≈ Bs 40.000,00 · tasa
+400,00 · BCV · dólar oficial · desde 23/9/2026*. Sirve para decirle al cliente cuánto es en
+bolívares y con qué tasa. Es una referencia: los pagos que agregas siguen siendo los que cuentan.
+Si dice *Sin tasa USD/VES*, no hay tasa registrada y no puedes dar el equivalente; avisa a quien
+administra.
 
 ### Cobrar
 
