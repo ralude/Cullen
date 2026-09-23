@@ -5,19 +5,22 @@
   [12B.01](./12b.01-inventario-de-interfaz.md) y [12B.02](./12b.02-lenguaje-y-plantilla.md) están
   entregadas, y el **texto** de 12B.04 a 12B.09 también: el
   [manual](../../operacion/manual-usuario/README.md) tiene sus seis capítulos, su glosario y su
-  anexo. **Ninguna de esas seis cierra todavía**, porque les faltan las capturas de 12B.03.
+  anexo. El 2026-09-23 se incorporaron **catorce de quince capturas**: falta el cambio de PIN
+  por D-011. Sync se retrata en modo independiente por elección del usuario. Las sub-fases
+  mantienen pendiente la validación con lector.
   De [12B.10](./12b.10-absorcion-y-verificacion.md) están entregados el **bloque de absorción**
   —`operacion-diaria.md` redirige al manual desde el 2026-09-18, y el traslado corrigió cuatro
   afirmaciones que ya no describían la aplicación—, el **acopio de hallazgos** y la **definición de
   las cinco tareas de verificación**. Falta ejecutar la prueba con lector, que se corre
   **después de 12B.03** para no confundir un texto que no explica con una imagen que falta.
 - **Orden alterado, declarado:** 12B.04–12B.09 se escribieron **antes** que 12B.03, invirtiendo la
-  secuencia. Se hizo porque 12B.03 está bloqueada por una dependencia externa y el texto no depende
-  de ella: cada capítulo deja marcado dónde va su captura, con el texto alternativo ya redactado.
+  secuencia. Se hizo porque el ingreso estaba pendiente y el texto no dependía
+  de él. El 2026-09-23 se sustituyeron catorce marcadores por capturas revisadas.
   Una captura puede obligar a corregir el texto que la describe; esa corrección es parte de 12B.03.
-- **Dependencia externa declarada:** [12B.03](./12b.03-capturas.md) necesita una sesión iniciada,
-  y el PIN solo se aprovisiona desde una terminal interactiva; [12B.10](./12b.10-absorcion-y-verificacion.md)
-  necesita un lector que no programe. Ninguna de las dos la puede cubrir quien escribe el manual.
+- **Bloqueo vigente:** [12B.03](./12b.03-capturas.md) queda limitada por D-011, que impide
+  abrir el cambio obligatorio de PIN. El aprovisionamiento interactivo y el ingreso de prueba
+  se completaron el 2026-09-23. [12B.10](./12b.10-absorcion-y-verificacion.md) aún necesita un
+  lector que no programe; el recorrido de capturas no sustituye esa prueba.
 - **Entrada:** [V0.1.04 — Publicación](../release-v0.1-portafolio/4-publicacion.md) cerrada.
 - **Tipo:** fase documental. No entrega código ni cambia comportamiento observable.
 - **Destino del entregable:** `docs/operacion/manual-usuario/`.

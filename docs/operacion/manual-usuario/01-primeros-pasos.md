@@ -24,7 +24,7 @@ de «esta estación» y no de «el sistema»: lo que tú registras vive primero 
 
 ### Qué ves
 
-![Pantalla de ingreso de Cullen. A la izquierda, sobre fondo verde oscuro, el nombre de la aplicación, la leyenda "Nodo local · win32", el título "Ingresar a Cullen" y el rótulo "Fiscal · SIMULACIÓN". A la derecha, una tarjeta blanca titulada Identificación, con los campos Código de operador y PIN, el botón Ingresar y, debajo, la opción Usar código de enrolamiento.](./capturas/01-ingreso.png)
+![Ingreso de Cullen con Código de operador y PIN vacíos, botón Ingresar y acceso a la activación de credencial. Se ve Nodo local · win32 y Fiscal · SIMULACIÓN.](./capturas/01-ingreso.png)
 
 La pantalla pide dos datos: **Código de operador** y **PIN**.
 
@@ -58,7 +58,7 @@ terminal**. Para crearlo te entrega un **código de enrolamiento**: una clave de
 
 ### Qué ves
 
-![Formulario "Activar credencial" en la misma pantalla de ingreso, con la leyenda "Primer acceso" y la explicación del código de un solo uso. Debajo, los campos Código de enrolamiento, PIN nuevo y Repite el PIN, el botón Activar credencial y el botón Volver al ingreso.](./capturas/02-activar-credencial.png)
+![Formulario Activar credencial con Código de enrolamiento, PIN nuevo y Repite el PIN vacíos, y botones Activar credencial y Volver al ingreso.](./capturas/02-activar-credencial.png)
 
 ### Paso a paso
 
@@ -96,6 +96,12 @@ operación.
 > restringida", los campos PIN actual, PIN nuevo y Repite el PIN nuevo, y los botones Guardar PIN
 > y Salir.»
 
+> **Problema conocido en esta versión:** al ingresar con una credencial caducada puede aparecer
+> **«No pudimos conectar con el nodo»** aunque el servidor esté funcionando. En ese caso el
+> formulario de cambio no llega a abrirse. Avisa a quien administra e indica que ocurrió después
+> de caducar el PIN. No envíes tu PIN ni sigas probando combinaciones. Los pasos siguientes
+> corresponden al formulario cuando esté disponible.
+
 ### Paso a paso
 
 1. Escribe tu **PIN actual**, el que te entregaron.
@@ -118,10 +124,7 @@ Puedes cambiar tu PIN cuando quieras, no solo cuando te lo exijan; pídeselo a q
 
 Al entrar llegas a **Inicio**.
 
-> 📷 **Captura pendiente** — `04-inicio.png`.
-> *Texto alternativo previsto:* «Pantalla de Inicio con una fila de accesos directos, cada uno con
-> el nombre de una pantalla y su descripción, y debajo el panel "Estado de la estación" con el
-> modo fiscal y el estado de los reportes X y Z.»
+![Inicio de Cullen con accesos directos a las pantallas habilitadas para Administración Demo, estado Servidor conectado y rótulo Fiscal · SIMULACIÓN.](./capturas/04-inicio.png)
 
 Tiene dos partes:
 

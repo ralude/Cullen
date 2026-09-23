@@ -22,12 +22,7 @@ Grupo **Supervisión y gerencia** → **Reportes**. Atajo: **Alt+8**.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `14-reportes.png`.
-> *Texto alternativo previsto:* «Pantalla Reportes y cierres con el panel Período consultado
-> arriba —los botones Hoy, Ayer, Últimos 7 días y Este mes, y los campos Desde, Hasta, Caja y
-> Filas— y, debajo, las secciones de cierres de caja, auditoría, operaciones fiscales, ventas por
-> moneda, margen por producto y existencia por artículo, con su botón de exportar salvo la
-> fiscal.»
+![Reportes y cierres del día de prueba: una venta de dos unidades por USD 3,60, sin descuentos, ingreso por arroz de USD 3,60 y margen sin determinar por falta de costo. La existencia es de 38 unidades sin vencimiento.](./capturas/14-reportes.png)
 
 ## Primero: el período
 
@@ -192,10 +187,11 @@ aunque se entregue dos veces, no se cuenta dos veces.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `15-sync.png`.
-> *Texto alternativo previsto:* «Pantalla Sincronización entre nodos con el nodo consultado, el
-> estado del enlace, la tabla de entregas hacia el destino con sus intentos y próximo intento, y
-> los paneles de antigüedad de referencias y operaciones pendientes.»
+![Sincronización entre nodos en una estación independiente, sin destino consultado. Se ven los campos Nodo y Código de seguimiento, el botón Consultar estado y los paneles iniciales de efectos pendientes y entregas.](./capturas/15-sync.png)
+
+La imagen muestra una estación que trabaja de forma independiente, sin enlace configurado con
+otro nodo. El texto tenue del campo Nodo es una ayuda de entrada; no confirma un destino real.
+Las secciones siguientes explican qué verás cuando tu estación sí tenga ese enlace.
 
 ## Las secciones
 

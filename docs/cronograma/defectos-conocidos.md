@@ -264,6 +264,32 @@ la línea de venta. Las rutas propagan `error.code` sin traducir
 **Cómo se encontró:** al construir la correspondencia mensaje↔código del anexo del manual, que se
 verificó contra el dominio y no contra el contrato.
 
+## D-011 · Una credencial caducada no alcanza el formulario para cambiar el PIN
+
+- **Estado:** abierto desde el 2026-09-23; reproducido durante las capturas de 12B.03.
+- **Fase dueña:** Fase 9B, identidad y sesión de la terminal; integración del shell con el nodo.
+- **Pantalla:** ingreso y cambio obligatorio de PIN.
+- **Severidad:** bloquea la recuperación de una credencial caducada desde la interfaz.
+
+**Reproducción:** en una base ficticia, iniciar sesión como administrador, caducar su credencial
+desde la administración de identidad y volver a ingresar con el mismo código y PIN. La ventana
+muestra **«No pudimos conectar con el nodo»**, aun cuando el nodo atiende las solicitudes.
+
+**Causa localizada:** `loadInitialState` en `apps/desktop/src/renderer/src/App.tsx` consulta la
+sesión y después las capacidades antes de entrar al estado `ready`. La ruta
+`GET /api/v1/system/capabilities` usa `requirePrincipal` sin admitir sesiones restringidas:
+responde `403 AUTH_PIN_CHANGE_REQUIRED`. El shell interpreta ese rechazo como estado de error
+y no llega a renderizar `MandatoryPinChange`. La consulta de sesión sí admite esa restricción.
+
+**Criterio de corrección:** un ingreso válido con `credentialMustChange` debe alcanzar el
+formulario real, sin habilitar operaciones comerciales durante la restricción; el cambio de PIN
+y la salida deben conservarse. Hace falta una prueba de integración con la composición real:
+las pruebas de interacción actuales sustituyen la consulta de capacidades.
+
+**Tratamiento en el manual:** se conserva pendiente `03-cambio-de-pin.png` y se advierte del
+mensaje observado en Primeros pasos. El usuario pidió documentarlo y no corregir código en este
+hito. No se simula el formulario ni se modifica la respuesta para fabricar una captura.
+
 ## Cómo se relacionan
 
 D-001 tapa a D-002. Corregir solo D-001 convertiría un camino bloqueado en uno que acepta

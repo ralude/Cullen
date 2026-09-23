@@ -22,10 +22,7 @@ Grupo **Inventario** → **Inventario**. Atajo: **Alt+5**.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `08-inventario.png`.
-> *Texto alternativo previsto:* «Pantalla Inventario con el listado de artículos y vencimientos
-> arriba, el buscador de producto, y abajo el kardex del producto consultado: saldo actual, lotes
-> y la tabla de movimientos con fecha, tipo, dirección, cantidad y motivo.»
+![Kardex de Arroz blanco 1 kg con saldo de 38 unidades: una recepción de 40 y una salida de 2 por venta. A la derecha aparece el formulario Registrar compra.](./capturas/08-inventario.png)
 
 Arriba, **Artículos y vencimientos de este nodo**: lo que hay en esta tienda, con su lote y su
 fecha de vencimiento.
@@ -158,10 +155,7 @@ Grupo **Inventario** → **Proveedores**. Atajo: **Alt+6**.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `09-proveedores.png`.
-> *Texto alternativo previsto:* «Pantalla Proveedores con el filtro por estado, el listado de
-> proveedores y la ficha del proveedor seleccionado con su identidad fiscal y sus datos
-> comerciales.»
+![Proveedores con filtro Todos y una fila ficticia: Distribuidora Demo, Proveedor de práctica, identidad fiscal de ejemplo, estado Activo y botón Ver ficha.](./capturas/09-proveedores.png)
 
 Arriba, un filtro: **Todos**, **Activos**, **Inactivos**, **Bloqueados**.
 
@@ -228,9 +222,7 @@ Grupo **Inventario** → **Conteos**. Atajo: **Alt+7**.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `10-conteos.png`.
-> *Texto alternativo previsto:* «Pantalla Conteos físicos con el filtro por estado, la lista de
-> conteos y el detalle del conteo seleccionado con sus líneas y la tabla de diferencias.»
+![Conteos físicos con un conteo cerrado, pendiente de aprobación. La línea de arroz cuenta 38 unidades; la tabla de diferencias congeladas muestra 38 esperadas, 38 contadas y diferencia cero.](./capturas/10-conteos.png)
 
 El filtro de estados dice en qué punto está cada conteo: **Abiertos**, **Cerrados, pendientes de
 aprobación**, **Aprobados**, **Rechazados**.

@@ -35,10 +35,7 @@ Grupo **Administración** → **Config.** Atajo: **Alt+0**.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `11-configuracion.png`.
-> *Texto alternativo previsto:* «Pantalla Configuración operativa con sus paneles en orden:
-> Categorías, Unidades, Cajas de esta terminal, Métodos de pago, Descuento máximo, IGTF ·
-> SIMULACIÓN, Sucursales y Dispositivos declarados.»
+![Configuración operativa desplazada a Caja Demo y Métodos de pago. Se ve el formulario de alta y los métodos Tarjeta y Efectivo activos en USD, junto al aviso de SIMULACIÓN.](./capturas/11-configuracion.png)
 
 ## Categorías y unidades
 
@@ -120,10 +117,7 @@ Grupo **Administración** → **Tasas**. Atajo: **Alt+9**.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `12-tasas.png`.
-> *Texto alternativo previsto:* «Pantalla Tasas de cambio con el selector del par de monedas, la
-> tasa vigente con su fuente y antigüedad, el histórico local y el panel de sugerencia externa
-> marcado como PROPUESTA.»
+![Tasas de cambio con par USD/VES, botón Consultar tasa e histórico y tasa vigente de ejemplo 400,00. La fuente dice Ejemplo ficticio del manual y se muestran la vigencia y la antigüedad local.](./capturas/12-tasas.png)
 
 ## Paso a paso
 
@@ -185,10 +179,7 @@ Grupo **Administración** → **Identidad**. Atajo: **Alt+i** —con la letra *i
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `13-identidad.png`.
-> *Texto alternativo previsto:* «Pantalla Operadores y roles con el panel de enrolamiento de
-> credencial, la tabla de operadores con su código, nombre, acceso local y estado, y debajo la
-> lista de roles con sus permisos.»
+![Operadores y roles con cinco operadores ficticios: Caja Demo, Depósito Demo, Gerencia Demo, Supervisión Demo y Administración Demo. La tabla muestra sus roles, estado activo y si tienen credencial local.](./capturas/13-identidad.png)
 
 ## Si la pantalla dice que la administración pertenece al coordinador
 

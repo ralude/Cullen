@@ -26,10 +26,7 @@ Grupo **Caja** → **Caja**. Atajo: **Alt+3**.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `05-caja.png`.
-> *Texto alternativo previsto:* «Pantalla Operación de caja con los selectores Caja asignada y
-> Método de efectivo, el botón Consultar turno y, debajo, el panel Abrir caja con el campo Fondo
-> inicial y el botón Abrir turno.»
+![Operación de caja con la caja de demostración seleccionada, un turno abierto, dos movimientos y saldo esperado de USD 53,60. Debajo se ven los formularios de movimiento y declaración de efectivo para cerrar.](./capturas/05-caja.png)
 
 Arriba, una nota recuerda que todo lo que registres se envía al turno dueño de esa caja y que las
 diferencias quedan visibles para que alguien las autorice.
@@ -126,10 +123,7 @@ Grupo **Caja** → **Venta**. Atajo: **Alt+2**.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `06-venta.png`.
-> *Texto alternativo previsto:* «Pantalla Punto de venta con una venta en curso: a la izquierda el
-> ticket con sus líneas, a la derecha el catálogo de productos, y abajo la barra de cobro con el
-> total a cobrar, los métodos de pago y el botón Completar venta.»
+![Punto de venta con arroz y harina en el ticket, una unidad de cada uno, catálogo de cinco productos y total de USD 3,20 pendiente de cobro. La barra inferior ofrece Efectivo, Tarjeta, Resto y Cobrar y completar.](./capturas/06-venta.png)
 
 La pantalla tiene tres zonas:
 
@@ -325,10 +319,7 @@ Grupo **Caja** → **Catálogo**. Atajo: **Alt+4**.
 
 ## Qué ves
 
-> 📷 **Captura pendiente** — `07-catalogo.png`.
-> *Texto alternativo previsto:* «Pantalla Catálogo con el buscador por nombre o barcode, la lista
-> de productos con su precio, y a la derecha la ficha del producto seleccionado con su historial
-> de precio.»
+![Catálogo filtrado por arroz, con precio de USD 1,80 y ficha de Arroz blanco 1 kg. Se ven la unidad, el código de barras de ejemplo, el estado activo, el historial de precio y el formulario para actualizarlo.](./capturas/07-catalogo.png)
 
 ## Paso a paso
 
