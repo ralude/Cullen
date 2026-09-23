@@ -1,7 +1,9 @@
 # Seed de catálogo de ejemplo
 
-Genera un catálogo mínimo para probar el sistema sin cargar datos a mano: tres categorías, una
-unidad de medida y cinco productos con su código de barras y su precio.
+Genera un catálogo para probar el sistema sin cargar datos a mano. Por omisión es el **básico**:
+tres categorías, una unidad de medida y cinco productos con su código de barras y su precio. Con
+`--catalog extended` siembra un [supermercado venezolano](#catálogo-ampliado) de 31 productos,
+con canasta básica exenta y productos por peso.
 
 Está pensada para **bases de prueba**. No es una carga inicial de producción ni un migrador de
 catálogos existentes: lee lo mismo cada vez y sobrescribe los cinco productos que le pertenecen.
@@ -24,7 +26,7 @@ Salida al terminar:
 Seed listo: 5 productos, 3 categorías y 1 unidad de medida.
 ```
 
-Las tres opciones son obligatorias; no hay valores por defecto, para que la moneda y el impuesto
+Las tres primeras opciones son obligatorias; no hay valores por defecto, para que la moneda y el impuesto
 del catálogo de prueba sean una decisión explícita y no un supuesto heredado.
 
 | Opción | Qué recibe | Reglas |
@@ -32,6 +34,7 @@ del catálogo de prueba sean una decisión explícita y no un supuesto heredado.
 | `--database` | Ruta al archivo SQLite del nodo | Se resuelve a ruta absoluta. `:memory:` se rechaza: una base que desaparece al terminar no deja catálogo que usar |
 | `--currency` | Código ISO-4217 de tres letras | Se normaliza a mayúsculas y se aplica al precio de los cinco productos |
 | `--tax-rate-basis-points` | Entero no negativo en puntos base | `1600` es 16 %; `0` es exento. No admite decimales ni valores negativos |
+| `--catalog` *(opcional)* | `basic` o `extended` | `basic` por omisión. Ver [catálogo ampliado](#catálogo-ampliado) |
 
 Si falta una opción o el valor no es válido, el comando escribe la causa y la línea de uso, y
 termina con código de salida `1` sin haber escrito nada:
@@ -70,11 +73,49 @@ entero con otra moneda, que es justo lo que se quiere en un catálogo de prueba.
 Cada producto queda además con un código de barras activo y una entrada de historial de precio
 atribuida a `seed:example-products`, con fecha fija `2026-09-02T00:00:00Z`.
 
+## Catálogo ampliado
+
+```bash
+pnpm --filter @supermarket/server seed:products \
+  --database ./.data/db/node.sqlite --currency USD --tax-rate-basis-points 1600 \
+  --catalog extended
+```
+
+```
+Seed listo: 31 productos, 7 categorías y 2 unidades de medida.
+```
+
+Agrega al básico —que conserva sus cinco productos con los mismos identificadores, códigos y
+precios— cuatro categorías (**Limpieza**, **Cuidado personal**, **Charcutería** y **Frutas y
+verduras**), la unidad `KG` —Kilogramo, escala `3`, es decir hasta gramos— y 26 productos:
+
+| Grupo | Productos |
+|---|---|
+| Alimentos básicos | Pasta, azúcar, aceite, caraotas, sal, avena, atún, sardinas, huevos y mayonesa |
+| Bebidas y lácteos | Refresco de cola, jugo de naranja, mantequilla y yogur |
+| Limpieza y cuidado personal | Detergente, lavaplatos, cloro, papel higiénico, jabón y crema dental |
+| **Por peso** (`KG`) | Queso blanco duro, jamón de pierna, tomate, cebolla, papa y plátano |
+
+Los nombres son genéricos, sin marcas reales, y los códigos siguen el formato `DEMO…001`. Los de
+peso se venden escribiendo la cantidad en kilogramos —por ejemplo `0,750`— y su precio es por
+kilogramo. Leer el peso desde un código de balanza es otra etapa, en la
+[referencia de POS venezolanos](../producto/referencia-pos-venezuela.md).
+
+**Impuesto:** en este catálogo, doce productos de canasta básica quedan **exentos** —arroz,
+harina, leche, pasta, caraotas, sal, huevos, queso blanco y las cuatro verduras— y el resto lleva
+el `--tax-rate-basis-points` declarado. **La clasificación es ilustrativa**: sirve para que una
+venta de prueba tenga líneas exentas y gravadas, no para decidir qué está exento. Eso lo confirma
+un asesor tributario. En el catálogo básico, en cambio, los cinco productos siguen llevando el
+impuesto declarado, como siempre.
+
+Los precios son valores de demostración en unidades menores, no precios de mercado.
+
 ## Por qué se puede repetir
 
 Todos los identificadores están fijos en el código, así que ejecutar la seed dos veces con las
-mismas opciones deja exactamente el mismo catálogo: cinco productos, no diez. La prueba
-automatizada lo verifica ejecutándola dos veces seguidas y contando las filas.
+mismas opciones deja exactamente el mismo catálogo: cinco productos y no diez, o 31 y no 62 con
+el ampliado. Las pruebas automatizadas lo verifican ejecutándola dos veces seguidas y contando
+las filas.
 
 Eso la hace segura para reconstruir un entorno de prueba sin borrar la base antes.
 
@@ -102,7 +143,8 @@ contratos que un cambio ordinario.
 Guardar un producto reemplaza su fila y **reescribe** sus códigos de barras y su historial de
 precio. Repetir la seed cambiando `--currency` o `--tax-rate-basis-points` no agrega un precio
 nuevo: sobrescribe el de esos cinco productos y descarta cualquier historial que otros flujos
-hubieran registrado para ellos.
+hubieran registrado para ellos. Pasar del catálogo básico al ampliado sobre la misma base también
+reescribe los cinco: arroz, harina y leche pasan a exentos.
 
 Además, la seed **no pasa por los casos de uso de catálogo**: no emite un evento de cambio de
 precio ni avanza la versión del producto, que se queda en `1`. Como el consumidor de referencias

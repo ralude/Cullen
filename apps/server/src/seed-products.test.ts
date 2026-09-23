@@ -37,6 +37,50 @@ describe('example product seed', () => {
     expect(product?.price.currency).toBe('USD');
     expect(product?.taxRate.basisPoints).toBe(0);
   });
+
+  /**
+   * Catálogo de supermercado: canasta básica exenta, el resto al impuesto que
+   * se declare, y productos por peso con cantidad en kilogramos. La
+   * clasificación de exentos es ilustrativa, no asesoría tributaria.
+   */
+  it('creates the extended catalog with exempt goods and products sold by weight', async () => {
+    handle = openDatabase(':memory:');
+    applyMigrations(handle.sqlite);
+
+    const options = { currencyCode: 'USD', taxRateBasisPoints: 1600, catalog: 'extended' as const };
+    const first = await seedExampleProducts(handle, options);
+    const second = await seedExampleProducts(handle, options);
+
+    expect(first).toEqual({ categories: 7, unitsOfMeasure: 2, products: 31 });
+    expect(second).toEqual(first);
+    expect(countRows(handle, 'products')).toBe(31);
+    expect(countRows(handle, 'product_barcodes')).toBe(31);
+
+    const products = new DrizzleProductRepository(handle);
+    /** Los cinco productos del catálogo básico conservan identidad, código y precio. */
+    const rice = await products.findByActiveBarcode('DEMOARROZ001');
+    expect(rice).toMatchObject({ name: 'Arroz blanco 1 kg' });
+    expect(rice?.price.minorUnits).toBe(180);
+    expect(rice?.taxRate.basisPoints).toBe(0);
+
+    const detergent = await products.findByActiveBarcode('DEMODETERGENTE001');
+    expect(detergent?.taxRate.basisPoints).toBe(1600);
+
+    const cheese = await products.findByActiveBarcode('DEMOQUESO001');
+    expect(cheese?.name).toBe('Queso blanco duro');
+    expect(cheese?.unitOfMeasure).toMatchObject({ code: 'KG', quantityScale: 3 });
+    expect(cheese?.taxRate.basisPoints).toBe(0);
+  });
+
+  it('keeps every barcode in the extended catalog unique', async () => {
+    handle = openDatabase(':memory:');
+    applyMigrations(handle.sqlite);
+
+    await seedExampleProducts(handle, { currencyCode: 'USD', taxRateBasisPoints: 1600, catalog: 'extended' });
+
+    expect(handle.sqlite.prepare('select count(distinct value) from product_barcodes').pluck().get())
+      .toBe(31);
+  });
 });
 
 const countRows = (handle: DatabaseHandle, table: string): number => {

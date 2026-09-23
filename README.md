@@ -313,6 +313,12 @@ pnpm --filter @supermarket/server bootstrap-operations:dev -- \
 pnpm --filter @supermarket/server seed:products \
   --database ./.data/db/node.sqlite --currency USD --tax-rate-basis-points 1600
 
+#    Para un contexto venezolano —pagos en USD y Bs, tasa USD/VES y 31 productos con
+#    canasta exenta y productos por peso— agrega a los pasos 2 y 3:
+#      paso 2: --payment-methods venezuela --usd-ves-rate 478,58   (y usa --igtf-payment-methods CASH_USD)
+#      paso 3: --catalog extended
+#    Los métodos en Bs todavía no se cobran en una venta en USD (D-001); ver apps/server/README.md.
+
 # 4. Nodo servidor (Fastify + SQLite)
 pnpm --filter @supermarket/server dev
 
