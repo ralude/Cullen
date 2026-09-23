@@ -20,11 +20,25 @@ export type AppViewState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'signed-out'; readonly message: string | null }
   | { readonly kind: 'error' }
+  | { readonly kind: 'pin-change-required'; readonly session: SessionResponse }
   | {
     readonly kind: 'ready';
     readonly session: SessionResponse;
     readonly capabilities: CapabilitiesResponse;
   };
+
+/**
+ * Con la credencial caducada el nodo solo admite cambiar el PIN y salir
+ * (ADR-0027 D3): pedirle las capacidades devuelve `AUTH_PIN_CHANGE_REQUIRED`,
+ * y tomar ese rechazo por un nodo caído dejaba al operador sin el formulario
+ * (D-011). La sesión restringida no las necesita, así que no se piden.
+ */
+const stateForSession = async (
+  api: DesktopApi,
+  session: SessionResponse
+): Promise<AppViewState> => session.credentialMustChange
+  ? { kind: 'pin-change-required', session }
+  : { kind: 'ready', session, capabilities: await api.capabilities() };
 
 /**
  * Distingue una respuesta del servidor (aunque sea un error de negocio) de una
@@ -41,8 +55,7 @@ export type SessionLoadResult = { readonly state: AppViewState; readonly connect
 export const loadInitialState = async (api: DesktopApi): Promise<SessionLoadResult> => {
   try {
     const session = await api.currentSession();
-    const capabilities = await api.capabilities();
-    return { state: { kind: 'ready', session, capabilities }, connection: 'online' };
+    return { state: await stateForSession(api, session), connection: 'online' };
   } catch (error) {
     const state: AppViewState = error instanceof ApiProblemError && error.problem.status === 401
       ? { kind: 'signed-out', message: null }
@@ -260,7 +273,7 @@ export const AppView = ({
    * sesión (ADR-0028 D9). Ofrecer la operación normal sería simular una
    * capacidad que el servidor ya rechaza.
    */
-  if (state.session.credentialMustChange) {
+  if (state.kind === 'pin-change-required') {
     return (
       <MandatoryPinChange
         api={api}
@@ -412,9 +425,9 @@ export const App = ({ api = defaultApi }: { readonly api?: DesktopApi }): React.
     try {
       const session = await api.login({ operatorCode, pin });
       setPin('');
-      const capabilities = await api.capabilities();
+      const next = await stateForSession(api, session);
       setConnection('online');
-      setState({ kind: 'ready', session, capabilities });
+      setState(next);
     } catch (error) {
       setPin('');
       setConnection(connectionFrom(error));
