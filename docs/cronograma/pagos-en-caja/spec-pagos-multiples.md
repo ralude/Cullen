@@ -29,14 +29,14 @@ brechas y define los criterios que las cierran.
 
 ## Brechas
 
-### B1 · El lote multimoneda no es cobrable (D-001 + D-002)
+### B1 · El lote multimoneda no es cobrable (D-001 + D-002) — cerrada el 2026-09-23
 
 La pantalla nunca envía `exchangeRateId` y parsea todos los importes con la escala de la moneda
 de venta. D-001 y D-002 deben cerrarse **juntos**: habilitar la tasa sin resolver la escala
 produce importes incorrectos.
 
-- **Requiere decisión normativa:** dónde vive la escala de unidad menor de una moneda
-  (propuesta: ADR-0033). La spec no la decide.
+- **Decisión normativa:** [ADR-0033](../../architecture/adr/0033-escala-de-unidad-menor-por-moneda.md),
+  aceptado el 2026-09-23: registro ISO compartido y una sola conversión para nodo y pantalla.
 - **No requiere contrato nuevo** para la tasa: `GET /api/v1/currency/exchange-rates/current` ya
   existe sin permiso.
 
@@ -66,7 +66,7 @@ ADR.
 
 | # | Pregunta | Por qué importa | Propuesta por defecto |
 |---|---|---|---|
-| DA-1 | ¿Dónde vive la escala de unidad menor de una moneda? | Cierra D-002 | Atributo de `Currency` publicado por el nodo; ADR-0033 |
+| DA-1 | ¿Dónde vive la escala de unidad menor de una moneda? | Cierra D-002 | **Resuelta** por ADR-0033: registro ISO compartido en `@supermarket/shared` |
 | DA-2 | ¿Se da **vuelto**? Hoy el lote debe ser exacto: quien entrega 20 USD por 17,50 no tiene cómo registrarlo | En Venezuela el vuelto suele darse en otra moneda o por pago móvil | Fuera de esta spec; el cajero registra lo que se queda la venta. Si se aprueba, el vuelto es un pago de salida explícito, no un sobrepago tolerado |
 | DA-3 | ¿Cómo se reparte el reembolso de una venta mixta? | Cierra B3 | Proporcional por método en la moneda original de cada pago, con la tasa del cobro y no la del día; el cajero puede elegir reembolsar todo en un método solo con permiso y motivo |
 | DA-4 | ¿Cuántos pagos admite un lote? | Evita lotes absurdos y protege la factura | Sin límite nuevo en dominio; la pantalla no impone uno |
@@ -76,15 +76,15 @@ ADR.
 Cada criterio se cubre con una prueba outside-in antes de implementarse
 ([ADR-0007](../../architecture/adr/0007-outside-in-tdd.md)).
 
-- [ ] **CA-PM-01** Una venta en USD se cobra con efectivo USD y pago móvil VES: la pantalla
+- [x] ~~**CA-PM-01** Una venta en USD se cobra con efectivo USD y pago móvil VES: la pantalla
       muestra la tasa vigente del par con su fuente y vigencia, envía su `exchangeRateId` y el
-      nodo registra el lote. La ficha VES se muestra en VES y su equivalente en la moneda de venta.
-- [ ] **CA-PM-02** Cada importe se parsea con la escala de **su** moneda, no con la de la venta
-      (D-002). Una prueba con dos monedas de escala distinta fija la conversión.
-- [ ] **CA-PM-03** Si no hay tasa vigente para el par, la ficha no se puede agregar y el mensaje
-      lo dice; nunca se envía un lote que el nodo rechazará con `EXCHANGE_RATE_REQUIRED`.
-- [ ] **CA-PM-04** El saldo pendiente se recalcula en la moneda de venta después de cada ficha
-      y la sugerencia del siguiente pago se expresa en la moneda del método elegido.
+      nodo registra el lote. La ficha VES se muestra en VES y su equivalente en la moneda de venta.~~
+- [x] ~~**CA-PM-02** Cada importe se parsea con la escala de **su** moneda, no con la de la venta
+      (D-002). Una prueba con dos monedas de escala distinta fija la conversión.~~
+- [x] ~~**CA-PM-03** Si no hay tasa vigente para el par, la ficha no se puede agregar y el mensaje
+      lo dice; nunca se envía un lote que el nodo rechazará con `EXCHANGE_RATE_REQUIRED`.~~
+- [x] ~~**CA-PM-04** El saldo pendiente se recalcula en la moneda de venta después de cada ficha
+      y la sugerencia del siguiente pago se expresa en la moneda del método elegido.~~
 - [ ] **CA-PM-05** La pantalla sigue sin decidir validez: un lote descuadrado llega al nodo y se
       rechaza con `SALE_PAYMENT_TOTAL_MISMATCH` visible, sin aceptación silenciosa.
 - [ ] **CA-PM-06** Una venta cobrada con dos o más métodos se devuelve según DA-3; el reembolso

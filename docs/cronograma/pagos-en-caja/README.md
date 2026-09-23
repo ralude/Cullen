@@ -2,8 +2,9 @@
 
 - **Estado:** **propuesta**, abierta el 2026-09-23. Avanza en paralelo con la Fase 12B por la
   [excepción a la regla 5](../adaptaciones-aprobadas.md) aprobada ese mismo día, con sus
-  condiciones. La etapa ET (tasa visible en caja) está entregada; las que llevan código de
-  dominio esperan su decisión de E0.
+  condiciones. Están entregadas la etapa ET (tasa visible en caja) y la E1 (cobro multimoneda,
+  [ADR-0033](../../architecture/adr/0033-escala-de-unidad-menor-por-moneda.md)); las demás
+  esperan su decisión de E0.
 - **Índice:** [Cronograma maestro](../README.md).
 
 ## Documentos
@@ -26,7 +27,8 @@ eso cada etapa nombra la decisión normativa que la habilita antes de tocar cód
 1. ~~Una decisión escrita que lo ubique en el cronograma.~~ Resuelta con la excepción del
    2026-09-23. Sigue en pie la recomendación de tratar las etapas E1 a E3 como requisito del
    [gate de piloto](../gate-piloto-release.md): una tienda venezolana cobra a diario en dólares
-   en efectivo y en bolívares por pago móvil, y hoy ese lote no es cobrable (D-001, D-002).
+   en efectivo y en bolívares por pago móvil; ese lote es cobrable desde la etapa E1, entregada
+   el 2026-09-23.
 2. Un responsable de negocio que apruebe las decisiones marcadas **abiertas** en la spec y en
    el plan. Ninguna de ellas se resuelve en el código.
 3. Para Cashea, la afiliación del comercio: su integración técnica no es pública y se entrega

@@ -126,7 +126,8 @@ decisión que la habilita.
 
 ### E0 · Decisiones normativas
 
-- [ ] ADR-0033: escala de unidad menor de una moneda (cierra D-002; spec DA-1).
+- [x] ~~ADR-0033: escala de unidad menor de una moneda (cierra D-002; spec DA-1).~~
+      [Aceptado](../../architecture/adr/0033-escala-de-unidad-menor-por-moneda.md) el 2026-09-23.
 - [ ] ADR-0034: referencia y confirmación de pagos (DC-1, DC-2, DC-6), con el escenario
       **FS-012 · verificación de pago móvil con resultado desconocido**.
 - [ ] ADR-0035: financiamiento de terceros y liquidación externa (DC-3, DC-4), con el escenario
@@ -155,8 +156,8 @@ cambia y el aviso sigue sin bloquear.
 bloquea el cobro. Se calcula con `Money.multiplyByQuantity` y `Quantity.fromScaled` de
 `@supermarket/shared`, las dos llamadas que hace `CurrencyConverter` en el nodo para convertir
 de la moneda base a la cotizada. Es el mismo criterio de la enmienda de ADR-0031: una primitiva
-compartida, no una segunda fórmula. Hereda D-002: supone la misma escala de unidad menor en las
-dos monedas, como hoy todo el sistema.
+compartida, no una segunda fórmula. Desde E1 esa primitiva es `Money.convertAtRate`, que
+considera el exponente de cada moneda (ADR-0033).
 
 - [x] ~~CA-ET-01: Caja muestra un aviso, sin bloquear la apertura, cuando la tasa USD/VES
       vigente empezó a regir un día de calendario anterior al de hoy. El aviso dice el valor, la
@@ -180,8 +181,9 @@ equivalente con `CurrencyConverter` del dominio en cinco importes, incluidos los
 
 ### E1 · Cobro multimoneda (spec B1)
 
-- [ ] CA-PM-01 a CA-PM-04. Cierra D-001 y D-002 juntos y los retira de
-      [defectos conocidos](../defectos-conocidos.md).
+- [x] ~~CA-PM-01 a CA-PM-04. Cierra D-001 y D-002 juntos y los retira de
+      [defectos conocidos](../defectos-conocidos.md).~~ Entregado el 2026-09-23; ver la
+      [spec](./spec-pagos-multiples.md#criterios-de-aceptación).
 - [x] ~~Datos de prueba realistas.~~ `bootstrap-operations --payment-methods venezuela
       --usd-ves-rate <decimal>` siembra seis métodos en USD y VES y la tasa del par. E1 debe
       volver cobrables los cuatro en VES en una venta en USD.

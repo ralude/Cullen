@@ -170,3 +170,13 @@ que estaban vigentes ese día, no las de hoy.
   interacción no podían detectar el defecto porque simulaban las capacidades como siempre
   disponibles. El manual retiró su aviso y regeneró el PDF. `03-cambio-de-pin.png` sigue
   pendiente de una sesión de captura.
+- El 2026-09-23 se corrigieron **D-001 y D-002** con la etapa E1 de
+  [Pagos en caja](./pagos-en-caja/plan-pago-movil-y-cashea.md) y
+  [ADR-0033](../architecture/adr/0033-escala-de-unidad-menor-por-moneda.md). Una venta en dólares
+  se cobra en parte en bolívares con la tasa vigente del par, que la barra muestra, usa para
+  sugerir el resto en la moneda del método y envía con el pago. Cada importe se lee con los
+  decimales de su moneda, tomados de un registro ISO compartido por nodo y pantalla. De paso
+  salieron dos defectos del convertidor que ninguna prueba había alcanzado: ignoraba la
+  diferencia de exponentes entre monedas y fallaba con tasas de 7 u 8 decimales. Tampoco había
+  hasta hoy una sola prueba de un pago en otra moneda; ahora hay una del nodo y una E2E sobre el
+  nodo real. El manual ya prometía el cobro en otra moneda; desde hoy es cierto.

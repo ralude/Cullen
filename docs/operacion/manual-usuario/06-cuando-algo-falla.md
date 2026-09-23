@@ -72,6 +72,22 @@ publicó la nueva, no des el equivalente en bolívares con la tasa vieja.
 **A quién avisar:** a quien administra, para que la registre en **Tasas**
 ([capítulo 4](./04-administracion.md)).
 
+### No se puede cobrar en bolívares
+
+> Bajo el importe: «No hay tasa USD/VES: no se puede cobrar en VES.» o «No se pudo consultar la
+> tasa USD/VES…». Al completar: «La tasa con que se capturó el pago ya no rige: quita el pago y
+> agrégalo de nuevo.»
+
+**Qué pasó:** un pago en bolívares necesita la tasa vigente. O no hay ninguna registrada, o la
+estación no pudo consultarla, o la tasa cambió entre el momento en que agregaste el pago y el
+cobro.
+
+**Qué hacer:** si falta la tasa, cobra con un medio en dólares o espera a que la registren. Si
+cambió, pulsa la **×** del pago en bolívares y agrégalo otra vez: el importe se recalcula con la
+tasa nueva. Nada se cobró todavía.
+
+**A quién avisar:** a quien administra, si no hay tasa del día.
+
 ### No se puede cobrar porque falta configurar algo
 
 > Un mensaje genérico —«La operación no pudo completarse.»— justo al completar la venta, con todo

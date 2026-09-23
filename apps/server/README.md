@@ -113,12 +113,11 @@ npm run bootstrap-operations:dev -- --database ./.data/db/node.sqlite \
   cierre. La fuente por omisión es «Tasa de demostración, no oficial»;
   `--usd-ves-rate-source` la cambia. Repetir el comando con la misma tasa y
   la misma fuente no agrega otra fila al histórico.
-- **Los métodos en VES todavía no se pueden cobrar en una venta en USD.** La
-  pantalla no envía la tasa del pago (D-001), así que cobrar con Pago móvil
-  falla con `EXCHANGE_RATE_REQUIRED`. Lo corrige la etapa E1 de
-  [Pagos en caja](../../docs/cronograma/pagos-en-caja/plan-pago-movil-y-cashea.md).
-  Mientras tanto la tasa ya sirve para el equivalente en bolívares de la barra
-  de cobro y el aviso de Caja.
+- **Los métodos en VES se cobran en una venta en USD** con la tasa vigente del
+  par: la barra de cobro la muestra, sugiere el resto en bolívares y la envía
+  con el pago (etapa E1 de
+  [Pagos en caja](../../docs/cronograma/pagos-en-caja/plan-pago-movil-y-cashea.md)).
+  Sin tasa registrada, esos métodos no se pueden agregar.
 - **IGTF:** para simularlo sobre los métodos en divisas, usa
   `--igtf-payment-methods CASH_USD,ZELLE_USD --igtf-currencies USD`. Una venta
   que cobra IGTF todavía no puede emitir su factura (D-003).

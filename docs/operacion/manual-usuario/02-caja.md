@@ -226,8 +226,19 @@ ese medio, impuesto incluido.
 **El botón principal nunca miente:** si está deshabilitado, el texto de arriba explica por qué
 —falta cobrar, el pago supera el total, o no hay ninguna línea—.
 
-**Cobrar en otra moneda:** elige el medio de pago de esa moneda. La conversión usa la tasa vigente
-en ese momento, y esa tasa queda guardada con la venta: si mañana cambia, esta venta no cambia.
+**Cobrar en otra moneda**, por ejemplo con **Pago móvil** en una venta en dólares:
+
+1. Elige el medio de pago. Bajo el importe aparece la tasa con la que se va a cobrar: *Tasa
+   USD/VES 478,58 · BCV · dólar oficial · desde 23/9/2026*.
+2. El importe ya viene en **bolívares**: es lo que falta cobrar, convertido a esa tasa. Si el
+   cliente paga otra cantidad, escríbela en bolívares.
+3. Pulsa **Agregar pago**. La línea muestra lo que se recibió en bolívares y, al lado, a cuánto
+   equivale en dólares —*≈ USD 60,00*—, que es lo que se descuenta de la venta.
+
+La tasa queda guardada con el pago: si mañana cambia, esta venta no cambia. Si la línea dice
+*No hay tasa USD/VES: no se puede cobrar en VES*, el botón **Agregar pago** queda deshabilitado
+hasta que alguien registre la tasa en **Tasas**. Mientras tanto puedes cobrar con un medio en
+dólares.
 
 ### Qué ocurre al completar
 

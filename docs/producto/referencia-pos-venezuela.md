@@ -22,7 +22,7 @@ convertirlo en regla, como exige [ADR-0021](../architecture/adr/0021-mvp-referen
 
 | # | Característica | Cullen hoy | Prioridad propuesta | Destino |
 |---:|---|---|---|---|
-| 1 | Cobro en USD y VES en la misma venta | Mecánica lista; multimoneda bloqueada (D-001, D-002) | **Alta** | Pagos en caja, E1 |
+| 1 | Cobro en USD y VES en la misma venta | **Sí**, desde la etapa E1 (ADR-0033) | — | Entregado |
 | 2 | Vuelto calculado, también en otra moneda o por pago móvil | No existe: el lote debe ser exacto | **Alta** | Pagos en caja, decisión DA-2 |
 | 3 | Integración con el punto de venta bancario | No: la tarjeta es un método manual | **Alta** | Pagos en caja, etapa nueva |
 | 4 | Verificación de pago móvil | No | **Alta** | Pagos en caja, E2–E3 |
@@ -47,9 +47,10 @@ convertirlo en regla, como exige [ADR-0021](../architecture/adr/0021-mvp-referen
 multimoneda simultáneo» con tasa BCV —SiraPOS, FrixPOS, Clarito, NOA—. Los administrativos
 grandes, como Gálac, toman la tasa BCV desde el propio sistema.
 
-**Cullen hoy:** las fichas de cobro ya aceptan varios métodos, pero un pago en otra moneda falla
-con `EXCHANGE_RATE_REQUIRED` porque la pantalla no envía la tasa (D-001). Corregirlo exige antes
-decidir la escala de cada moneda (D-002).
+**Cullen hoy:** desde el 2026-09-23 la barra de cobro acepta un pago en otra moneda con la tasa
+vigente del par: la muestra, sugiere el resto en la moneda del método y envía su identificador.
+Cada importe usa los decimales de su moneda
+([ADR-0033](../architecture/adr/0033-escala-de-unidad-menor-por-moneda.md)).
 
 **Propuesta:** la etapa E1 de la [spec de pagos](../cronograma/pagos-en-caja/spec-pagos-multiples.md).
 Es la brecha más visible para una tienda venezolana.

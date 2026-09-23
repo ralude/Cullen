@@ -8,7 +8,7 @@ Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexag
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tests](https://img.shields.io/badge/tests-1362%20passing-2ea44f)](#calidad-verificable)
-[![ADRs](https://img.shields.io/badge/ADRs-32-blue)](./docs/architecture/adr)
+[![ADRs](https://img.shields.io/badge/ADRs-33-blue)](./docs/architecture/adr)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](./LICENSE)
 
 </div>
@@ -17,7 +17,7 @@ Electron · React · Fastify · SQLite · TypeScript · DDD + Arquitectura Hexag
 
 > **TL;DR (English)** — Offline-first POS and inventory platform for supermarkets. TypeScript
 > monorepo built with tactical DDD and hexagonal architecture: pure domain, use-case layer with
-> ports, swappable adapters. 1,362 tests across 203 files, 32 ADRs and 44 forward-only
+> ports, swappable adapters. 1,362 tests across 203 files, 33 ADRs and 44 forward-only
 > migrations, with architecture boundaries enforced by ESLint. Handles integer money arithmetic,
 > multi-currency, crash-recoverable fiscal state, idempotent commands, optimistic concurrency and
 > per-node aggregate ownership. LAN synchronization runs over mutually authenticated HTTPS with
@@ -317,7 +317,7 @@ pnpm --filter @supermarket/server seed:products \
 #    canasta exenta y productos por peso— agrega a los pasos 2 y 3:
 #      paso 2: --payment-methods venezuela --usd-ves-rate 478,58   (y usa --igtf-payment-methods CASH_USD)
 #      paso 3: --catalog extended
-#    Los métodos en Bs todavía no se cobran en una venta en USD (D-001); ver apps/server/README.md.
+#    La tasa USD/VES que declares es la que la barra de cobro usa para los pagos en Bs.
 
 # 4. Nodo servidor (Fastify + SQLite)
 pnpm --filter @supermarket/server dev
@@ -482,7 +482,7 @@ packages/
     hardware/       reservado para scanner y báscula — aún sin implementación
     logging/        redacción de logs técnicos por nombre de campo y contexto técnico
 docs/
-  architecture/     arquitectura por responsabilidad + 32 ADRs
+  architecture/     arquitectura por responsabilidad + 33 ADRs
   cronograma/       fases, sub-fases, planes y decisiones
   failure-scenarios/semántica de fallo de operaciones críticas
   operacion/        runbooks: instalación, jornada diaria, respaldo, material LAN y rotación
