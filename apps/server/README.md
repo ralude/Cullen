@@ -88,6 +88,45 @@ exige `--igtf-payment-methods` y `--igtf-currencies`, porque sin ambas listas
 nunca se aplicaría. Para un nodo instalado se usa `npm run bootstrap-operations`
 con la identidad de `%ProgramData%` o `NODE_IDENTITY_PATH`.
 
+### Contexto venezolano
+
+`--payment-methods venezuela` reemplaza los dos métodos básicos por los que cobra
+una tienda venezolana, y `--usd-ves-rate` registra la tasa USD/VES que declares:
+
+```bash
+npm run bootstrap-operations:dev -- --database ./.data/db/node.sqlite \
+  --currency USD --discount-max-basis-points 1500 --igtf-basis-points 0 \
+  --payment-methods venezuela --usd-ves-rate 478,58
+```
+
+| Código | Nombre | Tipo | Moneda |
+|---|---|---|---|
+| `CASH_USD` | Efectivo USD | Efectivo | USD |
+| `ZELLE_USD` | Zelle | Transferencia | USD |
+| `CASH_VES` | Efectivo Bs | Efectivo | VES |
+| `CARD_VES` | Punto de venta | Tarjeta | VES |
+| `MOBILE_VES` | Pago móvil | Pago móvil | VES |
+| `TRANSFER_VES` | Transferencia | Transferencia | VES |
+
+- **La tasa nunca se inventa.** Solo se registra si pasas `--usd-ves-rate`, con
+  coma o punto decimal y sin separador de miles. Rige desde ese momento y sin
+  cierre. La fuente por omisión es «Tasa de demostración, no oficial»;
+  `--usd-ves-rate-source` la cambia. Repetir el comando con la misma tasa y
+  la misma fuente no agrega otra fila al histórico.
+- **Los métodos en VES todavía no se pueden cobrar en una venta en USD.** La
+  pantalla no envía la tasa del pago (D-001), así que cobrar con Pago móvil
+  falla con `EXCHANGE_RATE_REQUIRED`. Lo corrige la etapa E1 de
+  [Pagos en caja](../../docs/cronograma/pagos-en-caja/plan-pago-movil-y-cashea.md).
+  Mientras tanto la tasa ya sirve para el equivalente en bolívares de la barra
+  de cobro y el aviso de Caja.
+- **IGTF:** para simularlo sobre los métodos en divisas, usa
+  `--igtf-payment-methods CASH_USD,ZELLE_USD --igtf-currencies USD`. Una venta
+  que cobra IGTF todavía no puede emitir su factura (D-003).
+- Como los métodos, la tasa se guarda por el repositorio y **no viaja sola por
+  LAN**: la publica el bootstrap de referencias del coordinador.
+- Sobre una base que ya tenía el perfil básico, `CASH` y `CARD` siguen activos:
+  para una demo limpia parte de una base nueva.
+
 Detén el servidor antes de ejecutar este comando o el seed: SQLite admite un
 solo proceso dueño por nodo y, con el servidor activo, fallan con
 `DATABASE_NODE_LOCKED`.

@@ -182,6 +182,9 @@ equivalente con `CurrencyConverter` del dominio en cinco importes, incluidos los
 
 - [ ] CA-PM-01 a CA-PM-04. Cierra D-001 y D-002 juntos y los retira de
       [defectos conocidos](../defectos-conocidos.md).
+- [x] ~~Datos de prueba realistas.~~ `bootstrap-operations --payment-methods venezuela
+      --usd-ves-rate <decimal>` siembra seis métodos en USD y VES y la tasa del par. E1 debe
+      volver cobrables los cuatro en VES en una venta en USD.
 
 ### E2 · Referencia de pago declarada
 

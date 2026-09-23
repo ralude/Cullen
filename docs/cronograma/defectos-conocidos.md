@@ -20,7 +20,9 @@ venta —`EXCHANGE_RATE_REQUIRED`—, y el contrato
 pagos) nunca lo envía, y tampoco ofrece un control para elegir o confirmar la tasa.
 
 **Reproducción:** configurar un método de pago en una moneda distinta a la de la venta y cobrar
-con él. La petición falla con `EXCHANGE_RATE_REQUIRED`.
+con él. La petición falla con `EXCHANGE_RATE_REQUIRED`. Desde el 2026-09-23 basta con
+`bootstrap-operations --payment-methods venezuela`: siembra Pago móvil, Punto de venta y
+Efectivo Bs en VES, y cualquiera de ellos lo reproduce en una venta en USD.
 
 **Por qué no se corrigió con el defecto del IGTF:** habilitarlo destaparía **D-002**, que sí
 produciría importes incorrectos. Los dos se corrigen juntos o ninguno.

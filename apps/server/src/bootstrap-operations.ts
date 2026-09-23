@@ -1,10 +1,11 @@
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { stdout } from 'node:process';
-import { CashRegister, PaymentMethod } from '@supermarket/core';
+import { CashRegister, ExchangeRate, PaymentMethod } from '@supermarket/core';
 import {
   applyMigrations,
   DrizzleCashRegisterRepository,
+  DrizzleExchangeRateRepository,
   DrizzlePaymentMethodRepository,
   openDatabase,
   SqliteOperationalPolicyWriter,
@@ -18,7 +19,19 @@ import {
   type NodeIdentity
 } from '@supermarket/driver-security';
 
+/**
+ * `basic` conserva los dos métodos históricos en la moneda indicada, de los
+ * que dependen el quickstart, la demo publicada y el manual. `venezuela`
+ * siembra lo que cobra una tienda venezolana, en dólares y en bolívares.
+ */
+export type PaymentMethodProfile = 'basic' | 'venezuela';
+
+/** Tasa USD/VES declarada por quien prepara el nodo; nunca se inventa. */
+export type ReferenceRateOption = { readonly value: string; readonly source: string };
+
 export type OperationsBootstrapOptions = {
+  readonly paymentMethodProfile?: PaymentMethodProfile;
+  readonly referenceRate?: ReferenceRateOption;
   readonly currencyCode: string;
   readonly discountMaximumBasisPoints: number;
   readonly financialTransactionTaxBasisPoints: number;
@@ -35,7 +48,44 @@ export type OperationsBootstrapResult = {
   readonly discountPolicyVersion: number;
   readonly taxPolicyCreated: boolean;
   readonly taxPolicyVersion: number;
+  readonly referenceRateRegistered: boolean;
 };
+
+const MAX_RATE_SCALE = 8;
+
+/**
+ * Lee la tasa como entero con escala, sin pasar por un flotante. Acepta coma o
+ * punto decimal y rechaza separadores de miles: «1.000,50» es ambiguo.
+ */
+export const parseReferenceRate = (text: string): { rateValue: number; rateScale: number } => {
+  const match = /^(\d+)(?:[.,](\d+))?$/.exec(text.trim());
+  const fraction = match?.[2] ?? '';
+  const rateValue = match ? Number(match[1]! + fraction) : Number.NaN;
+  if (!match || fraction.length > MAX_RATE_SCALE || !Number.isSafeInteger(rateValue) || rateValue <= 0) {
+    throw new Error(
+      `La tasa USD/VES debe ser un decimal positivo con hasta ${MAX_RATE_SCALE} decimales, ` +
+      'sin separador de miles; por ejemplo 478,58.'
+    );
+  }
+  return { rateValue, rateScale: fraction.length };
+};
+
+const paymentMethodsFor = (
+  profile: PaymentMethodProfile,
+  currencyCode: string
+): readonly PaymentMethod[] => profile === 'basic'
+  ? [
+      PaymentMethod.create({ code: 'CASH', name: 'Efectivo', kind: 'CASH', currencyCode }),
+      PaymentMethod.create({ code: 'CARD', name: 'Tarjeta', kind: 'CARD', currencyCode })
+    ]
+  : [
+      PaymentMethod.create({ code: 'CASH_USD', name: 'Efectivo USD', kind: 'CASH', currencyCode: 'USD' }),
+      PaymentMethod.create({ code: 'ZELLE_USD', name: 'Zelle', kind: 'BANK_TRANSFER', currencyCode: 'USD' }),
+      PaymentMethod.create({ code: 'CASH_VES', name: 'Efectivo Bs', kind: 'CASH', currencyCode: 'VES' }),
+      PaymentMethod.create({ code: 'CARD_VES', name: 'Punto de venta', kind: 'CARD', currencyCode: 'VES' }),
+      PaymentMethod.create({ code: 'MOBILE_VES', name: 'Pago móvil', kind: 'MOBILE_PAYMENT', currencyCode: 'VES' }),
+      PaymentMethod.create({ code: 'TRANSFER_VES', name: 'Transferencia', kind: 'BANK_TRANSFER', currencyCode: 'VES' })
+    ];
 
 const DEFAULT_CASH_REGISTER_ID = '0199a0f0-0000-7000-8000-000000005001';
 const CREATED_BY = 'bootstrap:operations';
@@ -59,10 +109,7 @@ export const bootstrapOperations = async (
     terminalId: identity.terminalId,
     originNodeId: identity.originNodeId
   });
-  const paymentMethods = [
-    PaymentMethod.create({ code: 'CASH', name: 'Efectivo', kind: 'CASH', currencyCode }),
-    PaymentMethod.create({ code: 'CARD', name: 'Tarjeta', kind: 'CARD', currencyCode })
-  ];
+  const paymentMethods = paymentMethodsFor(options.paymentMethodProfile ?? 'basic', currencyCode);
   const ids = new UuidV7Generator();
   const now = new SystemClock().now();
   const unitOfWork = new SqliteUnitOfWork(handle.sqlite);
@@ -84,15 +131,45 @@ export const bootstrapOperations = async (
       },
       { policyId: ids.generate(), createdBy: CREATED_BY, reason: REASON, now }
     );
+    const referenceRateRegistered = options.referenceRate === undefined
+      ? false
+      : await registerReferenceRate(handle, options.referenceRate, ids.generate(), now);
     return {
       cashRegisterId: cashRegister.id,
       paymentMethodCodes: paymentMethods.map((method) => method.code),
       discountPolicyCreated: discount.created,
       discountPolicyVersion: discount.version,
       taxPolicyCreated: tax.created,
-      taxPolicyVersion: tax.version
+      taxPolicyVersion: tax.version,
+      referenceRateRegistered
     };
   });
+};
+
+/**
+ * Registra la tasa declarada desde ahora y sin cierre, salvo que la vigente ya
+ * tenga el mismo valor, escala y fuente: repetir el comando no llena el
+ * histórico. Como los métodos de pago, se guarda por el repositorio —que lleva
+ * la versión del par— y no se publica por LAN; eso lo hace el bootstrap de
+ * referencias del coordinador.
+ */
+const registerReferenceRate = async (
+  handle: DatabaseHandle,
+  option: ReferenceRateOption,
+  id: string,
+  now: Date
+): Promise<boolean> => {
+  const { rateValue, rateScale } = parseReferenceRate(option.value);
+  const source = option.source.trim();
+  const repository = new DrizzleExchangeRateRepository(handle);
+  const current = await repository.findCurrentByPair('USD', 'VES', now);
+  if (current && current.rateValue === rateValue && current.rateScale === rateScale &&
+    current.source === source) return false;
+  await repository.save(ExchangeRate.create({
+    id, baseCurrency: 'USD', quoteCurrency: 'VES', rateValue, rateScale, source,
+    validFrom: now, validUntil: null, registeredBy: CREATED_BY
+  }));
+  return true;
 };
 
 type CliOptions = OperationsBootstrapOptions & { readonly databasePath: string };
@@ -140,8 +217,22 @@ const parseCliOptions = (args: readonly string[]): CliOptions => {
       'sin ambas listas la tasa nunca se aplicaría.'
     );
   }
+  const profileText = (readOption(args, '--payment-methods') ?? 'basic').trim().toLowerCase();
+  if (profileText !== 'basic' && profileText !== 'venezuela') {
+    throw new Error('--payment-methods admite basic o venezuela.');
+  }
+  const rateText = readOption(args, '--usd-ves-rate');
+  const rateSource = readOption(args, '--usd-ves-rate-source')?.trim();
+  if (rateText === undefined && rateSource !== undefined) {
+    throw new Error('--usd-ves-rate-source solo tiene sentido junto a --usd-ves-rate.');
+  }
+  if (rateText !== undefined) parseReferenceRate(rateText);
   return {
     databasePath,
+    paymentMethodProfile: profileText,
+    ...(rateText === undefined ? {} : {
+      referenceRate: { value: rateText, source: rateSource || 'Tasa de demostración, no oficial' }
+    }),
     currencyCode: readRequiredOption(args, '--currency').trim().toUpperCase(),
     discountMaximumBasisPoints: readBasisPoints(args, '--discount-max-basis-points'),
     financialTransactionTaxBasisPoints,
@@ -168,7 +259,11 @@ export const runBootstrapOperationsCli = async (args: readonly string[]): Promis
       `  Caja: ${result.cashRegisterId} (${options.cashRegisterName})\n` +
       `  Terminal: ${identity.terminalId}\n` +
       `  Nodo: ${identity.originNodeId}\n` +
-      `  Métodos de pago: ${result.paymentMethodCodes.join(', ')} en ${options.currencyCode}\n` +
+      `  Métodos de pago: ${result.paymentMethodCodes.join(', ')}` +
+      (options.paymentMethodProfile === 'venezuela' ? ' en USD y VES\n' : ` en ${options.currencyCode}\n`) +
+      (options.referenceRate === undefined ? '' :
+        `  Tasa USD/VES: ${options.referenceRate.value} · ${options.referenceRate.source} ` +
+        `(${result.referenceRateRegistered ? 'registrada desde ahora' : 'ya vigente, sin cambios'})\n`) +
       `  Descuento máximo: ${options.discountMaximumBasisPoints} pb ` +
       `(${describePolicy(result.discountPolicyCreated, result.discountPolicyVersion)})\n` +
       `  IGTF: ${options.financialTransactionTaxBasisPoints} pb ` +
@@ -183,7 +278,9 @@ export const runBootstrapOperationsCli = async (args: readonly string[]): Promis
       'Uso: pnpm --filter @supermarket/server bootstrap-operations:dev -- --database <ruta> ' +
       '--currency <ABC> --discount-max-basis-points <entero> --igtf-basis-points <entero> ' +
       '[--igtf-payment-methods <CSV>] [--igtf-currencies <CSV>] ' +
-      '[--cash-register-id <texto>] [--cash-register-name <texto>]\n'
+      '[--cash-register-id <texto>] [--cash-register-name <texto>] ' +
+      '[--payment-methods basic|venezuela] [--usd-ves-rate <decimal>] ' +
+      '[--usd-ves-rate-source <texto>]\n'
     );
     process.exitCode = 1;
   } finally {
