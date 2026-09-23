@@ -112,7 +112,8 @@ describe('operation screens', () => {
     const card = { code: 'CARD', name: 'Tarjeta', kind: 'CARD', currencyCode: 'USD', financialTransactionTaxBasisPoints: 300 } as const;
     const tender = (method: typeof cash | typeof card, amountMinorUnits: number) => ({
       methodCode: method.code, methodName: method.name, currencyCode: method.currencyCode,
-      amountMinorUnits, financialTransactionTaxBasisPoints: method.financialTransactionTaxBasisPoints
+      amountMinorUnits, amountInSaleCurrencyMinorUnits: amountMinorUnits, exchangeRate: null,
+      financialTransactionTaxBasisPoints: method.financialTransactionTaxBasisPoints
     });
 
     /** Sin pagos: el impuesto todavía no existe y el total es el comercial. */
@@ -145,9 +146,24 @@ describe('operation screens', () => {
     expect(projectCheckout(100, 'USD', [tender(card, 52), tender(card, 51)], card))
       .toMatchObject({ taxMinorUnits: 3, totalMinorUnits: 103, remainingMinorUnits: 0 });
 
-    /** Otra moneda no recibe sugerencia: convertir exige una tasa (D-001). */
-    const foreign = { ...card, code: 'CARD_VES', currencyCode: 'VES' };
-    expect(projectCheckout(10000, 'USD', [], foreign).suggestedAmountMinorUnits).toBe(10000);
+    /**
+     * Otra moneda recibe el resto convertido a la suya con la tasa del par, y
+     * sin tasa no recibe nada: antes se le sugería el resto en dólares, una
+     * cifra en la moneda equivocada (ADR-0033).
+     */
+    const mobile = { ...cash, code: 'MOBILE_VES', name: 'Pago móvil', currencyCode: 'VES' };
+    const usdVes = { baseCurrency: 'USD', quoteCurrency: 'VES', rateValue: 47858, rateScale: 2 };
+    expect(projectCheckout(10000, 'USD', [], mobile).suggestedAmountMinorUnits).toBe(0);
+    expect(projectCheckout(10000, 'USD', [tender(cash, 4000)], mobile, usdVes).suggestedAmountMinorUnits)
+      .toBe(2871480);
+
+    /** Un pago en bolívares cuenta por su equivalente en la moneda de la venta. */
+    const inBolivars = {
+      ...tender(cash, 2871480), methodCode: 'MOBILE_VES', currencyCode: 'VES',
+      amountInSaleCurrencyMinorUnits: 6000
+    };
+    expect(projectCheckout(10000, 'USD', [tender(cash, 4000), inBolivars], cash))
+      .toMatchObject({ tenderedMinorUnits: 10000, remainingMinorUnits: 0 });
   });
 
   it('formats money without throwing on codes Intl does not know', () => {

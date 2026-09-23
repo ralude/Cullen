@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OperationApi } from '../api-client.js';
 import type {
-  CashRegisterResponse, PaymentMethodResponse, ProductResponse, SaleResponse, ShiftResponse
+  CashRegisterResponse, ExchangeRateResponse, PaymentMethodResponse, ProductResponse, SaleResponse,
+  ScaledExchangeRate, ShiftResponse
 } from '@supermarket/shared';
 import {
   applySaleDiscountContract, isPermissionGranted, issueSaleInvoiceContract, Money, returnSaleContract,
@@ -14,7 +15,9 @@ import {
   ACTIVE_CASH_REGISTER_KEY, ACTIVE_SALE_KEY, ActionButton, EmptyState, Feedback, Modal, ScreenNote,
   clearStorage, money, readStorage, writeStorage, type ScreenProps
 } from './shared.js';
-import { ReferenceEquivalent, useReferenceRate } from './reference-rate.js';
+import {
+  displayExponent, PaymentRateNote, ReferenceEquivalent, useExchangeRate, useReferenceRate
+} from './reference-rate.js';
 
 /**
  * Motivo por el que la venta todavía no puede completarse, o `null` cuando el
@@ -33,12 +36,18 @@ export const saleCompletionBlocker = (sale: SaleResponse | null, scale: number):
   return null;
 };
 
-/** Un pago capturado en la barra, todavía sin enviar al nodo. */
+/**
+ * Un pago capturado en la barra, todavía sin enviar al nodo. En otra moneda
+ * lleva la tasa con la que se capturó: su identificador viaja en el lote, y su
+ * equivalente en la moneda de la venta es el que la barra suma.
+ */
 export type CapturedTender = {
   readonly methodCode: string;
   readonly methodName: string;
   readonly currencyCode: string;
   readonly amountMinorUnits: number;
+  readonly amountInSaleCurrencyMinorUnits: number;
+  readonly exchangeRate: ExchangeRateResponse | null;
   readonly financialTransactionTaxBasisPoints: number;
 };
 
@@ -51,7 +60,7 @@ export type CheckoutProjection = {
   readonly tenderedMinorUnits: number;
   /** Porción comercial que falta cubrir, sin impuesto. */
   readonly remainingMinorUnits: number;
-  /** Importe que se precarga para el método elegido. */
+  /** Importe que se precarga para el método elegido, en la moneda de ese método. */
   readonly suggestedAmountMinorUnits: number;
 };
 
@@ -67,9 +76,10 @@ export type CheckoutProjection = {
  *    gravados, no pago por pago, de modo que en todo el cobro ocurre un solo
  *    redondeo: con dos pagos gravados, redondear cada uno por su cuenta
  *    entrega una unidad menor de más y el nodo rechaza el lote;
- * 2. un método que liquida en otra moneda no recibe sugerencia, porque
- *    convertir exige una tasa explícita que la pantalla todavía no envía
- *    (D-001).
+ * 2. todo se suma en la moneda de la venta: un pago en otra moneda cuenta por
+ *    su equivalente a la tasa con que se capturó, y el que liquida en otra
+ *    moneda recibe la sugerencia convertida a la suya con la tasa vigente del
+ *    par. Sin esa tasa no se sugiere nada (ADR-0033).
  *
  * Todos los métodos gravados comparten la tasa de la única política activa, así
  * que basta la del primero para reconstruir lo ya capturado.
@@ -78,11 +88,12 @@ export const projectCheckout = (
   commercialTotalMinorUnits: number,
   saleCurrencyCode: string,
   tenders: readonly CapturedTender[],
-  nextMethod: PaymentMethodResponse | undefined
+  nextMethod: PaymentMethodResponse | undefined,
+  nextRate: ScaledExchangeRate | null = null
 ): CheckoutProjection => {
   const taxed = tenders.filter((tender) => tender.financialTransactionTaxBasisPoints > 0);
-  const taxedGross = taxed.reduce((total, tender) => total + tender.amountMinorUnits, 0);
-  const tendered = tenders.reduce((total, tender) => total + tender.amountMinorUnits, 0);
+  const taxedGross = taxed.reduce((total, tender) => total + tender.amountInSaleCurrencyMinorUnits, 0);
+  const tendered = tenders.reduce((total, tender) => total + tender.amountInSaleCurrencyMinorUnits, 0);
   const capturedRate = taxed[0]?.financialTransactionTaxBasisPoints ?? 0;
   const tax = capturedRate > 0 && taxedGross > 0
     ? TaxRate.fromBasisPoints(capturedRate)
@@ -90,13 +101,17 @@ export const projectCheckout = (
     : 0;
   const taxedBase = taxedGross - tax;
   const remaining = commercialTotalMinorUnits - (tendered - taxedGross) - taxedBase;
-  const suggests = nextMethod !== undefined &&
-    nextMethod.financialTransactionTaxBasisPoints > 0 &&
-    nextMethod.currencyCode === saleCurrencyCode;
-  const suggested = remaining <= 0 || !suggests
+  const includesTax = nextMethod !== undefined && nextMethod.financialTransactionTaxBasisPoints > 0;
+  const suggestedInSaleCurrency = remaining <= 0 || !includesTax
     ? Math.max(remaining, 0)
     : TaxRate.fromBasisPoints(nextMethod.financialTransactionTaxBasisPoints)
       .includeIn(Money.fromMinorUnits(taxedBase + remaining, saleCurrencyCode)).minorUnits - taxedGross;
+  const foreign = nextMethod !== undefined && nextMethod.currencyCode !== saleCurrencyCode;
+  const suggested = !foreign || suggestedInSaleCurrency === 0
+    ? suggestedInSaleCurrency
+    : nextRate === null
+      ? 0
+      : Money.fromMinorUnits(suggestedInSaleCurrency, saleCurrencyCode).convertAtRate(nextRate).minorUnits;
 
   return {
     taxMinorUnits: tax,
@@ -159,7 +174,6 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
   const [cashRegister, setCashRegister] = useState<CashRegisterResponse | null>(null);
   const [shiftLoading, setShiftLoading] = useState(true);
   const [currencyCode, setCurrencyCode] = useState('USD');
-  const [currencyScale, setCurrencyScale] = useState('2');
   const [barcode, setBarcode] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [catalogQuery, setCatalogQuery] = useState('');
@@ -194,7 +208,8 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const barcodeInput = useRef<HTMLInputElement>(null);
-  const scale = Number(currencyScale) || 2;
+  /** ADR-0033: los decimales de la venta salen de su moneda, no de un campo. */
+  const scale = displayExponent(sale?.currencyCode ?? currencyCode);
   /** Se relee con cada venta: una tasa registrada a mitad del turno llega a la siguiente. */
   const referenceRate = useReferenceRate(api, sale?.id ?? null);
   const refresh = useCallback(async (saleId: string): Promise<void> => {
@@ -258,6 +273,17 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
   useEffect(() => { void loadCatalog(''); }, [loadCatalog]);
   const paymentMethod = paymentMethods.find((method) => method.code === paymentMethodCode);
   const paymentCurrency = paymentMethod?.currencyCode ?? '';
+  /** Cada importe se lee y se muestra con los decimales de su propia moneda. */
+  const paymentScale = paymentCurrency ? displayExponent(paymentCurrency) : scale;
+  /**
+   * Par del método elegido cuando liquida en otra moneda. Su tasa vigente es la
+   * que la pantalla muestra, usa para sugerir y convertir, y envía con el pago.
+   */
+  const paymentPair = sale && paymentMethod && paymentMethod.currencyCode !== sale.currencyCode
+    ? { baseCurrency: sale.currencyCode, quoteCurrency: paymentMethod.currencyCode }
+    : null;
+  const paymentRateState = useExchangeRate(api, paymentPair, sale?.id ?? null);
+  const paymentRate = paymentPair && paymentRateState.kind === 'current' ? paymentRateState.rate : null;
   const outstanding = sale?.status === 'DRAFT' ? sale.balanceMinorUnits : 0;
   /**
    * Porción comercial de la venta: el total que el nodo devuelve menos el IGTF
@@ -266,7 +292,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
    */
   const commercialOutstanding = outstanding - (sale?.financialTransactionTaxMinorUnits ?? 0);
   const checkout = projectCheckout(
-    commercialOutstanding, sale?.currencyCode ?? '', tenders, paymentMethod
+    commercialOutstanding, sale?.currencyCode ?? '', tenders, paymentMethod, paymentRate
   );
   const suggestedAmount = checkout.suggestedAmountMinorUnits;
   /**
@@ -275,8 +301,8 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
    * conserva: escribir no mueve ninguna de estas dependencias.
    */
   useEffect(() => {
-    if (suggestedAmount > 0) setPaymentAmount(formatScaledDecimal(suggestedAmount, scale));
-  }, [suggestedAmount, scale]);
+    if (suggestedAmount > 0) setPaymentAmount(formatScaledDecimal(suggestedAmount, paymentScale));
+  }, [suggestedAmount, paymentScale]);
   const intentKey = (intent: string): string => {
     const storageKey = 'supermarket.sale-intent.' + intent;
     const saved = readStorage(storageKey);
@@ -425,11 +451,18 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
    * El pago que la barra tiene capturado y todavía no es ficha: método elegido
    * más importe escrito. `null` mientras falte alguno de los dos.
    */
-  const captured: CapturedTender | null = paymentMethod && typedAmount(paymentAmount, scale) > 0
+  const capturedAmount = typedAmount(paymentAmount, paymentScale);
+  /** Sin tasa vigente del par no hay ficha: la barra lo explica con `PaymentRateNote`. */
+  const captured: CapturedTender | null = paymentMethod && sale && capturedAmount > 0 &&
+    (paymentPair === null || paymentRate !== null)
     ? {
       methodCode: paymentMethod.code, methodName: paymentMethod.name,
       currencyCode: paymentMethod.currencyCode,
-      amountMinorUnits: typedAmount(paymentAmount, scale),
+      amountMinorUnits: capturedAmount,
+      amountInSaleCurrencyMinorUnits: paymentRate === null
+        ? capturedAmount
+        : Money.fromMinorUnits(capturedAmount, paymentMethod.currencyCode).convertAtRate(paymentRate).minorUnits,
+      exchangeRate: paymentRate,
       financialTransactionTaxBasisPoints: paymentMethod.financialTransactionTaxBasisPoints
     }
     : null;
@@ -456,10 +489,12 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
     if (!sale || batch.length === 0) return;
     const payments = batch.map((tender) => ({
       methodCode: tender.methodCode, currencyCode: tender.currencyCode,
-      amountMinorUnits: tender.amountMinorUnits
+      amountMinorUnits: tender.amountMinorUnits,
+      ...(tender.exchangeRate ? { exchangeRateId: tender.exchangeRate.id } : {})
     }));
-    const intent = 'payment-' + payments
-      .map((payment) => payment.methodCode + ':' + payment.currencyCode + ':' + payment.amountMinorUnits)
+    const intent = 'payment-' + batch
+      .map((tender) => tender.methodCode + ':' + tender.currencyCode + ':' + tender.amountMinorUnits +
+        (tender.exchangeRate ? ':' + tender.exchangeRate.id : ''))
       .join('|');
     void run(() => api.registerSalePayments(sale.id, { payments }, intentKey(intent)), 'Pago registrado.', intent)
       .then((next) => { if (next) { setTenders([]); complete(); } });
@@ -496,7 +531,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
           : shiftLabel
             ? <p className="inline-status is-ready" role="status"><span aria-hidden="true">✓</span> {shiftLabel}</p>
             : <p className="inline-status is-warning" role="status"><span aria-hidden="true">!</span> Esta estación no tiene un turno abierto. <a href="#/cash">Abre la caja</a> y vuelve a esta pantalla.</p>}
-        <div className="form-grid"><label>Moneda de venta<input value={currencyCode} onChange={(event) => setCurrencyCode(event.target.value.toUpperCase())} maxLength={8} required /></label><label>Escala visible<input type="number" min="0" max="6" value={currencyScale} onChange={(event) => setCurrencyScale(event.target.value)} /></label></div>
+        <div className="form-grid"><label>Moneda de venta<input value={currencyCode} onChange={(event) => setCurrencyCode(event.target.value.toUpperCase())} maxLength={8} required /></label></div>
         <div className="button-row">
           <ActionButton className="primary-button" type="button" onClick={start} busy={loading} disabled={loading || shiftLoading || shift === null}>{loading ? 'Abriendo carrito…' : 'Iniciar venta'}</ActionButton>
           <ActionButton type="button" onClick={() => void resolveShift()} busy={shiftLoading} disabled={shiftLoading}>Actualizar turno</ActionButton>
@@ -679,7 +714,6 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
               state={referenceRate}
               totalMinorUnits={checkout.totalMinorUnits}
               saleCurrencyCode={sale.currencyCode}
-              scale={scale}
             />
           </div>
 
@@ -701,7 +735,10 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
                 : tenders.map((tender, index) => (
                   <li key={tender.methodCode + '-' + index} className="tender">
                     <span>{tender.methodName}</span>
-                    <strong>{money(tender.amountMinorUnits, tender.currencyCode, scale)}</strong>
+                    <strong>{money(tender.amountMinorUnits, tender.currencyCode, displayExponent(tender.currencyCode))}</strong>
+                    {tender.exchangeRate && (
+                      <small>≈ {money(tender.amountInSaleCurrencyMinorUnits, sale.currencyCode, scale)}</small>
+                    )}
                     <button type="button" onClick={() => removeTender(index)} aria-label={'Quitar ' + tender.methodName}>
                       ×
                     </button>
@@ -716,10 +753,11 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
                 <span className="sr-only">Importe {paymentCurrency ? '(' + paymentCurrency + ')' : ''}</span>
                 <input inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} placeholder="0,00" />
               </label>
-              <button type="button" onClick={() => setPaymentAmount(formatScaledDecimal(suggestedAmount, scale))} disabled={suggestedAmount <= 0}>
+              <button type="button" onClick={() => setPaymentAmount(formatScaledDecimal(suggestedAmount, paymentScale))} disabled={suggestedAmount <= 0}>
                 Resto
               </button>
             </div>
+            {paymentPair && <PaymentRateNote state={paymentRateState} pair={paymentPair} />}
             <ActionButton className="primary-button complete-button" type="submit" busy={loading} disabled={loading || checkoutAction.disabled} aria-describedby={completionBlocker ? 'complete-blocker' : undefined}>
               {loading ? 'Registrando…' : checkoutAction.label}
             </ActionButton>
@@ -732,7 +770,7 @@ export const SalesScreen = ({ api, permissionCodes }: ScreenProps<SalesScreenApi
               (paymentMethod && paymentMethod.financialTransactionTaxBasisPoints > 0 &&
                 suggestedAmount !== checkout.remainingMinorUnits
                 ? ' · con ' + paymentMethod.name.toLowerCase() + ' son ' +
-                  money(suggestedAmount, sale.currencyCode, scale) + ', IGTF incluido'
+                  money(suggestedAmount, paymentCurrency, paymentScale) + ', IGTF incluido'
                 : '')
             : 'Cobro cubierto · ' + money(checkout.totalMinorUnits, sale.currencyCode, scale)}
         </p>

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   Barcode,
   CashRegister,
+  ExchangeRate,
   Category,
   PaymentMethod,
   Product,
@@ -11,6 +12,7 @@ import {
 import {
   DrizzleCashRegisterRepository,
   DrizzleCategoryRepository,
+  DrizzleExchangeRateRepository,
   DrizzlePaymentMethodRepository,
   DrizzleProductRepository,
   DrizzleShiftRepository,
@@ -55,6 +57,24 @@ const eventually = async (assertion: () => void): Promise<void> => {
     }
   }
   throw lastError;
+};
+
+/**
+ * Siembra lo que hace falta para cobrar en bolívares: el método de pago móvil
+ * y la tasa USD/VES vigente desde antes de la venta.
+ */
+const seedBolivars = async (runtime: SecurityRuntime): Promise<void> => {
+  const mobile = PaymentMethod.create({
+    code: 'MOBILE_VES', name: 'Pago móvil', kind: 'MOBILE_PAYMENT', currencyCode: 'VES'
+  });
+  const rate = ExchangeRate.create({
+    id: 'rate-usd-ves', baseCurrency: 'USD', quoteCurrency: 'VES', rateValue: 47858, rateScale: 2,
+    source: 'Tasa E2E', validFrom: new Date(Date.now() - 60_000), registeredBy: 'seed-user'
+  });
+  await new SqliteUnitOfWork(runtime.handle.sqlite).execute(async () => {
+    await new DrizzlePaymentMethodRepository(runtime.handle).save(mobile);
+    await new DrizzleExchangeRateRepository(runtime.handle).save(rate);
+  });
 };
 
 const seedNode = async (): Promise<SecurityRuntime> => {
@@ -176,5 +196,58 @@ describe('venta E2E sobre el nodo real', () => {
       'select status, shift_id as shiftId from sales limit 1'
     ).get() as { readonly status: string; readonly shiftId: string } | undefined;
     expect(persisted).toEqual({ status: 'COMPLETED', shiftId: 'shift-001' });
+  }, 20_000);
+
+  /**
+   * E1 de Pagos en caja sobre el nodo real: 14,50 USD cobrados con 4,50 en
+   * efectivo y 10,00 en pago móvil a 478,58, es decir 4.785,80 Bs. La pantalla
+   * sugiere, convierte y envía la tasa; el nodo convierte con la misma cuenta
+   * (ADR-0033) y acepta el lote exacto.
+   */
+  it('cobra una venta en dólares con efectivo en dólares y pago móvil en bolívares', async () => {
+    window.localStorage.clear();
+    window.location.hash = '#/sales';
+    const runtime = await seedNode();
+    await seedBolivars(runtime);
+    const app = buildApp(runtime.dependencies);
+    apps.push(app);
+    const baseUrl = await app.listen({ host: '127.0.0.1', port: 0 });
+    const screen = await mount(<App api={createDesktopApi(browserSession(baseUrl))} />);
+
+    await eventually(() => expect(screen.text()).toContain('Identificación'));
+    await type(screen.get<HTMLInputElement>('input[name="operatorCode"]'), 'OP001');
+    await type(screen.get<HTMLInputElement>('input[name="pin"]'), '123456');
+    await submit(screen.get<HTMLFormElement>('form.login-card'));
+    await eventually(() => expect(screen.text()).toContain('Caja 1 · turno abierto'));
+    await click(screen.button('Iniciar venta'));
+    await eventually(() => expect(screen.text()).toContain('Venta iniciada.'));
+    const barcode = screen.findByText<HTMLLabelElement>('label', 'Barcode')
+      ?.querySelector<HTMLInputElement>('input');
+    await type(barcode!, '759000000001');
+    await submit(barcode!.closest('form')!);
+    await eventually(() => expect(screen.text()).toContain('Producto agregado al ticket.'));
+
+    await eventually(() => expect(screen.get<HTMLInputElement>('.amount-field input').value).toBe('14.50'));
+    await type(screen.get<HTMLInputElement>('.amount-field input'), '4.50');
+    await click(screen.button('Agregar pago'));
+    await click(screen.get('input[name="paymentMethod"][value="MOBILE_VES"]'));
+    await eventually(() => {
+      expect(screen.get<HTMLInputElement>('.amount-field input').value).toBe('4785.80');
+      expect(screen.get('[data-testid="payment-rate"]').textContent).toContain('Tasa E2E');
+    });
+    await click(screen.button('Agregar pago'));
+    await eventually(() => expect(screen.button('Completar venta').disabled).toBe(false));
+    await click(screen.button('Completar venta'));
+    await eventually(() => expect(screen.text()).toContain('Venta completada'));
+
+    const payments = runtime.handle.sqlite.prepare(`
+      select payment_method_code as code, currency_code as currency, amount_minor_units as amount,
+        amount_in_sale_currency_minor_units as inSale, exchange_rate_id as rateId
+      from sale_payments order by payment_method_code
+    `).all();
+    expect(payments).toEqual([
+      { code: 'CASH_USD', currency: 'USD', amount: 450, inSale: 450, rateId: null },
+      { code: 'MOBILE_VES', currency: 'VES', amount: 478580, inSale: 1000, rateId: 'rate-usd-ves' }
+    ]);
   }, 20_000);
 });

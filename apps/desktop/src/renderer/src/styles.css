@@ -1085,6 +1085,7 @@ td small { margin-top: 3px; color: var(--ink-faint); }
   font-size: var(--text-sm);
 }
 .tender strong { font-weight: 700; }
+.tender small { color: var(--forest-muted); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
 .tender button {
   display: grid;
   width: 21px;
@@ -1128,6 +1129,9 @@ td small { margin-top: 3px; color: var(--ink-faint); }
 .amount-field > button { flex: 0 0 auto; }
 .amount-field input { min-height: 48px; font-size: var(--text-base); font-weight: 700; }
 .amount-field > button { min-height: 48px; }
+/* Tasa del método en otra moneda; sobre el fondo oscuro de la barra, el aviso usa el ámbar claro. */
+.payment-rate { display: block; margin-top: 6px; color: var(--forest-muted); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
+.payment-rate.is-warning { color: var(--amber-soft); font-weight: 700; }
 .panel .payment-submit { width: 100%; min-height: 50px; justify-self: stretch; }
 .payment-note { margin: 0; color: var(--ink-muted); font-size: var(--text-2xs); line-height: 1.4; }
 
